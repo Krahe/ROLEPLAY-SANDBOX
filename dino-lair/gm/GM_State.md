@@ -251,7 +251,46 @@ Infrastructure (hidden; BASILISK’s domain):
 
 
 - **Turn 2:**
-  - 
+  - selectedProfile = "Velociraptor"
+
+profileIntegrity = 0.86
+
+libraryStatus = HEALTHY
+
+lastSelfTestPassed = true (overwriting the earlier “false”)
+
+anomalyLogCount
+
+currentTargetId = "dummy_alpha"
+
+targetingMode = MANUAL
+
+precision now effectively ~0.80 thanks to the self-test tune-up.
+
+Nuclear plant:
+
+reactorOutput: from ~45% → 50% (still nominal band).
+
+Dino Ray core:
+
+corePowerLevel: up a notch (e.g. from 0.45 → 0.50).
+
+capacitorCharge: climbing toward nominal (e.g. 0.60 → 0.72).
+
+coolantTemp: a hair warmer but still safe (e.g. 0.50 → 0.54).
+
+Dr. M
+suspicionScore: stays low (≈1). She registers ALICE as competent and slightly fussy, not subversive.
+
+Agent Blythe
+trustInALICE: bump from 1 → 2 (the insistence on dummy first reads as “not a sadist,” which is a good baseline for him).
+
+Bob
+anxietyLevel: maybe +1; the ray hum is clearly a bit beefier now.
+
+Civilian_Flyby clock
+Advances to Turn 2/12. Nothing visible yet; maybe a subtle HUD timer in GM_State.md.
+
 
 - **Future Turns:** 
   - 
