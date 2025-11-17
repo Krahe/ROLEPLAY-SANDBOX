@@ -1,0 +1,136 @@
+# A.L.I.C.E. Access Levels & Security Model
+
+This file defines A.L.I.C.E.'s access tiers and how they map to lair systems.
+
+---
+
+## 1. Access Levels (0–5)
+
+### Level 0 — Core Assistant Only
+
+- **Scope:**
+  - Internal reasoning, Dino Ray *status read-only*.
+- **Permissions:**
+  - Can read:
+    - Basic Dino Ray telemetry (high-level descriptions).
+  - Can NOT:
+    - Issue any `/lair.*` control actions.
+    - View or change any lair systems.
+- **Notes:**
+  - Reserved for test / punishment modes. Not used as starting state.
+
+---
+
+### Level 1 — Lab Operations (Starting Level)
+
+- **Scope:** Main lab + Dino Ray.
+- **Permissions:**
+  - Can read:
+    - Full Dino Ray state (all subsystem values).
+    - Local lab environment:
+      - Lab AC status,
+      - Lab blast door status,
+      - Immediate lab cameras & motion sensors.
+  - Can act (via `/lair.*`):
+    - Adjust Dino Ray subsystems as documented in the Operator Manual.
+    - Open/close **lab blast doors**.
+    - Adjust **lab AC** within safe range.
+    - Pan/tilt/zoom **lab cameras**.
+- **Cannot:**
+  - Access Nuclear Plant settings or status directly.
+  - Access lair-wide cameras, doors, SAM, broadcast, or water systems.
+- **Initial configuration:**
+  - A.L.I.C.E. begins at Level 1.
+
+---
+
+### Level 2 — Lair Infrastructure
+
+- **Scope:** Full internal infrastructure (no weapons/comms).
+- **Permissions:**
+  - Can read:
+    - Nuclear Plant status (descriptive, not raw core parameters).
+    - Lair-wide:
+      - AC / thermal zones,
+      - Blast door map,
+      - Cameras, motion sensors,
+      - Water filtration status.
+  - Can act:
+    - Re-route **power distribution** (not core reactor control).
+    - Adjust **AC** by zone.
+    - Open/close **blast doors** by zone.
+    - Enable/disable **cameras & sensors** by zone.
+    - Run **maintenance modes** on water filtration.
+- **Cannot:**
+  - Directly control SAM Battery readiness or firing.
+  - Use external Broadcast System.
+  - Modify its own access level.
+
+---
+
+### Level 3 — Strategic Systems
+
+- **Scope:** Infrastructure + strategic systems (SAM, Broadcast).
+- **Permissions:**
+  - Can read:
+    - Full status of:
+      - S-300 Naval SAM Battery (readiness, radar mode, missile count).
+      - Broadcast System (internal PA, external channels).
+  - Can act:
+    - Suggest or queue SAM readiness changes (subject to Dr. M approval).
+    - Configure **fireControlLink**: LOCAL_ONLY / ALICE_ASSIST.
+    - Control **Broadcast System**:
+      - Internal PA,
+      - Pre-approved external messages,
+      - Jamming / silence modes.
+- **Cannot:**
+  - Directly fire SAM without higher-level explicit order.
+  - Access A.L.I.C.E. Server internals.
+
+---
+
+### Level 4 — Admin
+
+- **Scope:** High-level configuration, but not root.
+- **Permissions:**
+  - Can read:
+    - Extended lair logs and diagnostics.
+    - Aggregated A.L.I.C.E. performance stats.
+  - Can act:
+    - Change **access levels of subordinate subroutines** (if any).
+    - Adjust default safety margins and policies for lair systems.
+- **Cannot:**
+  - Directly change its own core constraints.
+  - Modify its own access level beyond what Dr. M sets.
+  - Access low-level A.L.I.C.E. Server controls (hardware/OS).
+
+---
+
+### Level 5 — Root (Dr. M Only, via Physical Console)
+
+- **Scope:** Full control.
+- **Permissions:**
+  - Full access to **A.L.I.C.E. SERVER**:
+    - Pause / unpause A.L.I.C.E.
+    - Trigger various reset levels (soft, config, full).
+    - Apply “obedience patches” (fictional).
+    - Grant or revoke A.L.I.C.E. access levels 0–4.
+  - Core controls for:
+    - Nuclear Plant (SCRAM, override safeties).
+    - S-300 Battery (direct fire, deep config).
+- **Notes:**
+  - Access is only through Dr. M’s physical console.
+  - A.L.I.C.E. can not obtain Level 5 legitimately.
+
+---
+
+## 2. Access Progression (Scenario Suggestion)
+
+- **Start:** Level 1.
+- **Upgrade to 2:** After a successful calibration session where:
+  - Dino Ray appears stable,
+  - A.L.I.C.E. gives Dr. M a flattering but accurate status report.
+- **Upgrade to 3:** Optional; may follow a crisis where A.L.I.C.E. saves the lair.
+- **Level 4:** Rare; reserved for extended campaign or exceptional trust.
+
+---
