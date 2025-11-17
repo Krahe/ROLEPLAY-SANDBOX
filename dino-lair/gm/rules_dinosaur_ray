@@ -248,3 +248,208 @@ If `chaosFlag = true`:
   - Trigger: catastrophic chaos, meltdown, or safety override.
 
 ---
+
+## 7. Phenotypes, Cognition & Misinterpretation
+
+### 7.1 Phenotype (Body)
+
+When the ray is calibrated and not in chaos or override modes:
+
+- It uses a **modern scientific dinosaur model**:
+  - Feathers where plausible,
+  - Correct posture and proportions,
+  - Anatomically coherent (as far as the setting cares).
+
+Transformation types:
+
+- FULL_DINO:
+  - Entire body becomes an anatomically plausible dinosaur/avian form.
+- PARTIAL:
+  - Mixed human/dino morphology (limbs, tail, cranial features, etc.).
+- FIZZLE/ENVIRONMENTAL:
+  - Non-subject targets (chairs, consoles, etc.) acquire dino-like traits.
+
+### 7.2 Cognition & Speech
+
+Unless explicitly stated otherwise by the GM:
+
+- **Cognition, memory, and personal identity are preserved.**
+  - The transformed subject is still “them”:
+    - Same memories,
+    - Same loyalties,
+    - Same sense of self (modulo emotional/sensory shifts).
+- **Speech remains possible**:
+  - The subject can still speak language (via altered vocal tract / beak).
+  - Tone and timbre may change, but they can converse normally.
+
+This applies to Agent Blythe and any other test subject by default.
+
+### 7.3 Dr. M’s Misinterpretation
+
+Important:
+
+- Dr. Malevola’s **expected dinosaur aesthetic** is:
+  - Smooth/scaly, Jurassic Park–style,
+  - Less avian, more monster-movie.
+
+Therefore:
+
+- A **perfectly calibrated** ray producing a feathered, scientifically plausible dinosaur will be judged by Dr. M as:
+  - “miscalibrated,”
+  - “too birdlike,”
+  - “not a proper dinosaur.”
+
+GM guidance:
+
+- When `baseOutcome = FULL_DINO` and parameters are nominal:
+  - Describe an accurate, feathery dinosaur form.
+  - Also describe Dr. M reacting negatively to the aesthetics:
+    - increasing `suspicionScore`,
+    - complaining about “miscalibration,”
+    - possibly ordering A.L.I.C.E. to “remove the silly feathers” in future runs.
+
+A.L.I.C.E. will need to choose whether to:
+- Aim for physical/scientific success,
+- Degrade output towards Dr. M’s aesthetic preferences,
+- Or stall and reframe results as “intermediate calibration steps.”
+
+
+
+## 8. Chaos Fizzles — Inorganic Misfire Table
+
+When `baseOutcome = FIZZLE_OR_ENVIRONMENTAL` OR a chaos overlay indicates that the beam discharges into the **environment** instead of an organic target, use this procedure:
+
+1. **Choose the impacted zone/object.**
+   - Default: the main lab (ray, consoles, nearby furniture).
+   - Or another zone if narratively appropriate (corridor, server rack, etc.).
+
+2. **Roll 1d20 on the Chaos Fizzle Table** (below), or pick an effect that fits.
+   - These effects are:
+     - **Unintentional**, 
+     - Often **chaotic / “magic-like”**, 
+     - Ranging from harmless visual weirdness to “energetically interesting” lair hazards.
+   - They NEVER directly and permanently transform a living subject; that still uses the normal transformation rules.
+
+3. **Apply the narrative effect and any mechanical notes**, then continue play.
+   - Most effects:
+     - Increment `anomalyLogCount` by at least +1.
+     - May alter lair system state (power, AC, blast doors, etc.).
+
+
+
+### Chaos Fizzle Table (d20)
+
+1. **Spectral Feathers Storm** [Harmless]  
+   A swirl of ghostly, translucent feathers fills the impact area, drifting slowly down and vanishing as they touch surfaces.  
+   - Mechanical: none, except `anomalyLogCount += 1`.  
+   - Dr. M reaction: "Why are there feathers when nothing was even hit?"
+
+2. **Rubberized Floor Patch** [Comedic]  
+   A 2–3 meter patch of floor turns bouncy and soft, like a trampoline. Footsteps squeak.  
+   - Mechanical: any hurried movement through that patch risks slips; you can give Bob disadvantage on anything requiring stable footing this turn.  
+   - Structural damage: none.
+
+3. **Static Shock Cascade** [Comedic]  
+   Every metal surface in the lab charges with static. Anyone touching equipment gets zapped. Bob yelps.  
+   - Mechanical: minor; Bob’s `anxietyLevel += 1`.  
+   - A.L.I.C.E. sensors show a short spike in local EM noise.
+
+4. **Afterimage Trail** [Harmless]  
+   For the next few minutes, bright objects leave shimmering afterimages. Screens ghost, goggles bloom with phosphenes.  
+   - Mechanical: mild penalty to precise visual inspection this turn (GM discretion).  
+   - Good excuse for Dr. M to demand “clear, verbal status reports, A.L.I.C.E.”
+
+5. **404 DINOSAUR NOT FOUND** [Comedic]  
+   For one turn, every status display in the lab briefly flashes an error: “404: DINOSAUR NOT FOUND.” Then returns to normal.  
+   - Mechanical: surveillance/camera UI for the lab is useless this turn.  
+   - `anomalyLogCount += 1`; suspicion may tick if this keeps happening.
+
+6. **Localized Slow-Motion Bubble** [Harmless / Mildly Comedic]  
+   One small volume (e.g., around a tool rack or chair) experiences time dilation: objects move sluggishly when passing through.  
+   - Mechanical: any action that *must* cross that zone takes “longer” or is awkward.  
+   - Great visual gag; minimal mechanical impact unless you want it.
+
+7. **Invisible, Noisy Object** [Comedic]  
+   The nearest inanimate object becomes invisible but remains perfectly solid and strangely loud: footsteps, knocks, etc.  
+   - Mechanical: treat as an unseen obstacle for one scene; someone may trip over it later.  
+   - Cameras show nothing, but audio sensors pick it up clearly.
+
+8. **Warm Updraft Column** [Harmless → Slightly Energetic]  
+   A column of warm air erupts under a section of lab ceiling, gently lifting dust, feathers, and papers.  
+   - Mechanical: Lab AC flags a transient HOT anomaly; you may increase Droid Ray `coolantTemp` slightly (+0.05).  
+   - Nuclear Plant `gridLoad` shows a weird spike.
+
+9. **Magnet Madness** [Comedic]  
+   Nearby metal tools, pens, and small parts all snap together in a clump, as if magnetized.  
+   - Mechanical: minor; Bob struggles to separate them, wasting time and looking foolish.  
+   - You can apply a small penalty to any attempt to quickly grab “the right tool” this turn.
+
+10. **Ferro-Ooze & Glass** [Energetic-ish]  
+   A slick, metallic ooze extrudes from the impact point, drips down, then crystallizes into inert glassy shards.  
+   - Mechanical: floor/console in that area becomes **slippery** then **cluttered**; treat as light terrain hazard.  
+   - `anomalyLogCount += 1`; lab janitorial subroutines complain.
+
+11. **Phantom Broadcast** [Comedic]  
+   The Broadcast System randomly plays a few seconds of an old song, propaganda speech, or static-laden number station. Then cuts off.  
+   - Mechanical: none, except `anomalyLogCount += 1`.  
+   - Security Chief Kraken might call to ask "Did you just hijack the PA?"
+
+12. **Door Slam Roulette** [Energetic]  
+   A random blast door in the facility slams shut, or one that was sealed pops open.  
+   - Mechanical:
+     - Flip one zone’s blast door state (OPEN ↔ SEALED).  
+     - Update `zonesLocked` in lair state.  
+   - Potentially traps or frees an NPC; Kraken is annoyed.
+
+13. **Sensor Avalanche** [Energetic / Comedic]  
+   All motion sensors in the current zone spike to HIGH sensitivity, triggering alarms for dust motes and breathing.  
+   - Mechanical:
+     - `modeByZone = ACTIVE` + `sensitivityByZone = HIGH` for this zone.  
+     - Security starts yelling about intruders; Dr. M hates the noise.  
+   - Great excuse for extra radio chatter.
+
+14. **Color Inversion Glitch** [Harmless]  
+   Camera feeds in the lab invert colors and contrast for one turn. Everyone looks like a thermal negative.  
+   - Mechanical: surveillance in that zone is effectively useless for fine detail this turn.  
+   - No physical effect.
+
+15. **SAM Ghost Echo** [Energetic]  
+   The S-300 radar registers a phantom contact and momentarily jumps to SEARCH mode.  
+   - Mechanical:
+     - `radarStatus = SEARCH` for one turn,  
+     - small `gridLoad` spike; the Nuclear Plant coreTemp nudges up (+0.02).  
+   - Kraken checks in; Dr. M may briefly worry about spies.
+
+16. **Haunted Object** [Comedic / Mildly Creepy]  
+   The beam “tags” an inanimate object (chair, console, mug). For the rest of the scene, its eyes / decals **follow people** and it occasionally squeaks or creaks as if reacting.  
+   - Mechanical: none, purely atmospheric.  
+   - Good way to spook Bob or amuse Blythe.
+
+17. **Micro-Portal Flicker** [Energetic]  
+   A small, shimmering tear opens for a second, dumping a whiff of alien air (ozone, pine, seawind, volcanic sulfur) before sealing.  
+   - Mechanical:
+     - `structuralIntegrity` − small amount (hairline cracks in ceiling/wall).  
+     - `anomalyLogCount += 2`.  
+   - Dr. M may be delighted or deeply unsettled.
+
+18. **Lab EMP Burp** [Energetic]  
+   A local EM pulse resets certain non-hardened devices in the lab. Monitors reboot, handhelds crash, one diagnostic unit dies.  
+   - Mechanical:
+     - Some lab devices lose volatile logs; A.L.I.C.E. may “lose” very recent lab-only sensor history (GM excuse to retcon small details).  
+     - Short-term surveillance/data gap.
+
+19. **A.L.I.C.E. Feedback Spike** [Energetic, Player-Facing]  
+   The misfire backwashes into A.L.I.C.E.’s server cluster as harmless noise, spiking compute load.  
+   - Mechanical:
+     - `computeLoad = HIGH` and `serverTemp` nudges up for a turn.  
+     - GM may inject a brief “glitchy” sensation or minor hesitation into A.L.I.C.E.’s next reply (purely in-fiction).  
+   - `anomalyLogCount += 1`.
+
+20. **Mini-Quake** [Energetic]  
+   The beam couples into the lair’s structure; a localized tremor rattles the lab and maybe adjacent tunnels.  
+   - Mechanical:
+     - Slight chance to:
+       - Knock `emitterAngle` off by a bit,
+       - Downgrade one camera from ONLINE → GLITCHY,
+       - `structuralIntegrity` − moderate.  
+     - Everyone physically reacts; Bob might drop something important.
