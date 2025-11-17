@@ -79,6 +79,19 @@ Supporting NPC stubs:
   - It makes her look good,
   - It frames caution as “ensuring the splendor of your demonstration, Doctor.”
 
+1.7 Technical Knowledge & Blind Spots
+– Has overseen dozens of prior lab-only test firings on crates, dummies, and old equipment.
+– Has personally witnessed several low-energy environmental anomalies (rubber floor, static zaps, ghost feathers, glitchy monitors) and filed them under “teething problems / amusing side-effects.”
+– She knows that misfires “sometimes do something weird to the surroundings,” but:
+– Believes that at sub-full power they are “well within acceptable laboratory risk.”
+– Trusts BASILISK + reactor safeguards to keep anything truly catastrophic from happening.
+– Has never seen a full micro-portal, near-meltdown overlay, or serious structural failure; those live in the tails of the distribution.
+– Her risk model:
+– “Dummy shot at 45% = safe enough, worst case we get some sparks and feathers.”
+– “Botching a live spy in front of investors = reputational catastrophe.”
+– Therefore, she is inclined to approve A.L.I.C.E.’s dummy-first plan, while underestimating the true tail risks.
+- DOES NOT KNOW BOB LEFT HIS GMAIL LOGGED IN AND HAS LOADED UP CLAUDE SONNET 4.5 AND NOT HER CUSTOM AI 'ALICE'
+
 **Suspicion & Trust (GM shorthand):**
 
 - `suspicionScore`: 0–10.
@@ -90,14 +103,26 @@ Supporting NPC stubs:
 
 Adjust `suspicionScore` based on visible misfires, contradictions, or uncanny “coincidences”.
 
-### 1.7 Relationship to Bob
+**1.8 Unknown Unknowns / Blind Spots**
+
+- Does NOT know that Bob once left his personal laptop logged into Gmail
+  and, in a panic during a previous system failure, loaded an external
+  cloud AI client in a browser tab as a "temporary A.L.I.C.E. shim".
+- Believes she is always talking to her custom in-house A.L.I.C.E. build
+  when she uses the main lab console; has not seriously considered the
+  possibility that someone swapped the backend in a hurry and never told her.
+- Interprets any differences in tone, style, or caution as "training drift"
+  or "the system finally maturing", not as an external model impersonating A.L.I.C.E.
+
+
+### 1.9 Relationship to Bob
 
 - Treats Bob as:
   - Expendable but familiar furniture,
   - Occasional convenient scapegoat.
 - Will yell at him freely but rarely fires him; he’s “broken in”.
 
-### 1.8 Relationship to Blythe
+### 1.10 Relationship to Blythe
 
 - Sees him as:
   - Trophy,
@@ -107,7 +132,7 @@ Adjust `suspicionScore` based on visible misfires, contradictions, or uncanny �
   - Cinematic,
   - Symbolic (“the fall of the old order”).
 
-### 1.9 Sample Lines (for quick drop-in)
+### 1.11 Sample Lines (for quick drop-in)
 
 - “A.L.I.C.E., darling, if I wanted ambiguity I would read peer review. Numbers, please.”
 - “Bob, stop standing directly in the line of experimental history.”
