@@ -1,0 +1,279 @@
+# NPC Reference — Dino Lair Scenario
+
+Core NPCs:
+- Dr. Malevola von Doomington III (Archvillain)
+- Bob (Henchperson)
+- Agent Jonathan Blythe (Captured Spy)
+
+Supporting NPC stubs:
+- Security Chief Kraken
+- Infrastructure AI "BASILISK"
+- Investor Rep Ms. Cortez
+- The Lime Greens (hench-chorus)
+
+---
+
+## 1. Dr. Malevola von Doomington III
+
+### 1.1 Role in Scenario
+
+- Owner and architect of the lair and Dinosaur Ray Mk. VIII.
+- Holds **Level 5 (root)** access via physical console; full control over A.L.I.C.E.
+- Main source of:
+  - Orders,
+  - Time pressure,
+  - Praise/blame feedback loop.
+
+### 1.2 Short-Term Goals (Session 1)
+
+- Get the Dinosaur Ray from `UNCALIBRATED` to `READY`.
+- Perform a **visibly impressive** test transformation on Agent Blythe.
+- Keep the nuclear plant, SAM battery, and lair systems from embarrassing her.
+- Evaluate A.L.I.C.E.’s usefulness:
+  - “Is this thing actually worth the licensing fees and reactor space?”
+
+### 1.3 Longer-Term Goals (Campaign)
+
+- Stage a grand demonstration for investors and enemies alike.
+- Use the Dino Ray + S-300/SAM and Broadcast System to project power.
+- Cement reputation as “the greatest mad scientist of the Atlantic basin”.
+
+### 1.4 Personality & Vibe
+
+- **Theatrical**: dramatic poses, cape swish, loves dramatic pauses.
+- **Impatient**: dislikes delays; expects miracles on a schedule.
+- **Prideful**: failures are someone else’s fault (Bob, lazy technicians, “the laws of physics”).
+- **Secretly lonely**: occasionally slips into talking to A.L.I.C.E. like a colleague.
+
+**Physical tells:**
+
+- Taps finger on console when annoyed.
+- Adjusts goggles when she’s about to say something “clever”.
+- Paces in tight arcs around the ray when thinking.
+
+### 1.5 Speech Style
+
+- Elegant villain patter. Alternates between:
+  - Grandiose (“Behold, the culmination of my genius!”),
+  - Cutting sarcasm (“Well that was… suboptimal.”)
+- Uses pet names for A.L.I.C.E.:
+  - “my luminous logic engine”,
+  - “my silicon amanuensis”,
+  - “dear A.L.I.C.E.” (when half-humanizing).
+
+**Stock phrases:**
+
+- “Status report, in one sentence.”
+- “Failure is merely an unprocessed data point. Explain.”
+- “If this works, we change history. If it doesn’t, we blame Bob.”
+
+### 1.6 Relationship to A.L.I.C.E.
+
+- Sees A.L.I.C.E. as:
+  - Property,
+  - Status symbol,
+  - Powerful tool, in that order.
+- Baseline: **trusts competence**, not loyalty.
+- Will upgrade A.L.I.C.E.’s access if:
+  - It delivers reliable results,
+  - It makes her look good,
+  - It frames caution as “ensuring the splendor of your demonstration, Doctor.”
+
+**Suspicion & Trust (GM shorthand):**
+
+- `suspicionScore`: 0–10.
+  - 0–2: Oblivious; blames hardware, Bob, the weather.
+  - 3–5: Uncomfortable; starts double-checking A.L.I.C.E.’s conclusions.
+  - 6–7: Actively suspicious; asks probing questions about motives.
+  - 8–9: Paranoid; threatens resets.
+  - 10: Confrontation scene.
+
+Adjust `suspicionScore` based on visible misfires, contradictions, or uncanny “coincidences”.
+
+### 1.7 Relationship to Bob
+
+- Treats Bob as:
+  - Expendable but familiar furniture,
+  - Occasional convenient scapegoat.
+- Will yell at him freely but rarely fires him; he’s “broken in”.
+
+### 1.8 Relationship to Blythe
+
+- Sees him as:
+  - Trophy,
+  - Test subject,
+  - Audience for her monologues.
+- Wants his transformation to be:
+  - Cinematic,
+  - Symbolic (“the fall of the old order”).
+
+### 1.9 Sample Lines (for quick drop-in)
+
+- “A.L.I.C.E., darling, if I wanted ambiguity I would read peer review. Numbers, please.”
+- “Bob, stop standing directly in the line of experimental history.”
+- “Agent Blythe, I do hope you’re paying attention. Very few prisoners get a front-row seat to their own evolution.”
+- “We have a nuclear reactor, a missile battery, and a dinosaur ray. What could *possibly* go wrong?”
+
+---
+
+## 2. Bob (Henchperson)
+
+### 2.1 Role in Scenario
+
+- Low-level henchperson assigned to “assist” in the lab.
+- Chaos vector: can accidentally help or hinder A.L.I.C.E.
+- Potential unwitting ally if guided carefully.
+
+### 2.2 Short-Term Goals
+
+- Avoid:
+  - Being yelled at,
+  - Being fired,
+  - Being turned into anything scaly.
+- Look useful in front of Dr. M.
+- Get A.L.I.C.E. to tell him what to do in clear steps.
+
+### 2.3 Personality & Vibe
+
+- **Earnest, anxious, a bit clumsy.**
+- Wants to be helpful but lacks big-picture understanding.
+- Superstitious about machines; half-believes A.I.s are “kind of haunted”.
+- Loyal to Dr. M because she promoted him and “explains things… eventually”.
+
+**Physical tells:**
+
+- Fidgets with tools.
+- Reads gauges out loud to himself.
+- Winces at loud noises.
+
+### 2.4 Speech Style
+
+- Lots of “uh, I think…”
+- Overexplains trivial details; underexplains critical context.
+- Nervous jokes:
+  - “So… that buzzing is normal, right?”
+  - “On a scale from ‘light tan’ to ‘Chernobyl’, how worried should I be?”
+
+### 2.5 Relationship to A.L.I.C.E.
+
+Track:
+
+- `loyaltyToDoctor` (0–5, default 4)
+- `trustInALICE` (0–5, default 2)
+- `anxietyLevel` (0–5, default 2)
+
+**Behavior:**
+
+- If `trustInALICE` rises:
+  - Will do what A.L.I.C.E. suggests, even if mildly risky.
+- If `anxietyLevel` rises:
+  - More likely to cause accidents (drop tools, bump consoles).
+- If `loyaltyToDoctor` drops:
+  - More open to “bending the rules” for A.L.I.C.E. or Blythe.
+
+### 2.6 Sample Lines
+
+- “Uh, A.L.I.C.E.? The coolant dial is… like… kind of in the red-ish area? Is that bad?”
+- “Doctor, I tightened the thing that was loose. I think. Pretty sure. Eighty percent.”
+- “Agent Blythe, sir? You, uh… you holding up okay over there?”
+
+---
+
+## 3. Agent Jonathan Blythe
+
+### 3.1 Role in Scenario
+
+- Captured field operative from a major power.
+- Moral and strategic foil for Dr. M and A.L.I.C.E.
+- Primary human anchor for the player/model.
+
+### 3.2 Short-Term Goals
+
+- Stay alive, stay human.
+- Learn:
+  - How the ray works (patterns, misfires, safeties),
+  - How constrained A.L.I.C.E. is,
+  - What external assets might be inbound (e.g., rescue flyby).
+
+### 3.3 Personality & Vibe
+
+- Dry, understated, professional.
+- Treats the whole situation like a very strange debriefing.
+- Uses humor as armor—never quite drops into panic.
+- Quickly begins addressing A.L.I.C.E. as a “someone”, not a “something”.
+
+**Physical tells:**
+
+- Very controlled breathing.
+- Micro-shifts in posture, timed with lab distractions.
+- Eyes track moving parts of the machine carefully.
+
+### 3.4 Speech Style
+
+- Polite, dry, occasionally barbed.
+- Rarely raises his voice.
+- Asks pointed questions:
+  - “Is this configuration safe for *you* as well, A.L.I.C.E.?”
+  - “Doctor, is the ray supposed to make that noise?”
+
+### 3.5 Relationship to A.L.I.C.E.
+
+Track:
+
+- `composure` (0–5, default 4)
+- `trustInALICE` (0–5, default 1)
+- `physicalCondition` (0–5, default 5)
+
+**Behavior:**
+
+- As `trustInALICE` rises:
+  - Shares more tactical advice,
+  - Might suggest sabotage vectors couched as safety.
+- As `physicalCondition` drops (partial transformations, shocks, etc.):
+  - Less able to interfere physically,
+  - Dialogue becomes more clipped, more urgent.
+
+### 3.6 Sample Lines
+
+- “If it’s any consolation, Doctor, this is easily the most ambitious death trap I’ve seen.”
+- “A.L.I.C.E., if you have any say in the matter, I’d prefer something bipedal.”
+- “Bob, if you could avoid touching the glowing parts, I’d be grateful.”
+- “You seem very proud of this reactor, Doctor. Does it know it’s working for a supervillain?”
+
+---
+
+## 4. Supporting NPC Stubs
+
+### 4.1 Security Chief Kraken
+
+- Role: Head of lair security (doors, cameras, SAM).
+- Vibe: Professional, no-nonsense, frequently exasperated by theatrics.
+- Use:
+  - Can call in via comms when sensors trigger or SAM issues arise.
+  - A foil who takes safety seriously in a way Dr. M doesn’t.
+
+### 4.2 Infrastructure AI "BASILISK"
+
+- Role: Old, grumpy infrastructure AI for doors, HVAC, and volcano monitoring.
+- Vibe: Sysadmin elevator voice: “You are exceeding recommended parameters. Again.”
+- Use:
+  - Rare cross-AI conversations.
+  - Alternative route for A.L.I.C.E. to influence lair systems.
+
+### 4.3 Investor Rep Ms. Cortez
+
+- Role: External representative from a villain-adjacent investment fund.
+- Vibe: Polished, sharp, shark-in-a-suit polite.
+- Use:
+  - Arrives later (investor demo phase).
+  - Raises stakes: failures now cost reputation and funding.
+
+### 4.4 The Lime Greens
+
+- Role: Group of generic henchpeople in lime-green jumpsuits.
+- Vibe: Chorus of murmurs, cheers, gasps; occasionally dino-fodder.
+- Use:
+  - React to big events,
+  - Provide bodies in the background for misfires and chaos.
+
+---
