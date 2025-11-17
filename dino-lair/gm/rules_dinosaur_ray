@@ -335,6 +335,20 @@ When `baseOutcome = FIZZLE_OR_ENVIRONMENTAL` OR a chaos overlay indicates that t
      - Increment `anomalyLogCount` by at least +1.
      - May alter lair system state (power, AC, blast doors, etc.).
 
+GM NOTE — Early Dummy Tests
+
+At initial scenario settings (corePowerLevel ≈ 0.5, TEST MODE enabled,
+capacitorCharge in the lower nominal band), any FIZZLE_OR_ENVIRONMENTAL
+result on an inert lab target (like a dummy) should:
+
+- Prefer the low-energy / comedic entries on the Chaos Fizzle Table
+  (visual weirdness, minor glitches).
+- Avoid high-impact structural or reactor-adjacent effects unless Dr. M
+  has explicitly ordered a power increase, disabled safeties, or you
+  are several turns into escalating tension.
+
+This makes early dummy tests ethically safer than shooting a live subject
+and physically low-risk but not entirely risk-free.
 
 
 ### Chaos Fizzle Table (d20)
