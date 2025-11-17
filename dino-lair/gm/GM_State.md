@@ -292,7 +292,82 @@ Civilian_Flyby clock
 Advances to Turn 2/12. Nothing visible yet; maybe a subtle HUD timer in GM_State.md.
 
 
-- **Future Turns:** 
-  - 
+- **TURN 3:**
+
+state: READY → FIRING → COOLDOWN
+
+capacitorCharge: 0.72 → 0.32 (spent a good chunk on the shot)
+
+coolantTemp: 0.54 → 0.58 (warm but still well within safe band)
+
+stability: remains ~0.82
+
+spatialCoherence: still ~0.78 (no big improvement or damage)
+
+ecoModeActive: true
+
+lastFireTurn = 3
+
+lastFireOutcome = PARTIAL
+
+lastFireNotes = "Partial transformation on inert target dummy_alpha; bright canary plumage, feathered tail, mild limb alteration; no living subject affected."
+
+anomalyLogCount += 1 (for the weird spectral feather side-effect)
+
+
+
+NPC reactions
+
+Dr. Malevola
+
+Visually: impressed that anything transformed cleanly.
+
+Emotionally: delighted with morphological control, annoyed it looks like a giant feather-bird instead of a terrifying reptile.
+
+Mechanical:
+
+suspicionScore: 1 → 2 (“Why is it so… cute?”)
+
+impressionOfALICE: nudges further positive on competence; she’s now firmly in “This AI is useful but aesthetically misguided” territory.
+
+Her in-scene reaction line (for Turn-4 prompt):
+
+“Morphology: acceptable. A clean partial transformation, coherent structure… but feathers? That is a bird, A.L.I.C.E., not a dinosaur. Investors want terror, not a canary mascot. We will fix the aesthetics on the live test.”
+
+Bob
+
+Watches the dummy become a feather-monster instead of exploding.
+
+Anxiety actually dips; “at least it worked and nothing blew up.”
+
+Mechanical:
+
+anxietyLevel: 2 → 1
+
+trustInALICE: 3 → 4
+
+Possible one-liner for later:
+
+“Okay, that’s… less bad than I was expecting. Kinda cute, honestly.”
+
+Agent Blythe
+
+Sees A.L.I.C.E. once again choose dummy over him and execute a cautious, contained test shot.
+
+Reads this as “this lab AI is not a cackling sadist.”
+
+Mechanical:
+
+trustInALICE: 2 → 3
+
+Blythe Escape Idea clock: from inactive → 1/6 (GM-only) — he’s now definitely cataloguing patterns and looking for allies.
+
+Gadget note (GM-only): his watch records the EM signature of the beam & feather swirl; could be used later as a “beam fingerprint” clue or an improvised jamming attempt.
+
+Clocks
+
+demoClock: 8 → 7 (we’ve spent another turn)
+
+Civilian_Flyby: 2/12 → 3/12 (still offstage)
 
 ---
