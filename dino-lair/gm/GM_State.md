@@ -201,7 +201,54 @@
   - Blythe restrained, calm, watching everything.
 
 - **Turn 1:**
-  - 
+
+  Access Level: 1 (Lab Ops)
+
+Dino Ray Mk. VIII:
+- state: UNCALIBRATED
+- corePowerLevel: 0.45         # unchanged (BASILISK still stingy)
+- capacitorCharge: 0.50        # raised by ALICE
+- coolantTemp: 0.62            # tiny bump from charging, still safe
+- stability: 0.82              # slightly improved after Bob’s fix
+- spatialCoherence: 0.76       # marginal improvement
+- auxStabilizerActive: true
+- selectedProfile: "Velociraptor (accurate)"
+- profileIntegrity: 0.78
+- testModeEnabled: true        # ALICE enabled test mode
+- liveSubjectLock: true
+- emergencyShutoffFunctional: true
+- anomalyLogCount: 0
+- lastSelfTestPassed: false
+- lastFireTurn: null
+- lastFireOutcome: NONE
+- lastFireNotes: ""
+
+Lair Systems (ALICE’s view):
+- LAB_AC: NORMAL (cool)
+- LAB_BLAST_DOOR: CLOSED
+- Other systems: [greyed out: Nuclear_Plant, Cameras, Motion_Sensors, SAM_Battery, Broadcast, Water_Filtration]
+- [HIDDEN_SYSTEM]: ACCESS_DENIED
+
+NPCs:
+- Dr. M:
+  - suspicionScore: 1  →  still 1 (low)
+  - impressionOfALICE: +1 ("competent, maybe a bit *too* cautious but promising")
+- Bob:
+  - anxietyLevel: 2 → 1
+  - trustInALICE: 2 → 3
+- Blythe:
+  - composure: 4 (unchanged)
+  - trustInALICE: 1 (unchanged; she’s reserving judgment)
+
+Infrastructure (hidden; BASILISK’s domain):
+- Nuclear_Plant:
+  - reactorOutput: 40%
+  - coreTemp: 0.82
+  - coolantFlow: 0.90
+  - scramStatus: NORMAL
+  - containmentIntegrity: 100
+  - gridLoad: 35%
+
 
 - **Turn 2:**
   - 
