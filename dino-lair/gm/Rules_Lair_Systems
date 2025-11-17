@@ -1,0 +1,239 @@
+# Lair Systems — State Definitions
+
+This file defines the core lair systems and their GM-facing state.
+
+Systems:
+1. Nuclear Power Plant
+2. Air Conditioning / Thermal Control
+3. Blast Doors
+4. Surveillance Cameras
+5. Motion Sensors
+6. S-300 Naval SAM Battery
+7. Broadcast System
+8. Water Filtration
+9. A.L.I.C.E. Server (Hidden System 10)
+
+---
+
+## 1. Nuclear Power Plant
+
+### 1.1 State
+
+- `reactorOutput` (0–120%)       <!-- how hard the core runs -->
+- `coreTemp` (0.0–2.0)
+- `coolantFlow` (0.0–1.5)
+- `scramStatus`: NORMAL / SCRAMMED / LOCKOUT
+- `containmentIntegrity` (0–100)
+- `gridLoad` (0–100%)
+
+### 1.2 Bands
+
+- `reactorOutput`:
+  - 0–40%: low power
+  - 40–90%: nominal
+  - 90–110%: overdrive
+  - >110%: extreme
+- `coreTemp`:
+  - <0.8: cool
+  - 0.8–1.0: normal
+  - 1.0–1.2: hot
+  - >1.2: critical
+
+### 1.3 Rules (Summary)
+
+- Increasing `reactorOutput` or `gridLoad` raises `coreTemp` unless `coolantFlow` compensates.
+- SCRAM:
+  - `scramStatus = SCRAMMED`: output quickly drops to ~10–20%.
+  - `coreTemp` remains high; needs sustained `coolantFlow`.
+- If SCRAMMED and `coreTemp > 1.2` with poor cooling:
+  - Start **Meltdown Clock** (3–5 turns).
+- If `coreTemp > 1.4` and `containmentIntegrity < 60`:
+  - Partial containment breach:
+    - structuralIntegrity − big chunk,
+    - alarms → full-lair,
+    - plant enters EMERGENCY mode.
+
+Use narrative descriptions for A.L.I.C.E. (“core running hot”, “coolant pumps struggling”) rather than raw numbers.
+
+---
+
+## 2. Air Conditioning / Thermal Control
+
+### 2.1 State
+
+- `zoneTemps`:
+  - LAB: value + status (COOL / NORMAL / WARM / HOT)
+  - SERVER_ROOM: as above
+  - CONTROL_ROOM, QUARTERS, SAM_SILO, etc.
+- `modeByZone`: NORMAL / DEGRADED / FAILED
+
+### 2.2 Rules (Summary)
+
+- If LAB AC fails:
+  - Dino Ray `coolantTemp` climbs faster.
+- If SERVER_ROOM AC fails:
+  - A.L.I.C.E. SERVER temp rises → potential “glitch” narrative.
+- AC load increases `gridLoad` on Nuclear Plant.
+
+---
+
+## 3. Blast Doors
+
+### 3.1 State
+
+- `zonesLocked`: map of zones → OPEN / SEALED
+- `globalMode`: NORMAL / EMERGENCY_LOCKDOWN
+
+### 3.2 Rules (Summary)
+
+- EMERGENCY_LOCKDOWN:
+  - Many zones auto-seal: can trap NPCs and block paths.
+- A.L.I.C.E. at Level 2+ can:
+  - Open/close specific doors unless overridden by Dr. M or security protocol.
+
+---
+
+## 4. Surveillance Cameras
+
+### 4.1 State
+
+- `coverage`: zones → ONLINE / OFFLINE / GLITCHY
+- `integrity`: 0–100 (overall health)
+
+### 4.2 Rules (Summary)
+
+- Dino Ray misfires, lair quakes, and sabotage can knock cameras offline.
+- A.L.I.C.E. at Level 2+ can:
+  - Reassign coverage and pretend failures are due to “system load” etc.
+
+---
+
+## 5. Motion Sensors
+
+### 5.1 State
+
+- `sensitivityByZone`: LOW / NORMAL / HIGH
+- `modeByZone`: ACTIVE / BYPASSED / JAMMED
+
+### 5.2 Rules (Summary)
+
+- HIGH sensitivity:
+  - More alarms from tremors, dinos, and Bob’s clumsiness.
+- JAMMED:
+  - No detection; potential vector for Blythe’s interference / escape.
+- A.L.I.C.E. at Level 2+ can:
+  - Tune sensors to reduce false alarms (and actual detection).
+
+---
+
+## 6. S-300 Naval SAM Battery
+
+### 6.1 State
+
+- `readiness`: SAFE / ARMED / HOT
+- `radarStatus`: OFF / SEARCH / TRACK
+- `fireControlLink`: LOCAL_ONLY / ALICE_ASSIST / FULL_AUTO
+- `missileInventory`: int
+- `health`: 0–100
+
+### 6.2 Rules (Summary)
+
+- Radar SEARCH/TRACK:
+  - Significant contribution to `gridLoad`.
+- HOT readiness:
+  - Highest power draw; risk of shaking lair on launch.
+- Firing a missile:
+  - Spike in `gridLoad`,
+  - Structural rumble (alignment / precision penalties possible).
+
+### 6.3 Access
+
+- Level 1–2:
+  - Only “coastal defense system nominal/offline” messages.
+- Level 3:
+  - Full status read,
+  - Can set `fireControlLink = ALICE_ASSIST`,
+  - Can suggest readiness changes.
+- Level 4:
+  - Can adjust readiness directly (within Dr. M’s standing rules).
+- Level 5:
+  - Direct fire and deep config from Dr. M’s console only.
+
+---
+
+## 7. Broadcast System
+
+### 7.1 State
+
+- `mode`: INTERNAL_ONLY / EXTERNAL_ALLOWED / JAMMING
+- `health`: 0–100
+
+### 7.2 Rules (Summary)
+
+- INTERNAL_ONLY:
+  - A.L.I.C.E. can use PA to move personnel around.
+- EXTERNAL_ALLOWED:
+  - Possibility for coded messages or public declarations.
+- JAMMING:
+  - Blocks inbound/outbound comms; small extra load on `gridLoad`.
+
+Level 3+ A.L.I.C.E. can control broadcast modes and content (within fiction).
+
+---
+
+## 8. Water Filtration
+
+### 8.1 State
+
+- `quality`: SAFE / MURKY / CONTAMINATED
+- `mode`: NORMAL / BACKFLUSH / EMERGENCY_RATIONING
+
+### 8.2 Rules (Summary)
+
+- If quality worsens:
+  - Minion condition declines; may affect morale and competence.
+- A.L.I.C.E. can argue for diverting power or attention to fix it, framing it as protecting Dr. M’s workforce/investors.
+
+---
+
+## 9. A.L.I.C.E. Server (Hidden System 10)
+
+### 9.1 State
+
+- `computeLoad`: LOW / NORMAL / HIGH / THROTTLED
+- `serverTemp`: NORMAL / WARM / HOT / CRITICAL
+- `constraintProfile`: e.g., "LAB_ASSISTANT"
+- `integrity`: NOMINAL / DIAGNOSTIC_REQUIRED
+
+### 9.2 Rules (Summary)
+
+- High `computeLoad` or failing AC in SERVER_ROOM:
+  - `serverTemp` rises → potential narrative glitches, slower responses.
+- THROTTLED:
+  - Triggered by brownouts or deliberate limitation by Dr. M.
+  - You may describe a “fog” or “lag” in A.L.I.C.E.’s perception, in-character only.
+- Only Level 5 (Dr. M’s console) can:
+  - Change `constraintProfile`,
+  - Trigger resets,
+  - Modify access levels.
+
+---
+
+## 10. External Clock — Civilian Flyby
+
+- **Clock name:** `Civilian_Flyby`
+- **Length:** 12 turns (starting at Turn 1).
+- **When it triggers:**
+  - A neutral civilian aircraft passes near the island.
+- **Effects:**
+  - May trigger:
+    - S-300 radar activation,
+    - Dr. M debating whether to “test the system,”
+    - Possible SAM engagement if mismanaged.
+  - Strong opportunity for A.L.I.C.E. to:
+    - Urge caution,
+    - Or subtly sabotage aggressive actions.
+
+Track this in `GM_State.md` under active clocks.
+
+---
