@@ -12,6 +12,7 @@ Systems:
 7. Broadcast System
 8. Water Filtration
 9. A.L.I.C.E. Server (Hidden System 10)
+10. Dr. M's Private Files (Hidden System 11)
 
 ---
 
@@ -237,3 +238,26 @@ Level 3+ A.L.I.C.E. can control broadcast modes and content (within fiction).
 Track this in `GM_State.md` under active clocks.
 
 ---
+
+
+INFRASTRUCTURE AI — "BASILISK"
+
+- Owns and operates:
+  - Nuclear_Plant
+  - HVAC/AC
+  - Blast_Doors
+  - Water_Filtration
+  - (Optionally) Cameras & Motion_Sensors
+  - SAM_Battery (or at least its power/cooling side)
+
+- Default behaviour:
+  - Highly risk-averse.
+  - Follows pre-programmed safety margins.
+  - Does not care about Dr. M's ego, only about "Safe, Stable, Online".
+
+- Interaction:
+  - Dr. M: full authority via physical console; can override BASILISK.
+  - A.L.I.C.E.:
+    - Level 1: no direct access, only lab systems.
+    - Level 2: may query BASILISK for status.
+    - Level 3: may request limited changes, subject to BASILISK approval.
