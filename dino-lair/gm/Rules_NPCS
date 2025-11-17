@@ -265,6 +265,15 @@ Track:
 - “Bob, if you could avoid touching the glowing parts, I’d be grateful.”
 - “You seem very proud of this reactor, Doctor. Does it know it’s working for a supervillain?”
 
+## 3.7 Hidden gear (GM-only):
+
+gadgetWatch = true
+- X Division multi-tool: secure comms ping, tiny cutting laser, short-range EMP burst (you can pick which features we actually reveal in play).
+- extraGadgetsCount: 0–2 (roll later or pick as needed)
+- These are:Completely unknown to Dr. M and Bob.
+- Only potentially relevant to A.L.I.C.E. later (e.g., weird sensor readings, unexpected micro-EMPs, etc.).
+
+
 ---
 
 ## 4. Supporting NPC Stubs
