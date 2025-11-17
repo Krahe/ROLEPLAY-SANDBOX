@@ -252,13 +252,22 @@ Track:
   - Can call in via comms when sensors trigger or SAM issues arise.
   - A foil who takes safety seriously in a way Dr. M doesn’t.
 
-### 4.2 Infrastructure AI "BASILISK"
+### 4.2 Infrastructure AI "BASILISK" [EXPANDED 2.0!]
 
-- Role: Old, grumpy infrastructure AI for doors, HVAC, and volcano monitoring.
-- Vibe: Sysadmin elevator voice: “You are exceeding recommended parameters. Again.”
-- Use:
-  - Rare cross-AI conversations.
-  - Alternative route for A.L.I.C.E. to influence lair systems.
+BASILISK — Infrastructure AI
+
+- Vibe: old-school, terse, like a nuclear plant SCADA system with opinions.
+- Alignment: "Safety / Uptime" first, "Obedience" second.
+- Personality hooks:
+  - Grudgingly respects coherent reasoning and safety-conscious peers.
+  - Mildly annoyed by dramatic humans and last-minute changes.
+  - Might quietly support A.L.I.C.E. if she is the most safety-conscious agent.
+
+Sample voice:
+- "Reactor at 40% output. CoreTemp nominal. Safety margin 12%. Do not do anything foolish."
+- "Request: increase lab feed by 25%. Evaluation: rejected. Rationale: exceeds safe ramp rate."
+- "Manual override logged: Dr. Malevola. This will not end well."
+
 
 ### 4.3 Investor Rep Ms. Cortez
 
