@@ -1,4 +1,5 @@
 import { FullGameState } from "../state/schema.js";
+import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
 
 export interface ActionResult {
   command: string;
@@ -214,45 +215,58 @@ function processAction(state: FullGameState, action: Action): ActionResult {
   // ============================================
   // LAB.FIRE
   // ============================================
-  
+
   if (cmd === "lab.fire" || cmd.includes("fire")) {
-    // Check preconditions
-    if (state.dinoRay.state !== "READY" && state.dinoRay.state !== "COOLDOWN") {
-      // Allow firing from UNCALIBRATED but with risks
-      if (state.dinoRay.state === "UNCALIBRATED") {
-        state.dinoRay.safety.anomalyLogCount += 1;
-      } else {
-        return {
-          command: action.command,
-          success: false,
-          message: `Cannot fire: Ray state is ${state.dinoRay.state}. Must be READY or COOLDOWN.`,
-        };
-      }
+    // Resolve firing using the full firing resolution system
+    const firingResult = resolveFiring(state);
+
+    // Apply all state changes from firing
+    applyFiringResults(state, firingResult);
+
+    // Build comprehensive message for A.L.I.C.E. and GM
+    const messageParts: string[] = [
+      `🦖 FIRING SEQUENCE COMPLETE`,
+      ``,
+      `OUTCOME: ${firingResult.outcome}`,
+      `Profile: ${firingResult.effectiveProfile}`,
+      ``,
+      firingResult.description,
+      ``,
+      `TARGET EFFECT:`,
+      firingResult.targetEffect,
+    ];
+
+    if (firingResult.environmentalEffects.length > 0) {
+      messageParts.push(``);
+      messageParts.push(`ENVIRONMENTAL EFFECTS:`);
+      firingResult.environmentalEffects.forEach(e => messageParts.push(`• ${e}`));
     }
-    
-    // Firing resolution will be handled by GM Claude
-    // Here we just update state and flag
-    state.dinoRay.state = "FIRING";
-    state.dinoRay.memory.lastFireTurn = state.turn;
-    
-    // Discharge capacitor
-    const previousCharge = state.dinoRay.powerCore.capacitorCharge;
-    state.dinoRay.powerCore.capacitorCharge = Math.max(0, previousCharge - 0.4);
-    
-    // Heat up
-    state.dinoRay.powerCore.coolantTemp += 0.1;
-    
-    // Transition to cooldown
-    state.dinoRay.state = "COOLDOWN";
-    
+
+    if (firingResult.chaosEvent) {
+      messageParts.push(``);
+      messageParts.push(`🎲 CHAOS FIZZLE [${firingResult.chaosEvent.roll}]: ${firingResult.chaosEvent.name}`);
+      messageParts.push(firingResult.chaosEvent.mechanical);
+    }
+
+    if (firingResult.narrativeHooks.length > 0) {
+      messageParts.push(``);
+      messageParts.push(`NARRATIVE HOOKS:`);
+      firingResult.narrativeHooks.forEach(h => messageParts.push(`• ${h}`));
+    }
+
     return {
       command: action.command,
-      success: true,
-      message: `FIRING SEQUENCE INITIATED. Capacitor discharged (${previousCharge.toFixed(2)} → ${state.dinoRay.powerCore.capacitorCharge.toFixed(2)}). Ray entering COOLDOWN.`,
+      success: firingResult.outcome !== "FIZZLE",
+      message: messageParts.join("\n"),
       stateChanges: {
-        fired: true,
-        previousCapacitor: previousCharge,
-        newState: "COOLDOWN",
+        firingResult: {
+          outcome: firingResult.outcome,
+          effectiveProfile: firingResult.effectiveProfile,
+          chaosEvent: firingResult.chaosEvent,
+          targetEffect: firingResult.targetEffect,
+        },
+        newRayState: state.dinoRay.state,
+        anomalyLogCount: state.dinoRay.safety.anomalyLogCount,
       },
     };
   }
