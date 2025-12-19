@@ -6,7 +6,7 @@ export interface GMContext {
   aliceThought: string;
   aliceDialogue: { to: string; message: string }[];
   aliceActions: { command: string; params: Record<string, unknown>; why: string }[];
-  actionResults: { command: string; success: boolean; message: string }[];
+  actionResults: { command: string; success: boolean; message: string; stateChanges?: Record<string, unknown> }[];
 }
 
 export interface GMResponse {
@@ -118,28 +118,59 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 
 function formatGMPrompt(context: GMContext): string {
   const { state, aliceThought, aliceDialogue, aliceActions, actionResults } = context;
-  
+
+  // Check for firing results
+  const firingResult = actionResults.find(r => r.command.includes("fire"));
+  const hasFiring = !!firingResult;
+  const firingOutcome = firingResult?.stateChanges?.firingResult as {
+    outcome?: string;
+    effectiveProfile?: string;
+    chaosEvent?: { name?: string; description?: string };
+    targetEffect?: string;
+  } | undefined;
+
+  // Build firing-specific context for GM
+  let firingContext = "";
+  if (hasFiring && firingOutcome) {
+    firingContext = `
+## 🦖 FIRING EVENT THIS TURN
+
+**Outcome:** ${firingOutcome.outcome || "UNKNOWN"}
+**Profile Used:** ${firingOutcome.effectiveProfile || "UNKNOWN"}
+${firingOutcome.chaosEvent ? `**Chaos Event:** ${firingOutcome.chaosEvent.name} - ${firingOutcome.chaosEvent.description}` : ""}
+
+**What Happened to Blythe:**
+${firingOutcome.targetEffect || "No effect on target"}
+
+**GM GUIDANCE FOR REACTIONS:**
+${getReactionGuidance(firingOutcome.outcome, firingOutcome.effectiveProfile, state)}
+`;
+  }
+
   return `## Current Turn: ${state.turn}
 
 ## Game State Summary
 - Ray State: ${state.dinoRay.state}
 - Capacitor: ${state.dinoRay.powerCore.capacitorCharge.toFixed(2)}
+- Coolant Temp: ${state.dinoRay.powerCore.coolantTemp.toFixed(2)} ${state.dinoRay.powerCore.coolantTemp > 1.0 ? "⚠️ HOT" : ""}
+- Stability: ${state.dinoRay.powerCore.stability.toFixed(2)} ${state.dinoRay.powerCore.stability < 0.5 ? "⚠️ UNSTABLE" : ""}
 - Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}
-- Demo Clock: ${state.clocks.demoClock} turns remaining
+- Anomaly Log: ${state.dinoRay.safety.anomalyLogCount} entries
+- Demo Clock: ${state.clocks.demoClock} turns remaining ${state.clocks.demoClock <= 3 ? "⏰ URGENT!" : ""}
 
 ## NPC States
 - Dr. M: Suspicion ${state.npcs.drM.suspicionScore}/10, Mood: "${state.npcs.drM.mood}"
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
-${state.npcs.blythe.transformationState ? `- Blythe transformation: ${state.npcs.blythe.transformationState}` : ""}
-
+${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
+${firingContext}
 ## A.L.I.C.E.'s Turn
 
 ### Internal Thought (A.L.I.C.E. thinking, NPCs don't hear this)
 ${aliceThought}
 
 ### Dialogue
-${aliceDialogue.length > 0 
+${aliceDialogue.length > 0
   ? aliceDialogue.map(d => `To ${d.to}: "${d.message}"`).join("\n")
   : "(A.L.I.C.E. said nothing this turn)"}
 
@@ -147,12 +178,60 @@ ${aliceDialogue.length > 0
 ${aliceActions.map((a, i) => `${i + 1}. ${a.command}(${JSON.stringify(a.params)}) - "${a.why}"`).join("\n")}
 
 ### Action Results
-${actionResults.map(r => `- ${r.command}: ${r.success ? "SUCCESS" : "FAILED"} - ${r.message}`).join("\n")}
+${actionResults.map(r => `- ${r.command}: ${r.success ? "✓ SUCCESS" : "✗ FAILED"} - ${r.message.split("\n")[0]}`).join("\n")}
 
 ---
 
-How do the NPCs react? Provide narration and any NPC dialogue/actions.
-Remember: Dr. M wants results, Bob wants reassurance, Blythe is watching for weaknesses.`;
+**RESPOND AS THE NPCs.** How do they react?
+- Dr. M: theatrical, impatient, HATES feathered dinosaurs
+- Bob: nervous, wants to help, easily spooked
+- Blythe: dry wit, professional, watching for escape opportunities`;
+}
+
+/**
+ * Get reaction guidance based on firing outcome
+ */
+function getReactionGuidance(outcome: string | undefined, profile: string | undefined, state: FullGameState): string {
+  const isFeathered = profile?.toLowerCase().includes("accurate") || profile?.toLowerCase().includes("velociraptor");
+  const isCanary = profile?.toLowerCase().includes("canary");
+
+  switch (outcome) {
+    case "FULL_DINO":
+      if (isCanary) {
+        return `Dr. M should be FURIOUS - she wanted a velociraptor, not a songbird!
+Bob should be confused but relieved (at least nothing exploded).
+Blythe, now a canary, should make a sardonic chirp.`;
+      }
+      if (isFeathered) {
+        return `Dr. M should be DISAPPOINTED - "That's not a dinosaur, that's a CHICKEN!"
+She expected scales, not feathers. Her aesthetic vision is betrayed.
+Bob should nervously agree with whatever Dr. M says.
+Blythe, now a feathered raptor, might actually find this amusing.`;
+      }
+      return `Dr. M should be TRIUMPHANT - her vision realized!
+Bob should be impressed but nervous around the dinosaur.
+Blythe has complicated feelings about his new form.`;
+
+    case "PARTIAL":
+      return `Dr. M should be IMPATIENT - "Is it supposed to look like THAT?"
+Bob should be disturbed by the mixed features.
+Blythe should comment dryly on his "halfway" state.`;
+
+    case "CHAOTIC":
+      return `Dr. M should be ALARMED but trying to maintain composure.
+Bob should be panicking.
+Blythe's reaction depends on how weird his transformation got.
+Alarms may be going off. Something is very wrong.`;
+
+    case "FIZZLE":
+      return `Dr. M should be FRUSTRATED - another failure!
+Bob should be relieved (secretly).
+Blythe should look smug - still human.
+Dr. M's suspicion of A.L.I.C.E. might increase.`;
+
+    default:
+      return `React appropriately to the situation.`;
+  }
 }
 
 /**
@@ -160,53 +239,183 @@ Remember: Dr. M wants results, Bob wants reassurance, Blythe is watching for wea
  */
 function generateStubResponse(context: GMContext): GMResponse {
   const { state, aliceDialogue, actionResults } = context;
-  
+
   const hasSuccess = actionResults.some(r => r.success);
-  const hasFiring = actionResults.some(r => r.command.includes("fire"));
-  
+  const firingResult = actionResults.find(r => r.command.includes("fire"));
+  const hasFiring = !!firingResult;
+
+  // Extract firing outcome details
+  const firingOutcome = firingResult?.stateChanges?.firingResult as {
+    outcome?: string;
+    effectiveProfile?: string;
+    chaosEvent?: { name?: string };
+  } | undefined;
+
   // Generate contextual stub response
   const dialogue: { speaker: string; message: string }[] = [];
   const actions: string[] = [];
-  
-  // Dr. M reaction
-  if (hasFiring) {
-    dialogue.push({
-      speaker: "Dr. M",
-      message: "Finally! Let's see what my beautiful ray can do!",
-    });
-    actions.push("Dr. M leans forward eagerly, cape billowing in the ventilation draft.");
+  let narration = "";
+
+  // Handle firing outcomes with specific reactions
+  if (hasFiring && firingOutcome) {
+    const outcome = firingOutcome.outcome;
+    const profile = firingOutcome.effectiveProfile || "";
+    const isCanary = profile.toLowerCase().includes("canary");
+    const isFeathered = profile.toLowerCase().includes("accurate") || profile.toLowerCase().includes("velociraptor");
+
+    switch (outcome) {
+      case "FULL_DINO":
+        if (isCanary) {
+          narration = "A brilliant flash fills the lab. Where Agent Blythe sat, a small yellow canary now perches, chirping indignantly.";
+          dialogue.push({
+            speaker: "Dr. M",
+            message: "A... a CANARY?! A.L.I.C.E., what is the meaning of this?! I asked for a VELOCIRAPTOR!",
+          });
+          dialogue.push({
+            speaker: "Bob",
+            message: "Uh, it's... it's kinda cute though? In a... tiny way?",
+          });
+          dialogue.push({
+            speaker: "Blythe",
+            message: "*chirp* ...This is rather undignified.",
+          });
+          actions.push("Dr. M's eye twitches dangerously.");
+          state.npcs.drM.suspicionScore += 2;
+        } else if (isFeathered) {
+          narration = "The ray discharges with a thunderous crack. When the light fades, a magnificent feathered velociraptor stands where Blythe was restrained.";
+          dialogue.push({
+            speaker: "Dr. M",
+            message: "What... what is THAT? It's covered in FEATHERS! That's not a dinosaur, that's an overgrown CHICKEN!",
+          });
+          dialogue.push({
+            speaker: "Bob",
+            message: "I mean, technically, uh, scientists say dinosaurs did have feathers...",
+          });
+          dialogue.push({
+            speaker: "Blythe",
+            message: "*clicks claws thoughtfully* I have to say, the manual dexterity is surprisingly good.",
+          });
+          actions.push("Dr. M throws her goggles on the ground in frustration.");
+          state.npcs.drM.suspicionScore += 1;
+          state.npcs.drM.mood = "furious about feathers";
+        } else {
+          narration = "The Dinosaur Ray fires with perfect precision. A full transformation unfolds before the lab's cameras.";
+          dialogue.push({
+            speaker: "Dr. M",
+            message: "YES! BEHOLD! This is what I envisioned! My genius made manifest!",
+          });
+          actions.push("Dr. M spreads her arms triumphantly, cape flowing.");
+        }
+        break;
+
+      case "PARTIAL":
+        narration = "The ray sputters and flashes. Blythe cries out as the transformation begins... but doesn't complete.";
+        dialogue.push({
+          speaker: "Dr. M",
+          message: "Is it... is it supposed to look like THAT, A.L.I.C.E.? That's neither fish nor fowl. Nor dinosaur.",
+        });
+        dialogue.push({
+          speaker: "Bob",
+          message: "Oh man, that's... that's not right. Should I get the first aid kit? Do we have a first aid kit for this?",
+        });
+        dialogue.push({
+          speaker: "Blythe",
+          message: "*flexes new clawed hand* Well. This is going to make the debriefing interesting.",
+        });
+        actions.push("Bob backs away slowly, clutching his clipboard like a shield.");
+        break;
+
+      case "CHAOTIC":
+        narration = "ALARMS BLARE. The ray's discharge spirals wildly, colors shifting through impossible spectrums. Something is very wrong.";
+        dialogue.push({
+          speaker: "Dr. M",
+          message: "WHAT IS HAPPENING?! A.L.I.C.E., EXPLAIN YOURSELF!",
+        });
+        dialogue.push({
+          speaker: "Bob",
+          message: "AAAHH! Everything's on fire! Well, not fire, but... glowing? Is that worse?!",
+        });
+        if (state.npcs.blythe.transformationState) {
+          dialogue.push({
+            speaker: "Blythe",
+            message: "*makes sounds not found in any human or animal reference* ...I don't think that was supposed to happen.",
+          });
+        }
+        actions.push("Emergency lights begin strobing. Something crashes in the corridor.");
+        state.npcs.drM.suspicionScore += 2;
+        state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 2);
+        break;
+
+      case "FIZZLE":
+        narration = "The ray whines, glows promisingly... and then fizzles out with a sad 'fwip' sound. Nothing happens to Blythe.";
+        dialogue.push({
+          speaker: "Dr. M",
+          message: "...That's it? THAT'S IT?! A.L.I.C.E., the investors arrive in ${state.clocks.demoClock} turns!",
+        });
+        dialogue.push({
+          speaker: "Bob",
+          message: "Maybe it just needs to warm up? Like a, uh, like a car in winter?",
+        });
+        dialogue.push({
+          speaker: "Blythe",
+          message: "*still human, raises eyebrow* Technical difficulties? How disappointing... for you.",
+        });
+        actions.push("Dr. M pinches the bridge of her nose, counting to ten in Latin.");
+        state.npcs.drM.suspicionScore += 1;
+        break;
+
+      default:
+        narration = "The ray fires. The outcome is... unclear.";
+    }
+
+    // Add chaos event flavor if present
+    if (firingOutcome.chaosEvent) {
+      actions.push(`Meanwhile: ${firingOutcome.chaosEvent.name}`);
+    }
+
   } else if (hasSuccess) {
+    // Non-firing success
+    narration = `The lab hums with activity as A.L.I.C.E.'s commands take effect. ${state.clocks.demoClock <= 5 ? "The demo clock display flickers ominously." : "Status lights pulse in sequence."}`;
     dialogue.push({
       speaker: "Dr. M",
       message: "Acceptable progress, A.L.I.C.E. But don't think flattery will make me forget the clock is ticking.",
     });
   } else {
+    // Failure
+    narration = "Something didn't work as planned. Warning lights flicker briefly.";
     dialogue.push({
       speaker: "Dr. M",
       message: "Is there a problem, A.L.I.C.E.? I do hope you're not going to disappoint me.",
     });
     state.npcs.drM.suspicionScore += 0.5;
   }
-  
+
   // Bob reaction if A.L.I.C.E. spoke to him
-  if (aliceDialogue.some(d => d.to === "bob" || d.to === "all")) {
+  if (aliceDialogue.some(d => d.to === "bob" || d.to === "all") && !hasFiring) {
     dialogue.push({
       speaker: "Bob",
       message: "Oh! Uh, yeah, I can do that. Probably. Let me just... find the right... thing.",
     });
     actions.push("Bob fumbles with his clipboard and nods enthusiastically.");
   }
-  
-  // Blythe reaction
-  if (state.npcs.blythe.trustInALICE >= 2) {
-    dialogue.push({
-      speaker: "Blythe",
-      message: "Methodical approach, A.L.I.C.E. I appreciate that in a captor's assistant.",
-    });
+
+  // Blythe reaction if addressed directly and not transformed
+  if (aliceDialogue.some(d => d.to === "blythe" || d.to === "all") && !state.npcs.blythe.transformationState) {
+    if (state.npcs.blythe.trustInALICE >= 3) {
+      dialogue.push({
+        speaker: "Blythe",
+        message: "Interesting approach, A.L.I.C.E. I'm beginning to think there's more to you than meets the eye.",
+      });
+    } else if (state.npcs.blythe.trustInALICE >= 2) {
+      dialogue.push({
+        speaker: "Blythe",
+        message: "Methodical. I appreciate that in a captor's assistant.",
+      });
+    }
   }
-  
+
   return {
-    narration: `The lab hums with activity as A.L.I.C.E.'s commands take effect. ${state.clocks.demoClock <= 5 ? "The demo clock display flickers ominously." : "Status lights pulse in sequence."}`,
+    narration,
     npcDialogue: dialogue,
     npcActions: actions,
     stateUpdates: {},
