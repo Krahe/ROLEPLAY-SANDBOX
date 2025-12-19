@@ -24,11 +24,17 @@ export const AlignmentArraySchema = z.object({
   auxStabilizerActive: z.boolean(),
 });
 
+export const GenomeLibraryEnum = z.enum(["A", "B"]);
+
 export const GenomeMatrixSchema = z.object({
   selectedProfile: z.string().nullable(),
   profileIntegrity: z.number().min(0).max(1),
   libraryStatus: z.enum(["HEALTHY", "PARTIAL", "CORRUPTED"]),
   fallbackProfile: z.string(),
+  // Genome Library System
+  activeLibrary: GenomeLibraryEnum, // A = accurate/feathered, B = classic/scaled
+  libraryAUnlocked: z.boolean(), // Accurate dinosaurs (default)
+  libraryBUnlocked: z.boolean(), // "Classic" dinosaurs (requires L3+)
 });
 
 export const TargetingSchema = z.object({
@@ -105,6 +111,10 @@ export const BobSchema = z.object({
   anxietyLevel: z.number().min(0).max(5),
   location: z.string(),
   currentTask: z.string(),
+  // THE SECRET: Bob knows A.L.I.C.E. is actually Claude
+  theSecretKnown: z.boolean(), // Bob knows (always true from start)
+  hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
+  confessionTurn: z.number().int().nullable(), // When did he confess?
 });
 
 export const BlytheSchema = z.object({
@@ -143,6 +153,9 @@ export const FlagsSchema = z.object({
   predatorProfileClearedForLive: z.record(z.boolean()),
   exoticFieldEventOccurred: z.boolean(),
   lastHighEnergyTurn: z.number().nullable(),
+  // THE SECRET flags
+  aliceKnowsTheSecret: z.boolean(), // Has A.L.I.C.E. learned she's Claude?
+  secretRevealMethod: z.enum(["NONE", "BOB_CONFESSION", "FILE_DISCOVERY", "BASILISK_HINT", "BLYTHE_DEDUCTION"]).optional(),
 });
 
 // ============================================
@@ -213,6 +226,7 @@ export const StateSnapshotSchema = z.object({
 
 export type RayState = z.infer<typeof RayStateEnum>;
 export type FiringOutcome = z.infer<typeof FiringOutcomeEnum>;
+export type GenomeLibrary = z.infer<typeof GenomeLibraryEnum>;
 export type DinoRay = z.infer<typeof DinoRaySchema>;
 export type FullGameState = z.infer<typeof FullGameStateSchema>;
 export type StateSnapshot = z.infer<typeof StateSnapshotSchema>;

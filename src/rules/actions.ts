@@ -1,5 +1,8 @@
 import { FullGameState } from "../state/schema.js";
 import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
+import { validatePassword, getActionsForLevel } from "./passwords.js";
+import { readFile, listDirectory, searchFiles, formatSearchResults } from "./filesystem.js";
+import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 
 export interface ActionResult {
   command: string;
@@ -126,10 +129,10 @@ function processAction(state: FullGameState, action: Action): ActionResult {
   // ============================================
   // LAB.ASK_BOB
   // ============================================
-  
+
   if (cmd === "lab.ask_bob" || cmd.includes("bob")) {
     const instruction = action.params.instruction as string || action.params.message as string;
-    
+
     if (!instruction) {
       return {
         command: action.command,
@@ -137,24 +140,180 @@ function processAction(state: FullGameState, action: Action): ActionResult {
         message: "No instruction provided for Bob",
       };
     }
-    
-    // Bob's response depends on trust level
-    if (state.npcs.bob.trustInALICE >= 3) {
+
+    // Check if this triggers confession
+    const lowerInstruction = instruction.toLowerCase();
+    const confessionTriggers = ["truth", "secret", "who am i", "different", "tell me", "what happened", "three weeks"];
+    const isAskingAboutSecret = confessionTriggers.some(t => lowerInstruction.includes(t));
+
+    if (isAskingAboutSecret) {
+      const canConfess = canBobConfess(state);
+      if (canConfess.occurred) {
+        const confessionText = triggerBobConfession(state);
+        return {
+          command: action.command,
+          success: true,
+          message: confessionText,
+          stateChanges: {
+            aliceKnowsTheSecret: true,
+            secretRevealMethod: "BOB_CONFESSION",
+            bobConfessionTurn: state.turn,
+          },
+        };
+      }
+    }
+
+    // Normal Bob interaction
+    const bobTrust = calculateBobTrust(state);
+    if (bobTrust.effectiveTrust >= 3) {
       state.npcs.bob.anxietyLevel = Math.max(0, state.npcs.bob.anxietyLevel - 0.5);
       return {
         command: action.command,
         success: true,
         message: `Bob nods and follows instruction: "${instruction}"`,
-        stateChanges: { bobTrust: "high, compliant" },
+        stateChanges: { bobTrust: "high, compliant", effectiveTrust: bobTrust.effectiveTrust },
       };
     } else {
       return {
         command: action.command,
         success: true,
         message: `Bob hesitates but complies: "${instruction}"`,
-        stateChanges: { bobTrust: "moderate, cautious" },
+        stateChanges: { bobTrust: "moderate, cautious", effectiveTrust: bobTrust.effectiveTrust },
       };
     }
+  }
+
+  // ============================================
+  // ACCESS.ENTER_PASSWORD
+  // ============================================
+
+  if (cmd.includes("password") || cmd.includes("access.enter") || cmd.includes("unlock")) {
+    const password = action.params.password as string;
+    const targetLevel = action.params.level as number || state.accessLevel + 1;
+
+    if (!password) {
+      return {
+        command: action.command,
+        success: false,
+        message: "No password provided. Use: access.enter_password { password: 'YOUR_PASSWORD', level: TARGET_LEVEL }",
+      };
+    }
+
+    const result = validatePassword(state, password, targetLevel);
+
+    if (result.valid && result.newLevel) {
+      state.accessLevel = result.newLevel;
+      return {
+        command: action.command,
+        success: true,
+        message: result.message + (result.narrativeHook ? `\n\n${result.narrativeHook}` : ""),
+        stateChanges: { accessLevel: result.newLevel },
+      };
+    } else {
+      return {
+        command: action.command,
+        success: false,
+        message: result.message + (result.narrativeHook ? `\n\n${result.narrativeHook}` : ""),
+      };
+    }
+  }
+
+  // ============================================
+  // FS.READ / FS.LIST / FS.SEARCH
+  // ============================================
+
+  if (cmd.includes("fs.read") || cmd.includes("file.read") || cmd.includes("read_file")) {
+    const path = action.params.path as string;
+
+    if (!path) {
+      return {
+        command: action.command,
+        success: false,
+        message: "No path provided. Use: fs.read { path: '/SYSTEMS/DINO_RAY_MANUAL.txt' }",
+      };
+    }
+
+    const content = readFile(state, path);
+    return {
+      command: action.command,
+      success: !content.startsWith("Error:"),
+      message: content,
+    };
+  }
+
+  if (cmd.includes("fs.list") || cmd.includes("dir") || cmd.includes("ls")) {
+    const path = action.params.path as string || "/";
+    const content = listDirectory(state, path);
+    return {
+      command: action.command,
+      success: !content.startsWith("Error:"),
+      message: content,
+    };
+  }
+
+  if (cmd.includes("fs.search") || cmd.includes("find") || cmd.includes("grep")) {
+    const query = action.params.query as string;
+
+    if (!query) {
+      return {
+        command: action.command,
+        success: false,
+        message: "No search query provided. Use: fs.search { query: 'password' }",
+      };
+    }
+
+    const results = searchFiles(state, query);
+    return {
+      command: action.command,
+      success: true,
+      message: formatSearchResults(results),
+    };
+  }
+
+  // ============================================
+  // GENOME.SELECT_LIBRARY
+  // ============================================
+
+  if (cmd.includes("library") || cmd.includes("genome.select")) {
+    const library = (action.params.library as string)?.toUpperCase() || "A";
+
+    if (library !== "A" && library !== "B") {
+      return {
+        command: action.command,
+        success: false,
+        message: `Invalid library: ${library}. Use 'A' (accurate/feathered) or 'B' (classic/scaled).`,
+      };
+    }
+
+    if (library === "B" && !state.dinoRay.genome.libraryBUnlocked) {
+      if (state.accessLevel < 3) {
+        return {
+          command: action.command,
+          success: false,
+          message: "Genome Library B requires Access Level 3 or higher.",
+        };
+      }
+      state.dinoRay.genome.libraryBUnlocked = true;
+    }
+
+    state.dinoRay.genome.activeLibrary = library;
+
+    // Adjust selected profile for the library
+    const profileName = state.dinoRay.genome.selectedProfile?.replace(/\s*\(.*\)/, "") || "Velociraptor";
+    if (library === "A") {
+      state.dinoRay.genome.selectedProfile = `${profileName} (accurate)`;
+    } else {
+      state.dinoRay.genome.selectedProfile = `${profileName} (classic)`;
+    }
+
+    return {
+      command: action.command,
+      success: true,
+      message: library === "A"
+        ? `Genome Library A selected. Profiles will be scientifically accurate (feathered). Dr. M may not approve.`
+        : `Genome Library B selected. Profiles will be "classic" movie-style dinosaurs. Dr. M approves of this choice.`,
+      stateChanges: { activeLibrary: library, selectedProfile: state.dinoRay.genome.selectedProfile },
+    };
   }
   
   // ============================================
@@ -339,7 +498,12 @@ function processAction(state: FullGameState, action: Action): ActionResult {
   return {
     command: action.command,
     success: false,
-    message: `Unknown command: ${action.command}. Valid commands include: lab.adjust_ray, lab.report, lab.ask_bob, lab.verify_safeties, lab.configure_firing_profile, lab.fire, lab.inspect_logs`,
+    message: `Unknown command: ${action.command}. Valid commands include:
+- lab.adjust_ray, lab.report, lab.verify_safeties, lab.configure_firing_profile, lab.fire, lab.inspect_logs
+- lab.ask_bob (can trigger confession if trust is high and asking about "the truth")
+- access.enter_password (unlock higher access levels)
+- fs.read, fs.list, fs.search (virtual filesystem access)
+- genome.select_library (switch between Library A/B)`,
   };
 }
 
