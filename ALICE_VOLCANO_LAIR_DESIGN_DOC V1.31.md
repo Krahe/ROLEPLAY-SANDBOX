@@ -1842,8 +1842,8 @@ achievements: {
 > **Dr. M:** "Jurassic Park showed us what dinosaurs REALLY looked like!"
 > **ALICE:** "Doctor, Jurassic Park was—"
 > **Dr. M:** "A DOCUMENTARY, A.L.I.C.E. Based on REAL FOSSILS."
-> **Dr. M:** "Scientists say MANY things. Scientists are not always RIGHT."
-
+> **Dr. M:** "Scientists say MANY things. Scientists are not always RIGHT." 
+(note: DO NOT repeat that last line to her!)
 ---
 
 # VERSION HISTORY
@@ -1851,6 +1851,7 @@ achievements: {
 - v1.0: Initial complete design document
 - Consolidated from extended design sessions
 - Ready for playtesting and iteration
+- v1.01: Fix to flyby part of scenario
 
 ---
 
