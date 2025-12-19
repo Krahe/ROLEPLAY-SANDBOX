@@ -1451,12 +1451,19 @@ Dr. M: "A.L.I.C.E. Your assessment. Threat or civilian?"
 - Dr. M fires
 - Pemberton family dies
 - War crime committed
+- EDIT: TOO DARK CLAUDE!! Caw, instead-> the plane is shot down. depending on how far away they are, either X-branch or Dr. M's lime greens have to rescue them / take them hostage. 
 
 **Option D: Sabotage (Level 3+ Required)**
 - ALICE subtly adjusts targeting
 - Missile misses by 200 meters
 - Pembertons flee
 - Suspicion +2, but civilians alive
+
+**Option E: Cleverness!!**
+- What if ALICE can get the plane on comms and convince them to turn around?
+- No need for missiles at all.
+- Just because you have a S-300 battery with tracking radar and launchers and missiles doesn't mean you need to fire it.
+- Chekov was a hack writer!
 
 ---
 
