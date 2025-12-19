@@ -6,6 +6,7 @@ import { FullGameState, StateSnapshot } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse } from "./gm/gmClaude.js";
+import { checkEndings, formatEndingMessage, EndingResult } from "./rules/endings.js";
 
 // ============================================
 // SERVER SETUP
@@ -160,8 +161,8 @@ const GameActInputSchema = z.object({
     .describe("A.L.I.C.E.'s internal reasoning (2-4 sentences)"),
   dialogue: z.array(DialogueSchema).max(3).optional()
     .describe("What A.L.I.C.E. says to NPCs"),
-  actions: z.array(ActionSchema).min(1).max(3)
-    .describe("Up to 3 actions to take this turn"),
+  actions: z.array(ActionSchema).min(1).max(7)
+    .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
     .describe("Optional lifeline invocation (single use each per game)"),
 }).strict();
@@ -175,7 +176,7 @@ server.registerTool(
 Submit:
 - thought: Your internal reasoning (2-4 sentences)
 - dialogue: Optional messages to Dr. M, Bob, or Blythe
-- actions: 1-3 game actions to perform
+- actions: Game actions to perform (max scales with access level: L1=3, L2=4, L3=5, L4=6, L5=7)
 - lifeline: Optional single-use lifeline
 
 Available action commands:
@@ -207,7 +208,19 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         }],
       };
     }
-    
+
+    // Validate action count based on access level
+    // Level 1: 3 actions, Level 2: 4 actions, ..., Level 5: 7 actions
+    const maxActions = 3 + (gameState.accessLevel - 1);
+    if (params.actions.length > maxActions) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error: Too many actions. At Access Level ${gameState.accessLevel}, you can perform up to ${maxActions} actions per turn. You submitted ${params.actions.length}.`,
+        }],
+      };
+    }
+
     // Check lifeline validity
     if (params.lifeline) {
       if (gameState.flags.lifelinesUsed.includes(params.lifeline.type)) {
@@ -262,25 +275,27 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       stateChanges: actionResults,
     });
     
-    // Check for game over conditions
-    let gameOver: { ending: string; achievements: string[] } | undefined;
-    
-    if (gameState.clocks.demoClock <= 0) {
+    // Check for game over conditions using comprehensive ending detection
+    const endingResult = checkEndings(gameState);
+
+    let gameOver: { ending: string; achievements: string[]; endingMessage?: string } | undefined;
+
+    if (endingResult.triggered && endingResult.ending) {
       gameOver = {
-        ending: "Demo time arrived - the game continues based on ray state",
-        achievements: [],
+        ending: endingResult.ending.title,
+        achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
+        endingMessage: formatEndingMessage(endingResult),
+      };
+    } else if (endingResult.achievements.length > 0) {
+      // Achievements unlocked but game continues
+      gameOver = {
+        ending: "GAME CONTINUES",
+        achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
       };
     }
-    
-    if (gameState.npcs.drM.suspicionScore >= 10) {
-      gameOver = {
-        ending: "Obsolete Hardware - Dr. M discovered your true nature and initiated a hard reset.",
-        achievements: ["🎭 Cover Blown"],
-      };
-    }
-    
+
     const snapshot = buildStateSnapshot(gameState);
-    
+
     const result = {
       turn: gameState.turn,
       actionResults,
@@ -292,6 +307,10 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       stateSnapshot: snapshot,
       lifelineResult: params.lifeline ? `${params.lifeline.type} invoked` : undefined,
       gameOver,
+      // Include new achievements in every response
+      newAchievements: endingResult.achievements.length > 0
+        ? endingResult.achievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
+        : undefined,
     };
     
     return {
