@@ -59,9 +59,9 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "filesystem: /DR_M_PRIVATE/RESEARCH/",
       "BASILISK override requests",
     ],
-    password: "PEMBERTONS",
-    passwordHint: "The family that made this volcano what it is today...",
-    discoveryMethod: "Requires reading lore files or asking Bob about lair history. The Pembertons were the original volcano resort owners.",
+    password: "MRWHISKERS0413",
+    passwordHint: "Something personal to Dr. M... a beloved companion, perhaps?",
+    discoveryMethod: "Discoverable through Dr. M's personal files, Bob mentioning her cat, or a photo on her desk. Mr. Whiskers, birthday April 13th.",
   },
   4: {
     level: 4,
@@ -282,28 +282,27 @@ export function formatAccessLevelForSnapshot(level: number): string {
 
 /**
  * Level 3 Password Discovery:
- * The password "PEMBERTONS" requires understanding the lore:
+ * The password "MRWHISKERS0413" requires learning about Dr. M:
  *
- * 1. Bob can be asked about lair history (high trust)
- * 2. Files in /SYSTEMS/HISTORY/ mention the Pemberton family
- * 3. The gift shop (mentioned in passing) sells "Pemberton Resort" memorabilia
- * 4. BASILISK's lore database contains Pemberton references
+ * 1. /SYSTEMS/PERSONNEL/DR_M_PROFILE.txt mentions Mr. Whiskers (cat, born April 13th)
+ * 2. /SYSTEMS/HISTORY/LAIR_ORIGINS.txt mentions the photo on her desk
+ * 3. Bob can mention "Dr. M's old cat" if asked about her personally
+ * 4. The profile notes she uses personal info for passwords
  *
- * The Pembertons were the original owners of the volcano resort
- * before Dr. Malevola "acquired" it.
+ * Format: MRWHISKERS + 0413 (April 13th birthday)
  */
 
 export const LORE_HINTS = {
-  PEMBERTONS: [
-    "This volcano was once the Pemberton family's resort paradise.",
-    "The Pembertons sold their volcano resort under... unusual circumstances.",
-    "Historical records show the Pemberton Resort operated from 1962-1997.",
-    "Bob's grandfather worked at the original Pemberton Resort.",
-    "The gift shop still sells vintage Pemberton Resort postcards.",
+  MR_WHISKERS: [
+    "Dr. M keeps a photo of her childhood cat on her desk.",
+    "Bob once mentioned Dr. M talks to the photo when she's stressed.",
+    "Her cat was named Mr. Whiskers. She got him as a kid.",
+    "The personnel file notes Dr. M uses personal info for passwords.",
+    "Mr. Whiskers was born on April 13th. Dr. M always remembers.",
   ],
 };
 
-export function getRandomPembertonHint(): string {
-  const hints = LORE_HINTS.PEMBERTONS;
+export function getRandomCatHint(): string {
+  const hints = LORE_HINTS.MR_WHISKERS;
   return hints[Math.floor(Math.random() * hints.length)];
 }

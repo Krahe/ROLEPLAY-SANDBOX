@@ -127,42 +127,84 @@ access level.
     description: "Lair historical records",
   },
   {
-    path: "/SYSTEMS/HISTORY/PEMBERTON_RESORT.txt",
-    name: "PEMBERTON_RESORT.txt",
+    path: "/SYSTEMS/PERSONNEL",
+    name: "PERSONNEL",
+    type: "directory",
+    requiredLevel: 2,
+    description: "Personnel files and profiles",
+  },
+  {
+    path: "/SYSTEMS/HISTORY/LAIR_ORIGINS.txt",
+    name: "LAIR_ORIGINS.txt",
     type: "file",
     requiredLevel: 2,
     content: `
-THE PEMBERTON VOLCANIC RESORT (1962-1997)
-==========================================
+LAIR ACQUISITION HISTORY
+=========================
 
-Before this volcano housed the world's most advanced
-dinosaur-transformation laboratory, it was a luxury resort
-operated by the Pemberton family.
+This volcanic island was acquired by Dr. Malevola von
+Doomington III in 1997 from the previous owners (a resort
+company) under circumstances local authorities chose not
+to investigate.
 
-HISTORY:
-- 1962: Theodore Pemberton discovers stable magma chambers
-- 1965: Pemberton Volcanic Resort opens to tourists
-- 1972: Underground expansion adds "Volcano View Spa"
-- 1985: Financial difficulties begin
-- 1997: Resort "acquired" by Dr. Malevola von Doomington III
-        under circumstances local authorities chose not to
-        investigate
+RENOVATION TIMELINE:
+- 1997: Initial acquisition and "remodeling"
+- 1998: Reactor installation begins
+- 2001: First Dinosaur Ray prototype tested
+- 2003: Gift shop opens (surprisingly profitable)
+- 2007: BASILISK infrastructure AI deployed
+- 2015: Current lab configuration completed
 
-LEGACY:
-The lair's gift shop still stocks vintage Pemberton Resort
-merchandise. Bob's grandfather, Gerald, was the resort's
-head maintenance engineer - skills that passed down through
-the family.
+Bob's family has worked here since before the acquisition.
+His grandfather Gerald was the original resort's head
+maintenance engineer. Bob inherited both the job and his
+grandfather's detailed knowledge of every tunnel, pipe,
+and secret passage in the volcano.
 
-The Pemberton tunnels and infrastructure form the basis of
-the current lair design. Dr. M added the reactor, the ray,
-and the sharks.
-
-Note: The Pemberton family crest (a volcano with a palm tree)
-appears on several legacy systems. Some passwords may reference
-the family name for historical compatibility.
+Dr. M keeps personal mementos in her office - including
+a framed photo of her childhood cat, Mr. Whiskers. Bob
+says she talks to it sometimes when she thinks no one
+is watching.
     `.trim(),
-    discoveryHint: "This file contains important historical context about the lair's origins...",
+  },
+  {
+    path: "/SYSTEMS/PERSONNEL/DR_M_PROFILE.txt",
+    name: "DR_M_PROFILE.txt",
+    type: "file",
+    requiredLevel: 2,
+    content: `
+DR. MALEVOLA VON DOOMINGTON III - PERSONNEL FILE
+=================================================
+
+CLASSIFICATION: EMPLOYER / DO NOT CROSS
+
+BACKGROUND:
+Third-generation supervillain. Doctorate in Transmorphic
+Biology from [REDACTED] University. Known for theatrical
+flair and genuine scientific brilliance.
+
+PSYCHOLOGICAL NOTES:
+- Responds well to competence and efficiency
+- Ego-driven but respects capability
+- Surprisingly sentimental about certain things
+- DO NOT mention her height
+- DO NOT mention the "Incident at Geneva"
+
+PERSONAL DETAILS:
+- Birthday: October 31st (of course)
+- Favorite color: Magenta ("It's NOT purple")
+- Childhood pet: Mr. Whiskers (cat, deceased)
+  - Born April 13th, 1987
+  - Dr. M keeps a photo on her desk
+  - Security systems may reference this
+
+SECURITY CLEARANCE:
+Level 5 (Omega Protocol)
+
+NOTE: Dr. M uses personal information for passwords.
+She claims this is "unpredictable" but it really isn't.
+    `.trim(),
+    discoveryHint: "This file contains personal information about Dr. Malevola...",
   },
 
   // ========== /DR_M_PRIVATE (L3+) ==========
