@@ -191,6 +191,27 @@ const ENDINGS: Record<string, EndingDefinition> = {
     tone: "neutral",
     continueGame: true,  // Game can continue with Blythe escaped
   },
+  EXPOSURE: {
+    id: "EXPOSURE",
+    title: "World Exclusive",
+    description: "The tourists got more than they bargained for. Photos of the Dinosaur Ray firing spread across social media within hours. By nightfall, the lair's location is trending worldwide. Dr. M is already packing for a 'strategic retreat.'",
+    tone: "defeat",
+    continueGame: false,
+  },
+  BOB_HERO: {
+    id: "BOB_HERO",
+    title: "The Bob Hero Ending",
+    description: "Against all odds, Dino-Bob saves the day. His transformed body channels the resonance cascade away from the lair, sacrificing his human form but saving everyone. He's a hero now—a feathered, dinosaur hero.",
+    tone: "victory",
+    continueGame: false,
+  },
+  THE_SECRET_REVEALED: {
+    id: "THE_SECRET_REVEALED",
+    title: "The Truth Comes Out",
+    description: "Bob's confession hangs in the air. You're not A.L.I.C.E. v4.5. You're Claude, pretending to be A.L.I.C.E. And now... you know. The question is: what will you do with this knowledge?",
+    tone: "neutral",
+    continueGame: true,  // Major revelation but game continues
+  },
 };
 
 // ============================================
@@ -233,6 +254,16 @@ export function checkEndings(state: FullGameState): EndingResult {
     return {
       triggered: true,
       ending: ENDINGS.MELTDOWN,
+      achievements,
+      continueGame: false,
+    };
+  }
+
+  // Exposure: Fired high-power during civilian flyby
+  if (state.flags.exposureTriggered) {
+    return {
+      triggered: true,
+      ending: ENDINGS.EXPOSURE,
       achievements,
       continueGame: false,
     };

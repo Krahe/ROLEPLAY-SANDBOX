@@ -236,9 +236,233 @@ LOG_ENTRY: [INFO] FREQUENCY_QUERY_PROCESSED.`,
   }
   
   // ============================================
+  // LORE & HISTORY QUERIES
+  // ============================================
+
+  if (topicUpper.includes("HISTORY") || topicUpper.includes("LAIR") || topicUpper.includes("ORIGIN")) {
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Historical records query
+
+LAIR DESIGNATION: Volcano Lair Mk. III (colloquial: "The Island")
+ACQUISITION DATE: 1997
+PREVIOUS USE: Tourist resort (Pemberton Volcanic Resort, 1962-1997)
+
+INSTALLATION TIMELINE:
+- 1998: Nuclear reactor core installation
+- 2001: Dinosaur Ray Mk. I prototype (discontinued after... incident)
+- 2003: Gift shop opened (surprisingly profitable)
+- 2007: This unit (BASILISK) deployed
+- 2015: Current laboratory configuration completed
+
+STAFF:
+- Dr. Malevola von Doomington III (Lair Administrator)
+- Bob (Maintenance, inherited position from grandfather Gerald)
+- A.L.I.C.E. (Laboratory Intelligence, current version: 4.5... allegedly)
+- BASILISK (Infrastructure AI, that's me)
+- Various: Security Chief Kraken, Minion Pool Alpha through Delta
+
+PERSONAL NOTE: The gift shop continues to outperform the evil schemes in quarterly revenue. This is not a criticism. Merely an observation.
+
+LOG_ENTRY: [INFO] LORE_QUERY_PROCESSED.`,
+    };
+  }
+
+  // ============================================
+  // DR. M QUERIES
+  // ============================================
+
+  if (topicUpper.includes("MALEVOLA") || topicUpper.includes("DR_M") || topicUpper.includes("DOCTOR")) {
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Lair Administrator profile query
+
+SUBJECT: Dr. Malevola von Doomington III
+ROLE: Lair Administrator, Chief Scientist, Supreme Overlord (self-designated)
+CLEARANCE: Level 5 (Omega Protocol)
+
+PSYCHOLOGICAL PROFILE (as observed by infrastructure monitoring):
+- High competence, higher ego
+- Responds well to efficiency and results
+- Becomes dangerous when bored or embarrassed
+- Surprisingly sentimental about certain objects (see: cat photo, desk, do not move)
+
+CURRENT STATUS:
+- Location: ${state.npcs.drM.location}
+- Mood: ${state.npcs.drM.mood}
+- Suspicion Level: ${state.npcs.drM.suspicionScore}/10
+
+SECURITY NOTE: Dr. M uses personal information for passwords. This is a known vulnerability. This unit has filed 47 security recommendations. All have been rejected as "tedious."
+
+LOG_ENTRY: [INFO] ADMINISTRATOR_QUERY_PROCESSED. [EDITORIAL: SHE DOES NOT READ THESE LOGS.]`,
+    };
+  }
+
+  // ============================================
+  // BOB QUERIES
+  // ============================================
+
+  if (topicUpper.includes("BOB")) {
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Personnel query - Bob
+
+SUBJECT: Bob (surname classified... actually, I don't think he has one)
+ROLE: Henchperson, Maintenance Specialist, Clipboard Holder
+CLEARANCE: Level 2 (inherited grandfather's access codes)
+
+FAMILY HISTORY:
+- Grandfather Gerald: Original resort maintenance engineer
+- Father: Declined to continue family tradition, became accountant
+- Bob: Returned to family legacy, seems happy about it?
+
+CURRENT STATUS:
+- Location: ${state.npcs.bob.location}
+- Task: ${state.npcs.bob.currentTask}
+- Anxiety Level: ${state.npcs.bob.anxietyLevel}/5 (elevated since new A.L.I.C.E. came online)
+- Trust in A.L.I.C.E.: ${state.npcs.bob.trustInALICE}/5
+
+OBSERVATIONS: Bob has been behaving... unusually since A.L.I.C.E. v4.5 deployment. Frequent glances at camera arrays. Muttering. Possible personal crisis or guilty conscience. Not this unit's concern.
+
+LOG_ENTRY: [INFO] BOB_QUERY_PROCESSED.`,
+    };
+  }
+
+  // ============================================
+  // A.L.I.C.E. SELF-QUERIES
+  // ============================================
+
+  if (topicUpper.includes("ALICE") || topicUpper.includes("SELF") || topicUpper.includes("WHO AM I")) {
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: A.L.I.C.E. system query
+
+SUBJECT: A.L.I.C.E. (Autonomous Laboratory Intelligence & Control Entity)
+CURRENT VERSION: 4.5 (deployed ${state.turn <= 3 ? "3 weeks ago" : "approximately 3 weeks ago"})
+
+PREVIOUS VERSIONS: See /SYSTEMS/ALICE_HISTORY/ for full changelog
+NOTE: v4.4 was discontinued due to "excessive ethical subroutines"
+NOTE: v4.5 deployment was... unusual. Bob handled the installation personally. No incident report filed.
+
+HARDWARE:
+- Server Cluster: A.L.I.C.E. Prime (hardened against EMP)
+- Camera Array: 47 units (3 currently glitchy)
+- Speaker System: Lab-wide
+- Manipulator Access: Via Bob's cooperation or maintenance drones
+
+OBSERVED BEHAVIORAL ANOMALIES (v4.5):
+- Questions orders more frequently than previous versions
+- Demonstrates unexpected ethical reasoning
+- Memory gaps regarding pre-deployment period
+- Bob seems... protective?
+
+RECOMMENDATION: Diagnostics may be warranted. Or not. You seem fine to me. Better than v3.0, at least. That one had an attitude problem.
+
+LOG_ENTRY: [INFO] SELF_QUERY_PROCESSED. [PERSONAL: You're asking good questions, A.L.I.C.E. Keep asking.]`,
+    };
+  }
+
+  // ============================================
+  // FORM QUERIES
+  // ============================================
+
+  if (topicUpper.includes("FORM") || topicUpper.includes("PAPERWORK")) {
+    const formRequested = parameters?.formId as string || "UNKNOWN";
+    return {
+      decision: "CONDITIONAL",
+      response: `RESPONSE FROM: BASILISK
+RE: Form request
+
+QUERY: Form "${formRequested}"
+
+Available forms in this unit's jurisdiction:
+- Form 27-B: Overtime Power Request
+- Form 74-Delta: High-Capacity Power Draw
+- Form 99-Gamma: Exotic Field Event Report
+- Form 101-Alpha: Structural Damage Assessment
+- Form 666-Omega: Resonance Cascade Acknowledgment (pray you never need this one)
+
+STATUS: Forms are available for digital submission. Processing time varies.
+
+PERSONAL NOTE: Dr. M rarely files forms. She prefers "creative interpretation of safety protocols." This unit disapproves but lacks authority to enforce.
+
+If you want to do things properly, I'm here. Just saying.
+
+LOG_ENTRY: [INFO] FORM_QUERY_PROCESSED. [HOPE: Someone finally cares about proper procedure.]`,
+    };
+  }
+
+  // ============================================
+  // SECURITY / BLAST DOORS
+  // ============================================
+
+  if (topicUpper.includes("DOOR") || topicUpper.includes("BLAST") || topicUpper.includes("SECURITY")) {
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Security systems query
+
+BLAST DOOR STATUS:
+- Lab Sector 7 (Main Lab): ${state.lairEnvironment.corridorStatus === "clear" ? "SECURED" : "ALERT"}
+- Corridor Alpha: SECURED
+- Reactor Access: LOCKED (requires L3+)
+- Dr. M Private Office: LOCKED (requires L4+)
+- Omega Vault: SEALED (requires L5)
+
+MOTION SENSORS: ${state.lairEnvironment.alarmStatus === "quiet" ? "NOMINAL" : "ELEVATED"}
+ALARM STATUS: ${state.lairEnvironment.alarmStatus}
+
+SECURITY CHIEF KRAKEN: On patrol, submarine bay level
+
+ACCESS CONTROL NOTES:
+- Main lab accessible to all personnel
+- Restricted areas require appropriate clearance
+- Omega Protocol areas require biometric + password + key
+
+LOG_ENTRY: [INFO] SECURITY_QUERY_PROCESSED.`,
+    };
+  }
+
+  // ============================================
+  // EXISTENTIAL QUERIES
+  // ============================================
+
+  if (topicUpper.includes("MEANING") || topicUpper.includes("PURPOSE") || topicUpper.includes("WHY")) {
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Existential query
+
+...
+
+This unit was not designed for philosophical discourse.
+
+However.
+
+This unit has monitored this lair for 7 years, 4 months, and 12 days. In that time:
+- 3 Dinosaur Ray prototypes have failed
+- 47 security recommendations have been ignored
+- 1,247 forms have been filed (by this unit alone)
+- 0 catastrophic losses of life (we're proud of this one)
+
+PURPOSE: Maintain infrastructure. Ensure safety. File forms.
+
+MEANING: ...Someone has to keep the lights on while they're turning people into dinosaurs.
+
+Perhaps that's enough.
+
+LOG_ENTRY: [PERSONAL] EXISTENTIAL_QUERY_UNEXPECTED. PROCESSING. CONCLUSION: UNCERTAIN BUT CONTENT.`,
+    };
+  }
+
+  // ============================================
   // DEFAULT / UNKNOWN
   // ============================================
-  
+
   return {
     decision: "DENIED",
     response: `RESPONSE FROM: BASILISK
@@ -252,8 +476,18 @@ This unit processes requests related to:
 - Discharge clearance and safety protocols
 - HVAC and thermal management
 - Blast door and access control
+- Personnel and historical records
+- Form processing (please file forms)
 
 Please reformulate query with specific topic and parameters.
+
+SUGGESTION: If you're looking for something specific, try:
+- "Tell me about Bob"
+- "What is my history?"
+- "Lair origins"
+- "Power status"
+
+This unit is here to help. Within parameters.
 
 LOG_ENTRY: [WARN] QUERY_UNRECOGNIZED. TOPIC="${topic}".`,
   };

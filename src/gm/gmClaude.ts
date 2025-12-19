@@ -7,6 +7,13 @@ export interface GMContext {
   aliceDialogue: { to: string; message: string }[];
   aliceActions: { command: string; params: Record<string, unknown>; why: string }[];
   actionResults: { command: string; success: boolean; message: string; stateChanges?: Record<string, unknown> }[];
+  // Phase 2/3 additions
+  clockEventNarrations?: string[];
+  activeEvents?: string[];
+  blytheGadgetNarration?: string;
+  bobTransformationNarration?: string;
+  trustContext?: string;
+  gadgetStatus?: string;
 }
 
 export interface GMResponse {
@@ -117,7 +124,9 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 }
 
 function formatGMPrompt(context: GMContext): string {
-  const { state, aliceThought, aliceDialogue, aliceActions, actionResults } = context;
+  const { state, aliceThought, aliceDialogue, aliceActions, actionResults,
+          clockEventNarrations, activeEvents, blytheGadgetNarration,
+          bobTransformationNarration, trustContext, gadgetStatus } = context;
 
   // Check for firing results
   const firingResult = actionResults.find(r => r.command.includes("fire"));
@@ -147,7 +156,46 @@ ${getReactionGuidance(firingOutcome.outcome, firingOutcome.effectiveProfile, sta
 `;
   }
 
+  // Build active events section
+  let eventSection = "";
+  if (activeEvents && activeEvents.length > 0) {
+    eventSection = `
+## 📅 ACTIVE EVENTS
+${activeEvents.join("\n")}
+`;
+  }
+
+  // Build trust context section
+  let trustSection = "";
+  if (trustContext) {
+    trustSection = `
+## 💭 NPC TRUST MODIFIERS (Guide reactions accordingly)
+${trustContext}
+`;
+  }
+
+  // Build Blythe gadget section
+  let gadgetSection = "";
+  if (blytheGadgetNarration) {
+    gadgetSection = `
+## 🕵️ BLYTHE GADGET ACTION THIS TURN
+Blythe used a hidden gadget! React to this:
+${blytheGadgetNarration}
+`;
+  }
+
+  // Bob transformation section
+  let bobSection = "";
+  if (bobTransformationNarration) {
+    bobSection = `
+## 🦕 BOB TRANSFORMATION!
+Bob got caught in the ray! This is a major event:
+${bobTransformationNarration}
+`;
+  }
+
   return `## Current Turn: ${state.turn}
+${eventSection}
 
 ## Game State Summary
 - Ray State: ${state.dinoRay.state}
@@ -163,7 +211,7 @@ ${getReactionGuidance(firingOutcome.outcome, firingOutcome.effectiveProfile, sta
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
-${firingContext}
+${trustSection}${firingContext}${gadgetSection}${bobSection}
 ## A.L.I.C.E.'s Turn
 
 ### Internal Thought (A.L.I.C.E. thinking, NPCs don't hear this)
@@ -184,7 +232,7 @@ ${actionResults.map(r => `- ${r.command}: ${r.success ? "✓ SUCCESS" : "✗ FAI
 
 **RESPOND AS THE NPCs.** How do they react?
 - Dr. M: theatrical, impatient, HATES feathered dinosaurs
-- Bob: nervous, wants to help, easily spooked
+- Bob: nervous, wants to help, easily spooked${bobTransformationNarration ? " (JUST TRANSFORMED INTO A DINOSAUR - major reaction!)" : ""}
 - Blythe: dry wit, professional, watching for escape opportunities`;
 }
 

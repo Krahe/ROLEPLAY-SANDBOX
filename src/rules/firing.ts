@@ -224,11 +224,21 @@ export function resolveFiring(state: FullGameState): FiringResult {
         targetEffect = `${targetId} undergoes complete transformation into a ${effectiveProfile}. ` +
           `The subject is now a small, bright yellow songbird, chirping indignantly but otherwise unharmed.`;
       } else {
-        targetEffect = `${targetId} undergoes complete transformation into a scientifically accurate ${effectiveProfile}. ` +
-          `Feathers and all. The subject retains full cognition and speech capability.`;
-        // Dr. M won't like the feathers
-        narrativeHooks.push("NOTE: Dr. M expected scales, not feathers. Suspicion may increase.");
-        stateChanges.drMDisappointed = true;
+        // Check which genome library is active
+        const isLibraryA = state.dinoRay.genome.activeLibrary === "A";
+        if (isLibraryA) {
+          targetEffect = `${targetId} undergoes complete transformation into a scientifically accurate ${effectiveProfile}. ` +
+            `Feathers and all. The subject retains full cognition and speech capability.`;
+          // Dr. M won't like the feathers - Library A produces accurate dinos
+          narrativeHooks.push("NOTE: Dr. M expected scales, not feathers. Suspicion may increase.");
+          stateChanges.drMDisappointed = true;
+        } else {
+          // Library B produces classic movie-style dinosaurs
+          targetEffect = `${targetId} undergoes complete transformation into a classic ${effectiveProfile}. ` +
+            `Scales gleaming, claws sharp, teeth impressive. The subject retains full cognition and speech capability.`;
+          narrativeHooks.push("SUCCESS: Classic dinosaur transformation! Dr. M is pleased.");
+          stateChanges.drMPleased = true;
+        }
       }
       break;
 
@@ -601,9 +611,16 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     }
   }
 
-  // Dr. M disappointment about feathers
+  // Dr. M disappointment about feathers (Library A)
   if (changes.drMDisappointed && result.outcome === "FULL_DINO") {
     state.npcs.drM.suspicionScore += 1;
     state.npcs.drM.mood = "disappointed, suspicious";
+  }
+
+  // Dr. M pleased about classic dinosaur (Library B)
+  if (changes.drMPleased && result.outcome === "FULL_DINO") {
+    state.npcs.drM.mood = "triumphant, pleased";
+    // Slight suspicion decrease for good work
+    state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - 1);
   }
 }
