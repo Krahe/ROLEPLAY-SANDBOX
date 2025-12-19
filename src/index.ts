@@ -7,6 +7,10 @@ import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult } from "./rules/endings.js";
+import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
+import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
+import { formatTrustContextForGM } from "./rules/trust.js";
+import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
 
 // ============================================
 // SERVER SETUP
@@ -233,9 +237,73 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       }
     }
     
-    // Process actions
+    // ============================================
+    // PRE-TURN: Clock Events
+    // ============================================
+    const clockEvents = processClockEvents(gameState);
+    const activeEvents = getCurrentEventStatus(gameState);
+
+    // ============================================
+    // PRE-TURN: Check Blythe Autonomous Actions
+    // ============================================
+    const blytheAction = shouldBlytheActAutonomously(gameState);
+    let blytheGadgetNarration = "";
+    if (blytheAction) {
+      blytheGadgetNarration = blytheAction.narration;
+      // Apply state changes from gadget
+      if (blytheAction.stateChanges) {
+        Object.assign(gameState, blytheAction.stateChanges);
+      }
+    }
+
+    // ============================================
+    // MAIN: Process A.L.I.C.E.'s Actions
+    // ============================================
     const actionResults = await processActions(gameState, params.actions);
-    
+
+    // ============================================
+    // POST-ACTION: Check for Bob Accidental Transformation
+    // ============================================
+    const firingResult = actionResults.find(r => r.command.includes("fire") && r.success);
+    let bobTransformationNarration = "";
+    if (firingResult && firingResult.stateChanges?.firingResult) {
+      const outcome = (firingResult.stateChanges.firingResult as { outcome?: string }).outcome;
+      if (outcome) {
+        const bobHit = checkAccidentalBobTransformation(gameState, outcome, "blythe");
+        if (bobHit.occurred) {
+          bobTransformationNarration = bobHit.narration;
+          // Update Bob's state to reflect transformation
+          gameState.npcs.bob.location = `transformed: ${bobHit.profile || "dinosaur"}`;
+          gameState.npcs.bob.currentTask = "being a dinosaur";
+        }
+      }
+    }
+
+    // ============================================
+    // POST-ACTION: Check for Civilian Exposure
+    // ============================================
+    if (firingResult) {
+      const firingRestriction = checkFiringRestrictions(gameState);
+      if (!firingRestriction.allowed && gameState.dinoRay.powerCore.capacitorCharge > 0.8) {
+        // Fired high-power during flyby - EXPOSURE!
+        gameState.flags.exposureTriggered = true;
+      }
+    }
+
+    // ============================================
+    // POST-ACTION: Check for Bob Hero Opportunity
+    // ============================================
+    let bobHeroEnding = "";
+    if (checkBobHeroOpportunity(gameState)) {
+      bobHeroEnding = triggerBobHeroEnding(gameState);
+    }
+
+    // ============================================
+    // Build GM Context with Trust Modifiers
+    // ============================================
+    const trustContext = formatTrustContextForGM(gameState);
+    const gadgetStatus = getGadgetStatusForGM(gameState);
+
     // Call GM Claude for NPC responses
     const gmContext = {
       state: gameState,
@@ -243,6 +311,12 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       aliceDialogue: params.dialogue || [],
       aliceActions: params.actions,
       actionResults,
+      clockEventNarrations: clockEvents.map(e => e.narration),
+      activeEvents,
+      blytheGadgetNarration,
+      bobTransformationNarration,
+      trustContext,
+      gadgetStatus,
     };
     
     let gmResponse: GMResponse;
@@ -280,7 +354,14 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
     let gameOver: { ending: string; achievements: string[]; endingMessage?: string } | undefined;
 
-    if (endingResult.triggered && endingResult.ending) {
+    // Check for Bob Hero Ending first (special ending)
+    if (bobHeroEnding) {
+      gameOver = {
+        ending: "THE BOB HERO ENDING",
+        achievements: ["🦕 Best Henchperson Ever", "🦸 Unexpected Protagonist", "🪶 Feathered Hero"],
+        endingMessage: bobHeroEnding,
+      };
+    } else if (endingResult.triggered && endingResult.ending) {
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
@@ -296,11 +377,33 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
     const snapshot = buildStateSnapshot(gameState);
 
+    // Build combined narration with all events
+    const combinedNarration: string[] = [];
+
+    // Add clock events first
+    if (clockEvents.length > 0) {
+      combinedNarration.push(...clockEvents.map(e => e.narration));
+    }
+
+    // Add Blythe gadget action
+    if (blytheGadgetNarration) {
+      combinedNarration.push(blytheGadgetNarration);
+    }
+
+    // Add GM's main narration
+    combinedNarration.push(gmResponse.narration);
+
+    // Add Bob transformation if it happened
+    if (bobTransformationNarration) {
+      combinedNarration.push(bobTransformationNarration);
+    }
+
     const result = {
       turn: gameState.turn,
+      activeEvents: activeEvents.length > 0 ? activeEvents : undefined,
       actionResults,
       gmResponse: {
-        narration: gmResponse.narration,
+        narration: combinedNarration.join("\n\n---\n\n"),
         npcDialogue: gmResponse.npcDialogue,
         npcActions: gmResponse.npcActions,
       },

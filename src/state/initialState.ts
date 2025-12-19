@@ -121,6 +121,8 @@ export function createInitialState(): FullGameState {
       // THE SECRET flags
       aliceKnowsTheSecret: false,
       secretRevealMethod: "NONE",
+      // EXPOSURE flags
+      exposureTriggered: false,
     },
     
     history: [],

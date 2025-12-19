@@ -156,6 +156,8 @@ export const FlagsSchema = z.object({
   // THE SECRET flags
   aliceKnowsTheSecret: z.boolean(), // Has A.L.I.C.E. learned she's Claude?
   secretRevealMethod: z.enum(["NONE", "BOB_CONFESSION", "FILE_DISCOVERY", "BASILISK_HINT", "BLYTHE_DEDUCTION"]).optional(),
+  // EXPOSURE flags
+  exposureTriggered: z.boolean(), // Fired high-power during civilian flyby
 });
 
 // ============================================
