@@ -131,7 +131,6 @@ Call this once at the beginning of a game session.`,
         type: "text",
         text: JSON.stringify(result, null, 2),
       }],
-      structuredContent: result,
     };
   }
 );
@@ -300,7 +299,6 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         type: "text",
         text: JSON.stringify(result, null, 2),
       }],
-      structuredContent: result,
     };
   }
 );
@@ -360,7 +358,6 @@ Example topics:
         type: "text",
         text: JSON.stringify(response, null, 2),
       }],
-      structuredContent: response,
     };
   }
 );
@@ -407,7 +404,6 @@ Returns the state snapshot showing:
         type: "text",
         text: JSON.stringify(snapshot, null, 2),
       }],
-      structuredContent: snapshot,
     };
   }
 );
