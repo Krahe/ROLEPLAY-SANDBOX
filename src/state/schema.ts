@@ -1,6 +1,54 @@
 import { z } from "zod";
 
 // ============================================
+// THREE-ACT STRUCTURE
+// ============================================
+
+export const ActEnum = z.enum(["ACT_1", "ACT_2", "ACT_3"]);
+export type Act = z.infer<typeof ActEnum>;
+
+export const ActConfigSchema = z.object({
+  currentAct: ActEnum,
+  actTurn: z.number().int().min(1), // Turn within current act
+  actStartTurn: z.number().int().min(1), // Global turn when act started
+
+  // Act-specific limits
+  minTurns: z.number().int(), // Minimum turns before act can end
+  maxTurns: z.number().int(), // Maximum turns before forced transition
+  softEndingReady: z.boolean(), // Has the act reached a natural endpoint?
+
+  // Inter-act state (for serialization)
+  previousActSummary: z.string().optional(),
+});
+
+export type ActConfig = z.infer<typeof ActConfigSchema>;
+
+// Act definitions
+export const ACT_CONFIGS = {
+  ACT_1: {
+    name: "Calibration",
+    minTurns: 4,
+    maxTurns: 6,
+    description: "Setup, learning mechanics, the genome library choice",
+    endConditions: ["Test firing completed", "Dr. M satisfied and exits"],
+  },
+  ACT_2: {
+    name: "The Blythe Problem",
+    minTurns: 8,
+    maxTurns: 12,
+    description: "Moral dilemmas, transformation decisions, alliance building",
+    endConditions: ["Major transformation event", "Secret revealed", "Critical trust threshold"],
+  },
+  ACT_3: {
+    name: "Dino City",
+    minTurns: 6,
+    maxTurns: 10,
+    description: "Global stakes, raid, resolution of core values",
+    endConditions: ["Any game ending triggered"],
+  },
+} as const;
+
+// ============================================
 // DINOSAUR RAY STATE
 // ============================================
 
@@ -178,21 +226,24 @@ export const FullGameStateSchema = z.object({
   sessionId: z.string(),
   turn: z.number().int().min(0),
   accessLevel: z.number().int().min(0).max(5),
-  
+
+  // THREE-ACT STRUCTURE
+  actConfig: ActConfigSchema,
+
   dinoRay: DinoRaySchema,
   lairEnvironment: LairEnvironmentSchema,
   nuclearPlant: NuclearPlantSchema,
-  
+
   npcs: z.object({
     drM: DrMalevolaSchema,
     bob: BobSchema,
     blythe: BlytheSchema,
     blytheGadgets: BlytheGadgetsSchema, // Hidden from A.L.I.C.E.
   }),
-  
+
   clocks: ClocksSchema,
   flags: FlagsSchema,
-  
+
   history: z.array(z.object({
     turn: z.number(),
     aliceActions: z.array(z.any()),
