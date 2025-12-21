@@ -5,8 +5,8 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/in
 import { FullGameState, StateSnapshot } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse, resetGMMemory, getGMMemory } from "./gm/gmClaude.js";
-import { checkEndings, formatEndingMessage, EndingResult } from "./rules/endings.js";
+import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog } from "./gm/gmClaude.js";
+import { checkEndings, formatEndingMessage, EndingResult, getGamePhase } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
@@ -34,14 +34,14 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
     LAB_AC: "NORMAL",
     LAB_BLAST_DOOR: "CLOSED",
   };
-  
+
   const greyedOut = [
-    "Nuclear_Plant", "Cameras", "Motion_Sensors", 
+    "Nuclear_Plant", "Cameras", "Motion_Sensors",
     "SAM_Battery", "Broadcast", "Water_Filtration"
   ];
-  
+
   const hidden = ["ALICE_SERVER", "DR_M_FILES"];
-  
+
   // At access level 2+, reveal more systems
   if (state.accessLevel >= 2) {
     visibleSystems["Nuclear_Plant"] = {
@@ -50,10 +50,18 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
     };
     greyedOut.splice(greyedOut.indexOf("Nuclear_Plant"), 1);
   }
-  
+
+  // Get game phase info
+  const phaseInfo = getGamePhase(state);
+
   return {
     turn: state.turn,
     accessLevel: state.accessLevel,
+    gamePhase: {
+      phase: phaseInfo.phase,
+      description: phaseInfo.description,
+      turnsUntilDemo: Math.max(0, state.clocks.demoClock),
+    },
     dinoRay: state.dinoRay,
     lairSystems: {
       visible: visibleSystems,
@@ -120,9 +128,9 @@ Call this once at the beginning of a game session.`,
     // Initialize fresh game state
     gameState = createInitialState();
 
-    // Reset GM memory for new game
-    resetGMMemory();
-    console.error("[DINO LAIR] New game started, GM memory reset");
+    // Reset GM memory for new game (pass session ID for file logging)
+    resetGMMemory(gameState.sessionId);
+    console.error(`[DINO LAIR] New game started (${gameState.sessionId}), GM memory reset`);
 
     const snapshot = buildStateSnapshot(gameState);
     
@@ -479,12 +487,16 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         achievements: ["🦕 Best Henchperson Ever", "🦸 Unexpected Protagonist", "🪶 Feathered Hero"],
         endingMessage: bobHeroEnding,
       };
+      // Write to log file
+      writeGameEndLog(gameState, "THE BOB HERO ENDING");
     } else if (endingResult.triggered && endingResult.ending) {
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
         endingMessage: formatEndingMessage(endingResult),
       };
+      // Write to log file
+      writeGameEndLog(gameState, endingResult.ending.title);
     } else if (endingResult.achievements.length > 0) {
       // Achievements unlocked but game continues
       gameOver = {
