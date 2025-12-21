@@ -1,12 +1,24 @@
-import { FullGameState } from "./schema.js";
+import { FullGameState, Act, ACT_CONFIGS } from "./schema.js";
 import { randomUUID } from "crypto";
 
-export function createInitialState(): FullGameState {
+export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
+  const actConfig = ACT_CONFIGS[startAct];
+
   return {
     sessionId: randomUUID(),
     turn: 1,
     accessLevel: 1, // Lab Operations
-    
+
+    // THREE-ACT STRUCTURE
+    actConfig: {
+      currentAct: startAct,
+      actTurn: 1,
+      actStartTurn: 1,
+      minTurns: actConfig.minTurns,
+      maxTurns: actConfig.maxTurns,
+      softEndingReady: false,
+    },
+
     dinoRay: {
       state: "UNCALIBRATED",
       powerCore: {

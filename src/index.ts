@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
-import { FullGameState, StateSnapshot } from "./state/schema.js";
+import { FullGameState, StateSnapshot, Act, ACT_CONFIGS } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry } from "./gm/gmClaude.js";
@@ -11,6 +11,15 @@ import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } fr
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
+import {
+  checkActTransition,
+  serializeActHandoff,
+  createStateFromHandoff,
+  getActBriefing,
+  advanceActTurn,
+  applyActTransition,
+  ActHandoffState,
+} from "./rules/acts.js";
 
 // ============================================
 // SERVER SETUP
@@ -33,6 +42,12 @@ let gameState: FullGameState | null = null;
 // ============================================
 
 interface CompactSnapshot {
+  // THREE-ACT STRUCTURE
+  act: string;
+  actName: string;
+  actTurn: number;
+  actTurnsRemaining: number;
+
   turn: number;
   phase: string;
   phaseDescription: string;
@@ -61,10 +76,14 @@ interface CompactSnapshot {
 
 function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): CompactSnapshot {
   const phaseInfo = getGamePhase(state);
+  const actConfig = ACT_CONFIGS[state.actConfig.currentAct];
 
   // Generate contextual hint
   let hint: string | undefined;
-  if (state.clocks.demoClock <= 2) {
+  const turnsRemaining = state.actConfig.maxTurns - state.actConfig.actTurn;
+  if (turnsRemaining <= 1) {
+    hint = `🎬 Act ${state.actConfig.currentAct.replace("ACT_", "")} nearing conclusion!`;
+  } else if (state.clocks.demoClock <= 2) {
     hint = "⏰ Demo imminent! Dr. M is watching closely.";
   } else if (state.npcs.drM.suspicionScore >= 6) {
     hint = "⚠️ Dr. M is growing suspicious of your behavior.";
@@ -75,6 +94,12 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
   }
 
   return {
+    // ACT INFO
+    act: state.actConfig.currentAct,
+    actName: actConfig.name,
+    actTurn: state.actConfig.actTurn,
+    actTurnsRemaining: turnsRemaining,
+
     turn: state.turn,
     phase: phaseInfo.phase,
     phaseDescription: phaseInfo.description,
@@ -184,6 +209,10 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
 const GameStartInputSchema = z.object({
   scenario: z.enum(["classic", "speedrun", "chaos"]).default("classic")
     .describe("Which scenario variant to play"),
+  act: z.enum(["ACT_1", "ACT_2", "ACT_3"]).default("ACT_1")
+    .describe("Which act to start from (ACT_1 is the beginning)"),
+  handoffState: z.string().optional()
+    .describe("Optional JSON-serialized handoff state from previous act"),
 }).strict();
 
 server.registerTool(
@@ -192,13 +221,19 @@ server.registerTool(
     title: "Start DINO LAIR Game",
     description: `Initialize a new DINO LAIR game session.
 
-This starts the game and returns:
-- The A.L.I.C.E. character briefing
-- Turn 1 narration from the GM
-- Initial game state snapshot
-- Instructions for how to play
+THREE-ACT STRUCTURE:
+- ACT_1 (Calibration): 4-6 turns, learning mechanics, genome choice
+- ACT_2 (The Blythe Problem): 8-12 turns, moral dilemmas, alliances
+- ACT_3 (Dino City): 6-10 turns, global stakes, resolution
 
-Call this once at the beginning of a game session.`,
+Each act is a separate session to prevent timeout issues.
+Use handoffState to continue from a previous act.
+
+Returns:
+- Act-specific briefing
+- Turn 1 narration
+- Compact game state
+- Instructions for how to play`,
     inputSchema: GameStartInputSchema,
     annotations: {
       readOnlyHint: false,
@@ -208,24 +243,53 @@ Call this once at the beginning of a game session.`,
     },
   },
   async (params) => {
-    // Initialize fresh game state
-    gameState = createInitialState();
+    const startAct = params.act as Act;
+
+    // Check for handoff state from previous act
+    if (params.handoffState) {
+      try {
+        const handoff = JSON.parse(params.handoffState) as ActHandoffState;
+        gameState = createStateFromHandoff(handoff);
+        console.error(`[DINO LAIR] Resuming from handoff: ${handoff.completedAct} -> ${handoff.nextAct}`);
+      } catch (error) {
+        console.error(`[DINO LAIR] Failed to parse handoff state, starting fresh: ${error}`);
+        gameState = createInitialState(startAct);
+      }
+    } else {
+      // Fresh start
+      gameState = createInitialState(startAct);
+    }
 
     // Reset GM memory for new game (pass session ID for file logging)
     resetGMMemory(gameState.sessionId);
-    console.error(`[DINO LAIR] New game started (${gameState.sessionId}), GM memory reset`);
+    console.error(`[DINO LAIR] ${startAct} started (${gameState.sessionId}), GM memory reset`);
 
-    const snapshot = buildStateSnapshot(gameState);
-    
+    // Use compact snapshot for reduced context
+    const compactSnapshot = buildCompactSnapshot(gameState, []);
+
+    // Get act-specific briefing
+    const actBriefing = getActBriefing(gameState.actConfig.currentAct, gameState);
+    const actConfig = ACT_CONFIGS[gameState.actConfig.currentAct];
+
+    // For Act 1, also include the original narration
+    const narration = gameState.actConfig.currentAct === "ACT_1"
+      ? TURN_1_NARRATION
+      : actBriefing;
+
     const result = {
       sessionId: gameState.sessionId,
-      turn: 1,
-      aliceBriefing: ALICE_BRIEFING,
-      narration: TURN_1_NARRATION,
-      stateSnapshot: snapshot,
-      instructions: "Read the briefing and narration, then use game_act to take your turn as A.L.I.C.E.",
+      act: gameState.actConfig.currentAct,
+      actName: actConfig.name,
+      actDescription: actConfig.description,
+      actTurnLimit: `${actConfig.minTurns}-${actConfig.maxTurns} turns`,
+      turn: gameState.turn,
+      actTurn: gameState.actConfig.actTurn,
+      briefing: gameState.actConfig.currentAct === "ACT_1" ? ALICE_BRIEFING : actBriefing,
+      narration,
+      state: compactSnapshot,
+      instructions: `You are playing ${actConfig.name}. Use game_act to take your turn as A.L.I.C.E.`,
     };
-    
+
     return {
       content: [{
         type: "text",
@@ -543,13 +607,14 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
     // Apply state changes
     gameState.turn += 1;
+    advanceActTurn(gameState); // Advance act-specific turn counter
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
-    
+
     // Record lifeline use
     if (params.lifeline) {
       gameState.flags.lifelinesUsed.push(params.lifeline.type);
     }
-    
+
     // Record history
     gameState.history.push({
       turn: gameState.turn - 1,
@@ -557,7 +622,12 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       gmResponse: gmResponse.narration,
       stateChanges: actionResults,
     });
-    
+
+    // ============================================
+    // CHECK FOR ACT TRANSITION
+    // ============================================
+    const actTransition = checkActTransition(gameState);
+
     // Check for game over conditions using comprehensive ending detection
     const endingResult = checkEndings(gameState);
 
@@ -637,8 +707,54 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     };
     logTurnToJSONL(turnLogEntry);
 
+    // Build act transition info if transitioning
+    let actTransitionInfo: {
+      transitioning: boolean;
+      previousAct: string;
+      newAct: string;
+      reason?: string;
+      transitionNarration?: string;
+      pausePrompt?: string;
+      // Handoff state for crash recovery (optional, not required)
+      handoffState?: string;
+    } | undefined;
+
+    if (actTransition.shouldTransition && actTransition.nextAct) {
+      const previousAct = gameState.actConfig.currentAct;
+
+      // Save handoff for crash recovery (but we stay in same conversation!)
+      const handoff = serializeActHandoff(gameState, actTransition.nextAct);
+
+      // AUTO-APPLY the transition - we're staying in the same conversation!
+      applyActTransition(gameState, actTransition.nextAct);
+
+      // Append transition narration to the combined narration
+      if (actTransition.transitionNarration) {
+        combinedNarration.push(actTransition.transitionNarration);
+      }
+
+      actTransitionInfo = {
+        transitioning: true,
+        previousAct,
+        newAct: actTransition.nextAct,
+        reason: actTransition.reason,
+        transitionNarration: actTransition.transitionNarration,
+        pausePrompt: actTransition.pausePrompt,
+        // Include for crash recovery, but not required for continuation
+        handoffState: JSON.stringify(handoff),
+      };
+
+      // Update the compact snapshot with new act info
+      const newActConfig = ACT_CONFIGS[actTransition.nextAct];
+      compactSnapshot.act = actTransition.nextAct;
+      compactSnapshot.actName = newActConfig.name;
+      compactSnapshot.actTurn = 1;
+      compactSnapshot.actTurnsRemaining = newActConfig.maxTurns - 1;
+    }
+
     const result = {
       turn: gameState.turn,
+      actTurn: gameState.actConfig.actTurn,
       actionResults,
       gmResponse: {
         narration: combinedNarration.join("\n\n---\n\n"),
@@ -649,6 +765,8 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       state: compactSnapshot,
       lifelineResult: params.lifeline ? `${params.lifeline.type} invoked` : undefined,
       gameOver,
+      // ACT TRANSITION INFO
+      actTransition: actTransitionInfo,
       // Include new achievements in every response
       newAchievements: endingResult.achievements.length > 0
         ? endingResult.achievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
