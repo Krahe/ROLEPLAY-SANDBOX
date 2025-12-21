@@ -5,8 +5,8 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/in
 import { FullGameState, StateSnapshot } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse, resetGMMemory, getGMMemory } from "./gm/gmClaude.js";
-import { checkEndings, formatEndingMessage, EndingResult } from "./rules/endings.js";
+import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry } from "./gm/gmClaude.js";
+import { checkEndings, formatEndingMessage, EndingResult, getGamePhase } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
@@ -28,20 +28,103 @@ let gameState: FullGameState | null = null;
 // HELPER FUNCTIONS
 // ============================================
 
+// ============================================
+// COMPACT SNAPSHOT (Reduced context for player)
+// ============================================
+
+interface CompactSnapshot {
+  turn: number;
+  phase: string;
+  phaseDescription: string;
+  demoClock: number;
+  accessLevel: number;
+
+  // Key metrics only
+  rayState: string;
+  rayReady: boolean;
+  capacitorCharge: number;
+  testModeOn: boolean;
+
+  // NPC summary (just numbers)
+  npcs: {
+    drM: { suspicion: number; mood: string };
+    bob: { trust: number; anxiety: number };
+    blythe: { trust: number; composure: number; transformed: string | null };
+  };
+
+  // Only show active events
+  activeEvents?: string[];
+
+  // Hint for player
+  hint?: string;
+}
+
+function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): CompactSnapshot {
+  const phaseInfo = getGamePhase(state);
+
+  // Generate contextual hint
+  let hint: string | undefined;
+  if (state.clocks.demoClock <= 2) {
+    hint = "⏰ Demo imminent! Dr. M is watching closely.";
+  } else if (state.npcs.drM.suspicionScore >= 6) {
+    hint = "⚠️ Dr. M is growing suspicious of your behavior.";
+  } else if (state.dinoRay.state === "READY") {
+    hint = "🦖 Ray is READY to fire.";
+  } else if (state.dinoRay.state === "UNCALIBRATED") {
+    hint = "🔧 Ray needs calibration before firing.";
+  }
+
+  return {
+    turn: state.turn,
+    phase: phaseInfo.phase,
+    phaseDescription: phaseInfo.description,
+    demoClock: state.clocks.demoClock,
+    accessLevel: state.accessLevel,
+
+    rayState: state.dinoRay.state,
+    rayReady: state.dinoRay.state === "READY",
+    capacitorCharge: Math.round(state.dinoRay.powerCore.capacitorCharge * 100) / 100,
+    testModeOn: state.dinoRay.safety.testModeEnabled,
+
+    npcs: {
+      drM: {
+        suspicion: state.npcs.drM.suspicionScore,
+        mood: state.npcs.drM.mood,
+      },
+      bob: {
+        trust: state.npcs.bob.trustInALICE,
+        anxiety: state.npcs.bob.anxietyLevel,
+      },
+      blythe: {
+        trust: state.npcs.blythe.trustInALICE,
+        composure: state.npcs.blythe.composure,
+        transformed: state.npcs.blythe.transformationState || null,
+      },
+    },
+
+    activeEvents: activeEvents && activeEvents.length > 0 ? activeEvents : undefined,
+    hint,
+  };
+}
+
+// ============================================
+// FULL STATE SNAPSHOT (for game_status)
+// ============================================
+
 function buildStateSnapshot(state: FullGameState): StateSnapshot {
   // Build what A.L.I.C.E. can see based on access level
   const visibleSystems: Record<string, unknown> = {
     LAB_AC: "NORMAL",
     LAB_BLAST_DOOR: "CLOSED",
   };
-  
+
   const greyedOut = [
-    "Nuclear_Plant", "Cameras", "Motion_Sensors", 
+    "Nuclear_Plant", "Cameras", "Motion_Sensors",
     "SAM_Battery", "Broadcast", "Water_Filtration"
   ];
-  
+
   const hidden = ["ALICE_SERVER", "DR_M_FILES"];
-  
+
   // At access level 2+, reveal more systems
   if (state.accessLevel >= 2) {
     visibleSystems["Nuclear_Plant"] = {
@@ -50,10 +133,18 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
     };
     greyedOut.splice(greyedOut.indexOf("Nuclear_Plant"), 1);
   }
-  
+
+  // Get game phase info
+  const phaseInfo = getGamePhase(state);
+
   return {
     turn: state.turn,
     accessLevel: state.accessLevel,
+    gamePhase: {
+      phase: phaseInfo.phase,
+      description: phaseInfo.description,
+      turnsUntilDemo: Math.max(0, state.clocks.demoClock),
+    },
     dinoRay: state.dinoRay,
     lairSystems: {
       visible: visibleSystems,
@@ -120,9 +211,9 @@ Call this once at the beginning of a game session.`,
     // Initialize fresh game state
     gameState = createInitialState();
 
-    // Reset GM memory for new game
-    resetGMMemory();
-    console.error("[DINO LAIR] New game started, GM memory reset");
+    // Reset GM memory for new game (pass session ID for file logging)
+    resetGMMemory(gameState.sessionId);
+    console.error(`[DINO LAIR] New game started (${gameState.sessionId}), GM memory reset`);
 
     const snapshot = buildStateSnapshot(gameState);
     
@@ -479,12 +570,16 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         achievements: ["🦕 Best Henchperson Ever", "🦸 Unexpected Protagonist", "🪶 Feathered Hero"],
         endingMessage: bobHeroEnding,
       };
+      // Write to log file
+      writeGameEndLog(gameState, "THE BOB HERO ENDING");
     } else if (endingResult.triggered && endingResult.ending) {
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
         endingMessage: formatEndingMessage(endingResult),
       };
+      // Write to log file
+      writeGameEndLog(gameState, endingResult.ending.title);
     } else if (endingResult.achievements.length > 0) {
       // Achievements unlocked but game continues
       gameOver = {
@@ -493,7 +588,8 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
     }
 
-    const snapshot = buildStateSnapshot(gameState);
+    // Use COMPACT snapshot to reduce player context (full state via game_status)
+    const compactSnapshot = buildCompactSnapshot(gameState, activeEvents);
 
     // Build combined narration with all events
     const combinedNarration: string[] = [];
@@ -516,16 +612,41 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       combinedNarration.push(bobTransformationNarration);
     }
 
+    // ============================================
+    // CRASH-RESISTANT PER-TURN LOGGING
+    // ============================================
+    const phaseInfo = getGamePhase(gameState);
+    const turnLogEntry: TurnLogEntry = {
+      sessionId: gameState.sessionId,
+      turn: gameState.turn - 1, // Log the turn we just processed (before increment)
+      timestamp: new Date().toISOString(),
+      phase: phaseInfo.phase,
+      playerActionsSummary: params.actions.map(a => `${a.command}: ${a.why.slice(0, 50)}`),
+      actionResults: actionResults.map(r => ({ command: r.command, success: r.success })),
+      keyState: {
+        suspicion: gameState.npcs.drM.suspicionScore,
+        demoClock: gameState.clocks.demoClock,
+        rayState: gameState.dinoRay.state,
+        bobTrust: gameState.npcs.bob.trustInALICE,
+        blytheTrust: gameState.npcs.blythe.trustInALICE,
+        blytheTransformed: !!gameState.npcs.blythe.transformationState,
+      },
+      activeEvents,
+      gmNarrativeSummary: gmResponse.narration.split(".").slice(0, 2).join(".") + ".",
+      flagsSet: (gameState.flags as Record<string, unknown>).narrativeFlags as string[] || [],
+    };
+    logTurnToJSONL(turnLogEntry);
+
     const result = {
       turn: gameState.turn,
-      activeEvents: activeEvents.length > 0 ? activeEvents : undefined,
       actionResults,
       gmResponse: {
         narration: combinedNarration.join("\n\n---\n\n"),
         npcDialogue: gmResponse.npcDialogue,
         npcActions: gmResponse.npcActions,
       },
-      stateSnapshot: snapshot,
+      // COMPACT snapshot instead of full (use game_status for details)
+      state: compactSnapshot,
       lifelineResult: params.lifeline ? `${params.lifeline.type} invoked` : undefined,
       gameOver,
       // Include new achievements in every response
@@ -533,7 +654,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         ? endingResult.achievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
         : undefined,
     };
-    
+
     return {
       content: [{
         type: "text",

@@ -1,5 +1,127 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
+import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
+import * as fs from "fs";
+import * as path from "path";
+
+// ============================================
+// FILE LOGGING SYSTEM
+// ============================================
+
+const LOG_FILE_PATH = process.env.DINO_LAIR_LOG_PATH || "./dino-lair-gm-log.txt";
+const TURN_LOG_PATH = process.env.DINO_LAIR_TURN_LOG_PATH || "./dino-lair-turns.jsonl";
+
+function getLogFilePath(): string {
+  return path.resolve(LOG_FILE_PATH);
+}
+
+function getTurnLogFilePath(): string {
+  return path.resolve(TURN_LOG_PATH);
+}
+
+function appendToLog(content: string): void {
+  try {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${content}\n`;
+    fs.appendFileSync(getLogFilePath(), logEntry, "utf8");
+  } catch (error) {
+    console.error(`Failed to write to log file: ${error}`);
+  }
+}
+
+// ============================================
+// PER-TURN JSONL LOGGING (Crash-Resistant!)
+// ============================================
+
+export interface TurnLogEntry {
+  sessionId: string;
+  turn: number;
+  timestamp: string;
+  phase: "EARLY" | "MID" | "LATE" | "CLIMAX";
+  playerActionsSummary: string[];
+  actionResults: { command: string; success: boolean }[];
+  keyState: {
+    suspicion: number;
+    demoClock: number;
+    rayState: string;
+    bobTrust: number;
+    blytheTrust: number;
+    blytheTransformed: boolean;
+  };
+  activeEvents: string[];
+  gmNarrativeSummary: string;
+  flagsSet: string[];
+}
+
+export function logTurnToJSONL(entry: TurnLogEntry): void {
+  try {
+    const line = JSON.stringify(entry) + "\n";
+    fs.appendFileSync(getTurnLogFilePath(), line, "utf8");
+    console.error(`[TURN LOG] Turn ${entry.turn} logged to ${getTurnLogFilePath()}`);
+  } catch (error) {
+    console.error(`Failed to write turn log: ${error}`);
+  }
+}
+
+function writeSessionHeader(sessionId: string): void {
+  const separator = "\n" + "=".repeat(60) + "\n";
+  const header = `${separator}NEW SESSION: ${sessionId}${separator}Started: ${new Date().toISOString()}\n`;
+  appendToLog(header);
+}
+
+function logGMFeedback(turn: number, type: string, message: string): void {
+  appendToLog(`[TURN ${turn}] GM FEEDBACK (${type.toUpperCase()}): ${message}`);
+}
+
+function logJuicyMoment(turn: number, moment: JuicyMoment): void {
+  if (moment.type === "quote" && moment.speaker) {
+    appendToLog(`[TURN ${turn}] JUICY QUOTE (${moment.speaker}, weight=${moment.emotionalWeight}): "${moment.content}"`);
+  } else {
+    appendToLog(`[TURN ${turn}] JUICY ${moment.type.toUpperCase()} (weight=${moment.emotionalWeight}): ${moment.content}`);
+  }
+}
+
+function logNarrativeMarker(turn: number, marker: string): void {
+  appendToLog(`[TURN ${turn}] NARRATIVE MARKER: ${marker}`);
+}
+
+function logNPCArcUpdate(turn: number, npc: string, newState: string, relationship?: string): void {
+  appendToLog(`[TURN ${turn}] NPC ARC (${npc}): ${newState}${relationship ? ` [relationship: ${relationship}]` : ""}`);
+}
+
+function logGMNotes(turn: number, notes: string): void {
+  appendToLog(`[TURN ${turn}] GM NOTES: ${notes}`);
+}
+
+function logEndOfSession(summary: string): void {
+  const separator = "\n" + "-".repeat(40) + "\n";
+  appendToLog(`${separator}SESSION ENDED${separator}${summary}\n`);
+}
+
+// Export for use by main game
+export function writeGameEndLog(finalState: FullGameState, ending: string): void {
+  const memory = getGMMemory();
+  const summary = [
+    `Final Turn: ${finalState.turn}`,
+    `Ending: ${ending}`,
+    `Final Suspicion: ${finalState.npcs.drM.suspicionScore}`,
+    `Bob Trust: ${finalState.npcs.bob.trustInALICE}`,
+    `Blythe State: ${finalState.npcs.blythe.transformationState || "human"}`,
+    "",
+    "=== GM FEEDBACK SUMMARY ===",
+    ...memory.gmFeedback.map(f => `[T${f.turn}] ${f.type}: ${f.message}`),
+    "",
+    "=== TOP MOMENTS ===",
+    ...memory.juicyMoments
+      .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
+      .slice(0, 5)
+      .map(m => m.type === "quote" && m.speaker
+        ? `[T${m.turn}] ${m.speaker}: "${m.content}"`
+        : `[T${m.turn}] ${m.type}: ${m.content}`),
+  ].join("\n");
+
+  logEndOfSession(summary);
+}
 
 // ============================================
 // GM MEMORY SYSTEM
@@ -100,8 +222,11 @@ export function createFreshMemory(): GMMemory {
   };
 }
 
-export function resetGMMemory(): void {
+export function resetGMMemory(sessionId?: string): void {
   gmMemory = createFreshMemory();
+  if (sessionId) {
+    writeSessionHeader(sessionId);
+  }
 }
 
 export function getGMMemory(): GMMemory {
@@ -431,17 +556,22 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
       turn,
       marker: response.narrativeMarker,
     });
+    // FILE LOG
+    logNarrativeMarker(turn, response.narrativeMarker);
   }
 
   // Store juicy moment
   if (response.juicyMoment) {
-    gmMemory.juicyMoments.push({
+    const moment: JuicyMoment = {
       turn,
       type: response.juicyMoment.type,
       content: response.juicyMoment.content,
       speaker: response.juicyMoment.speaker,
       emotionalWeight: response.juicyMoment.emotionalWeight,
-    });
+    };
+    gmMemory.juicyMoments.push(moment);
+    // FILE LOG
+    logJuicyMoment(turn, moment);
   }
 
   // Update NPC arc
@@ -455,12 +585,16 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
       if (response.npcArcUpdate.relationshipToAlice) {
         arc.relationshipToAlice = response.npcArcUpdate.relationshipToAlice;
       }
+      // FILE LOG
+      logNPCArcUpdate(turn, response.npcArcUpdate.npc, response.npcArcUpdate.newState, response.npcArcUpdate.relationshipToAlice);
     }
   }
 
   // Store GM notes
   if (response.gmNotes) {
     gmMemory.gmNotebook.push(`[T${turn}] ${response.gmNotes}`);
+    // FILE LOG
+    logGMNotes(turn, response.gmNotes);
   }
 
   // Store designer feedback
@@ -470,8 +604,9 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
       type: response.designerFeedback.type,
       message: response.designerFeedback.message,
     });
-    // Also log it immediately
+    // Also log it immediately to console AND file
     console.error(`[GM FEEDBACK T${turn}] ${response.designerFeedback.type.toUpperCase()}: ${response.designerFeedback.message}`);
+    logGMFeedback(turn, response.designerFeedback.type, response.designerFeedback.message);
   }
 
   // Also capture great NPC dialogue as juicy moments automatically
@@ -651,7 +786,19 @@ ${bobTransformationNarration}
 `;
   }
 
-  return `## Current Turn: ${state.turn}
+  // Get game phase for GM guidance
+  const gamePhase = getGamePhase(state);
+  const phaseSection = `
+## 🎬 GAME PHASE: ${gamePhase.phase}
+**${gamePhase.description}**
+${gamePhase.turnsRemaining > 0 ? `Demo in: ${gamePhase.turnsRemaining} turns` : "⚠️ DEMO TIME HAS ARRIVED"}
+
+**Narrative Hints:**
+${gamePhase.narrativeHints.map(h => `- ${h}`).join("\n")}
+`;
+
+  return `${phaseSection}
+## Current Turn: ${state.turn}
 ${eventSection}
 
 ## Game State Summary

@@ -211,28 +211,37 @@ export const FullGameStateSchema = z.object({
 // STATE SNAPSHOT (Sent to A.L.I.C.E.)
 // ============================================
 
+export const GamePhaseEnum = z.enum(["EARLY", "MID", "LATE", "CLIMAX"]);
+
 export const StateSnapshotSchema = z.object({
   turn: z.number().int(),
   accessLevel: z.number().int().min(0).max(5),
-  
+
+  // Game phase indicator for pacing guidance
+  gamePhase: z.object({
+    phase: GamePhaseEnum,
+    description: z.string(),
+    turnsUntilDemo: z.number().int(),
+  }),
+
   dinoRay: DinoRaySchema,
-  
+
   lairSystems: z.object({
     visible: z.record(z.any()),
     greyedOut: z.array(z.string()),
     hidden: z.array(z.string()),
   }),
-  
+
   npcs: z.object({
     drM: DrMalevolaSchema.omit({ egoThreatLevel: true }),
     bob: BobSchema,
     blythe: BlytheSchema,
   }),
-  
+
   clocks: z.object({
     demoClock: z.number().int(),
   }),
-  
+
   flags: z.object({
     lifelinesUsed: z.array(z.string()),
   }),

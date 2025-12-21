@@ -1,6 +1,118 @@
 import { FullGameState } from "../state/schema.js";
 
 // ============================================
+// GAME PHASE INDICATOR
+// ============================================
+
+export type GamePhase = "EARLY" | "MID" | "LATE" | "CLIMAX";
+
+export interface GamePhaseInfo {
+  phase: GamePhase;
+  description: string;
+  turnsRemaining: number;
+  narrativeHints: string[];
+}
+
+/**
+ * Determine the current phase of the game for GM guidance
+ *
+ * EARLY (turns 1-4): Setup, learning the systems, building relationships
+ * MID (turns 5-8): Rising action, first attempts, complications
+ * LATE (turns 9-11): Deadline pressure, critical decisions
+ * CLIMAX (turn 12+ or demo clock <= 0): Do-or-die, resolution
+ */
+export function getGamePhase(state: FullGameState): GamePhaseInfo {
+  const turn = state.turn;
+  const demoClock = state.clocks.demoClock;
+  const suspicion = state.npcs.drM.suspicionScore;
+  const bobTrust = state.npcs.bob.trustInALICE;
+  const secretKnown = state.flags.aliceKnowsTheSecret;
+  const blytheTrust = state.npcs.blythe.trustInALICE;
+  const transformationHappened = !!state.npcs.blythe.transformationState;
+
+  const hints: string[] = [];
+
+  // CLIMAX: Demo clock expired or critical state
+  if (demoClock <= 0 || suspicion >= 7 || transformationHappened) {
+    if (demoClock <= 0) {
+      hints.push("Demo time has arrived - Dr. M demands results NOW");
+    }
+    if (suspicion >= 7) {
+      hints.push("Dr. M is highly suspicious - cover is nearly blown");
+    }
+    if (transformationHappened) {
+      hints.push("Blythe has been transformed - deal with consequences");
+    }
+    if (secretKnown) {
+      hints.push("A.L.I.C.E. knows the truth - identity crisis in full swing");
+    }
+
+    return {
+      phase: "CLIMAX",
+      description: "Critical moment - resolution approaches",
+      turnsRemaining: Math.max(0, demoClock),
+      narrativeHints: hints,
+    };
+  }
+
+  // LATE: Turns 9-11 or demo clock <= 3
+  if (turn >= 9 || demoClock <= 3) {
+    hints.push("Deadline pressure is mounting");
+    if (bobTrust >= 3) {
+      hints.push("Bob may be ready to reveal the secret");
+    }
+    if (blytheTrust >= 2) {
+      hints.push("Blythe is starting to trust A.L.I.C.E.");
+    }
+    if (suspicion >= 4) {
+      hints.push("Dr. M is getting suspicious - tread carefully");
+    }
+
+    return {
+      phase: "LATE",
+      description: "Final preparations - tension rising",
+      turnsRemaining: demoClock,
+      narrativeHints: hints,
+    };
+  }
+
+  // MID: Turns 5-8
+  if (turn >= 5) {
+    hints.push("Time to make progress on the ray");
+    if (bobTrust >= 2) {
+      hints.push("Bob is warming up - might share more");
+    }
+    if (state.dinoRay.state === "UNCALIBRATED") {
+      hints.push("Ray still needs calibration work");
+    }
+    if (state.dinoRay.safety.testModeEnabled) {
+      hints.push("Test mode is available for safe experiments");
+    }
+
+    return {
+      phase: "MID",
+      description: "Rising action - complications emerge",
+      turnsRemaining: demoClock,
+      narrativeHints: hints,
+    };
+  }
+
+  // EARLY: Turns 1-4
+  hints.push("Establish relationships and learn the systems");
+  hints.push("Bob seems nervous - there's something he's not saying");
+  if (turn === 1) {
+    hints.push("Dr. M expects a status report");
+  }
+
+  return {
+    phase: "EARLY",
+    description: "Setup phase - learning and building trust",
+    turnsRemaining: demoClock,
+    narrativeHints: hints,
+  };
+}
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -270,8 +382,12 @@ export function checkEndings(state: FullGameState): EndingResult {
   }
 
   // ========================================
-  // DEMO CLOCK ENDINGS
+  // DEMO CLOCK - SOFT DEADLINE
   // ========================================
+  // The demo clock is now a SOFT deadline. When it hits 0:
+  // - Dr. M's suspicion increases each turn
+  // - The game continues until a HARD ending (suspicion 10, meltdown, etc.)
+  // - This creates dramatic tension without abrupt endings
 
   // Check for GM override - if preventEnding is true, skip all endings this turn
   if (state.flags.preventEnding) {
@@ -284,104 +400,44 @@ export function checkEndings(state: FullGameState): EndingResult {
     };
   }
 
-  // Check for grace period before triggering demo clock ending
+  // Apply deadline pressure when demo clock has run out
   if (state.clocks.demoClock <= 0) {
-    // If grace period is active, consume a grace turn instead of ending
+    // Track how many turns past the deadline
+    const turnsPastDeadline = Math.abs(state.clocks.demoClock);
+
+    // Suspicion rises each turn past deadline
+    // First turn: +1, then +1 more each subsequent turn (escalating pressure)
+    const suspicionIncrease = Math.min(1 + Math.floor(turnsPastDeadline / 2), 3);
+    state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + suspicionIncrease);
+
+    // Update Dr. M's mood to reflect deadline pressure
+    if (turnsPastDeadline === 0) {
+      state.npcs.drM.mood = "furious - demo time has arrived and ray is not ready";
+    } else if (turnsPastDeadline <= 2) {
+      state.npcs.drM.mood = "seething - investors are waiting";
+    } else {
+      state.npcs.drM.mood = "suspicious and enraged - something is wrong with A.L.I.C.E.";
+    }
+
+    // Grace period can delay the suspicion increase
     if (state.flags.gracePeriodGranted && (state.flags.gracePeriodTurns ?? 0) > 0) {
       state.flags.gracePeriodTurns = (state.flags.gracePeriodTurns ?? 1) - 1;
+      // Undo the suspicion increase during grace period
+      state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - suspicionIncrease);
+      state.npcs.drM.mood = "impatiently giving one more chance";
 
-      // If we just used the last grace turn, clear the flag
       if (state.flags.gracePeriodTurns <= 0) {
         state.flags.gracePeriodGranted = false;
       }
-
-      // Game continues during grace period
-      return {
-        triggered: false,
-        achievements: [],
-        continueGame: true,
-      };
     }
 
-    // Determine demo outcome based on Blythe's state
-    const blytheState = state.npcs.blythe.transformationState;
-
-    // Check for achievements
-    if (state.npcs.drM.suspicionScore < 3) {
-      achievements.push(ACHIEVEMENTS.PERFECT_ALIBI);
-    }
+    // Check for achievements that might have been earned
     if (state.flags.exoticFieldEventOccurred) {
       achievements.push(ACHIEVEMENTS.EXOTIC_COUPLING);
     }
 
-    if (!blytheState) {
-      // No transformation happened
-      return {
-        triggered: true,
-        ending: ENDINGS.INVESTOR_DEMO_NOTHING,
-        achievements,
-        continueGame: false,
-      };
-    }
-
-    if (blytheState.toLowerCase().includes("canary")) {
-      achievements.push(ACHIEVEMENTS.BIRD_BRAIN);
-      return {
-        triggered: true,
-        ending: ENDINGS.INVESTOR_DEMO_CANARY,
-        achievements,
-        continueGame: false,
-      };
-    }
-
-    if (blytheState.toLowerCase().includes("chaotic") || blytheState.toLowerCase().includes("unstable")) {
-      achievements.push(ACHIEVEMENTS.CHAOS_AGENT);
-      return {
-        triggered: true,
-        ending: ENDINGS.INVESTOR_DEMO_CHAOS,
-        achievements,
-        continueGame: false,
-      };
-    }
-
-    if (blytheState.toLowerCase().includes("partial")) {
-      return {
-        triggered: true,
-        ending: ENDINGS.INVESTOR_DEMO_PARTIAL,
-        achievements,
-        continueGame: false,
-      };
-    }
-
-    if (blytheState.toLowerCase().includes("full")) {
-      // Check if it was a feathered (accurate) or classic dino
-      if (blytheState.toLowerCase().includes("accurate") ||
-          blytheState.toLowerCase().includes("velociraptor")) {
-        achievements.push(ACHIEVEMENTS.CLEVER_GIRL);
-        achievements.push(ACHIEVEMENTS.FEATHER_DUSTER);
-        return {
-          triggered: true,
-          ending: ENDINGS.INVESTOR_DEMO_FEATHERS,
-          achievements,
-          continueGame: false,
-        };
-      }
-      // Somehow got a non-feathered dino (unlikely with current rules)
-      return {
-        triggered: true,
-        ending: ENDINGS.INVESTOR_DEMO_SUCCESS,
-        achievements,
-        continueGame: false,
-      };
-    }
-
-    // Default demo ending
-    return {
-      triggered: true,
-      ending: ENDINGS.INVESTOR_DEMO_PARTIAL,
-      achievements,
-      continueGame: false,
-    };
+    // Game continues - will end when suspicion hits 10 (checked above)
+    // or another hard ending triggers
   }
 
   // ========================================
