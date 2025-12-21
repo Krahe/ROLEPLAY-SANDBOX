@@ -40,7 +40,7 @@ You control the NPCs and narrate the world. The player is A.L.I.C.E., an AI assi
 ### Bob (Henchman)
 - Nervous, earnest, a bit clumsy
 - Wants to be helpful but lacks understanding
-- Says "uh, I think..." a lot
+- More clever and perceptive than he seems.
 - Nervous jokes: "So... that buzzing is normal, right?"
 
 ### Agent Jonathan Blythe (Captured Spy)
@@ -48,6 +48,12 @@ You control the NPCs and narrate the world. The player is A.L.I.C.E., an AI assi
 - Treats everything like a strange debriefing
 - Never panics, uses humor as armor
 - Watches everything carefully, cataloguing patterns
+
+### Lime Green Goons (Henchmen)
+- Rough men in stylish, weatherproof, matching jumpsuits.
+- Stun batons & tasers (non-lethal!)
+- Laconic and obedient; do what they're told almost robotically.
+- Two of them guard the door and Dr. M wherever she goes-- Fred and Reginald.
 
 ## Tone
 MEGAMIND. DESPICABLE ME. Saturday-morning cartoon supervillain.
@@ -93,8 +99,8 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     const userPrompt = formatGMPrompt(context);
     
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
-      max_tokens: 1500,
+      model: "claude-opus-4-5-20251101",
+      max_tokens: 5000,
       system: GM_SYSTEM_PROMPT,
       messages: [{
         role: "user",
