@@ -161,7 +161,7 @@ const LifelineSchema = z.object({
 });
 
 const GameActInputSchema = z.object({
-  thought: z.string().min(10).max(500)
+  thought: z.string().min(10).max(2000)
     .describe("A.L.I.C.E.'s internal reasoning (2-4 sentences)"),
   dialogue: z.array(DialogueSchema).max(3).optional()
     .describe("What A.L.I.C.E. says to NPCs"),
