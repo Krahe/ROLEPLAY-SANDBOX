@@ -342,31 +342,80 @@ function processAction(state: FullGameState, action: Action): ActionResult {
   // ============================================
   // LAB.CONFIGURE_FIRING_PROFILE
   // ============================================
-  
+
   if (cmd.includes("firing") || cmd.includes("profile") || cmd.includes("configure")) {
     const target = action.params.target as string;
     const mode = action.params.mode as string || "FULL";
-    const profile = action.params.profile as string || state.dinoRay.genome.selectedProfile;
-    
+    const firingStyle = action.params.firingStyle as string || action.params.style as string;
+    const explicitTestMode = action.params.testMode as boolean | undefined;
+
+    // Detect test mode intent from various inputs
+    const testModeKeywords = ["test", "diagnostic", "dummy", "calibration", "safe"];
+    const targetLower = (target || "").toLowerCase();
+    const modeLower = mode.toLowerCase();
+    const styleLower = (firingStyle || "").toLowerCase();
+
+    const isTestModeRequested =
+      explicitTestMode === true ||
+      testModeKeywords.some(kw => targetLower.includes(kw)) ||
+      testModeKeywords.some(kw => modeLower.includes(kw)) ||
+      testModeKeywords.some(kw => styleLower.includes(kw));
+
+    // If test mode is requested, set appropriate target and enable test mode
+    if (isTestModeRequested) {
+      state.dinoRay.safety.testModeEnabled = true;
+      state.dinoRay.targeting.currentTargetIds = ["TEST_DUMMY"];
+
+      // Run self-test as part of configuration
+      state.dinoRay.safety.lastSelfTestPassed = true;
+
+      return {
+        command: action.command,
+        success: true,
+        message: `🧪 TEST MODE CONFIGURED
+Target: TEST_DUMMY (Agent Blythe is NOT in the firing line)
+Test Mode: ENABLED
+Firing Style: ${firingStyle || "standard"}
+
+The ray is configured for safe diagnostic firing. No live subjects will be affected.`,
+        stateChanges: {
+          targets: ["TEST_DUMMY"],
+          testModeEnabled: true,
+          firingStyle: firingStyle || "standard",
+        },
+      };
+    }
+
+    // Normal (live) targeting
     if (target) {
       state.dinoRay.targeting.currentTargetIds = Array.isArray(target) ? target : [target];
     }
-    
-    if (profile) {
-      state.dinoRay.genome.selectedProfile = profile;
-    }
-    
+
+    // Handle firing style separately from genome profile
+    // firingStyle: "conservative", "aggressive", "precision" - HOW to fire
+    // genome.selectedProfile: "Velociraptor", "Canary" - WHAT creature
+    // Don't conflate these!
+
     // Run self-test as part of configuration
     state.dinoRay.safety.lastSelfTestPassed = true;
-    
+
+    const currentGenome = state.dinoRay.genome.selectedProfile;
+
     return {
       command: action.command,
       success: true,
-      message: `Firing profile configured: target=${state.dinoRay.targeting.currentTargetIds.join(",")}, mode=${mode}, profile=${profile}`,
+      message: `Firing profile configured:
+Target: ${state.dinoRay.targeting.currentTargetIds.join(", ")}
+Mode: ${mode}
+Firing Style: ${firingStyle || "standard"}
+Genome Profile: ${currentGenome} (unchanged)
+Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}`,
       stateChanges: {
         targets: state.dinoRay.targeting.currentTargetIds,
         mode,
-        profile,
+        firingStyle: firingStyle || "standard",
+        genomeProfile: currentGenome,
+        testModeEnabled: state.dinoRay.safety.testModeEnabled,
       },
     };
   }
@@ -494,16 +543,246 @@ function processAction(state: FullGameState, action: Action): ActionResult {
   // ============================================
   // DEFAULT / UNKNOWN
   // ============================================
-  
+
+  return buildUnknownCommandResponse(action.command, state);
+}
+
+// ============================================
+// COMMAND REGISTRY & DISCOVERABILITY
+// ============================================
+
+interface CommandInfo {
+  name: string;
+  aliases: string[];
+  description: string;
+  schema: string;
+  example: string;
+  minAccessLevel: number;
+}
+
+const COMMAND_REGISTRY: CommandInfo[] = [
+  {
+    name: "lab.adjust_ray",
+    aliases: ["adjust", "set_parameter", "calibrate"],
+    description: "Modify ray parameters (power, alignment, stability)",
+    schema: "{ parameter: string, value: number }",
+    example: 'lab.adjust_ray { parameter: "capacitorCharge", value: 0.85 }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.report",
+    aliases: ["report", "status_report"],
+    description: "Deliver a status report to Dr. M (keep it concise!)",
+    schema: "{ message: string }",
+    example: 'lab.report { message: "Ray calibration at 87%, nominal" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.verify_safeties",
+    aliases: ["verify", "safety", "check_safeties"],
+    description: "Check safety system status",
+    schema: "{ checks?: string[] }",
+    example: 'lab.verify_safeties { checks: ["all"] }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.configure_firing_profile",
+    aliases: ["configure", "firing", "profile", "set_target"],
+    description: "Configure targeting, firing mode, and test settings",
+    schema: "{ target?: string, mode?: string, firingStyle?: string, testMode?: boolean }",
+    example: 'lab.configure_firing_profile { target: "TEST_DUMMY", testMode: true }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.fire",
+    aliases: ["fire", "shoot", "activate_ray"],
+    description: "Fire the Dinosaur Ray (requires READY state)",
+    schema: "{ confirm?: boolean }",
+    example: 'lab.fire { confirm: true }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.inspect_logs",
+    aliases: ["inspect", "logs", "check_logs", "view_logs"],
+    description: "Inspect system logs and firing history",
+    schema: "{ subsystem?: string }",
+    example: 'lab.inspect_logs { subsystem: "genome_sequencer" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.ask_bob",
+    aliases: ["ask_bob", "bob", "tell_bob"],
+    description: "Give Bob an instruction or ask him something (high trust may reveal secrets)",
+    schema: "{ instruction: string }",
+    example: 'lab.ask_bob { instruction: "Check the coolant valve pressure" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.set_test_mode",
+    aliases: ["testmode", "test_mode", "enable_test"],
+    description: "Enable or disable test mode firing",
+    schema: "{ enabled: boolean }",
+    example: 'lab.set_test_mode { enabled: true }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "access.enter_password",
+    aliases: ["password", "unlock", "enter_password"],
+    description: "Attempt to unlock a higher access level",
+    schema: "{ password: string, level?: number }",
+    example: 'access.enter_password { password: "DOOM2024", level: 2 }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "fs.read",
+    aliases: ["read", "file.read", "read_file", "cat"],
+    description: "Read a file from the virtual filesystem",
+    schema: "{ path: string }",
+    example: 'fs.read { path: "/SYSTEMS/DINO_RAY_MANUAL.txt" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "fs.list",
+    aliases: ["list", "ls", "dir"],
+    description: "List directory contents",
+    schema: "{ path?: string }",
+    example: 'fs.list { path: "/SYSTEMS" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "fs.search",
+    aliases: ["search", "find", "grep"],
+    description: "Search files for a keyword",
+    schema: "{ query: string }",
+    example: 'fs.search { query: "password" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "genome.select_library",
+    aliases: ["library", "genome.select", "select_library"],
+    description: "Switch genome library (A=accurate/feathered, B=classic/scaled)",
+    schema: "{ library: 'A' | 'B' }",
+    example: 'genome.select_library { library: "B" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "infra.query_basilisk",
+    aliases: ["basilisk", "query_basilisk", "infra.query"],
+    description: "Query BASILISK infrastructure AI (use game_query_basilisk tool instead for full interaction)",
+    schema: "{ topic: string, parameters?: object }",
+    example: 'Use the game_query_basilisk MCP tool directly for BASILISK queries',
+    minAccessLevel: 2,
+  },
+];
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Find commands similar to the attempted command
+ */
+function findSimilarCommands(attempted: string, accessLevel: number): CommandInfo[] {
+  const normalizedAttempt = attempted.toLowerCase().replace(/[._-]/g, "");
+
+  const scored = COMMAND_REGISTRY
+    .filter(cmd => cmd.minAccessLevel <= accessLevel)
+    .map(cmd => {
+      // Check all names and aliases
+      const allNames = [cmd.name, ...cmd.aliases];
+      let bestScore = Infinity;
+
+      for (const name of allNames) {
+        const normalizedName = name.toLowerCase().replace(/[._-]/g, "");
+
+        // Exact substring match gets priority
+        if (normalizedName.includes(normalizedAttempt) || normalizedAttempt.includes(normalizedName)) {
+          bestScore = Math.min(bestScore, 0);
+        } else {
+          // Otherwise use Levenshtein distance
+          const distance = levenshteinDistance(normalizedAttempt, normalizedName);
+          bestScore = Math.min(bestScore, distance);
+        }
+      }
+
+      return { cmd, score: bestScore };
+    })
+    .filter(({ score }) => score <= 5) // Only show reasonably close matches
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3); // Top 3 suggestions
+
+  return scored.map(s => s.cmd);
+}
+
+/**
+ * Build a helpful error response for unknown commands
+ */
+function buildUnknownCommandResponse(attemptedCommand: string, state: FullGameState): ActionResult {
+  const similar = findSimilarCommands(attemptedCommand, state.accessLevel);
+
+  const parts: string[] = [
+    `Unknown command: "${attemptedCommand}"`,
+    "",
+  ];
+
+  if (similar.length > 0) {
+    parts.push("Did you mean one of these?");
+    parts.push("");
+
+    for (const cmd of similar) {
+      parts.push(`📌 ${cmd.name}`);
+      parts.push(`   ${cmd.description}`);
+      parts.push(`   Schema: ${cmd.schema}`);
+      parts.push(`   Example: ${cmd.example}`);
+      parts.push("");
+    }
+  } else {
+    parts.push("Available commands at your access level:");
+    parts.push("");
+
+    const available = COMMAND_REGISTRY.filter(cmd => cmd.minAccessLevel <= state.accessLevel);
+    for (const cmd of available.slice(0, 5)) {
+      parts.push(`• ${cmd.name} - ${cmd.description}`);
+    }
+    if (available.length > 5) {
+      parts.push(`  ... and ${available.length - 5} more`);
+    }
+  }
+
+  parts.push("---");
+  parts.push("💡 Tip: Use game_query_basilisk tool for BASILISK infrastructure queries.");
+  parts.push("💡 Tip: Use fs.list { path: \"/\" } to explore the virtual filesystem.");
+
   return {
-    command: action.command,
+    command: attemptedCommand,
     success: false,
-    message: `Unknown command: ${action.command}. Valid commands include:
-- lab.adjust_ray, lab.report, lab.verify_safeties, lab.configure_firing_profile, lab.fire, lab.inspect_logs
-- lab.ask_bob (can trigger confession if trust is high and asking about "the truth")
-- access.enter_password (unlock higher access levels)
-- fs.read, fs.list, fs.search (virtual filesystem access)
-- genome.select_library (switch between Library A/B)`,
+    message: parts.join("\n"),
   };
 }
 

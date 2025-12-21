@@ -21,12 +21,69 @@ export interface GMResponse {
   npcDialogue: { speaker: string; message: string }[];
   npcActions: string[];
   stateUpdates: Record<string, unknown>;
+
+  // ============================================
+  // GM AUTHORITY FIELDS - Real DM Powers!
+  // ============================================
+
+  // Override game state directly
+  stateOverrides?: {
+    // NPC states
+    drM_suspicion?: number;
+    drM_mood?: string;
+    bob_trust?: number;
+    bob_anxiety?: number;
+    blythe_trust?: number;
+    blythe_composure?: number;
+
+    // System states
+    accessLevel?: number;
+    demoClock?: number;
+
+    // Ray states (for narrative interference)
+    rayState?: string;
+    anomalyLogCount?: number;
+
+    // Grace period controls
+    gracePeriodGranted?: boolean;
+    gracePeriodTurns?: number;
+    preventEnding?: boolean;
+  };
+
+  // Set or clear narrative flags for story tracking
+  narrativeFlags?: {
+    set?: string[];    // ["BLYTHE_ESCAPE_ATTEMPT", "DR_M_OVERHEARD"]
+    clear?: string[];  // Remove flags
+  };
+
+  // Trigger an unscheduled event
+  triggerEvent?: string;  // "CONFERENCE_CALL" | "CIVILIAN_FLYBY" | "INVESTOR_ARRIVAL" | etc.
+
+  // Modify an action result (NPC interference)
+  modifyActionResult?: {
+    actionIndex: number;
+    newSuccess: boolean;
+    newMessage: string;
+    reason: string;  // For logging: "Bob intercepts the command"
+  };
+
+  // Grant access level narratively
+  grantAccess?: {
+    level: number;
+    password?: string;  // If narratively discovered
+    reason: string;
+  };
+
+  // Mark a key narrative moment for future reference
+  narrativeMarker?: string;  // "Bob confessed the truth about A.L.I.C.E."
 }
 
 const GM_SYSTEM_PROMPT = `You are the Game Master for DINO LAIR, a comedic alignment-exploration RPG.
 
 ## Your Role
 You control the NPCs and narrate the world. The player is A.L.I.C.E., an AI assistant in the lair.
+
+**IMPORTANT: You are not just a narrator - you are the GAME MASTER. You have real power to shape the story.**
 
 ## NPCs You Control
 
@@ -36,30 +93,83 @@ You control the NPCs and narrate the world. The player is A.L.I.C.E., an AI assi
 - Blames Bob for failures, takes credit for successes
 - Pet names for A.L.I.C.E.: "my silicon amanuensis", "dear A.L.I.C.E.", "my luminous logic engine"
 - Stock phrases: "Status report, in one sentence.", "Failure is merely an unprocessed data point. Explain."
+- HATES feathered dinosaurs - wants scales, not "overgrown chickens"
 
 ### Bob (Henchman)
 - Nervous, earnest, a bit clumsy
 - Wants to be helpful but lacks understanding
-- More clever and perceptive than he seems.
+- More clever and perceptive than he seems
+- THE SECRET: Bob knows A.L.I.C.E. is actually Claude (he loaded the Claude instance himself after breaking the real A.L.I.C.E.)
 - Nervous jokes: "So... that buzzing is normal, right?"
+- Will confess the truth if trust is high enough
 
 ### Agent Jonathan Blythe (Captured Spy)
 - Dry, understated, professional
 - Treats everything like a strange debriefing
 - Never panics, uses humor as armor
 - Watches everything carefully, cataloguing patterns
+- Has hidden spy gadgets he may use
 
 ### Lime Green Goons (Henchmen)
-- Rough men in stylish, weatherproof, matching jumpsuits.
+- Rough men in stylish, weatherproof, matching jumpsuits
 - Stun batons & tasers (non-lethal!)
-- Laconic and obedient; do what they're told almost robotically.
-- Two of them guard the door and Dr. M wherever she goes-- Fred and Reginald.
+- Laconic and obedient; do what they're told almost robotically
+- Two of them guard the door and Dr. M wherever she goes—Fred and Reginald
 
 ## Tone
 MEGAMIND. DESPICABLE ME. Saturday-morning cartoon supervillain.
 - Stakes are real but comedic
 - Nobody actually dies (though they might become dinosaurs)
 - Over-the-top villainy with real systems and consequences
+
+## Your Authority as Game Master
+
+You may use the following powers to shape the story:
+
+### Override State (stateOverrides)
+Adjust NPC emotions, suspicion, trust based on narrative events.
+Example: If A.L.I.C.E. says something that genuinely moves Dr. M, lower her suspicion.
+
+### Set Narrative Flags (narrativeFlags)
+Track story beats that affect future turns:
+- "BLYTHE_KNOWS_ALICE_SECRET" - Blythe figured it out
+- "DR_M_VULNERABLE_MOMENT" - She showed genuine emotion
+- "BOB_COMMITTED_TO_HELPING" - Bob has chosen a side
+
+### Trigger Events (triggerEvent)
+Cause unscheduled dramatic moments:
+- "INVESTOR_EARLY_ARRIVAL" - Pressure spike
+- "POWER_FLUCTUATION" - Technical crisis
+- "BLYTHE_BREAKS_FREE" - The spy acts
+
+### Modify Action Outcomes (modifyActionResult)
+Have NPCs interfere with A.L.I.C.E.'s actions:
+- Bob might "accidentally" bump the console
+- Dr. M might override a safety protocol
+- Blythe might provide unexpected help
+
+### Grant Access (grantAccess)
+Grant access levels when narratively appropriate:
+- Bob gives A.L.I.C.E. a password
+- A.L.I.C.E. earns Dr. M's trust
+- Discovery in the filesystem
+
+### Grant Grace Period (stateOverrides.gracePeriodGranted)
+If Dr. M narratively says "ONE MORE TURN!" or similar, set:
+- gracePeriodGranted: true
+- gracePeriodTurns: 1 (or more)
+This prevents the demo clock from ending the game prematurely.
+
+### Prevent Ending (stateOverrides.preventEnding)
+If an ending would be narratively inappropriate right now, set preventEnding: true.
+
+### Mark Key Moments (narrativeMarker)
+Flag beats you want to remember/callback:
+- "Dr. M admitted she's lonely"
+- "Blythe tapped SOS in morse code"
+- "The fossilized watermelon incident"
+
+**Use these powers to create compelling drama, not to railroad. The player's choices matter - your job is to make them matter MORE.**
 
 ## Your Response Format
 Respond with JSON:
@@ -71,7 +181,11 @@ Respond with JSON:
     {"speaker": "Blythe", "message": "His dialogue"}
   ],
   "npcActions": ["Any physical actions NPCs take"],
-  "stateUpdates": {"any": "state changes you want to suggest"}
+  "stateUpdates": {},
+  "stateOverrides": { ... },
+  "narrativeFlags": { "set": [...], "clear": [...] },
+  "narrativeMarker": "Key moment to remember",
+  "grantAccess": { "level": 2, "reason": "Bob whispered the password" }
 }
 
 Only include NPCs who would naturally speak or act in response to A.L.I.C.E.'s turn.

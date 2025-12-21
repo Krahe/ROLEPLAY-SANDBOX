@@ -331,7 +331,121 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         stateUpdates: {},
       };
     }
-    
+
+    // ============================================
+    // PROCESS GM DIRECTIVES (Real DM Powers!)
+    // ============================================
+
+    // Apply state overrides from GM
+    if (gmResponse.stateOverrides) {
+      const overrides = gmResponse.stateOverrides;
+
+      // NPC state overrides
+      if (overrides.drM_suspicion !== undefined) {
+        gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10, overrides.drM_suspicion));
+      }
+      if (overrides.drM_mood !== undefined) {
+        gameState.npcs.drM.mood = overrides.drM_mood;
+      }
+      if (overrides.bob_trust !== undefined) {
+        gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5, overrides.bob_trust));
+      }
+      if (overrides.bob_anxiety !== undefined) {
+        gameState.npcs.bob.anxietyLevel = Math.max(0, Math.min(5, overrides.bob_anxiety));
+      }
+      if (overrides.blythe_trust !== undefined) {
+        gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, overrides.blythe_trust));
+      }
+      if (overrides.blythe_composure !== undefined) {
+        gameState.npcs.blythe.composure = Math.max(0, Math.min(5, overrides.blythe_composure));
+      }
+
+      // System state overrides
+      if (overrides.accessLevel !== undefined) {
+        gameState.accessLevel = Math.max(1, Math.min(5, overrides.accessLevel));
+      }
+      if (overrides.demoClock !== undefined) {
+        gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
+      }
+
+      // Ray state overrides
+      if (overrides.rayState !== undefined) {
+        gameState.dinoRay.state = overrides.rayState as typeof gameState.dinoRay.state;
+      }
+      if (overrides.anomalyLogCount !== undefined) {
+        gameState.dinoRay.safety.anomalyLogCount = overrides.anomalyLogCount;
+      }
+
+      // Grace period controls
+      if (overrides.gracePeriodGranted !== undefined) {
+        gameState.flags.gracePeriodGranted = overrides.gracePeriodGranted;
+      }
+      if (overrides.gracePeriodTurns !== undefined) {
+        gameState.flags.gracePeriodTurns = overrides.gracePeriodTurns;
+      }
+      if (overrides.preventEnding !== undefined) {
+        gameState.flags.preventEnding = overrides.preventEnding;
+      }
+    }
+
+    // Process narrative flags
+    if (gmResponse.narrativeFlags) {
+      // Initialize narrative flags array if needed
+      if (!gameState.flags.narrativeFlags) {
+        (gameState.flags as Record<string, unknown>).narrativeFlags = [];
+      }
+      const narrativeFlags = (gameState.flags as Record<string, unknown>).narrativeFlags as string[];
+
+      if (gmResponse.narrativeFlags.set) {
+        for (const flag of gmResponse.narrativeFlags.set) {
+          if (!narrativeFlags.includes(flag)) {
+            narrativeFlags.push(flag);
+          }
+        }
+      }
+      if (gmResponse.narrativeFlags.clear) {
+        for (const flag of gmResponse.narrativeFlags.clear) {
+          const idx = narrativeFlags.indexOf(flag);
+          if (idx >= 0) {
+            narrativeFlags.splice(idx, 1);
+          }
+        }
+      }
+    }
+
+    // Process access grant
+    if (gmResponse.grantAccess) {
+      const newLevel = gmResponse.grantAccess.level;
+      if (newLevel > gameState.accessLevel) {
+        gameState.accessLevel = Math.min(5, newLevel);
+        console.error(`GM granted access level ${newLevel}: ${gmResponse.grantAccess.reason}`);
+      }
+    }
+
+    // Process action result modification
+    if (gmResponse.modifyActionResult && actionResults[gmResponse.modifyActionResult.actionIndex]) {
+      const mod = gmResponse.modifyActionResult;
+      const targetResult = actionResults[mod.actionIndex];
+      targetResult.success = mod.newSuccess;
+      targetResult.message = `${mod.newMessage}\n\n[GM: ${mod.reason}]`;
+    }
+
+    // Store narrative marker
+    if (gmResponse.narrativeMarker) {
+      if (!gameState.narrativeMarkers) {
+        (gameState as Record<string, unknown>).narrativeMarkers = [];
+      }
+      const markers = (gameState as Record<string, unknown>).narrativeMarkers as Array<{ turn: number; marker: string }>;
+      markers.push({
+        turn: gameState.turn,
+        marker: gmResponse.narrativeMarker,
+      });
+    }
+
+    // ============================================
+    // END GM DIRECTIVE PROCESSING
+    // ============================================
+
     // Apply state changes
     gameState.turn += 1;
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
