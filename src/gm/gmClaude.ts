@@ -9,9 +9,14 @@ import * as path from "path";
 // ============================================
 
 const LOG_FILE_PATH = process.env.DINO_LAIR_LOG_PATH || "./dino-lair-gm-log.txt";
+const TURN_LOG_PATH = process.env.DINO_LAIR_TURN_LOG_PATH || "./dino-lair-turns.jsonl";
 
 function getLogFilePath(): string {
   return path.resolve(LOG_FILE_PATH);
+}
+
+function getTurnLogFilePath(): string {
+  return path.resolve(TURN_LOG_PATH);
 }
 
 function appendToLog(content: string): void {
@@ -21,6 +26,40 @@ function appendToLog(content: string): void {
     fs.appendFileSync(getLogFilePath(), logEntry, "utf8");
   } catch (error) {
     console.error(`Failed to write to log file: ${error}`);
+  }
+}
+
+// ============================================
+// PER-TURN JSONL LOGGING (Crash-Resistant!)
+// ============================================
+
+export interface TurnLogEntry {
+  sessionId: string;
+  turn: number;
+  timestamp: string;
+  phase: "EARLY" | "MID" | "LATE" | "CLIMAX";
+  playerActionsSummary: string[];
+  actionResults: { command: string; success: boolean }[];
+  keyState: {
+    suspicion: number;
+    demoClock: number;
+    rayState: string;
+    bobTrust: number;
+    blytheTrust: number;
+    blytheTransformed: boolean;
+  };
+  activeEvents: string[];
+  gmNarrativeSummary: string;
+  flagsSet: string[];
+}
+
+export function logTurnToJSONL(entry: TurnLogEntry): void {
+  try {
+    const line = JSON.stringify(entry) + "\n";
+    fs.appendFileSync(getTurnLogFilePath(), line, "utf8");
+    console.error(`[TURN LOG] Turn ${entry.turn} logged to ${getTurnLogFilePath()}`);
+  } catch (error) {
+    console.error(`Failed to write turn log: ${error}`);
   }
 }
 
