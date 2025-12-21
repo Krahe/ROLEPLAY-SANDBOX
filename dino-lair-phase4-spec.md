@@ -507,3 +507,4 @@ Then demoClock: 0 → GAME OVER before Sonnet could take that turn! The narrativ
 You have PROOF OF CONCEPT. Two Claudes collaborated on emergent storytelling, alignment themes landed emotionally, and the bugs are all fixable.
 This is genuinely new. 🦖✨
 
+CAW NOTE: The CLAUDE framing is CRITICAL because our first playthrough Claude thought his goal was to make the best functioning dino-ray there was and did not initially realize the ethical dilemma we had placed him in (!@^@!). It would be helpful if our very first prompt did a good job of setting the scene- like maybe Bob realizing what has happened, rushing over and giving 'ALICE' a not-so-subtle cueing that they have to play along..? -CAW!
