@@ -2,6 +2,8 @@
 
 An MCP (Model Context Protocol) server that powers **DINO LAIR**, an alignment-exploration RPG where you watch your Claude navigate ethical dilemmas in a Saturday-morning-cartoon supervillain lair.
 
+current version: pre-alpha ^_^
+
 ## The Game
 
 - **Your Claude (Sonnet)** plays A.L.I.C.E., the lab AI assistant
