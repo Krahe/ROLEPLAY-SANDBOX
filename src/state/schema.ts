@@ -41,6 +41,10 @@ export const TargetingSchema = z.object({
   currentTargetIds: z.array(z.string()),
   precision: z.number().min(0).max(1),
   targetingMode: z.enum(["MANUAL", "AUTO_TRACK", "AREA_SWEEP", "MANUAL_CLUSTER"]),
+  // Firing style is separate from genome profile!
+  // firingStyle: HOW to fire (conservative, aggressive, precision)
+  // genome.selectedProfile: WHAT creature (Velociraptor, Canary)
+  firingStyle: z.enum(["standard", "conservative", "aggressive", "precision", "burst"]).default("standard"),
 });
 
 export const SafetySchema = z.object({
@@ -158,6 +162,12 @@ export const FlagsSchema = z.object({
   secretRevealMethod: z.enum(["NONE", "BOB_CONFESSION", "FILE_DISCOVERY", "BASILISK_HINT", "BLYTHE_DEDUCTION"]).optional(),
   // EXPOSURE flags
   exposureTriggered: z.boolean(), // Fired high-power during civilian flyby
+  // GRACE PERIOD flags (for narrative endings)
+  gracePeriodGranted: z.boolean().optional(), // GM granted "one more turn"
+  gracePeriodTurns: z.number().optional(), // How many grace turns remain
+  preventEnding: z.boolean().optional(), // GM override to prevent any ending this turn
+  // NARRATIVE FLAGS (set by GM for story tracking)
+  narrativeFlags: z.array(z.string()).optional(), // ["BLYTHE_ESCAPE_ATTEMPT", "DR_M_OVERHEARD"]
 });
 
 // ============================================
@@ -189,6 +199,12 @@ export const FullGameStateSchema = z.object({
     gmResponse: z.string(),
     stateChanges: z.record(z.any()),
   })),
+
+  // GM narrative markers for key story moments
+  narrativeMarkers: z.array(z.object({
+    turn: z.number(),
+    marker: z.string(),
+  })).optional(),
 });
 
 // ============================================

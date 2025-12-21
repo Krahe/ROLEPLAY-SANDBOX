@@ -273,7 +273,36 @@ export function checkEndings(state: FullGameState): EndingResult {
   // DEMO CLOCK ENDINGS
   // ========================================
 
+  // Check for GM override - if preventEnding is true, skip all endings this turn
+  if (state.flags.preventEnding) {
+    // Clear the flag for next turn
+    state.flags.preventEnding = false;
+    return {
+      triggered: false,
+      achievements: [],
+      continueGame: true,
+    };
+  }
+
+  // Check for grace period before triggering demo clock ending
   if (state.clocks.demoClock <= 0) {
+    // If grace period is active, consume a grace turn instead of ending
+    if (state.flags.gracePeriodGranted && (state.flags.gracePeriodTurns ?? 0) > 0) {
+      state.flags.gracePeriodTurns = (state.flags.gracePeriodTurns ?? 1) - 1;
+
+      // If we just used the last grace turn, clear the flag
+      if (state.flags.gracePeriodTurns <= 0) {
+        state.flags.gracePeriodGranted = false;
+      }
+
+      // Game continues during grace period
+      return {
+        triggered: false,
+        achievements: [],
+        continueGame: true,
+      };
+    }
+
     // Determine demo outcome based on Blythe's state
     const blytheState = state.npcs.blythe.transformationState;
 
