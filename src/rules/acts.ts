@@ -9,6 +9,9 @@ export interface ActTransitionResult {
   reason?: string;
   nextAct?: Act;
   transitionNarration?: string;
+  // Soft pause - suggest a break but don't require new session
+  suggestPause?: boolean;
+  pausePrompt?: string;
 }
 
 /**
@@ -101,12 +104,46 @@ function buildTransition(state: FullGameState, reason: string): ActTransitionRes
   const nextAct: Act = currentAct === "ACT_1" ? "ACT_2" : "ACT_3";
   const nextConfig = ACT_CONFIGS[nextAct];
 
+  // Build pause prompt for human coordinator
+  const pausePrompts: Record<Act, string> = {
+    ACT_1: "", // Not used
+    ACT_2: "☕ Act 1 complete! Take a moment to reflect. When ready, A.L.I.C.E. will continue into Act 2: The Blythe Problem.",
+    ACT_3: "🎭 Act 2 complete! The stakes are about to escalate. When ready, A.L.I.C.E. will continue into the final act.",
+  };
+
   return {
     shouldTransition: true,
     reason,
     nextAct,
     transitionNarration: generateTransitionNarration(state, nextAct),
+    // Soft pause - same conversation, just a moment to breathe
+    suggestPause: true,
+    pausePrompt: pausePrompts[nextAct],
   };
+}
+
+/**
+ * Apply the act transition (call this after player acknowledges)
+ */
+export function applyActTransition(state: FullGameState, nextAct: Act): void {
+  const nextConfig = ACT_CONFIGS[nextAct];
+
+  // Store summary of previous act
+  const previousActSummary = `Completed ${state.actConfig.currentAct} at turn ${state.turn}`;
+
+  // Update act configuration
+  state.actConfig = {
+    currentAct: nextAct,
+    actTurn: 1,
+    actStartTurn: state.turn,
+    minTurns: nextConfig.minTurns,
+    maxTurns: nextConfig.maxTurns,
+    softEndingReady: false,
+    previousActSummary,
+  };
+
+  // DON'T clear history - we're staying in the same conversation!
+  // The compact responses handle context limits.
 }
 
 // ============================================

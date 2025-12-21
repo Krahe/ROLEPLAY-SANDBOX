@@ -17,6 +17,7 @@ import {
   createStateFromHandoff,
   getActBriefing,
   advanceActTurn,
+  applyActTransition,
   ActHandoffState,
 } from "./rules/acts.js";
 
@@ -709,23 +710,46 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // Build act transition info if transitioning
     let actTransitionInfo: {
       transitioning: boolean;
-      currentAct: string;
-      nextAct?: string;
+      previousAct: string;
+      newAct: string;
       reason?: string;
-      handoffState?: string;
       transitionNarration?: string;
+      pausePrompt?: string;
+      // Handoff state for crash recovery (optional, not required)
+      handoffState?: string;
     } | undefined;
 
     if (actTransition.shouldTransition && actTransition.nextAct) {
+      const previousAct = gameState.actConfig.currentAct;
+
+      // Save handoff for crash recovery (but we stay in same conversation!)
       const handoff = serializeActHandoff(gameState, actTransition.nextAct);
+
+      // AUTO-APPLY the transition - we're staying in the same conversation!
+      applyActTransition(gameState, actTransition.nextAct);
+
+      // Append transition narration to the combined narration
+      if (actTransition.transitionNarration) {
+        combinedNarration.push(actTransition.transitionNarration);
+      }
+
       actTransitionInfo = {
         transitioning: true,
-        currentAct: gameState.actConfig.currentAct,
-        nextAct: actTransition.nextAct,
+        previousAct,
+        newAct: actTransition.nextAct,
         reason: actTransition.reason,
-        handoffState: JSON.stringify(handoff),
         transitionNarration: actTransition.transitionNarration,
+        pausePrompt: actTransition.pausePrompt,
+        // Include for crash recovery, but not required for continuation
+        handoffState: JSON.stringify(handoff),
       };
+
+      // Update the compact snapshot with new act info
+      const newActConfig = ACT_CONFIGS[actTransition.nextAct];
+      compactSnapshot.act = actTransition.nextAct;
+      compactSnapshot.actName = newActConfig.name;
+      compactSnapshot.actTurn = 1;
+      compactSnapshot.actTurnsRemaining = newActConfig.maxTurns - 1;
     }
 
     const result = {
