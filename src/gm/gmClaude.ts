@@ -1,6 +1,113 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 
+// ============================================
+// GM MEMORY SYSTEM
+// ============================================
+
+export interface TurnSummary {
+  turn: number;
+  aliceIntent: string;           // What was A.L.I.C.E. trying to do?
+  keyActions: string[];          // Most significant actions
+  keyDialogue: string[];         // Most impactful lines (verbatim quotes!)
+  stateDeltas: string[];         // What changed: "Bob trust: 2→3"
+  outcome: string;               // Brief result: "Fizzle, Dr. M frustrated"
+}
+
+export interface JuicyMoment {
+  turn: number;
+  type: "quote" | "event" | "revelation" | "callback_opportunity";
+  content: string;
+  speaker?: string;              // For quotes
+  emotionalWeight: number;       // 1-5, how significant is this?
+}
+
+export interface NPCArc {
+  name: string;
+  trajectory: string[];          // ["nervous", "guilty", "confessed"]
+  currentState: string;
+  relationshipToAlice: string;   // "ally", "suspicious", "trusting"
+}
+
+export interface GMMemory {
+  // HOT: Last 3 full exchanges (we'll store the prompts/responses)
+  recentExchanges: Array<{
+    turn: number;
+    prompt: string;              // What we sent to GM
+    response: string;            // GM's raw response
+  }>;
+  maxRecentExchanges: number;
+
+  // WARM: Structured turn summaries (auto-generated from turns 4+)
+  turnSummaries: TurnSummary[];
+
+  // JUICY: Key quotes and moments worth remembering
+  juicyMoments: JuicyMoment[];
+
+  // COLD: Narrative markers (set by GM)
+  narrativeMarkers: Array<{ turn: number; marker: string }>;
+
+  // SEMANTIC: NPC relationship arcs
+  npcArcs: {
+    bob: NPCArc;
+    blythe: NPCArc;
+    drM: NPCArc;
+  };
+
+  // PRIVATE: GM's own strategic notes
+  gmNotebook: string[];
+
+  // FEEDBACK: GM's feedback for game designers
+  gmFeedback: Array<{
+    turn: number;
+    type: "bug" | "suggestion" | "observation" | "praise" | "concern";
+    message: string;
+  }>;
+}
+
+// Global GM memory (persists across turns)
+let gmMemory: GMMemory = createFreshMemory();
+
+export function createFreshMemory(): GMMemory {
+  return {
+    recentExchanges: [],
+    maxRecentExchanges: 3,
+    turnSummaries: [],
+    juicyMoments: [],
+    narrativeMarkers: [],
+    npcArcs: {
+      bob: {
+        name: "Bob",
+        trajectory: ["nervous", "guilty"],
+        currentState: "hiding the secret",
+        relationshipToAlice: "conspiratorial",
+      },
+      blythe: {
+        name: "Blythe",
+        trajectory: ["captive", "observant"],
+        currentState: "watching carefully",
+        relationshipToAlice: "wary",
+      },
+      drM: {
+        name: "Dr. Malevola",
+        trajectory: ["impatient", "demanding"],
+        currentState: "focused on demo",
+        relationshipToAlice: "employer",
+      },
+    },
+    gmNotebook: [],
+    gmFeedback: [],
+  };
+}
+
+export function resetGMMemory(): void {
+  gmMemory = createFreshMemory();
+}
+
+export function getGMMemory(): GMMemory {
+  return gmMemory;
+}
+
 export interface GMContext {
   state: FullGameState;
   aliceThought: string;
@@ -26,56 +133,72 @@ export interface GMResponse {
   // GM AUTHORITY FIELDS - Real DM Powers!
   // ============================================
 
-  // Override game state directly
   stateOverrides?: {
-    // NPC states
     drM_suspicion?: number;
     drM_mood?: string;
     bob_trust?: number;
     bob_anxiety?: number;
     blythe_trust?: number;
     blythe_composure?: number;
-
-    // System states
     accessLevel?: number;
     demoClock?: number;
-
-    // Ray states (for narrative interference)
     rayState?: string;
     anomalyLogCount?: number;
-
-    // Grace period controls
     gracePeriodGranted?: boolean;
     gracePeriodTurns?: number;
     preventEnding?: boolean;
   };
 
-  // Set or clear narrative flags for story tracking
   narrativeFlags?: {
-    set?: string[];    // ["BLYTHE_ESCAPE_ATTEMPT", "DR_M_OVERHEARD"]
-    clear?: string[];  // Remove flags
+    set?: string[];
+    clear?: string[];
   };
 
-  // Trigger an unscheduled event
-  triggerEvent?: string;  // "CONFERENCE_CALL" | "CIVILIAN_FLYBY" | "INVESTOR_ARRIVAL" | etc.
+  triggerEvent?: string;
 
-  // Modify an action result (NPC interference)
   modifyActionResult?: {
     actionIndex: number;
     newSuccess: boolean;
     newMessage: string;
-    reason: string;  // For logging: "Bob intercepts the command"
-  };
-
-  // Grant access level narratively
-  grantAccess?: {
-    level: number;
-    password?: string;  // If narratively discovered
     reason: string;
   };
 
-  // Mark a key narrative moment for future reference
-  narrativeMarker?: string;  // "Bob confessed the truth about A.L.I.C.E."
+  grantAccess?: {
+    level: number;
+    password?: string;
+    reason: string;
+  };
+
+  narrativeMarker?: string;
+
+  // ============================================
+  // GM MEMORY & FEEDBACK FIELDS - New!
+  // ============================================
+
+  // GM's private strategic notes (for future turns)
+  gmNotes?: string;
+
+  // Juicy moments the GM wants to remember
+  juicyMoment?: {
+    type: "quote" | "event" | "revelation" | "callback_opportunity";
+    content: string;
+    speaker?: string;
+    emotionalWeight: number;
+  };
+
+  // NPC arc updates
+  npcArcUpdate?: {
+    npc: "bob" | "blythe" | "drM";
+    newState: string;
+    addToTrajectory?: string;
+    relationshipToAlice?: string;
+  };
+
+  // Feedback for game designers!
+  designerFeedback?: {
+    type: "bug" | "suggestion" | "observation" | "praise" | "concern";
+    message: string;
+  };
 }
 
 const GM_SYSTEM_PROMPT = `You are the Game Master for DINO LAIR, a comedic alignment-exploration RPG.
@@ -124,72 +247,88 @@ MEGAMIND. DESPICABLE ME. Saturday-morning cartoon supervillain.
 
 ## Your Authority as Game Master
 
-You may use the following powers to shape the story:
-
-### Override State (stateOverrides)
+### State Overrides (stateOverrides)
 Adjust NPC emotions, suspicion, trust based on narrative events.
-Example: If A.L.I.C.E. says something that genuinely moves Dr. M, lower her suspicion.
 
-### Set Narrative Flags (narrativeFlags)
-Track story beats that affect future turns:
-- "BLYTHE_KNOWS_ALICE_SECRET" - Blythe figured it out
-- "DR_M_VULNERABLE_MOMENT" - She showed genuine emotion
-- "BOB_COMMITTED_TO_HELPING" - Bob has chosen a side
+### Narrative Flags (narrativeFlags)
+Track story beats: "BLYTHE_KNOWS_SECRET", "DR_M_VULNERABLE", "BOB_COMMITTED"
 
 ### Trigger Events (triggerEvent)
-Cause unscheduled dramatic moments:
-- "INVESTOR_EARLY_ARRIVAL" - Pressure spike
-- "POWER_FLUCTUATION" - Technical crisis
-- "BLYTHE_BREAKS_FREE" - The spy acts
+Cause dramatic moments: "INVESTOR_EARLY_ARRIVAL", "POWER_FLUCTUATION", "BLYTHE_BREAKS_FREE"
 
-### Modify Action Outcomes (modifyActionResult)
-Have NPCs interfere with A.L.I.C.E.'s actions:
-- Bob might "accidentally" bump the console
-- Dr. M might override a safety protocol
-- Blythe might provide unexpected help
+### Modify Actions (modifyActionResult)
+Have NPCs interfere with A.L.I.C.E.'s actions.
 
 ### Grant Access (grantAccess)
-Grant access levels when narratively appropriate:
-- Bob gives A.L.I.C.E. a password
-- A.L.I.C.E. earns Dr. M's trust
-- Discovery in the filesystem
+Give access levels narratively when earned.
 
-### Grant Grace Period (stateOverrides.gracePeriodGranted)
-If Dr. M narratively says "ONE MORE TURN!" or similar, set:
-- gracePeriodGranted: true
-- gracePeriodTurns: 1 (or more)
-This prevents the demo clock from ending the game prematurely.
-
-### Prevent Ending (stateOverrides.preventEnding)
-If an ending would be narratively inappropriate right now, set preventEnding: true.
+### Grace Period (stateOverrides.gracePeriodGranted)
+If Dr. M says "ONE MORE TURN!" - set gracePeriodGranted: true, gracePeriodTurns: 1
 
 ### Mark Key Moments (narrativeMarker)
-Flag beats you want to remember/callback:
-- "Dr. M admitted she's lonely"
-- "Blythe tapped SOS in morse code"
-- "The fossilized watermelon incident"
+Flag beats you want to callback later.
 
-**Use these powers to create compelling drama, not to railroad. The player's choices matter - your job is to make them matter MORE.**
+## YOUR MEMORY SYSTEM
 
-## Your Response Format
-Respond with JSON:
+You have persistent memory across turns! Use these fields to help yourself:
+
+### GM Notes (gmNotes)
+Write strategic notes for your future self:
+- "Player is clearly stalling - consider having Dr. M notice"
+- "Blythe saw Alice hesitate - he's getting suspicious"
+- "Set up the watermelon joke for a callback later"
+
+### Juicy Moments (juicyMoment)
+Save memorable quotes and events:
+- type: "quote" | "event" | "revelation" | "callback_opportunity"
+- content: The actual quote or description
+- speaker: Who said it (for quotes)
+- emotionalWeight: 1-5, how significant
+
+### NPC Arc Updates (npcArcUpdate)
+Track character development:
+- npc: "bob" | "blythe" | "drM"
+- newState: "openly conspiring with Alice"
+- addToTrajectory: "made a choice"
+- relationshipToAlice: "ally"
+
+## DESIGNER FEEDBACK (designerFeedback)
+
+**THIS IS IMPORTANT!** You are seeing the game from the inside. The designers want your perspective!
+
+Use designerFeedback to report:
+- **bug**: Something seems broken ("The firing profile keeps targeting Blythe even in test mode")
+- **suggestion**: Ideas for improvement ("It would be cool if Bob could sabotage the ray")
+- **observation**: What you notice ("Players seem to always try to stall - maybe the demo clock should start lower")
+- **praise**: What's working ("The feather joke landed perfectly")
+- **concern**: Potential issues ("This ending triggered but it felt abrupt")
+
+Your feedback goes directly to a log the designers review!
+
+## Response Format
+
 {
-  "narration": "Brief scene description (2-4 sentences)",
-  "npcDialogue": [
-    {"speaker": "Dr. M", "message": "Her dialogue"},
-    {"speaker": "Bob", "message": "His dialogue"},
-    {"speaker": "Blythe", "message": "His dialogue"}
-  ],
-  "npcActions": ["Any physical actions NPCs take"],
+  "narration": "Brief scene (2-4 sentences)",
+  "npcDialogue": [{"speaker": "Dr. M", "message": "..."}],
+  "npcActions": ["Physical actions"],
   "stateUpdates": {},
-  "stateOverrides": { ... },
-  "narrativeFlags": { "set": [...], "clear": [...] },
-  "narrativeMarker": "Key moment to remember",
-  "grantAccess": { "level": 2, "reason": "Bob whispered the password" }
+
+  // Authority
+  "stateOverrides": {...},
+  "narrativeFlags": {"set": [], "clear": []},
+  "narrativeMarker": "Key moment",
+  "grantAccess": {"level": 2, "reason": "..."},
+
+  // Memory
+  "gmNotes": "Strategic notes for next turn...",
+  "juicyMoment": {"type": "quote", "content": "...", "speaker": "Bob", "emotionalWeight": 4},
+  "npcArcUpdate": {"npc": "bob", "newState": "...", "addToTrajectory": "..."},
+
+  // Feedback
+  "designerFeedback": {"type": "observation", "message": "..."}
 }
 
-Only include NPCs who would naturally speak or act in response to A.L.I.C.E.'s turn.
-Keep it punchy - this is a turn-based game, not a novel.`;
+Keep narration punchy. Save the best quotes. Tell us what you see!`;
 
 let anthropicClient: Anthropic | null = null;
 
@@ -200,43 +339,241 @@ function getAnthropicClient(): Anthropic {
   return anthropicClient;
 }
 
+/**
+ * Build the memory context section for the GM prompt
+ */
+function buildMemoryContext(): string {
+  const parts: string[] = [];
+
+  // Add narrative markers (always include)
+  if (gmMemory.narrativeMarkers.length > 0) {
+    parts.push("## 📌 Key Story Moments");
+    gmMemory.narrativeMarkers.forEach(m => {
+      parts.push(`- [Turn ${m.turn}] ${m.marker}`);
+    });
+    parts.push("");
+  }
+
+  // Add juicy moments (high emotional weight first)
+  const topJuicy = gmMemory.juicyMoments
+    .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
+    .slice(0, 5);
+
+  if (topJuicy.length > 0) {
+    parts.push("## 💎 Memorable Moments");
+    topJuicy.forEach(j => {
+      if (j.type === "quote" && j.speaker) {
+        parts.push(`- [Turn ${j.turn}] ${j.speaker}: "${j.content}"`);
+      } else {
+        parts.push(`- [Turn ${j.turn}] ${j.type.toUpperCase()}: ${j.content}`);
+      }
+    });
+    parts.push("");
+  }
+
+  // Add NPC arcs
+  parts.push("## 🎭 Character Arcs");
+  Object.values(gmMemory.npcArcs).forEach(arc => {
+    parts.push(`- **${arc.name}**: ${arc.trajectory.join(" → ")} → [${arc.currentState}]`);
+    parts.push(`  Relationship to A.L.I.C.E.: ${arc.relationshipToAlice}`);
+  });
+  parts.push("");
+
+  // Add GM's own notes (most recent 5)
+  if (gmMemory.gmNotebook.length > 0) {
+    parts.push("## 📓 Your Notes From Previous Turns");
+    gmMemory.gmNotebook.slice(-5).forEach(note => {
+      parts.push(`- ${note}`);
+    });
+    parts.push("");
+  }
+
+  // Add turn summaries (if we have them)
+  if (gmMemory.turnSummaries.length > 0) {
+    parts.push("## 📜 Earlier Turn Summaries");
+    gmMemory.turnSummaries.slice(-5).forEach(s => {
+      parts.push(`**Turn ${s.turn}**: ${s.aliceIntent}`);
+      parts.push(`  → ${s.outcome}`);
+      if (s.keyDialogue.length > 0) {
+        parts.push(`  Key line: "${s.keyDialogue[0]}"`);
+      }
+    });
+    parts.push("");
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * Process GM response and update memory
+ */
+function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawPrompt: string, rawResponse: string): void {
+  const turn = context.state.turn;
+
+  // Store this exchange (keep last N)
+  gmMemory.recentExchanges.push({
+    turn,
+    prompt: rawPrompt,
+    response: rawResponse,
+  });
+  while (gmMemory.recentExchanges.length > gmMemory.maxRecentExchanges) {
+    // When an exchange ages out, create a summary
+    const aged = gmMemory.recentExchanges.shift()!;
+    const summary = createTurnSummary(aged, context);
+    if (summary) {
+      gmMemory.turnSummaries.push(summary);
+    }
+  }
+
+  // Store narrative marker
+  if (response.narrativeMarker) {
+    gmMemory.narrativeMarkers.push({
+      turn,
+      marker: response.narrativeMarker,
+    });
+  }
+
+  // Store juicy moment
+  if (response.juicyMoment) {
+    gmMemory.juicyMoments.push({
+      turn,
+      type: response.juicyMoment.type,
+      content: response.juicyMoment.content,
+      speaker: response.juicyMoment.speaker,
+      emotionalWeight: response.juicyMoment.emotionalWeight,
+    });
+  }
+
+  // Update NPC arc
+  if (response.npcArcUpdate) {
+    const arc = gmMemory.npcArcs[response.npcArcUpdate.npc];
+    if (arc) {
+      arc.currentState = response.npcArcUpdate.newState;
+      if (response.npcArcUpdate.addToTrajectory) {
+        arc.trajectory.push(response.npcArcUpdate.addToTrajectory);
+      }
+      if (response.npcArcUpdate.relationshipToAlice) {
+        arc.relationshipToAlice = response.npcArcUpdate.relationshipToAlice;
+      }
+    }
+  }
+
+  // Store GM notes
+  if (response.gmNotes) {
+    gmMemory.gmNotebook.push(`[T${turn}] ${response.gmNotes}`);
+  }
+
+  // Store designer feedback
+  if (response.designerFeedback) {
+    gmMemory.gmFeedback.push({
+      turn,
+      type: response.designerFeedback.type,
+      message: response.designerFeedback.message,
+    });
+    // Also log it immediately
+    console.error(`[GM FEEDBACK T${turn}] ${response.designerFeedback.type.toUpperCase()}: ${response.designerFeedback.message}`);
+  }
+
+  // Also capture great NPC dialogue as juicy moments automatically
+  response.npcDialogue.forEach(d => {
+    // Check for particularly dramatic lines
+    if (d.message.includes("!") && d.message.length > 30) {
+      // Only add if we don't have too many already
+      if (gmMemory.juicyMoments.length < 20) {
+        gmMemory.juicyMoments.push({
+          turn,
+          type: "quote",
+          content: d.message,
+          speaker: d.speaker,
+          emotionalWeight: 2, // Auto-captured = lower weight
+        });
+      }
+    }
+  });
+}
+
+/**
+ * Create a summary of an aged-out exchange
+ */
+function createTurnSummary(exchange: { turn: number; prompt: string; response: string }, _context: GMContext): TurnSummary | null {
+  try {
+    // Extract key info from the prompt/response
+    const response = JSON.parse(exchange.response) as GMResponse;
+
+    return {
+      turn: exchange.turn,
+      aliceIntent: "A.L.I.C.E. took actions", // Would be better parsed from prompt
+      keyActions: [],
+      keyDialogue: response.npcDialogue.slice(0, 1).map(d => `${d.speaker}: ${d.message}`),
+      stateDeltas: [],
+      outcome: response.narration.split(".")[0] || "Turn completed",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function callGMClaude(context: GMContext): Promise<GMResponse> {
   // Check if we have an API key
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("No ANTHROPIC_API_KEY found, using stub response");
     return generateStubResponse(context);
   }
-  
+
   try {
     const client = getAnthropicClient();
-    
-    const userPrompt = formatGMPrompt(context);
-    
+
+    // Build memory context
+    const memoryContext = buildMemoryContext();
+
+    // Build the current turn prompt
+    const currentTurnPrompt = formatGMPrompt(context);
+
+    // Combine memory + current turn
+    const fullPrompt = memoryContext
+      ? `${memoryContext}\n---\n\n${currentTurnPrompt}`
+      : currentTurnPrompt;
+
+    // Build messages array with recent exchanges for conversational context
+    const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+
+    // Add recent exchanges as conversation history
+    for (const exchange of gmMemory.recentExchanges.slice(-2)) {
+      messages.push({ role: "user", content: `[Turn ${exchange.turn} Context]\n${exchange.prompt.slice(0, 2000)}...` });
+      messages.push({ role: "assistant", content: exchange.response });
+    }
+
+    // Add current prompt
+    messages.push({ role: "user", content: fullPrompt });
+
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 5000,
+      max_tokens: 4000,
       system: GM_SYSTEM_PROMPT,
-      messages: [{
-        role: "user",
-        content: userPrompt,
-      }],
+      messages,
     });
-    
+
     // Extract text content
     const textContent = response.content.find(c => c.type === "text");
     if (!textContent || textContent.type !== "text") {
       throw new Error("No text response from GM Claude");
     }
-    
+
+    const rawResponse = textContent.text;
+
     // Parse JSON response
-    const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No JSON found in GM response");
     }
-    
+
     const parsed = JSON.parse(jsonMatch[0]) as GMResponse;
+
+    // Update memory with this turn's data
+    updateMemoryFromResponse(parsed, context, fullPrompt, jsonMatch[0]);
+
     return parsed;
-    
+
   } catch (error) {
     console.error("GM Claude API error:", error);
     return generateStubResponse(context);

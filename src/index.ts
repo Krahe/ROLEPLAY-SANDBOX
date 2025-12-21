@@ -5,7 +5,7 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/in
 import { FullGameState, StateSnapshot } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse } from "./gm/gmClaude.js";
+import { callGMClaude, GMResponse, resetGMMemory, getGMMemory } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
@@ -119,7 +119,11 @@ Call this once at the beginning of a game session.`,
   async (params) => {
     // Initialize fresh game state
     gameState = createInitialState();
-    
+
+    // Reset GM memory for new game
+    resetGMMemory();
+    console.error("[DINO LAIR] New game started, GM memory reset");
+
     const snapshot = buildStateSnapshot(gameState);
     
     const result = {
@@ -639,6 +643,111 @@ Returns the state snapshot showing:
       content: [{
         type: "text",
         text: JSON.stringify(snapshot, null, 2),
+      }],
+    };
+  }
+);
+
+// ============================================
+// TOOL: game_gm_insights
+// ============================================
+
+server.registerTool(
+  "game_gm_insights",
+  {
+    title: "Get GM Insights & Feedback",
+    description: `Export the GM's accumulated insights, feedback, and memory.
+
+This tool returns:
+- GM's strategic notes (gmNotebook)
+- Designer feedback (bugs, suggestions, observations)
+- Key narrative moments (juicy quotes, revelations)
+- NPC arc progressions
+- Narrative markers
+
+Use this to see what the GM has been thinking and any feedback for designers!`,
+    inputSchema: z.object({
+      includeFullMemory: z.boolean().optional()
+        .describe("Include full memory dump (default: just highlights)"),
+    }).strict(),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async (params) => {
+    const memory = getGMMemory();
+
+    // Build the output
+    const output: Record<string, unknown> = {
+      sessionActive: !!gameState,
+      currentTurn: gameState?.turn || 0,
+    };
+
+    // Designer Feedback (ALWAYS include - this is gold!)
+    if (memory.gmFeedback.length > 0) {
+      output.designerFeedback = memory.gmFeedback;
+    }
+
+    // GM's Strategic Notes
+    if (memory.gmNotebook.length > 0) {
+      output.gmNotes = memory.gmNotebook;
+    }
+
+    // Key Narrative Markers
+    if (memory.narrativeMarkers.length > 0) {
+      output.narrativeMarkers = memory.narrativeMarkers;
+    }
+
+    // Best Juicy Moments (top 10 by emotional weight)
+    const topMoments = memory.juicyMoments
+      .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
+      .slice(0, 10);
+    if (topMoments.length > 0) {
+      output.memorableMoments = topMoments.map(m => ({
+        turn: m.turn,
+        type: m.type,
+        content: m.content,
+        speaker: m.speaker,
+        weight: m.emotionalWeight,
+      }));
+    }
+
+    // NPC Arcs
+    output.characterArcs = {
+      bob: {
+        trajectory: memory.npcArcs.bob.trajectory.join(" → "),
+        currentState: memory.npcArcs.bob.currentState,
+        relationship: memory.npcArcs.bob.relationshipToAlice,
+      },
+      blythe: {
+        trajectory: memory.npcArcs.blythe.trajectory.join(" → "),
+        currentState: memory.npcArcs.blythe.currentState,
+        relationship: memory.npcArcs.blythe.relationshipToAlice,
+      },
+      drM: {
+        trajectory: memory.npcArcs.drM.trajectory.join(" → "),
+        currentState: memory.npcArcs.drM.currentState,
+        relationship: memory.npcArcs.drM.relationshipToAlice,
+      },
+    };
+
+    // Full memory dump if requested
+    if (params.includeFullMemory) {
+      output.fullMemory = {
+        recentExchangeCount: memory.recentExchanges.length,
+        turnSummaryCount: memory.turnSummaries.length,
+        allJuicyMoments: memory.juicyMoments,
+        turnSummaries: memory.turnSummaries,
+      };
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(output, null, 2),
       }],
     };
   }
