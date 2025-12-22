@@ -403,9 +403,14 @@ Returns:
           validationErrors.push("Missing dinoRay state");
         }
 
-        // Clocks validation
-        if (!state.clocks || typeof state.clocks.demoClock !== "number") {
+        // Clocks validation - demoClock can be number OR null (null = deadline passed)
+        if (!state.clocks || (state.clocks.demoClock !== null && typeof state.clocks.demoClock !== "number")) {
           validationErrors.push("Missing or invalid clocks");
+        }
+
+        // If demoClock is null, set it to 0 for the restored game
+        if (state.clocks && state.clocks.demoClock === null) {
+          state.clocks.demoClock = 0;
         }
       }
 
