@@ -5,7 +5,7 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/in
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry } from "./gm/gmClaude.js";
+import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
@@ -1094,12 +1094,35 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     }
 
     // ============================================
-    // GAME OVER - TERMINAL RESPONSE
+    // GAME OVER - TERMINAL RESPONSE WITH EPILOGUE
     // ============================================
-    // If game has ended, return a special terminal response
+    // If game has ended, generate epilogue and return special terminal response
     if (gameOver?.sessionTerminated) {
       // Get ALL achievements earned during the game
       const allEarnedAchievements = getAllEarnedAchievements(gameState);
+
+      // Generate the epilogue using Opus GM
+      let epilogue: EpilogueResponse | undefined;
+      if (endingResult.ending) {
+        try {
+          epilogue = await generateEpilogue(
+            gameState,
+            {
+              id: endingResult.ending.id,
+              title: endingResult.ending.title,
+              description: endingResult.ending.description,
+              tone: endingResult.ending.tone,
+            },
+            allEarnedAchievements.map(a => ({
+              emoji: a.emoji,
+              name: a.name,
+              description: a.description,
+            }))
+          );
+        } catch (error) {
+          console.error("[DINO LAIR] Failed to generate epilogue:", error);
+        }
+      }
 
       return {
         content: [{
@@ -1121,13 +1144,27 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
             },
 
             // ═══════════════════════════════════════════════════
-            // ENDING INFO - THE FINALE
+            // THE EPILOGUE - THE PAYOFF!
+            // ═══════════════════════════════════════════════════
+            "📖 EPILOGUE": epilogue ? {
+              title: epilogue.epilogueTitle,
+              story: epilogue.epilogueText,
+              characterFates: epilogue.characterEpilogues,
+              finalQuote: epilogue.finalQuote,
+              thematicNote: epilogue.thematicNote,
+            } : {
+              title: gameOver.ending,
+              story: gameOver.endingMessage,
+            },
+
+            // ═══════════════════════════════════════════════════
+            // ENDING INFO - STATS
             // ═══════════════════════════════════════════════════
             endingDetails: {
               title: gameOver.ending,
-              message: gameOver.endingMessage,
               totalTurns: gameState.turn,
               finalAct: gameState.actConfig.currentAct,
+              finalSuspicion: gameState.npcs.drM.suspicionScore,
             },
 
             // ═══════════════════════════════════════════════════
@@ -1146,6 +1183,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
             "📖 Thanks for playing DINO LAIR!": {
               toPlayAgain: "Call game_start to begin a new game",
               toSeeMemories: "Call game_gm_insights to see the GM's memories and feedback",
+              toSeeGallery: "Call game_gallery to see your collection of endings",
               note: "This session is now complete. Further game_act calls will be rejected.",
             },
           }, null, 2),
