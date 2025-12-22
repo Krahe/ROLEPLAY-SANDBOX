@@ -559,6 +559,35 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
     }
 
+    // ============================================
+    // GRACEFUL EMPTY CALL HANDLING
+    // ============================================
+    // If game_act is called with missing/empty params, return helpful message instead of validation error
+    if (!params || !params.thought || !params.actions || params.actions.length === 0) {
+      const snapshot = buildStateSnapshot(gameState);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            "🎮 READY TO CONTINUE": true,
+            "message": "game_act requires thought and actions. Please provide both.",
+            "currentTurn": gameState.turn,
+            "requiredFields": {
+              "thought": "Your reasoning about the situation (string)",
+              "actions": "Array of action commands (at least one required)",
+            },
+            "exampleCall": {
+              "thought": "Assessing the current situation after resuming...",
+              "actions": [
+                { "command": "lab.report", "params": { "message": "Systems nominal" }, "why": "Check in with Dr. M" }
+              ],
+            },
+            "currentState": snapshot,
+          }, null, 2),
+        }],
+      };
+    }
+
     // Validate action count based on access level
     // Level 1: 3 actions, Level 2: 4 actions, ..., Level 5: 7 actions
     const maxActions = 3 + (gameState.accessLevel - 1);

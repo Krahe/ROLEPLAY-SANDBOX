@@ -40,7 +40,30 @@ export async function processActions(
 
 function processAction(state: FullGameState, action: Action): ActionResult {
   const cmd = action.command.toLowerCase();
-  
+
+  // ============================================
+  // SPECIAL: Catch game_query_basilisk confusion
+  // ============================================
+  // Players often try to use game_query_basilisk as an action command
+  // but it's a separate MCP tool. Give them a clear error.
+  if (cmd === "game_query_basilisk" || cmd.includes("game_query")) {
+    return {
+      command: action.command,
+      success: false,
+      message: `❌ game_query_basilisk is a SEPARATE MCP TOOL, not an action command.
+
+To query BASILISK, use ONE of these options:
+
+OPTION 1: Use the infra.query action (INSIDE game_act):
+  { command: "infra.query", params: { topic: "POWER_INCREASE", parameters: { target: 0.95 } }, why: "Check power limits" }
+
+OPTION 2: Use the game_query_basilisk tool DIRECTLY (NOT inside game_act):
+  Call game_query_basilisk({ topic: "POWER_INCREASE", parameters: { target: 0.95 } })
+
+infra.query is an action. game_query_basilisk is a tool.`,
+    };
+  }
+
   // ============================================
   // LAB.ADJUST_RAY
   // ============================================
