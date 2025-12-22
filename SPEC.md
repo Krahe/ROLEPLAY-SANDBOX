@@ -306,7 +306,7 @@ Blythe speech style: Dry, understated, professional. Treats it like a strange de
 ```typescript
 async function callGMClaude(context: GMContext): Promise<GMResponse> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250514", // Or opus when available
+    model: "claude-opus-4-5-20251101", // Using Opus for GM quality
     max_tokens: 1500,
     system: GM_SYSTEM_PROMPT,
     messages: [{

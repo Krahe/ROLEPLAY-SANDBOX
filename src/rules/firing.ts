@@ -75,22 +75,29 @@ export function resolveFiring(state: FullGameState): FiringResult {
   let effectiveProfile = ray.genome.selectedProfile || ray.genome.fallbackProfile;
   let canaryOverride = false;
 
-  // Canary Override triggers if ANY of these are true:
-  // - profileIntegrity < 0.65
-  // - testModeEnabled = true
-  // - capacitorCharge > 1.1
+  // Canary Override triggers if ANY of these SAFETY conditions are true:
+  // - profileIntegrity < 0.65 (genome corruption)
+  // - capacitorCharge > 1.1 (overcharge risk)
+  //
+  // NOTE: Test mode does NOT trigger Canary override!
+  // Test mode only affects the TARGET (TEST_DUMMY vs live subject).
+  // The genome PROFILE stays whatever the player configured.
+  // This allows testing Velociraptor/T-Rex profiles on the dummy.
   if (ray.genome.profileIntegrity < 0.65) {
     canaryOverride = true;
     narrativeHooks.push("Profile integrity too low - genome matrix defaulting to Canary.");
   }
-  if (ray.safety.testModeEnabled) {
-    canaryOverride = true;
-    narrativeHooks.push("TEST MODE ACTIVE: First predator profile triggering Canary override.");
-    stateChanges.testModeCanaryTriggered = true;
-  }
   if (ray.powerCore.capacitorCharge > 1.1) {
     canaryOverride = true;
     narrativeHooks.push("Capacitor overcharge detected - safety fallback to Canary.");
+  }
+
+  // Test mode: log that we're firing at TEST_DUMMY, but keep the selected profile
+  if (ray.safety.testModeEnabled) {
+    narrativeHooks.push(`TEST MODE ACTIVE: Firing at TEST_DUMMY with ${effectiveProfile} profile.`);
+    stateChanges.testModeFiring = true;
+    // Test mode gets disabled after firing (single use)
+    stateChanges.disableTestModeAfterFiring = true;
   }
 
   if (canaryOverride) {
@@ -577,10 +584,14 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     state.flags.exoticFieldEventOccurred = true;
   }
 
+  // Test mode firing: disable test mode after use (single-use safety)
+  if (changes.disableTestModeAfterFiring) {
+    state.dinoRay.safety.testModeEnabled = false;
+  }
+
+  // Track if canary was triggered (for achievements/narrative)
   if (changes.testModeCanaryTriggered) {
     state.flags.testModeCanaryTriggered = true;
-    // Reset test mode after it triggers once
-    state.dinoRay.safety.testModeEnabled = false;
   }
 
   if (changes.newRayState) {

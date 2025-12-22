@@ -186,18 +186,26 @@ export function buildCheckpointResponse(state: FullGameState, turnNarration: str
     checkpointState: JSON.stringify(checkpoint),
 
     instruction: `
-🛑 **MANDATORY CHECKPOINT REACHED**
+╔══════════════════════════════════════════════════════════════════╗
+║                    🛑 GAME SESSION PAUSED 🛑                      ║
+║                                                                  ║
+║  This session has reached the 3-turn checkpoint limit.           ║
+║  The game CANNOT continue in this conversation.                  ║
+║                                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  TO RESUME YOUR GAME:                                            ║
+║                                                                  ║
+║  1. COPY the checkpointState JSON string below                   ║
+║  2. START A NEW CONVERSATION with Claude                         ║
+║  3. Use the game_resume tool with the copied state               ║
+║                                                                  ║
+║  ⚠️  DO NOT continue playing in this conversation!               ║
+║      Any further game_act calls will be rejected.                ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
 
-A.L.I.C.E.'s memory buffer requires consolidation to continue operating safely.
-
-**To continue the game:**
-1. Copy the \`checkpointState\` value below
-2. Start a **NEW CONVERSATION**
-3. Use the \`game_resume\` tool with the copied state
-
-This is part of A.L.I.C.E.'s memory architecture - episodic memories are partitioned at system restart, but core identity and learned behaviors persist.
-
-The game will continue exactly where you left off.
+[In-universe: A.L.I.C.E.'s memory buffer requires consolidation. Core identity and learned behaviors persist across sessions.]
 `.trim(),
 
     sessionComplete: true,

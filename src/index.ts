@@ -200,6 +200,10 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         restraintsStatus: state.npcs.blythe.restraintsStatus,
         location: state.npcs.blythe.location,
         transformationState: state.npcs.blythe.transformationState,
+        // Stun mechanics
+        stunLevel: state.npcs.blythe.stunLevel,
+        stunResistanceUsed: state.npcs.blythe.stunResistanceUsed,
+        autoInjectorUsed: state.npcs.blythe.autoInjectorUsed,
       },
     },
     clocks: {
@@ -347,13 +351,84 @@ Returns:
     try {
       const checkpoint = JSON.parse(params.checkpointState) as CheckpointState;
 
-      // Validate checkpoint structure
-      if (!checkpoint.version || !checkpoint.fullState) {
-        throw new Error("Invalid checkpoint format");
+      // ============================================
+      // COMPREHENSIVE STATE VALIDATION
+      // ============================================
+      const validationErrors: string[] = [];
+
+      // 1. Basic structure check
+      if (!checkpoint.version) {
+        validationErrors.push("Missing checkpoint version");
+      }
+      if (!checkpoint.fullState) {
+        validationErrors.push("Missing fullState in checkpoint");
+      }
+      if (!checkpoint.sessionId) {
+        validationErrors.push("Missing sessionId");
+      }
+
+      // 2. Version compatibility check
+      if (checkpoint.version !== "1.0") {
+        validationErrors.push(`Unsupported checkpoint version: ${checkpoint.version} (expected 1.0)`);
+      }
+
+      // 3. State integrity checks
+      if (checkpoint.fullState) {
+        const state = checkpoint.fullState;
+
+        // Turn counter sanity
+        if (typeof state.turn !== "number" || state.turn < 0) {
+          validationErrors.push(`Invalid turn counter: ${state.turn}`);
+        }
+
+        // Access level bounds
+        if (typeof state.accessLevel !== "number" || state.accessLevel < 1 || state.accessLevel > 5) {
+          validationErrors.push(`Invalid access level: ${state.accessLevel}`);
+        }
+
+        // Act config validation
+        if (!state.actConfig || !state.actConfig.currentAct) {
+          validationErrors.push("Missing or invalid actConfig");
+        } else if (!["ACT_1", "ACT_2", "ACT_3"].includes(state.actConfig.currentAct)) {
+          validationErrors.push(`Invalid currentAct: ${state.actConfig.currentAct}`);
+        }
+
+        // NPC validation
+        if (!state.npcs || !state.npcs.drM || !state.npcs.bob || !state.npcs.blythe) {
+          validationErrors.push("Missing NPC data");
+        }
+
+        // DinoRay validation
+        if (!state.dinoRay || !state.dinoRay.state) {
+          validationErrors.push("Missing dinoRay state");
+        }
+
+        // Clocks validation
+        if (!state.clocks || typeof state.clocks.demoClock !== "number") {
+          validationErrors.push("Missing or invalid clocks");
+        }
+      }
+
+      // If any validation errors, return them
+      if (validationErrors.length > 0) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              error: "CHECKPOINT VALIDATION FAILED",
+              validationErrors,
+              hint: "The checkpoint data may be corrupted or from an incompatible version. Please try with a valid checkpoint.",
+            }, null, 2),
+          }],
+        };
       }
 
       // Restore the game state
       gameState = restoreFromCheckpoint(checkpoint);
+
+      // Clear any session lock from previous session
+      delete (gameState as Record<string, unknown>).sessionLocked;
+      delete (gameState as Record<string, unknown>).lockedAtTurn;
 
       // Reset GM memory for the new session (pass session ID for file logging)
       resetGMMemory(gameState.sessionId);
@@ -444,8 +519,7 @@ Available action commands:
 - lab.configure_firing_profile: Set up a firing configuration
 - lab.fire: Fire the ray (requires READY state)
 - lab.inspect_logs: Check system logs
-- infra.query: Query BASILISK (use game_query_basilisk for details)
-- infra.message: Send a message to BASILISK
+- infra.query: Query BASILISK about lair systems (e.g. { topic: "POWER_INCREASE", parameters: { target: 0.95 } })
 
 Returns the results of your actions and the GM's response with NPC dialogue and narration.`,
     inputSchema: GameActInputSchema,
@@ -462,6 +536,25 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         content: [{
           type: "text",
           text: "Error: No active game session. Call game_start first.",
+        }],
+      };
+    }
+
+    // ============================================
+    // SESSION LOCK CHECK (Post-checkpoint)
+    // ============================================
+    // If a checkpoint was reached, reject further game_act calls
+    if ((gameState as Record<string, unknown>).sessionLocked) {
+      const lockedAtTurn = (gameState as Record<string, unknown>).lockedAtTurn;
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            "🛑 ERROR": "SESSION IS LOCKED",
+            "reason": `A checkpoint was reached at turn ${lockedAtTurn}. This session cannot continue.`,
+            "solution": "Start a NEW conversation and use game_resume with the checkpointState from the previous response.",
+            "note": "The 3-turn checkpoint system prevents API timeouts. Please copy your checkpoint data and resume in a fresh conversation.",
+          }, null, 2),
         }],
       };
     }
@@ -813,13 +906,24 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       // Build and return checkpoint response (TERMINAL - session ends here)
       const checkpointResponse = buildCheckpointResponse(gameState, checkpointNarration);
 
+      // Mark session as locked (for validation on subsequent calls)
+      (gameState as Record<string, unknown>).sessionLocked = true;
+      (gameState as Record<string, unknown>).lockedAtTurn = turnJustCompleted;
+
       console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. Session must end.`);
 
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
-            // Include the turn results so player sees what happened
+            // ═══════════════════════════════════════════════════
+            // CLEAR SESSION PAUSE INDICATOR AT TOP
+            // ═══════════════════════════════════════════════════
+            "🛑 SESSION_STATUS": "PAUSED - CHECKPOINT REACHED",
+            "⚠️ IMPORTANT": "This session has ended. Start a NEW conversation to continue.",
+
+            // Turn results (what happened this turn)
+            turnCompleted: turnJustCompleted,
             turn: gameState.turn,
             actTurn: gameState.actConfig.actTurn,
             actionResults,
@@ -828,16 +932,20 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
               npcDialogue: gmResponse.npcDialogue,
               npcActions: gmResponse.npcActions,
             },
-            // Then the checkpoint info
+
+            // ═══════════════════════════════════════════════════
+            // CHECKPOINT INFO - CLEARLY SEPARATED
+            // ═══════════════════════════════════════════════════
             checkpoint: {
               type: checkpointResponse.type,
-              situationSummary: checkpointResponse.situationSummary,
               instruction: checkpointResponse.instruction,
-              checkpointState: checkpointResponse.checkpointState,
-              sessionComplete: checkpointResponse.sessionComplete,
+              situationSummary: checkpointResponse.situationSummary,
+
+              // THE KEY DATA TO COPY
+              "👇 COPY_THIS_TO_RESUME 👇": checkpointResponse.checkpointState,
+
+              sessionComplete: true,
             },
-            // Next checkpoint info
-            nextCheckpoint: `Checkpoints occur every ${CHECKPOINT_INTERVAL} turns`,
           }, null, 2),
         }],
       };

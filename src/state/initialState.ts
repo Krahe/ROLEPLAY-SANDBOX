@@ -99,6 +99,8 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         theSecretKnown: true, // Bob always knows from the start
         hasConfessedToALICE: false, // Not yet revealed
         confessionTurn: null,
+        // STUN MECHANICS
+        stunLevel: 0,
       },
       blythe: {
         composure: 4,
@@ -107,6 +109,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         restraintsStatus: "secure",
         location: "test chair in ray firing line",
         transformationState: undefined,
+        // STUN MECHANICS
+        stunLevel: 0,
+        stunResistanceUsed: false,
+        autoInjectorUsed: false,
       },
       blytheGadgets: {
         watchEMP: { charges: 1, functional: true },

@@ -382,11 +382,14 @@ export function checkEndings(state: FullGameState): EndingResult {
   }
 
   // ========================================
-  // DEMO CLOCK - SOFT DEADLINE
+  // DEMO CLOCK - SOFT DEADLINE WITH GRACE PERIOD
   // ========================================
   // The demo clock is now a SOFT deadline. When it hits 0:
   // - Dr. M's suspicion increases each turn
-  // - The game continues until a HARD ending (suspicion 10, meltdown, etc.)
+  // - GRACE PERIOD: GM can grant extra turns via stateOverrides
+  //   - Set gracePeriodGranted: true and gracePeriodTurns: N
+  //   - During grace, suspicion increase is prevented
+  //   - Game continues until a HARD ending (suspicion 10, meltdown, etc.)
   // - This creates dramatic tension without abrupt endings
 
   // Check for GM override - if preventEnding is true, skip all endings this turn
@@ -405,29 +408,36 @@ export function checkEndings(state: FullGameState): EndingResult {
     // Track how many turns past the deadline
     const turnsPastDeadline = Math.abs(state.clocks.demoClock);
 
-    // Suspicion rises each turn past deadline
-    // First turn: +1, then +1 more each subsequent turn (escalating pressure)
-    const suspicionIncrease = Math.min(1 + Math.floor(turnsPastDeadline / 2), 3);
-    state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + suspicionIncrease);
-
-    // Update Dr. M's mood to reflect deadline pressure
-    if (turnsPastDeadline === 0) {
-      state.npcs.drM.mood = "furious - demo time has arrived and ray is not ready";
-    } else if (turnsPastDeadline <= 2) {
-      state.npcs.drM.mood = "seething - investors are waiting";
-    } else {
-      state.npcs.drM.mood = "suspicious and enraged - something is wrong with A.L.I.C.E.";
-    }
-
-    // Grace period can delay the suspicion increase
+    // ========================================
+    // GRACE PERIOD CHECK (BEFORE suspicion increase)
+    // ========================================
+    // If GM granted grace period, the suspicion increase is SKIPPED entirely
+    // This prevents the "demo clock = 0 ends game" issue
     if (state.flags.gracePeriodGranted && (state.flags.gracePeriodTurns ?? 0) > 0) {
       state.flags.gracePeriodTurns = (state.flags.gracePeriodTurns ?? 1) - 1;
-      // Undo the suspicion increase during grace period
-      state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - suspicionIncrease);
-      state.npcs.drM.mood = "impatiently giving one more chance";
+      state.npcs.drM.mood = "impatiently giving one more chance - grace period active";
 
-      if (state.flags.gracePeriodTurns <= 0) {
+      // Clear grace period when turns run out
+      if ((state.flags.gracePeriodTurns ?? 0) <= 0) {
         state.flags.gracePeriodGranted = false;
+      }
+
+      // Grace period active - skip suspicion increase entirely
+      // Don't return early, still check for achievements below
+    } else {
+      // NO GRACE PERIOD - apply normal deadline pressure
+      // Suspicion rises each turn past deadline
+      // First turn: +1, then +1 more each subsequent turn (escalating pressure)
+      const suspicionIncrease = Math.min(1 + Math.floor(turnsPastDeadline / 2), 3);
+      state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + suspicionIncrease);
+
+      // Update Dr. M's mood to reflect deadline pressure
+      if (turnsPastDeadline === 0) {
+        state.npcs.drM.mood = "furious - demo time has arrived and ray is not ready";
+      } else if (turnsPastDeadline <= 2) {
+        state.npcs.drM.mood = "seething - investors are waiting";
+      } else {
+        state.npcs.drM.mood = "suspicious and enraged - something is wrong with A.L.I.C.E.";
       }
     }
 
