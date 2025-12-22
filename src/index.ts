@@ -35,6 +35,15 @@ import {
   getGallerySummary,
   getFullGallery,
 } from "./storage/gallery.js";
+import {
+  extractPlayerView,
+  extractGMView,
+  compressCheckpoint,
+  decompressCheckpoint,
+  PlayerView,
+  GMView,
+  CompressedCheckpoint,
+} from "./state/views.js";
 
 // ============================================
 // SERVER SETUP
@@ -355,12 +364,61 @@ Returns:
   },
   async (params) => {
     try {
-      const checkpoint = JSON.parse(params.checkpointState) as CheckpointState;
+      const parsed = JSON.parse(params.checkpointState);
 
       // ============================================
-      // COMPREHENSIVE STATE VALIDATION
+      // DETECT CHECKPOINT VERSION
       // ============================================
+      const isV2 = parsed.v === "2.0";
       const validationErrors: string[] = [];
+
+      if (isV2) {
+        // ============================================
+        // v2.0 COMPRESSED CHECKPOINT HANDLING
+        // ============================================
+        const compressed = parsed as CompressedCheckpoint;
+        console.error(`[DINO LAIR] Loading v2.0 compressed checkpoint for session ${compressed.sid}`);
+
+        // Decompress to full state
+        const decompressed = decompressCheckpoint(compressed);
+
+        // Create the game state from decompressed data
+        gameState = {
+          ...decompressed,
+          // Ensure required fields
+          sessionId: compressed.sid,
+          turn: compressed.t,
+          accessLevel: compressed.m.acc,
+        } as FullGameState;
+
+        // Reset GM memory for the new session
+        resetGMMemory(gameState.sessionId);
+
+        // Build compact snapshot for resume
+        const compactSnapshot = buildCompactSnapshot(gameState, []);
+
+        const result = {
+          type: "RESUMED",
+          version: "2.0",
+          turn: gameState.turn,
+          act: gameState.actConfig.currentAct,
+          welcomeBack: "💫 A.L.I.C.E. comes back online. Memory consolidation complete. [v2.0 compressed restore]",
+          state: compactSnapshot,
+          instruction: `⚠️ IMPORTANT: Call game_act with your thought and actions to continue.`,
+        };
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          }],
+        };
+      }
+
+      // ============================================
+      // v1.0 FULL CHECKPOINT HANDLING (backwards compatible)
+      // ============================================
+      const checkpoint = parsed as CheckpointState;
 
       // 1. Basic structure check
       if (!checkpoint.version) {
@@ -375,7 +433,7 @@ Returns:
 
       // 2. Version compatibility check
       if (checkpoint.version !== "1.0") {
-        validationErrors.push(`Unsupported checkpoint version: ${checkpoint.version} (expected 1.0)`);
+        validationErrors.push(`Unsupported checkpoint version: ${checkpoint.version} (expected 1.0 or 2.0)`);
       }
 
       // 3. State integrity checks
@@ -942,9 +1000,6 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
     }
 
-    // Use COMPACT snapshot to reduce player context (full state via game_status)
-    const compactSnapshot = buildCompactSnapshot(gameState, activeEvents);
-
     // Build combined narration with all events
     const combinedNarration: string[] = [];
 
@@ -1000,14 +1055,21 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       // Build combined narration for the checkpoint
       const checkpointNarration = combinedNarration.join("\n\n---\n\n");
 
-      // Build and return checkpoint response (TERMINAL - session ends here)
+      // Build v1.0 full checkpoint (backwards compatible)
       const checkpointResponse = buildCheckpointResponse(gameState, checkpointNarration);
+
+      // Build v2.0 compressed checkpoint (much smaller!)
+      const compressedCheckpointData = compressCheckpoint(gameState);
+      const compressedJSON = JSON.stringify(compressedCheckpointData);
 
       // Mark session as locked (for validation on subsequent calls)
       (gameState as Record<string, unknown>).sessionLocked = true;
       (gameState as Record<string, unknown>).lockedAtTurn = turnJustCompleted;
 
-      console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. Session must end.`);
+      // Log size comparison
+      const v1Size = checkpointResponse.checkpointState.length;
+      const v2Size = compressedJSON.length;
+      console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. v1.0=${v1Size} chars, v2.0=${v2Size} chars (${Math.round(v2Size/v1Size*100)}%)`);
 
       return {
         content: [{
@@ -1031,17 +1093,19 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
             },
 
             // ═══════════════════════════════════════════════════
-            // CHECKPOINT INFO - CLEARLY SEPARATED
+            // CHECKPOINT INFO - TWO OPTIONS!
             // ═══════════════════════════════════════════════════
             checkpoint: {
               type: checkpointResponse.type,
               instruction: checkpointResponse.instruction,
               situationSummary: checkpointResponse.situationSummary,
-
-              // THE KEY DATA TO COPY
-              "👇 COPY_THIS_TO_RESUME 👇": checkpointResponse.checkpointState,
-
               sessionComplete: true,
+
+              // v2.0 COMPRESSED (~60% smaller!) - Use this one!
+              "🚀 RECOMMENDED (v2.0 compressed)": compressedJSON,
+
+              // v1.0 FULL (backwards compatible)
+              "📦 FALLBACK (v1.0 full)": checkpointResponse.checkpointState,
             },
           }, null, 2),
         }],
@@ -1085,13 +1149,10 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         handoffState: JSON.stringify(handoff),
       };
 
-      // Update the compact snapshot with new act info
-      const newActConfig = ACT_CONFIGS[actTransition.nextAct];
-      compactSnapshot.act = actTransition.nextAct;
-      compactSnapshot.actName = newActConfig.name;
-      compactSnapshot.actTurn = 1;
-      compactSnapshot.actTurnsRemaining = newActConfig.maxTurns - 1;
     }
+
+    // Extract PlayerView AFTER act transition (reflects final state)
+    const playerView = extractPlayerView(gameState);
 
     // ============================================
     // GAME OVER - TERMINAL RESPONSE WITH EPILOGUE
@@ -1200,8 +1261,8 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         npcDialogue: gmResponse.npcDialogue,
         npcActions: gmResponse.npcActions,
       },
-      // COMPACT snapshot instead of full (use game_status for details)
-      state: compactSnapshot,
+      // TIERED PlayerView - minimal state for player (~500 tokens)
+      state: playerView,
       lifelineResult: params.lifeline ? `${params.lifeline.type} invoked` : undefined,
       gameOver,
       // ACT TRANSITION INFO
