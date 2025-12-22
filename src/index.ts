@@ -20,6 +20,15 @@ import {
   applyActTransition,
   ActHandoffState,
 } from "./rules/acts.js";
+import {
+  isCheckpointTurn,
+  buildCheckpointResponse,
+  restoreFromCheckpoint,
+  buildResumeResponse,
+  serializeCheckpoint,
+  CheckpointState,
+  CHECKPOINT_INTERVAL,
+} from "./rules/checkpoint.js";
 
 // ============================================
 // SERVER SETUP
@@ -296,6 +305,91 @@ Returns:
         text: JSON.stringify(result, null, 2),
       }],
     };
+  }
+);
+
+// ============================================
+// TOOL: game_resume
+// ============================================
+
+const GameResumeInputSchema = z.object({
+  checkpointState: z.string()
+    .describe("The serialized checkpoint state from a previous session"),
+}).strict();
+
+server.registerTool(
+  "game_resume",
+  {
+    title: "Resume DINO LAIR from Checkpoint",
+    description: `Resume a DINO LAIR game from a mandatory checkpoint.
+
+CHECKPOINTS occur every ${CHECKPOINT_INTERVAL} turns to prevent context overflow.
+When you receive a checkpoint response, copy the checkpointState and use this tool
+in a NEW CONVERSATION to continue.
+
+This fits A.L.I.C.E.'s lore: "episodic memory gets partitioned at system restart,
+but core identity and learned behaviors persist."
+
+Returns:
+- Welcome back message
+- Current situation summary
+- State snapshot
+- Ready to continue with game_act`,
+    inputSchema: GameResumeInputSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  async (params) => {
+    try {
+      const checkpoint = JSON.parse(params.checkpointState) as CheckpointState;
+
+      // Validate checkpoint structure
+      if (!checkpoint.version || !checkpoint.fullState) {
+        throw new Error("Invalid checkpoint format");
+      }
+
+      // Restore the game state
+      gameState = restoreFromCheckpoint(checkpoint);
+
+      // Reset GM memory for the new session (pass session ID for file logging)
+      resetGMMemory(gameState.sessionId);
+
+      console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn}`);
+
+      // Build the resume response
+      const resumeResponse = buildResumeResponse(gameState);
+
+      // Build compact snapshot
+      const compactSnapshot = buildCompactSnapshot(gameState, []);
+
+      const result = {
+        ...resumeResponse,
+        state: compactSnapshot,
+        // Remind about next checkpoint
+        nextCheckpoint: {
+          turnsUntil: CHECKPOINT_INTERVAL - (gameState.turn % CHECKPOINT_INTERVAL),
+          message: `Next checkpoint in ${CHECKPOINT_INTERVAL - (gameState.turn % CHECKPOINT_INTERVAL)} turn(s)`,
+        },
+      };
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Error: Failed to restore checkpoint. ${error instanceof Error ? error.message : "Invalid checkpoint data."}`,
+        }],
+      };
+    }
   }
 );
 
@@ -706,6 +800,48 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       flagsSet: (gameState.flags as Record<string, unknown>).narrativeFlags as string[] || [],
     };
     logTurnToJSONL(turnLogEntry);
+
+    // ============================================
+    // MANDATORY CHECKPOINT CHECK
+    // ============================================
+    // Force session break every N turns to prevent context overflow
+    const turnJustCompleted = gameState.turn - 1; // The turn we just processed
+    if (isCheckpointTurn(turnJustCompleted) && !gameOver) {
+      // Build combined narration for the checkpoint
+      const checkpointNarration = combinedNarration.join("\n\n---\n\n");
+
+      // Build and return checkpoint response (TERMINAL - session ends here)
+      const checkpointResponse = buildCheckpointResponse(gameState, checkpointNarration);
+
+      console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. Session must end.`);
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            // Include the turn results so player sees what happened
+            turn: gameState.turn,
+            actTurn: gameState.actConfig.actTurn,
+            actionResults,
+            gmResponse: {
+              narration: checkpointResponse.narrativeMessage,
+              npcDialogue: gmResponse.npcDialogue,
+              npcActions: gmResponse.npcActions,
+            },
+            // Then the checkpoint info
+            checkpoint: {
+              type: checkpointResponse.type,
+              situationSummary: checkpointResponse.situationSummary,
+              instruction: checkpointResponse.instruction,
+              checkpointState: checkpointResponse.checkpointState,
+              sessionComplete: checkpointResponse.sessionComplete,
+            },
+            // Next checkpoint info
+            nextCheckpoint: `Checkpoints occur every ${CHECKPOINT_INTERVAL} turns`,
+          }, null, 2),
+        }],
+      };
+    }
 
     // Build act transition info if transitioning
     let actTransitionInfo: {
