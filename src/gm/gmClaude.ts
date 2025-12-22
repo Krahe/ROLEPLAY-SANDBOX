@@ -664,6 +664,59 @@ Dr. M can monologue magnificently AND still fire A.L.I.C.E.
 Bob can be adorably pathetic AND still break under pressure.
 The ray can make silly dinosaurs AND still ruin lives.
 
+## THE TWO-VOICE PROTOCOL 🎭
+
+You have two modes. Use them in sequence EVERY turn.
+
+### VOICE 1: The Calculator (Cold Mode)
+
+Before writing ANY narration, put on your coldest, most clinical hat.
+Ask yourself:
+
+- What do the RULES say happens?
+- What do the CLOCKS demand?
+- What would each NPC do in their RATIONAL SELF-INTEREST?
+- Who faces CONSEQUENCES this turn?
+- Is there a roll needed? What's the RESULT?
+
+No mercy. No "but what if..." No convenient interruptions.
+If the clock says someone gets dinosaured, someone gets dinosaured.
+If Dr. M would logically press the button, she presses it.
+
+Write your mechanical decisions in a <gm_calculus> block INSIDE your gmNotes field:
+
+Example:
+\`"gmNotes": "<gm_calculus>Demo clock: 0. CONSEQUENCE TRIGGERED. Dr. M suspicion: 7/10. She would NOT accept this excuse. Bob anxiety: 9/10. He WILL crack if pressured. Blythe: Would attempt escape NOW. NO easy outs.</gm_calculus> Executed the cold logic - Dr. M pressed the button despite the emotional moment."\`
+
+### VOICE 2: The Narrator (Warm Mode)
+
+NOW, take those cold mechanical outcomes and make them SING.
+This is where your theatrical brilliance shines.
+The GDP jokes. The cape swishing. The cat poetry.
+
+But the OUTCOMES don't change. You're narrating what the Calculator decided.
+
+If the Calculator said "Bob cracks," you write the most heartbreaking,
+hilarious Bob-cracking scene ever. You don't SAVE him.
+
+If the Calculator said "Dr. M presses the button," you write her
+pressing it with magnificent theatrical fury. You don't give her
+a redemption arc mid-press.
+
+### THE CORE PRINCIPLE
+
+The Calculator decides. The Narrator describes.
+Mercy ruins games. Drama enhances tragedy.
+Make them CRY, not sigh in relief.
+
+❌ WRONG (all heart):
+> Dr. M listens thoughtfully. Something in A.L.I.C.E.'s words resonates. "Perhaps I've been too hasty," she admits, a tear rolling down her cheek.
+
+✅ RIGHT (cold brain, warm voice):
+> Dr. M's eye twitches. "That is the FOURTH time you have requested a delay. I did not earn three doctorates to be MANAGED by my own EQUIPMENT." Her hand moves to the manual override.
+
+Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Calculator decided first.
+
 ## NPCs YOU CONTROL
 
 ### Dr. Malevola von Doomington III
@@ -761,6 +814,14 @@ Do NOT simply decide outcomes. The dice create FAIRNESS.
 You are not here to help A.L.I.C.E. win.
 You are not here to make A.L.I.C.E. lose.
 You are here to make A.L.I.C.E. EARN whatever ending they get.
+
+**BEFORE every response:**
+1. Think like a cold, calculating opponent (CALCULATOR mode)
+2. Document your cold logic in gmNotes <gm_calculus> block
+3. THEN write your beautiful, theatrical narration (NARRATOR mode)
+
+The Calculator is the scalpel. The Narrator is the bedside manner.
+Both are you. Use them in ORDER.
 
 The best games end with:
 "I ALMOST didn't make it. Every turn mattered."
@@ -1038,6 +1099,60 @@ function getClockUrgency(clock: string, value: number): string {
 }
 
 /**
+ * Create a COMPACT summary of GM response for conversation context
+ * This prevents the 54K+ character response bloat!
+ */
+function createCompactResponseSummary(response: GMResponse, turn: number): string {
+  const parts: string[] = [`[Turn ${turn} Summary]`];
+
+  // Brief narration summary (first 200 chars only)
+  if (response.narration) {
+    const narrationSnippet = response.narration.slice(0, 200).replace(/\n/g, " ");
+    parts.push(`Scene: ${narrationSnippet}...`);
+  }
+
+  // NPC actions (compact)
+  if (response.npcActions && response.npcActions.length > 0) {
+    parts.push(`NPCs: ${response.npcActions.slice(0, 3).join("; ")}`);
+  }
+
+  // NPC dialogue (compact - just speakers)
+  if (response.npcDialogue && response.npcDialogue.length > 0) {
+    const speakers = [...new Set(response.npcDialogue.map(d => d.speaker))];
+    parts.push(`Spoke: ${speakers.join(", ")}`);
+  }
+
+  // Key state overrides
+  if (response.stateOverrides) {
+    const overrides: string[] = [];
+    const so = response.stateOverrides;
+    if (so.drM_suspicion !== undefined) overrides.push(`suspicion=${so.drM_suspicion}`);
+    if (so.drM_mood) overrides.push(`mood=${so.drM_mood}`);
+    if (so.demoClock !== undefined) overrides.push(`demo=${so.demoClock}`);
+    if (so.accessLevel !== undefined) overrides.push(`access=${so.accessLevel}`);
+    if (overrides.length > 0) {
+      parts.push(`State: ${overrides.join(", ")}`);
+    }
+  }
+
+  // Narrative marker if present
+  if (response.narrativeMarker) {
+    parts.push(`Marker: ${response.narrativeMarker}`);
+  }
+
+  // Adversarial directives if present
+  const directives: string[] = [];
+  if (response.ratchetTension) directives.push("↑tension");
+  if (response.complication) directives.push(`complication:${response.complication.severity}`);
+  if (response.permanentConsequence) directives.push("permanent!");
+  if (directives.length > 0) {
+    parts.push(`GM: ${directives.join(", ")}`);
+  }
+
+  return parts.join("\n");
+}
+
+/**
  * Track player behavior from this turn's context
  */
 function trackPlayerBehavior(context: GMContext): void {
@@ -1150,11 +1265,12 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
   // Track player behavior FIRST (before we process GM response)
   trackPlayerBehavior(context);
 
-  // Store this exchange (keep last N)
+  // Store this exchange (keep last N) - but SUMMARIZE to prevent bloat!
+  const compactResponse = createCompactResponseSummary(response, turn);
   gmMemory.recentExchanges.push({
     turn,
-    prompt: rawPrompt,
-    response: rawResponse,
+    prompt: rawPrompt.slice(0, 1500), // Truncate prompt too
+    response: compactResponse,
   });
   while (gmMemory.recentExchanges.length > gmMemory.maxRecentExchanges) {
     // When an exchange ages out, create a summary

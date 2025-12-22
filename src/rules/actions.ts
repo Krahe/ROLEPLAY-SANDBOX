@@ -3,6 +3,7 @@ import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
 import { validatePassword, getActionsForLevel } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
+import { queryBasilisk } from "./basilisk.js";
 
 export interface ActionResult {
   command: string;
@@ -531,7 +532,7 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}`,
   if (cmd.includes("ecomode") || (cmd.includes("eco") && cmd.includes("mode"))) {
     const enable = action.params.enabled as boolean ?? action.params.value as boolean ?? true;
     state.dinoRay.powerCore.ecoModeActive = enable;
-    
+
     return {
       command: action.command,
       success: true,
@@ -539,7 +540,48 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}`,
       stateChanges: { ecoModeActive: enable },
     };
   }
-  
+
+  // ============================================
+  // INFRA.QUERY - Query BASILISK inline
+  // ============================================
+
+  if (cmd.includes("infra.query") || cmd.includes("query_basilisk") || cmd === "basilisk") {
+    const topic = action.params.topic as string;
+
+    if (!topic) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Missing 'topic' parameter.
+
+Examples:
+  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }
+  infra.query { topic: "STRUCTURAL_INTEGRITY_CHECK" }
+  infra.query { topic: "MAX_SAFE_SHOT_FREQUENCY_LAB" }
+
+BASILISK topics include:
+- POWER_INCREASE (with target: 0.0-1.0)
+- STRUCTURAL_INTEGRITY_CHECK
+- MULTI_TARGET_FULL_POWER_CLEARANCE
+- MAX_SAFE_SHOT_FREQUENCY_LAB`,
+      };
+    }
+
+    const parameters = action.params.parameters as Record<string, unknown> | undefined;
+    const basiliskResponse = queryBasilisk(state, topic, parameters);
+
+    return {
+      command: action.command,
+      success: basiliskResponse.decision === "APPROVED",
+      message: basiliskResponse.response,
+      stateChanges: {
+        basiliskDecision: basiliskResponse.decision,
+        basiliskConstraints: basiliskResponse.constraints,
+        basiliskFormRequired: basiliskResponse.formRequired,
+      },
+    };
+  }
+
   // ============================================
   // DEFAULT / UNKNOWN
   // ============================================
@@ -666,11 +708,11 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
-    name: "infra.query_basilisk",
-    aliases: ["basilisk", "query_basilisk", "infra.query"],
-    description: "Query BASILISK infrastructure AI (use game_query_basilisk tool instead for full interaction)",
+    name: "infra.query",
+    aliases: ["basilisk", "query_basilisk", "infra.query_basilisk"],
+    description: "Query BASILISK infrastructure AI about lair systems",
     schema: "{ topic: string, parameters?: object }",
-    example: 'Use the game_query_basilisk MCP tool directly for BASILISK queries',
+    example: 'infra.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }',
     minAccessLevel: 2,
   },
 ];

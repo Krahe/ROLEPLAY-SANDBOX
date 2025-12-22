@@ -519,8 +519,7 @@ Available action commands:
 - lab.configure_firing_profile: Set up a firing configuration
 - lab.fire: Fire the ray (requires READY state)
 - lab.inspect_logs: Check system logs
-- infra.query: Query BASILISK (use game_query_basilisk for details)
-- infra.message: Send a message to BASILISK
+- infra.query: Query BASILISK about lair systems (e.g. { topic: "POWER_INCREASE", parameters: { target: 0.95 } })
 
 Returns the results of your actions and the GM's response with NPC dialogue and narration.`,
     inputSchema: GameActInputSchema,
