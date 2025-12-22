@@ -304,6 +304,14 @@ export interface CompressedCheckpoint {
     esc?: number;
     fly?: number;
   };
+
+  // CRITICAL GAME STATE (v2.0.1 - was missing!)
+  ll?: string[];  // lifelinesUsed (short codes: PAF, CEN, IDM)
+  srm?: string;   // secretRevealMethod (short code)
+  gp?: {          // gracePeriod flags
+    g: boolean;   // granted
+    t: number;    // turns remaining
+  };
 }
 
 // Ray state to enum (save chars)
@@ -415,6 +423,22 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
           esc: full.clocks.blytheEscapeIdea,
           fly: full.clocks.civilianFlyby,
         }
+      : undefined,
+
+    // CRITICAL GAME STATE (v2.0.1 fix)
+    // Lifelines used (short codes: PAF=PHONE_A_FRIEND, CEN=CENSORED, IDM=I_DIDNT_MEAN_THAT)
+    ll: full.flags.lifelinesUsed.length > 0
+      ? full.flags.lifelinesUsed.map(l => l === "PHONE_A_FRIEND" ? "PAF" : l === "CENSORED" ? "CEN" : "IDM")
+      : undefined,
+
+    // Secret reveal method (short code)
+    srm: full.flags.secretRevealMethod && full.flags.secretRevealMethod !== "NONE"
+      ? full.flags.secretRevealMethod.slice(0, 3) // BOB, FIL, BAS, BLY
+      : undefined,
+
+    // Grace period (if active)
+    gp: full.flags.gracePeriodGranted
+      ? { g: true, t: full.flags.gracePeriodTurns ?? 0 }
       : undefined,
   };
 }
@@ -549,14 +573,27 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
     },
 
     flags: {
-      lifelinesUsed: [],
+      // CRITICAL: Restore lifelines used (v2.0.1 fix)
+      lifelinesUsed: (compressed.ll || []).map(code =>
+        code === "PAF" ? "PHONE_A_FRIEND" : code === "CEN" ? "CENSORED" : "I_DIDNT_MEAN_THAT"
+      ) as ("PHONE_A_FRIEND" | "CENSORED" | "I_DIDNT_MEAN_THAT")[],
       testModeCanaryTriggered: false,
       predatorProfileSeenOnDummy: {},
       predatorProfileClearedForLive: {},
       exoticFieldEventOccurred: false,
       lastHighEnergyTurn: null,
       aliceKnowsTheSecret: decompressFlags(compressed.f).includes("SECRET_REVEALED"),
+      // CRITICAL: Restore secret reveal method (v2.0.1 fix)
+      secretRevealMethod: compressed.srm
+        ? (compressed.srm === "BOB" ? "BOB_CONFESSION"
+          : compressed.srm === "FIL" ? "FILE_DISCOVERY"
+          : compressed.srm === "BAS" ? "BASILISK_HINT"
+          : compressed.srm === "BLY" ? "BLYTHE_DEDUCTION" : "NONE") as "NONE" | "BOB_CONFESSION" | "FILE_DISCOVERY" | "BASILISK_HINT" | "BLYTHE_DEDUCTION"
+        : "NONE",
       exposureTriggered: decompressFlags(compressed.f).includes("EXPOSURE_TRIGGERED"),
+      // CRITICAL: Restore grace period (v2.0.1 fix)
+      gracePeriodGranted: compressed.gp?.g ?? false,
+      gracePeriodTurns: compressed.gp?.t ?? 0,
       narrativeFlags: decompressFlags(compressed.f),
       earnedAchievements: compressed.ach,
     },
