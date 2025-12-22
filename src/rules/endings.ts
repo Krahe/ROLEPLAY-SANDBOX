@@ -392,15 +392,43 @@ export function checkEndings(state: FullGameState): EndingResult {
   //   - Game continues until a HARD ending (suspicion 10, meltdown, etc.)
   // - This creates dramatic tension without abrupt endings
 
-  // Check for GM override - if preventEnding is true, skip all endings this turn
+  // ========================================
+  // GM OVERRIDE CHECK (with HARD LIMITS)
+  // ========================================
+  // GM can prevent endings, but:
+  // - Can only be used ONCE per game (endingPreventedCount tracks this)
+  // - Requires explicit reason (preventEndingReason)
+  // - Does NOT apply to CRITICAL endings (suspicion >= 10, meltdown, exposure)
+  // These limits prevent the "game never ends" problem
+
+  // Track prevention count if not already present
+  if (state.flags.endingPreventedCount === undefined) {
+    state.flags.endingPreventedCount = 0;
+  }
+
+  // Check if GM is trying to prevent ending
   if (state.flags.preventEnding) {
-    // Clear the flag for next turn
+    // Clear the flag immediately
     state.flags.preventEnding = false;
-    return {
-      triggered: false,
-      achievements: [],
-      continueGame: true,
-    };
+
+    // HARD LIMIT: Can only prevent ending ONCE per game
+    if (state.flags.endingPreventedCount >= 1) {
+      console.log(`[ENDING] Hard limit reached - ending prevention denied (already used ${state.flags.endingPreventedCount} times)`);
+      // Don't return early - continue to check endings
+    } else if (!state.flags.preventEndingReason) {
+      console.log(`[ENDING] Prevention denied - no reason provided`);
+      // Don't return early - continue to check endings
+    } else {
+      // Valid prevention - allow it ONCE
+      console.log(`[ENDING] Prevention granted: ${state.flags.preventEndingReason}`);
+      state.flags.endingPreventedCount++;
+      state.flags.preventEndingReason = undefined; // Clear after use
+      return {
+        triggered: false,
+        achievements: [],
+        continueGame: true,
+      };
+    }
   }
 
   // Apply deadline pressure when demo clock has run out

@@ -86,10 +86,17 @@ function getCheckpointMessage(): string {
 
 /**
  * Serialize full game state for checkpoint
+ * NOTE: Strips history[] to keep checkpoint < 5KB instead of 50KB+
  */
 export function serializeCheckpoint(state: FullGameState): CheckpointState {
   const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
   const narrativeMarkers = (state as Record<string, unknown>).narrativeMarkers as Array<{ turn: number; marker: string }> || [];
+
+  // Create a copy of state WITHOUT the history array (saves 40KB+)
+  const stateForCheckpoint = {
+    ...state,
+    history: [], // Strip full history - narrativeMarkers has the condensed version
+  };
 
   return {
     version: "1.0",
@@ -112,7 +119,7 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
 
     narrativeFlags,
     keyMoments: narrativeMarkers.map(m => m.marker),
-    fullState: state,
+    fullState: stateForCheckpoint,
   };
 }
 
@@ -224,8 +231,18 @@ export interface ResumeResponse {
   welcomeBack: string;
   situationSummary: string;
 
-  // Hint for next action
-  hint: string;
+  // Explicit next action guidance
+  nextAction: {
+    tool: string;
+    requiredFields: string[];
+    example: {
+      thought: string;
+      actions: Array<{ command: string; params: Record<string, unknown>; why: string }>;
+    };
+  };
+
+  // Critical instruction
+  instruction: string;
 }
 
 export function buildResumeResponse(state: FullGameState): ResumeResponse {
@@ -246,12 +263,16 @@ export function buildResumeResponse(state: FullGameState): ResumeResponse {
     welcomeBack += "\n\n⏰ The demo clock is critical. Time is running out.";
   }
 
-  // Hint based on situation
-  let hint = "Continue with game_act to take your next turn.";
+  // Generate contextual example action
+  let exampleAction: { command: string; params: Record<string, unknown>; why: string } = {
+    command: "lab.report",
+    params: { message: "Systems nominal" },
+    why: "Assess current situation"
+  };
   if (state.dinoRay.state === "READY") {
-    hint = "The ray is READY. Consider your next move carefully.";
-  } else if (state.dinoRay.state === "UNCALIBRATED") {
-    hint = "The ray needs calibration before it can fire.";
+    exampleAction = { command: "lab.verify_safeties", params: { checks: ["all"] }, why: "Verify ray is ready for next action" };
+  } else if (state.clocks.demoClock <= 2) {
+    exampleAction = { command: "lab.report", params: { message: "Final preparations underway" }, why: "Buy time before demo" };
   }
 
   return {
@@ -262,6 +283,26 @@ export function buildResumeResponse(state: FullGameState): ResumeResponse {
 
     welcomeBack,
     situationSummary: generateSituationSummary(state),
-    hint,
+
+    nextAction: {
+      tool: "game_act",
+      requiredFields: ["thought", "actions"],
+      example: {
+        thought: `Resuming from turn ${state.turn}. The situation is...`,
+        actions: [exampleAction],
+      },
+    },
+
+    instruction: `⚠️ IMPORTANT: Call game_act with your thought and actions to continue.
+
+DO NOT call game_act with empty arguments - you MUST provide:
+- thought: Your reasoning about the situation
+- actions: Array of at least one action command
+
+Example call:
+game_act({
+  thought: "Resuming from checkpoint. Need to assess the situation...",
+  actions: [{ command: "${exampleAction.command}", params: ${JSON.stringify(exampleAction.params)}, why: "${exampleAction.why}" }]
+})`,
   };
 }

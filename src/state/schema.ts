@@ -221,6 +221,8 @@ export const FlagsSchema = z.object({
   gracePeriodGranted: z.boolean().optional(), // GM granted "one more turn"
   gracePeriodTurns: z.number().optional(), // How many grace turns remain
   preventEnding: z.boolean().optional(), // GM override to prevent any ending this turn
+  preventEndingReason: z.string().optional(), // Required reason for prevention
+  endingPreventedCount: z.number().optional(), // HARD LIMIT: Can only prevent once!
   // NARRATIVE FLAGS (set by GM for story tracking)
   narrativeFlags: z.array(z.string()).optional(), // ["BLYTHE_ESCAPE_ATTEMPT", "DR_M_OVERHEARD"]
 });
