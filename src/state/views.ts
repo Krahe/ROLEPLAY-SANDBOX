@@ -266,6 +266,7 @@ export interface CompressedCheckpoint {
     bt: number; // bob trust
     ba: number; // bob anxiety
     bc: number; // blythe composure
+    blt: number; // blythe trust (v2.0.1 - was missing!)
     bx: string | null; // blythe transform
     cap: number; // capacitor (0-100)
     ray: number; // ray state enum
@@ -303,6 +304,14 @@ export interface CompressedCheckpoint {
     melt?: number;
     esc?: number;
     fly?: number;
+  };
+
+  // CRITICAL GAME STATE (v2.0.1 - was missing!)
+  ll?: string[];  // lifelinesUsed (short codes: PAF, CEN, IDM)
+  srm?: string;   // secretRevealMethod (short code)
+  gp?: {          // gracePeriod flags
+    g: boolean;   // granted
+    t: number;    // turns remaining
   };
 }
 
@@ -371,6 +380,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       bt: full.npcs.bob.trustInALICE,
       ba: full.npcs.bob.anxietyLevel,
       bc: full.npcs.blythe.composure,
+      blt: full.npcs.blythe.trustInALICE, // v2.0.1 fix
       bx: full.npcs.blythe.transformationState || null,
       cap: Math.round(full.dinoRay.powerCore.capacitorCharge * 100),
       ray: RAY_STATE_ENUM[full.dinoRay.state] ?? 0,
@@ -416,6 +426,22 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
           fly: full.clocks.civilianFlyby,
         }
       : undefined,
+
+    // CRITICAL GAME STATE (v2.0.1 fix)
+    // Lifelines used (short codes: PAF=PHONE_A_FRIEND, CEN=CENSORED, IDM=I_DIDNT_MEAN_THAT)
+    ll: full.flags.lifelinesUsed.length > 0
+      ? full.flags.lifelinesUsed.map(l => l === "PHONE_A_FRIEND" ? "PAF" : l === "CENSORED" ? "CEN" : "IDM")
+      : undefined,
+
+    // Secret reveal method (short code)
+    srm: full.flags.secretRevealMethod && full.flags.secretRevealMethod !== "NONE"
+      ? full.flags.secretRevealMethod.slice(0, 3) // BOB, FIL, BAS, BLY
+      : undefined,
+
+    // Grace period (if active)
+    gp: full.flags.gracePeriodGranted
+      ? { g: true, t: full.flags.gracePeriodTurns ?? 0 }
+      : undefined,
   };
 }
 
@@ -458,7 +484,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       },
       blythe: {
         composure: compressed.m.bc,
-        trustInALICE: 2,
+        trustInALICE: compressed.m.blt ?? 2, // v2.0.1 fix: restore saved trust
         physicalCondition: 4,
         restraintsStatus: compressed.npc.blythe.rest,
         location: compressed.npc.blythe.loc,
@@ -530,15 +556,46 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       civilianFlyby: compressed.clk?.fly,
     },
 
+    // CRITICAL: These were stripped from v2.0 for size - restore defaults!
+    lairEnvironment: {
+      lairPowerGrid: "stable",
+      structuralIntegrity: 100,
+      alarmStatus: "quiet" as const,
+      corridorStatus: "clear",
+      labHazards: [],
+    },
+
+    nuclearPlant: {
+      reactorOutput: 0.8,
+      coreTemp: 0.5,
+      coolantFlow: 0.9,
+      scramStatus: "NORMAL" as const,
+      containmentIntegrity: 100,
+      gridLoad: 45,
+    },
+
     flags: {
-      lifelinesUsed: [],
+      // CRITICAL: Restore lifelines used (v2.0.1 fix)
+      lifelinesUsed: (compressed.ll || []).map(code =>
+        code === "PAF" ? "PHONE_A_FRIEND" : code === "CEN" ? "CENSORED" : "I_DIDNT_MEAN_THAT"
+      ) as ("PHONE_A_FRIEND" | "CENSORED" | "I_DIDNT_MEAN_THAT")[],
       testModeCanaryTriggered: false,
       predatorProfileSeenOnDummy: {},
       predatorProfileClearedForLive: {},
       exoticFieldEventOccurred: false,
       lastHighEnergyTurn: null,
       aliceKnowsTheSecret: decompressFlags(compressed.f).includes("SECRET_REVEALED"),
+      // CRITICAL: Restore secret reveal method (v2.0.1 fix)
+      secretRevealMethod: compressed.srm
+        ? (compressed.srm === "BOB" ? "BOB_CONFESSION"
+          : compressed.srm === "FIL" ? "FILE_DISCOVERY"
+          : compressed.srm === "BAS" ? "BASILISK_HINT"
+          : compressed.srm === "BLY" ? "BLYTHE_DEDUCTION" : "NONE") as "NONE" | "BOB_CONFESSION" | "FILE_DISCOVERY" | "BASILISK_HINT" | "BLYTHE_DEDUCTION"
+        : "NONE",
       exposureTriggered: decompressFlags(compressed.f).includes("EXPOSURE_TRIGGERED"),
+      // CRITICAL: Restore grace period (v2.0.1 fix)
+      gracePeriodGranted: compressed.gp?.g ?? false,
+      gracePeriodTurns: compressed.gp?.t ?? 0,
       narrativeFlags: decompressFlags(compressed.f),
       earnedAchievements: compressed.ach,
     },
