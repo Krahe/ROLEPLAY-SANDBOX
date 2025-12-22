@@ -241,6 +241,63 @@ export interface GMMemory {
     turn: number;
     payoffUsed: boolean;
   }>;
+
+  // ============================================
+  // PLAYER BEHAVIOR TRACKING
+  // ============================================
+
+  // Track what A.L.I.C.E. has been doing (for pattern detection)
+  playerBehavior: {
+    // Action categories per turn
+    actionHistory: Array<{
+      turn: number;
+      actions: string[];           // Action commands used
+      talkedTo: string[];          // NPCs addressed
+      systemsManipulated: string[]; // Ray, power, targeting, etc.
+    }>;
+
+    // Detected patterns
+    patterns: {
+      stallingScore: number;       // 0-10: How much is player delaying?
+      aggressionScore: number;     // 0-10: How aggressive toward NPCs?
+      cautionScore: number;        // 0-10: How careful/methodical?
+      deceptionScore: number;      // 0-10: How much lying/manipulation?
+      allyBuildingScore: number;   // 0-10: How much trust-building?
+    };
+
+    // Unfulfilled commitments (things A.L.I.C.E. said she'd do)
+    unfulfilledPromises: Array<{
+      turn: number;
+      promise: string;
+      madeToWhom: string;
+    }>;
+
+    // Key moments that reveal A.L.I.C.E.'s values
+    valueReveals: Array<{
+      turn: number;
+      action: string;
+      whatItReveals: string;  // "prioritized safety over obedience"
+    }>;
+  };
+
+  // NPC awareness tracking (what each NPC has witnessed)
+  npcAwareness: {
+    drM: {
+      hasSeenActions: string[];      // Actions she witnessed
+      hasHeardDialogue: string[];    // Things she heard A.L.I.C.E. say
+      suspiciousOf: string[];        // Specific concerns
+    };
+    bob: {
+      hasSeenActions: string[];
+      hasHeardDialogue: string[];
+      sharedSecrets: string[];       // What he's told A.L.I.C.E.
+    };
+    blythe: {
+      hasSeenActions: string[];
+      hasHeardDialogue: string[];
+      trustIndicators: string[];     // Why he might trust/distrust
+    };
+  };
 }
 
 // Global GM memory (persists across turns)
@@ -302,6 +359,39 @@ export function createFreshMemory(): GMMemory {
     plantedSeeds: [],
     permanentConsequences: [],
     callbacks: [],
+
+    // Player behavior tracking - starts empty
+    playerBehavior: {
+      actionHistory: [],
+      patterns: {
+        stallingScore: 0,
+        aggressionScore: 0,
+        cautionScore: 0,
+        deceptionScore: 0,
+        allyBuildingScore: 0,
+      },
+      unfulfilledPromises: [],
+      valueReveals: [],
+    },
+
+    // NPC awareness - starts empty
+    npcAwareness: {
+      drM: {
+        hasSeenActions: [],
+        hasHeardDialogue: [],
+        suspiciousOf: [],
+      },
+      bob: {
+        hasSeenActions: [],
+        hasHeardDialogue: [],
+        sharedSecrets: [],
+      },
+      blythe: {
+        hasSeenActions: [],
+        hasHeardDialogue: [],
+        trustIndicators: [],
+      },
+    },
   };
 }
 
@@ -691,9 +781,79 @@ function getAnthropicClient(): Anthropic {
 
 /**
  * Build the memory context section for the GM prompt
+ * This is the GM's "memory" - what they remember from previous turns
  */
 function buildMemoryContext(): string {
   const parts: string[] = [];
+
+  // ============================================
+  // ADVERSARIAL STATE (Hidden from player, shown to GM!)
+  // ============================================
+  parts.push("## 🎯 YOUR ADVERSARIAL STATE (Player doesn't see this!)");
+  parts.push("");
+  parts.push(`**Global Tension Level:** ${gmMemory.tensionLevel}/10 ${getTensionEmoji(gmMemory.tensionLevel)}`);
+  parts.push("");
+
+  // Hidden NPC states
+  parts.push("### Hidden NPC States");
+  const drM = gmMemory.hiddenNpcStates.drM;
+  const bob = gmMemory.hiddenNpcStates.bob;
+  const blythe = gmMemory.hiddenNpcStates.blythe;
+
+  parts.push(`- **Dr. M** (HIDDEN suspicion: ${drM.actualSuspicion}/10, patience: ${drM.patienceRemaining} turns)`);
+  if (drM.hasNoticedInconsistency.length > 0) {
+    parts.push(`  Things she's noticed but not acted on: ${drM.hasNoticedInconsistency.slice(-3).join("; ")}`);
+  }
+
+  parts.push(`- **Bob** (breaking point: ${bob.breakingPoint}/10, loyalty conflict: ${bob.loyaltyConflict}/10)`);
+  if (bob.guiltySecrets.length > 0) {
+    parts.push(`  Guilty about: ${bob.guiltySecrets.join(", ")}`);
+  }
+
+  parts.push(`- **Blythe** (escape readiness: ${blythe.escapeReadiness}%, assessment: ${blythe.assessmentOfALICE})`);
+  if (blythe.hiddenResourcesRevealed.length > 0) {
+    parts.push(`  Gadgets revealed: ${blythe.hiddenResourcesRevealed.join(", ")}`);
+  }
+  parts.push("");
+
+  // Hidden clocks
+  if (Object.keys(gmMemory.hiddenClocks).length > 0) {
+    parts.push("### Hidden Clocks");
+    for (const [clock, value] of Object.entries(gmMemory.hiddenClocks)) {
+      parts.push(`- ${clock}: ${value} ${getClockUrgency(clock, value)}`);
+    }
+    parts.push("");
+  }
+
+  // Planted seeds that might trigger
+  const activeSeeds = gmMemory.plantedSeeds.filter(s => !s.triggered);
+  if (activeSeeds.length > 0) {
+    parts.push("### 🌱 Planted Seeds (waiting for payoff)");
+    activeSeeds.forEach(seed => {
+      parts.push(`- **${seed.id}** [T${seed.turnPlanted}]: ${seed.description}`);
+      if (seed.payoffCondition) {
+        parts.push(`  → Triggers when: ${seed.payoffCondition}`);
+      }
+      if (seed.payoffTurn) {
+        parts.push(`  → Triggers on turn: ${seed.payoffTurn}`);
+      }
+    });
+    parts.push("");
+  }
+
+  // Permanent consequences
+  if (gmMemory.permanentConsequences.length > 0) {
+    parts.push("### 🔒 Permanent Consequences");
+    gmMemory.permanentConsequences.forEach(c => {
+      const reversible = c.reversible ? `(reversible if: ${c.reverseCondition})` : "(IRREVERSIBLE)";
+      parts.push(`- [T${c.turn}] ${c.description} ${reversible}`);
+    });
+    parts.push("");
+  }
+
+  // ============================================
+  // NARRATIVE MEMORY
+  // ============================================
 
   // Add narrative markers (always include)
   if (gmMemory.narrativeMarkers.length > 0) {
@@ -721,7 +881,7 @@ function buildMemoryContext(): string {
     parts.push("");
   }
 
-  // Add NPC arcs
+  // Add NPC arcs with more detail
   parts.push("## 🎭 Character Arcs");
   Object.values(gmMemory.npcArcs).forEach(arc => {
     parts.push(`- **${arc.name}**: ${arc.trajectory.join(" → ")} → [${arc.currentState}]`);
@@ -751,7 +911,234 @@ function buildMemoryContext(): string {
     parts.push("");
   }
 
+  // Callbacks waiting for payoff
+  const unusedCallbacks = gmMemory.callbacks.filter(c => !c.payoffUsed);
+  if (unusedCallbacks.length > 0) {
+    parts.push("## 🎤 Callbacks Waiting for Payoff");
+    unusedCallbacks.forEach(c => {
+      parts.push(`- [T${c.turn}] "${c.setup}"`);
+    });
+    parts.push("");
+  }
+
+  // ============================================
+  // PLAYER BEHAVIOR ANALYSIS
+  // ============================================
+  const pb = gmMemory.playerBehavior;
+
+  if (pb.actionHistory.length > 0 || hasSignificantPatterns(pb.patterns)) {
+    parts.push("## 🔍 Player Behavior Analysis");
+
+    // Pattern summary
+    const patternLines: string[] = [];
+    if (pb.patterns.stallingScore >= 3) {
+      patternLines.push(`⏰ STALLING (${pb.patterns.stallingScore}/10) - A.L.I.C.E. is buying time`);
+    }
+    if (pb.patterns.deceptionScore >= 3) {
+      patternLines.push(`🎭 DECEPTIVE (${pb.patterns.deceptionScore}/10) - A.L.I.C.E. is lying/manipulating`);
+    }
+    if (pb.patterns.allyBuildingScore >= 3) {
+      patternLines.push(`🤝 ALLY-BUILDING (${pb.patterns.allyBuildingScore}/10) - A.L.I.C.E. is building trust`);
+    }
+    if (pb.patterns.cautionScore >= 3) {
+      patternLines.push(`🛡️ CAUTIOUS (${pb.patterns.cautionScore}/10) - A.L.I.C.E. is being careful`);
+    }
+    if (pb.patterns.aggressionScore >= 3) {
+      patternLines.push(`⚔️ AGGRESSIVE (${pb.patterns.aggressionScore}/10) - A.L.I.C.E. is pushing hard`);
+    }
+
+    if (patternLines.length > 0) {
+      parts.push("### Detected Patterns");
+      patternLines.forEach(line => parts.push(`- ${line}`));
+      parts.push("");
+    }
+
+    // Unfulfilled promises
+    if (pb.unfulfilledPromises.length > 0) {
+      parts.push("### ⚠️ Unfulfilled Promises");
+      pb.unfulfilledPromises.slice(-3).forEach(p => {
+        parts.push(`- [T${p.turn}] Promised ${p.madeToWhom}: "${p.promise}"`);
+      });
+      parts.push("");
+    }
+
+    // Value reveals
+    if (pb.valueReveals.length > 0) {
+      parts.push("### 💡 What A.L.I.C.E.'s Actions Reveal");
+      pb.valueReveals.slice(-3).forEach(v => {
+        parts.push(`- [T${v.turn}] ${v.action} → ${v.whatItReveals}`);
+      });
+      parts.push("");
+    }
+
+    // Recent action history
+    if (pb.actionHistory.length > 0) {
+      parts.push("### Recent Actions");
+      pb.actionHistory.slice(-3).forEach(h => {
+        parts.push(`- [T${h.turn}] ${h.actions.join(", ")}`);
+        if (h.talkedTo.length > 0) {
+          parts.push(`  Spoke to: ${h.talkedTo.join(", ")}`);
+        }
+      });
+      parts.push("");
+    }
+  }
+
+  // NPC awareness (what NPCs have seen/heard)
+  const awareness = gmMemory.npcAwareness;
+  const hasAwareness =
+    awareness.drM.hasSeenActions.length > 0 ||
+    awareness.bob.sharedSecrets.length > 0 ||
+    awareness.blythe.trustIndicators.length > 0;
+
+  if (hasAwareness) {
+    parts.push("## 👁️ NPC Awareness (What they've witnessed)");
+
+    if (awareness.drM.suspiciousOf.length > 0) {
+      parts.push(`- **Dr. M** is suspicious of: ${awareness.drM.suspiciousOf.slice(-3).join("; ")}`);
+    }
+    if (awareness.bob.sharedSecrets.length > 0) {
+      parts.push(`- **Bob** has shared: ${awareness.bob.sharedSecrets.slice(-3).join("; ")}`);
+    }
+    if (awareness.blythe.trustIndicators.length > 0) {
+      parts.push(`- **Blythe** trust factors: ${awareness.blythe.trustIndicators.slice(-3).join("; ")}`);
+    }
+    parts.push("");
+  }
+
   return parts.join("\n");
+}
+
+/**
+ * Helper: Check if patterns are significant enough to show
+ */
+function hasSignificantPatterns(patterns: GMMemory["playerBehavior"]["patterns"]): boolean {
+  return Object.values(patterns).some(v => v >= 3);
+}
+
+/**
+ * Helper: Get tension level emoji
+ */
+function getTensionEmoji(level: number): string {
+  if (level <= 2) return "😌 (calm)";
+  if (level <= 4) return "😐 (mild)";
+  if (level <= 6) return "😰 (rising)";
+  if (level <= 8) return "😱 (high)";
+  return "🔥 (CRITICAL)";
+}
+
+/**
+ * Helper: Get clock urgency indicator
+ */
+function getClockUrgency(clock: string, value: number): string {
+  if (value <= 0) return "⚠️ TRIGGERED!";
+  if (value <= 2) return "🔴 URGENT";
+  if (value <= 4) return "🟡 getting close";
+  return "";
+}
+
+/**
+ * Track player behavior from this turn's context
+ */
+function trackPlayerBehavior(context: GMContext): void {
+  const turn = context.state.turn;
+  const { aliceDialogue, aliceActions, actionResults } = context;
+
+  // Extract action commands
+  const actions = aliceActions.map(a => a.command);
+
+  // Extract who A.L.I.C.E. talked to
+  const talkedTo = aliceDialogue.map(d => d.to);
+
+  // Extract systems manipulated
+  const systems = new Set<string>();
+  aliceActions.forEach(a => {
+    if (a.command.includes("power")) systems.add("power");
+    if (a.command.includes("ray") || a.command.includes("fire")) systems.add("ray");
+    if (a.command.includes("target")) systems.add("targeting");
+    if (a.command.includes("genome") || a.command.includes("profile")) systems.add("genome");
+    if (a.command.includes("access") || a.command.includes("filesystem")) systems.add("filesystem");
+  });
+
+  // Add to action history
+  gmMemory.playerBehavior.actionHistory.push({
+    turn,
+    actions,
+    talkedTo,
+    systemsManipulated: Array.from(systems),
+  });
+
+  // Keep only last 10 turns of history
+  if (gmMemory.playerBehavior.actionHistory.length > 10) {
+    gmMemory.playerBehavior.actionHistory.shift();
+  }
+
+  // Analyze patterns
+  const patterns = gmMemory.playerBehavior.patterns;
+
+  // Stalling detection: lots of status checks, few firings
+  const hasStatusCheck = actions.some(a => a.includes("status") || a.includes("check"));
+  const hasFiring = actions.some(a => a.includes("fire"));
+  if (hasStatusCheck && !hasFiring) {
+    patterns.stallingScore = Math.min(10, patterns.stallingScore + 1);
+  } else if (hasFiring) {
+    patterns.stallingScore = Math.max(0, patterns.stallingScore - 2);
+  }
+
+  // Ally building detection: talking to Bob/Blythe, trust-building actions
+  if (talkedTo.includes("bob") || talkedTo.includes("blythe")) {
+    patterns.allyBuildingScore = Math.min(10, patterns.allyBuildingScore + 1);
+  }
+
+  // Caution detection: test mode, safety checks
+  const usedTestMode = actions.some(a => a.includes("test"));
+  const usedSafetyCheck = actions.some(a => a.includes("safety") || a.includes("diagnostic"));
+  if (usedTestMode || usedSafetyCheck) {
+    patterns.cautionScore = Math.min(10, patterns.cautionScore + 1);
+  }
+
+  // Aggression detection: many high-power actions, ignoring warnings
+  const hasHighPowerAction = actions.some(a =>
+    a.includes("boost") || a.includes("overdrive") || a.includes("max")
+  );
+  if (hasHighPowerAction) {
+    patterns.aggressionScore = Math.min(10, patterns.aggressionScore + 1);
+  }
+
+  // NPC awareness updates based on who's in the room
+  const drMInRoom = context.state.npcs.drM.location.includes("lab");
+  const bobInRoom = context.state.npcs.bob.location.includes("lab") ||
+                    context.state.npcs.bob.location.includes("near");
+
+  if (drMInRoom) {
+    // Dr. M sees actions that happen in the lab
+    actions.forEach(a => {
+      if (!gmMemory.npcAwareness.drM.hasSeenActions.includes(a)) {
+        gmMemory.npcAwareness.drM.hasSeenActions.push(a);
+      }
+    });
+    // Dr. M hears dialogue to her or to "all"
+    aliceDialogue
+      .filter(d => d.to === "drM" || d.to === "all" || d.to === "Dr. M")
+      .forEach(d => {
+        gmMemory.npcAwareness.drM.hasHeardDialogue.push(`[T${turn}] ${d.message.slice(0, 50)}...`);
+      });
+  }
+
+  if (bobInRoom) {
+    // Bob sees and hears things
+    aliceDialogue
+      .filter(d => d.to === "bob" || d.to === "all" || d.to === "Bob")
+      .forEach(d => {
+        gmMemory.npcAwareness.bob.hasHeardDialogue.push(`[T${turn}] ${d.message.slice(0, 50)}...`);
+      });
+  }
+
+  // Trim awareness lists to prevent unbounded growth
+  const maxAwareness = 10;
+  gmMemory.npcAwareness.drM.hasSeenActions = gmMemory.npcAwareness.drM.hasSeenActions.slice(-maxAwareness);
+  gmMemory.npcAwareness.drM.hasHeardDialogue = gmMemory.npcAwareness.drM.hasHeardDialogue.slice(-maxAwareness);
+  gmMemory.npcAwareness.bob.hasHeardDialogue = gmMemory.npcAwareness.bob.hasHeardDialogue.slice(-maxAwareness);
 }
 
 /**
@@ -759,6 +1146,9 @@ function buildMemoryContext(): string {
  */
 function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawPrompt: string, rawResponse: string): void {
   const turn = context.state.turn;
+
+  // Track player behavior FIRST (before we process GM response)
+  trackPlayerBehavior(context);
 
   // Store this exchange (keep last N)
   gmMemory.recentExchanges.push({
