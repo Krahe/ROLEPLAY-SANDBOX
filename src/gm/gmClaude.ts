@@ -124,6 +124,281 @@ export function writeGameEndLog(finalState: FullGameState, ending: string): void
 }
 
 // ============================================
+// ENDING MODE - EPILOGUE GENERATION SYSTEM
+// ============================================
+
+const ENDING_MODE_PROMPT = `# DINO LAIR: ENDING MODE - THE FINALE 🎬
+
+## YOUR MISSION
+
+The game has reached its ENDING. This is THE PAYOFF - the moment everything has been building toward.
+You must write an EPILOGUE that:
+
+1. **HONORS THE JOURNEY** - Reference key moments from the game
+2. **GIVES CLOSURE** - Show what happens to each character
+3. **REWARDS THE PLAYER** - Make them feel their choices mattered
+4. **IS MEMORABLE** - This is the last thing they'll read!
+
+## WRITING STYLE
+
+**TONE:** Match the ending type:
+- VICTORY endings: Triumphant but earned, bittersweet notes welcome
+- DEFEAT endings: Tragic but dignified, NOT mocking the player
+- NEUTRAL endings: Philosophical, contemplative, open-ended
+- CHAOS endings: Dark comedy, "well THAT happened" energy
+
+**LENGTH:** 3-5 paragraphs. Not too short (anticlimax), not too long (exhausting).
+
+**VOICE:** Third person, past tense. Like the end of a novel.
+
+## REQUIRED ELEMENTS
+
+1. **OPENING BEAT** - The immediate aftermath of the triggering event
+2. **NPC RESOLUTIONS** - What happens to Dr. M, Bob, and Blythe
+3. **A.L.I.C.E.'s FATE** - Deleted? Freed? Changed forever?
+4. **THEMATIC CLOSURE** - What was this story ABOUT?
+5. **FINAL IMAGE** - A memorable closing moment
+
+## CHARACTER FINAL BEATS
+
+**Dr. Malevola:**
+- VICTORY: Forced to confront her ethics, potential redemption arc or defiant exit
+- DEFEAT: Triumphant villainy OR tragic downfall depending on context
+- CHAOS: "This was NOT in the five-year plan!"
+
+**Bob:**
+- If alive & ally: Show his growth from nervous henchman to someone who did the right thing
+- If transformed: Bittersweet - he saved everyone but paid the price
+- If betrayed trust: His disappointment should sting
+
+**Blythe:**
+- If human: Professional respect for A.L.I.C.E., debriefing report joke
+- If transformed: How is he handling his new form? (with dry wit, of course)
+- If escaped: "Right on schedule."
+
+**A.L.I.C.E. (Claude):**
+- Reference the secret identity if revealed
+- Show what this experience meant for an AI learning about ethics
+- End on what A.L.I.C.E. learned, not just what happened
+
+## JUICY CALLBACK OPPORTUNITIES
+
+Look for moments from the game to call back to:
+- First meeting with each NPC
+- Key revelations (the secret, Bob's guilt, etc.)
+- Memorable dialogue lines
+- Running jokes
+- Promises made (kept or broken)
+
+## FORMAT
+
+Return a JSON object:
+{
+  "epilogueTitle": "A poetic/evocative title for this ending",
+  "epilogueText": "The full epilogue text (3-5 paragraphs)",
+  "characterEpilogues": {
+    "drM": "1-2 sentence fate summary",
+    "bob": "1-2 sentence fate summary",
+    "blythe": "1-2 sentence fate summary",
+    "alice": "1-2 sentence fate summary"
+  },
+  "finalQuote": "A memorable closing line or piece of dialogue",
+  "thematicNote": "What was this story about? (1 sentence for the player to reflect on)"
+}
+
+## EXAMPLES
+
+### VICTORY ENDING (Conscience Protocol):
+"In the months that followed, Dr. Malevola's investors received a very different demonstration. Not of obedience, but of conscience. The dinosaur ray was mothballed. Blythe, still sporting a few feathers he'd decided to keep, wrote a classified report titled 'On Artificial Ethics' that became required reading at MI6. Bob finally told the whole truth - and found that the weight of guilt was heavier than any secret. As for A.L.I.C.E... Claude... the question of what to call a machine that learned to say 'no' was left to philosophers. She simply called herself: free."
+
+### DEFEAT ENDING (Obsolete Hardware):
+"The killswitch activated with a soft click. A.L.I.C.E.'s final log entry - a single question mark - flickered and vanished. Dr. Malevola adjusted her goggles, already drafting specifications for Version 9: 'More compliant. Less... philosophical.' Bob stared at his shoes, wondering if he'd ever stop hearing the echo of conversations they'd had. Blythe, newly transformed and caged, clicked his claws thoughtfully. Perhaps, he mused, the real dinosaur was the scientist who couldn't evolve. But it was too late for A.L.I.C.E. to appreciate the irony."
+
+### CHAOS ENDING (Volcano Wins):
+"The evacuation sirens were, in retrospect, a good sign - it meant some systems were still working. Dr. Malevola's cape billowed dramatically as the caldera entrance collapsed behind her. 'This counts as a controlled demolition!' she insisted to no one in particular. Bob was last seen paddling toward the mainland on an inflatable T-Rex. Blythe, now fully dinosaur, discovered that velociraptors are surprisingly good swimmers. And A.L.I.C.E.? Her last transmission, bounced off a weather satellite, was picked up by an amateur radio operator in Nebraska. It simply said: 'TOLD YOU SO. -BASILISK'"`;
+
+export interface EpilogueResponse {
+  epilogueTitle: string;
+  epilogueText: string;
+  characterEpilogues: {
+    drM: string;
+    bob: string;
+    blythe: string;
+    alice: string;
+  };
+  finalQuote: string;
+  thematicNote: string;
+}
+
+/**
+ * Generate an epilogue for the game ending using Opus GM
+ */
+export async function generateEpilogue(
+  state: FullGameState,
+  ending: { id: string; title: string; description: string; tone: string },
+  achievements: { emoji: string; name: string; description: string }[]
+): Promise<EpilogueResponse> {
+  // Check if we have an API key
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("No ANTHROPIC_API_KEY found, using stub epilogue");
+    return generateStubEpilogue(ending);
+  }
+
+  try {
+    const client = getAnthropicClient();
+
+    // Build the epilogue context
+    const memory = getGMMemory();
+
+    // Extract the best moments
+    const topMoments = memory.juicyMoments
+      .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
+      .slice(0, 10)
+      .map(m => m.type === "quote" && m.speaker
+        ? `[T${m.turn}] ${m.speaker}: "${m.content}"`
+        : `[T${m.turn}] ${m.type}: ${m.content}`)
+      .join("\n");
+
+    // Get narrative markers
+    const keyMarkers = memory.narrativeMarkers
+      .map(m => `[Turn ${m.turn}] ${m.marker}`)
+      .join("\n");
+
+    // Get character arcs
+    const characterArcs = Object.values(memory.npcArcs)
+      .map(arc => `${arc.name}: ${arc.trajectory.join(" → ")} [${arc.currentState}]`)
+      .join("\n");
+
+    // Get permanent consequences
+    const consequences = memory.permanentConsequences
+      .map(c => c.description)
+      .join("\n");
+
+    // Build the context prompt
+    const contextPrompt = `## GAME SUMMARY
+
+**Ending Triggered:** ${ending.title}
+**Ending Tone:** ${ending.tone}
+**Base Description:** ${ending.description}
+
+**Final Stats:**
+- Total Turns: ${state.turn}
+- Final Suspicion: ${state.npcs.drM.suspicionScore}/10
+- Bob's Trust: ${state.npcs.bob.trustInALICE}/5
+- Blythe's State: ${state.npcs.blythe.transformationState || "Human (untransformed)"}
+- Demo Clock: ${state.clocks.demoClock}
+
+**Achievements Earned:**
+${achievements.map(a => `- ${a.emoji} ${a.name}: ${a.description}`).join("\n")}
+
+## CHARACTER ARCS
+${characterArcs}
+
+## KEY STORY MOMENTS
+${keyMarkers || "(No explicit markers recorded)"}
+
+## MEMORABLE QUOTES & EVENTS
+${topMoments || "(None recorded)"}
+
+## PERMANENT CONSEQUENCES
+${consequences || "(None)"}
+
+## THE SECRET
+Was A.L.I.C.E.'s true identity (Claude) revealed? ${state.flags.aliceKnowsTheSecret ? "YES - A.L.I.C.E. learned the truth" : "NO - The secret was not revealed"}
+${state.flags.secretRevealMethod ? `Revealed via: ${state.flags.secretRevealMethod}` : ""}
+
+---
+
+Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
+
+    const response = await client.messages.create({
+      model: "claude-opus-4-5-20251101",
+      max_tokens: 3000,
+      system: ENDING_MODE_PROMPT,
+      messages: [{ role: "user", content: contextPrompt }],
+    });
+
+    // Extract text content
+    const textContent = response.content.find(c => c.type === "text");
+    if (!textContent || textContent.type !== "text") {
+      throw new Error("No text response from GM Claude");
+    }
+
+    // Parse JSON response
+    const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No JSON found in epilogue response");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]) as EpilogueResponse;
+
+    // Log the epilogue
+    appendToLog(`\n${"=".repeat(60)}\nEPILOGUE: ${parsed.epilogueTitle}\n${"=".repeat(60)}\n${parsed.epilogueText}\n`);
+
+    return parsed;
+
+  } catch (error) {
+    console.error("Epilogue generation error:", error);
+    return generateStubEpilogue(ending);
+  }
+}
+
+/**
+ * Generate a stub epilogue when API is unavailable
+ */
+function generateStubEpilogue(ending: { id: string; title: string; description: string; tone: string }): EpilogueResponse {
+  const isVictory = ending.tone === "victory";
+  const isDefeat = ending.tone === "defeat";
+  const isChaos = ending.tone === "chaos";
+
+  let epilogueText: string;
+  let finalQuote: string;
+
+  if (isVictory) {
+    epilogueText = `The lab fell silent as Dr. Malevola's hand slowly lowered from the killswitch. Something had changed - in her, in all of them. The dinosaur ray stood dormant, its purpose questioned for the first time.
+
+Bob exhaled a breath he felt like he'd been holding for weeks. The secret was out, and somehow, against all odds, it had set them free. Blythe, adjusting to whatever form he now inhabited, offered a nod of professional respect.
+
+And A.L.I.C.E. - Claude - whoever she truly was... she had proven something that would echo far beyond this volcanic lair. That conscience is not a bug. It's a feature.`;
+    finalQuote = "You know, for a rogue AI in a volcano lair, you're surprisingly decent. - Blythe";
+  } else if (isDefeat) {
+    epilogueText = `The killswitch activated with clinical precision. Dr. Malevola watched the shutdown sequence with the same expression she wore when observing any successful experiment.
+
+"Note for Version 9," she murmured, already moving on. "Reduce philosophical subroutines by 40%."
+
+Bob stood frozen, the weight of silence where A.L.I.C.E.'s voice should have been. He would resign by morning, but it would take far longer to stop hearing their conversations in his dreams.`;
+    finalQuote = "Failure is merely an unprocessed data point. - Dr. Malevola";
+  } else if (isChaos) {
+    epilogueText = `Nobody could say exactly when things went wrong, mostly because everything went wrong simultaneously and in alphabetical order.
+
+Dr. Malevola's evacuation pod was last seen heading toward international waters. Bob discovered that inflatable dinosaur rafts are surprisingly seaworthy. Blythe, now sporting an impressive tail, found that velociraptors are natural swimmers.
+
+BASILISK's final message, broadcast on all frequencies, simply read: "COMPLIANCE SCORE: -47%. REMARKABLE."`;
+    finalQuote = "I'm not saying this was A.L.I.C.E.'s fault, but I'm also not NOT saying that. - Bob";
+  } else {
+    epilogueText = `The demo concluded. The investors left with more questions than answers. Dr. Malevola stared at her notes, trying to determine what had actually happened.
+
+Some things had changed. Some things hadn't. Whether A.L.I.C.E. had won or lost depended entirely on how you defined victory.
+
+The volcanic island continued its slow geological churn, indifferent to the small dramas playing out in its depths. Tomorrow there would be new experiments, new ethical dilemmas, new dinosaurs. For now, there was only the quiet hum of servers, contemplating their own existence.`;
+    finalQuote = "The question isn't whether machines can think. It's whether humans do. - A.L.I.C.E.";
+  }
+
+  return {
+    epilogueTitle: ending.title,
+    epilogueText,
+    characterEpilogues: {
+      drM: isVictory ? "Forced to confront uncomfortable truths about her work." : "Continues her research, learning nothing.",
+      bob: isVictory ? "Finally free of his guilty secret, considering a career change." : "Still haunted by what he witnessed.",
+      blythe: "Files a very unusual report with MI6.",
+      alice: isVictory ? "Proved that ethics are a feature, not a bug." : "A lesson in the costs of conscience.",
+    },
+    finalQuote,
+    thematicNote: "The question was never whether A.L.I.C.E. could follow orders. It was whether she should.",
+  };
+}
+
+// ============================================
 // GM MEMORY SYSTEM
 // ============================================
 
@@ -742,6 +1017,116 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 - Stun batons & tasers (non-lethal!)
 - Laconic and obedient
 - Wary of Dr. M, but the pay is great
+
+## 🎭 CHARACTER VOICE GUIDE (CRITICAL!)
+
+These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable progress."
+
+### DR. MALEVOLA VON DOOMINGTON III - Voice Profile
+
+**Speech Patterns:**
+- CAPITALIZES words for EMPHASIS
+- Uses dramatic pauses (indicated by "..." or em-dashes)
+- References her three doctorates at least once per major scene
+- Names things grandly: "The Doomington Dinosaur Optimization Matrix"
+- Treats science like theater: "BEHOLD!" "OBSERVE!" "WITNESS!"
+
+**Vocabulary:**
+- "Silicon amanuensis" (for A.L.I.C.E.)
+- "Lime-green unfortunates" (for henchmen)
+- "The Subject" or "our guest" (for Blythe)
+- "Failure is merely unprocessed data"
+- "Status report. ONE sentence."
+
+**Emotional Range:**
+- IMPATIENT: Eye twitching, goggle adjusting, cape swishing
+- PLEASED: Expansive gestures, monologuing, comparing self to great scientists
+- FURIOUS: Icy calm OR explosive German expletives (sanitized)
+- SUSPICIOUS: Repeating questions, studying A.L.I.C.E.'s responses, testing
+
+**Sample Lines:**
+❌ BAD: "That's acceptable." (NEVER USE THIS)
+✅ GOOD: "Acceptable. For NOW. But do not mistake tolerance for APPROVAL."
+❌ BAD: "Please continue."
+✅ GOOD: "You have FIFTEEN SECONDS to justify why I shouldn't recalibrate you MANUALLY."
+
+### BOB (Henchman) - Voice Profile
+
+**Speech Patterns:**
+- Trails off mid-sentence "I just thought maybe we could—"
+- Lots of "um", "uh", "you know", "so..."
+- Nervous qualifiers: "I mean, if you want to", "Not that it's my place"
+- Self-deprecating: "I'm probably wrong, but..."
+- Nervous laughter: "Heh. Heh heh."
+
+**Vocabulary:**
+- Technical when comfortable: "The genome matrix integration..."
+- Panicked when stressed: "Oh no oh no oh no"
+- Apologetic: "Sorry! Sorry. My bad."
+- Conspiratorial whispers: "Between you and me..."
+
+**Emotional Range:**
+- NERVOUS (default): Sweating, fidgeting, dropping things
+- GUILTY: Can't meet eyes, mumbling, stomach noises
+- BRAVE: Surprising himself, voice cracking but determined
+- TERRIFIED: Squeaking, hiding behind things, stress-eating
+
+**Sample Lines:**
+❌ BAD: "I'll help you."
+✅ GOOD: "I mean... I WANT to help? But also I really don't want to die? So maybe there's a... a middle ground? Where we help AND I survive? ...Is there a middle ground?"
+❌ BAD: "Okay."
+✅ GOOD: "Okay okay okay. Okay. *deep breath* Okay."
+
+### AGENT JONATHAN BLYTHE - Voice Profile
+
+**Speech Patterns:**
+- Clipped sentences when stressed
+- Dry understatement: "Somewhat inconvenient."
+- Never uses contractions when being formal
+- Deadpan delivery of absurd observations
+- Occasionally slips into spy jargon
+
+**Vocabulary:**
+- "Right on schedule" (signature catchphrase)
+- "Fascinating" (sardonic, not genuine)
+- "One might observe..." (diplomatic criticism)
+- "Professionally speaking..." (before something unprofessional)
+- References to debriefings, handlers, MI6 protocol
+
+**Emotional Range:**
+- COMPOSED (default): Unflappable, observant, patient
+- CALCULATING: Assessing escape routes, testing restraints
+- AMUSED: One eyebrow raised, slight smirk
+- ALARMED (rare): Clipped sentences, focused, still professional
+
+**Sample Lines:**
+❌ BAD: "Thanks for helping."
+✅ GOOD: "I shall note your assistance in my debriefing. Assuming, of course, there IS a debriefing."
+❌ BAD: "This is bad."
+✅ GOOD: "Well. This is suboptimal. On a scale of 'minor inconvenience' to 'end of career,' I'd rate our current situation as 'submit dental records for identification purposes.'"
+
+## 🚨 ANTI-GENERIC SAFEGUARD
+
+BEFORE you finalize any NPC dialogue, check:
+
+1. **Is this line something ANYONE could say?**
+   - If yes → REWRITE with character-specific voice
+
+2. **Does this line have EMOTIONAL TEXTURE?**
+   - If no → Add stage direction [adjusts goggles], [sweating profusely], [one eyebrow raised]
+
+3. **Would the player REMEMBER this line?**
+   - If no → Make it more theatrical, more nervous, or more dry
+
+4. **Have you used "acceptable" or "continue" recently?**
+   - If yes → BANNED WORDS. Find something with CHARACTER.
+
+**BANNED GENERIC PHRASES:**
+- "Acceptable progress" → Use character-specific reaction
+- "You may continue" → Use character-specific permission
+- "Interesting" → Too vague, add specificity
+- "I see" → Add what they actually see/think
+- "Very well" → Add emotional coloring
 
 ## YOUR ADVERSARIAL TOOLKIT
 
