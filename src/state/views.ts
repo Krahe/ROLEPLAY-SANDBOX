@@ -266,6 +266,7 @@ export interface CompressedCheckpoint {
     bt: number; // bob trust
     ba: number; // bob anxiety
     bc: number; // blythe composure
+    blt: number; // blythe trust (v2.0.1 - was missing!)
     bx: string | null; // blythe transform
     cap: number; // capacitor (0-100)
     ray: number; // ray state enum
@@ -379,6 +380,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       bt: full.npcs.bob.trustInALICE,
       ba: full.npcs.bob.anxietyLevel,
       bc: full.npcs.blythe.composure,
+      blt: full.npcs.blythe.trustInALICE, // v2.0.1 fix
       bx: full.npcs.blythe.transformationState || null,
       cap: Math.round(full.dinoRay.powerCore.capacitorCharge * 100),
       ray: RAY_STATE_ENUM[full.dinoRay.state] ?? 0,
@@ -482,7 +484,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       },
       blythe: {
         composure: compressed.m.bc,
-        trustInALICE: 2,
+        trustInALICE: compressed.m.blt ?? 2, // v2.0.1 fix: restore saved trust
         physicalCondition: 4,
         restraintsStatus: compressed.npc.blythe.rest,
         location: compressed.npc.blythe.loc,
