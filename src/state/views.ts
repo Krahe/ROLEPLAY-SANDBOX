@@ -530,6 +530,24 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       civilianFlyby: compressed.clk?.fly,
     },
 
+    // CRITICAL: These were stripped from v2.0 for size - restore defaults!
+    lairEnvironment: {
+      lairPowerGrid: "stable",
+      structuralIntegrity: 100,
+      alarmStatus: "quiet" as const,
+      corridorStatus: "clear",
+      labHazards: [],
+    },
+
+    nuclearPlant: {
+      reactorOutput: 0.8,
+      coreTemp: 0.5,
+      coolantFlow: 0.9,
+      scramStatus: "NORMAL" as const,
+      containmentIntegrity: 100,
+      gridLoad: 45,
+    },
+
     flags: {
       lifelinesUsed: [],
       testModeCanaryTriggered: false,
