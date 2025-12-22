@@ -200,6 +200,10 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         restraintsStatus: state.npcs.blythe.restraintsStatus,
         location: state.npcs.blythe.location,
         transformationState: state.npcs.blythe.transformationState,
+        // Stun mechanics
+        stunLevel: state.npcs.blythe.stunLevel,
+        stunResistanceUsed: state.npcs.blythe.stunResistanceUsed,
+        autoInjectorUsed: state.npcs.blythe.autoInjectorUsed,
       },
     },
     clocks: {

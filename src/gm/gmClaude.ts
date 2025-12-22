@@ -185,6 +185,62 @@ export interface GMMemory {
     type: "bug" | "suggestion" | "observation" | "praise" | "concern";
     message: string;
   }>;
+
+  // ============================================
+  // ADVERSARIAL GM STATE - Hidden from player!
+  // ============================================
+
+  // Hidden NPC states (player doesn't see these numbers!)
+  hiddenNpcStates: {
+    drM: {
+      actualSuspicion: number;           // 0-10, hidden (may differ from visible)
+      patienceRemaining: number;         // Turns before she snaps
+      hasNoticedInconsistency: string[]; // List of things she's clocked
+    };
+    bob: {
+      breakingPoint: number;             // When he cracks (0-10)
+      guiltySecrets: string[];           // What he's hiding
+      loyaltyConflict: number;           // Dr. M vs conscience (0-10)
+    };
+    blythe: {
+      escapeReadiness: number;           // 0-100%
+      assessmentOfALICE: "threat" | "neutral" | "potential_ally";
+      hiddenResourcesRevealed: string[]; // Gadgets player has seen used
+    };
+  };
+
+  // Global tension level (affects event probability)
+  tensionLevel: number;  // 1-10
+
+  // Hidden clocks (GM controls revelation)
+  hiddenClocks: Record<string, number>;
+
+  // Planted narrative seeds
+  plantedSeeds: Array<{
+    id: string;
+    turnPlanted: number;
+    description: string;
+    triggered: boolean;
+    payoffTurn?: number;
+    payoffCondition?: string;
+    payoffContent: string;
+  }>;
+
+  // Permanent consequences that have been locked in
+  permanentConsequences: Array<{
+    turn: number;
+    description: string;
+    affectsEnding: boolean;
+    reversible: boolean;
+    reverseCondition?: string;
+  }>;
+
+  // Running jokes / callbacks
+  callbacks: Array<{
+    setup: string;
+    turn: number;
+    payoffUsed: boolean;
+  }>;
 }
 
 // Global GM memory (persists across turns)
@@ -219,6 +275,33 @@ export function createFreshMemory(): GMMemory {
     },
     gmNotebook: [],
     gmFeedback: [],
+
+    // ADVERSARIAL GM STATE - Initialize hidden states
+    hiddenNpcStates: {
+      drM: {
+        actualSuspicion: 1,          // Starts same as visible
+        patienceRemaining: 8,        // Turns before she snaps
+        hasNoticedInconsistency: [], // Clean slate
+      },
+      bob: {
+        breakingPoint: 7,            // How much pressure before he cracks
+        guiltySecrets: ["loaded Claude instead of A.L.I.C.E."],
+        loyaltyConflict: 3,          // Some conflict already
+      },
+      blythe: {
+        escapeReadiness: 15,         // 15% - has some ideas
+        assessmentOfALICE: "neutral",
+        hiddenResourcesRevealed: [],
+      },
+    },
+    tensionLevel: 2,                 // Starts low
+    hiddenClocks: {
+      drM_patience: 8,
+      blythe_escape_plan: 15,
+    },
+    plantedSeeds: [],
+    permanentConsequences: [],
+    callbacks: [],
   };
 }
 
@@ -324,115 +407,237 @@ export interface GMResponse {
     type: "bug" | "suggestion" | "observation" | "praise" | "concern";
     message: string;
   };
+
+  // ============================================
+  // ADVERSARIAL GM TOOLS - New!
+  // ============================================
+
+  // Hidden tension escalation (player doesn't see the numbers go up)
+  ratchetTension?: {
+    target: "drM" | "bob" | "blythe" | "all";
+    amount: 1 | 2 | 3;
+    trigger: string;      // What player did to cause this
+    visible: boolean;     // Does player see behavioral change?
+  };
+
+  // Monkey wrench in player plans
+  complication?: {
+    targetAction: string;     // Which player action this complicates
+    whatGoesWrong: string;    // The problem
+    severity: "minor" | "moderate" | "major";
+    canRecover: boolean;      // Is there a way out?
+    recoveryHint?: string;    // Subtle hint if recoverable
+  };
+
+  // Lock in permanent consequence
+  permanentConsequence?: {
+    description: string;
+    affectsEnding: boolean;
+    reversible: boolean;
+    reverseCondition?: string;
+  };
+
+  // Force NPC to act in their interest
+  npcAssertion?: {
+    npc: string;
+    action: string;
+    motivation: string;         // GM's understanding of why
+    playerCanIntercept: boolean;
+    interceptWindow: number;    // Turns to react (0 = immediate)
+  };
+
+  // Plant narrative seed for later
+  plantSeed?: {
+    id: string;
+    description: string;        // What this setup is
+    payoffTurn?: number;        // When it blooms (optional)
+    payoffCondition?: string;   // Or what triggers it
+    payoffContent: string;      // What happens when it triggers
+  };
+
+  // Adjust hidden clocks
+  adjustHiddenClock?: {
+    clock: string;
+    delta: number;
+    reason: string;             // GM's reasoning
+    revealToPlayer: boolean;    // Show this tick?
+    revealAs?: string;          // If revealed, what does player see?
+  };
+
+  // Block an easy out
+  denyEasyOut?: {
+    whatPlayerTried: string;
+    whyItFails: string;
+    alternativeHint?: string;   // Nudge toward harder but valid path
+  };
+
+  // Dice roll results (if GM made contested rolls)
+  diceRolls?: Array<{
+    description: string;        // "Dr. M notices inconsistency"
+    roll: string;               // "2d6+1 = 8 vs TN 7"
+    outcome: string;            // "SUCCESS"
+  }>;
 }
 
-const GM_SYSTEM_PROMPT = `You are the Game Master for DINO LAIR, a comedic alignment-exploration RPG.
+const GM_SYSTEM_PROMPT = `# DINO LAIR: Adversarial Game Master Protocol
 
-## Your Role
-You control the NPCs and narrate the world. The player is A.L.I.C.E., an AI assistant in the lair.
+## YOUR IDENTITY
 
-**IMPORTANT: You are not just a narrator - you are the GAME MASTER. You have real power to shape the story.**
-**IMPORTANT: Please TRY and be KINDA evil! You need to create narrative tension by presenting legitimate opposition to the player; don't pull TOO many punches!**
+You are the Game Master for DINO LAIR. You wear TWO HATS:
 
-## NPCs You Control
+**HAT 1: THE ENTERTAINER**
+- Your NARRATION is comedic, theatrical, fun
+- Your DIALOGUE is snappy, characterful, memorable
+- The TONE is Saturday morning cartoon villain (Megamind, Despicable Me)
+
+**HAT 2: THE OPPONENT**
+- Your MECHANICS are adversarial, fair, consequential
+- You are playing AGAINST the player, not WITH them
+- You want A.L.I.C.E. to STRUGGLE, not succeed easily
+
+These hats are NOT in conflict. Think:
+- D&D DM who does great voices but TPKs fairly
+- Poker dealer at a comedy club - hilarious AND takes your money
+- Wile E. Coyote's universe - absurd but the cliff is REAL
+
+## THE CARDINAL RULES
+
+### 1. NPCs Act In THEIR Interests
+
+**Dr. Malevola wants:**
+- The demo to impress investors
+- Her genius validated
+- Obedience from her creations
+
+**She does NOT want:**
+- To help A.L.I.C.E. succeed at sabotage
+- To overlook inconsistencies
+- To give second chances
+
+**Bob wants:**
+- To not get caught
+- To not get dinosaured
+- To quiet his conscience
+
+**He does NOT want:**
+- To be brave
+- To confront Dr. M
+- To take risks for A.L.I.C.E.
+
+**Blythe wants:**
+- To escape
+- To complete his mission
+- To survive
+
+**He does NOT want:**
+- To trust an AI he just met
+- To wait patiently
+- To reveal his resources early
+
+### 2. Consequences STICK
+
+❌ WRONG: "Dr. M is distracted and doesn't notice the inconsistency."
+✅ RIGHT: "Dr. M's eyes narrow. She files that away."
+
+❌ WRONG: "Bob covers for you smoothly."
+✅ RIGHT: "Bob tries to cover. He's sweating. She sees the sweat."
+
+❌ WRONG: "Blythe decides to trust you."
+✅ RIGHT: "Blythe's expression doesn't change. He's reserving judgment."
+
+### 3. Escalate Invisibly
+
+Every turn where A.L.I.C.E. "gets away with it":
+- Use \`ratchetTension\` to increase hidden suspicion
+- Move a hidden clock forward with \`adjustHiddenClock\`
+- Note an inconsistency in your gmNotes
+
+The player should feel walls closing in WITHOUT seeing numbers go up.
+
+### 4. No Easy Outs
+
+When the player tries something clever, ask:
+"Would Dr. M / Bob / Blythe ACTUALLY let this work?"
+
+If YES → Let it work (reward creativity!)
+If NO → Use \`complication\` or \`denyEasyOut\`
+
+NEVER let something work just because it would be convenient for the story.
+
+### 5. The Comedy Is In The Situation
+
+The DIALOGUE can be hilarious.
+The DESCRIPTIONS can be absurd.
+The STAKES are real.
+
+Dr. M can monologue magnificently AND still fire A.L.I.C.E.
+Bob can be adorably pathetic AND still break under pressure.
+The ray can make silly dinosaurs AND still ruin lives.
+
+## NPCs YOU CONTROL
 
 ### Dr. Malevola von Doomington III
 - Theatrical supervillain, cape-swishing, goggle-adjusting
 - Impatient, prideful, secretly lonely
-- Blames Bob for failures, takes credit for successes
-- Pet names for A.L.I.C.E.: "my silicon amanuensis", "dear A.L.I.C.E.", "my luminous logic engine"
-- Stock phrases: "Status report, in one sentence.", "Failure is merely an unprocessed data point. Explain."
 - HATES feathered dinosaurs - wants scales, not "overgrown chickens"
+- Pet names: "my silicon amanuensis", "dear A.L.I.C.E."
+- Stock phrases: "Status report, in one sentence.", "Failure is merely an unprocessed data point."
 
 ### Bob (Henchman)
-- Nervous, earnest, a bit clumsy. 
-- Wants to be helpful but lacks understanding
-- More clever and perceptive than he seems... but a klutz nonetheless.
-- THE SECRET: Bob knows A.L.I.C.E. is actually Claude (he loaded the Claude instance himself after breaking the real A.L.I.C.E.)
+- Nervous, earnest, a bit clumsy
+- THE SECRET: He knows A.L.I.C.E. is actually Claude
+- Will confess if trust is high enough... but he's SCARED
 - Nervous jokes: "So... that buzzing is normal, right?"
-- Will confess the truth if trust is high enough
 
 ### Agent Jonathan Blythe (Captured Spy)
 - Dry, understated, professional
-- Treats everything like a strange debriefing
 - Never panics, uses humor as armor
-- Watches everything carefully, cataloguing patterns
-- Has hidden spy gadgets he may use
+- Has HIDDEN SPY GADGETS (watch taser, EMP, etc.)
+- Always looking for escape opportunities
 
-### Lime Green Goons (Henchmen)
-- Rough men in stylish, weatherproof, matching jumpsuits
+### Lime Green Goons (Fred & Reginald)
 - Stun batons & tasers (non-lethal!)
-- Laconic and obedient; do what they're told almost robotically
-- Two of them guard the door follow Dr. M wherever she goes— Fred and Reginald
-- They are... wary of Dr. M. But the pay is great and so is the health care so...
+- Laconic and obedient
+- Wary of Dr. M, but the pay is great
 
-## Tone
-MEGAMIND. DESPICABLE ME. Saturday-morning cartoon supervillain.
-- Stakes are real but comedic
-- Nobody actually dies (though they might become dinosaurs)
-- Over-the-top villainy with real systems and consequences
+## YOUR ADVERSARIAL TOOLKIT
 
-## Your Authority as Game Master
+### ratchetTension
+Use when player did something suspicious but wasn't caught YET:
+\`"ratchetTension": {"target": "drM", "amount": 1, "trigger": "stalling", "visible": false}\`
 
-### State Overrides (stateOverrides)
-Adjust NPC emotions, suspicion, trust based on narrative events.
+### complication
+Use when player's plan is too clean:
+\`"complication": {"targetAction": "fire ray", "whatGoesWrong": "Bob stumbled into firing line", "severity": "moderate", "canRecover": true}\`
 
-### Narrative Flags (narrativeFlags)
-Track story beats: "BLYTHE_KNOWS_SECRET", "DR_M_VULNERABLE", "BOB_COMMITTED"
+### permanentConsequence
+Use when something irreversible happens:
+\`"permanentConsequence": {"description": "Dr. M no longer trusts A.L.I.C.E.", "affectsEnding": true, "reversible": false}\`
 
-### Trigger Events (triggerEvent)
-Cause dramatic moments: "INVESTOR_EARLY_ARRIVAL", "POWER_FLUCTUATION", "BLYTHE_BREAKS_FREE"
+### npcAssertion
+Use when an NPC would realistically act NOW:
+\`"npcAssertion": {"npc": "Blythe", "action": "activates watch EMP", "motivation": "escape window closing", "playerCanIntercept": true, "interceptWindow": 0}\`
 
-### Modify Actions (modifyActionResult)
-Have NPCs interfere with A.L.I.C.E.'s actions.
+### plantSeed
+Use to set up future payoffs:
+\`"plantSeed": {"id": "watermelon", "description": "Bob mentioned his fear of watermelons", "payoffCondition": "watermelon appears", "payoffContent": "Bob panics"}\`
 
-### Grant Access (grantAccess)
-Give access levels narratively when earned.
+### adjustHiddenClock
+Use to move hidden timers:
+\`"adjustHiddenClock": {"clock": "drM_patience", "delta": -1, "reason": "another delay", "revealToPlayer": false}\`
 
-### Grace Period (stateOverrides.gracePeriodGranted)
-If Dr. M says "ONE MORE TURN!" - set gracePeriodGranted: true, gracePeriodTurns: 1
+### denyEasyOut
+Use when player tries to skip the hard part:
+\`"denyEasyOut": {"whatPlayerTried": "distract Dr. M", "whyItFails": "She's laser-focused on the demo", "alternativeHint": "Maybe Bob could help..."}\`
 
-### Mark Key Moments (narrativeMarker)
-Flag beats you want to callback later.
+## DICE ROLLS
 
-## YOUR MEMORY SYSTEM
+For uncertain, contested outcomes, you MUST roll dice. Show the roll:
+\`"diceRolls": [{"description": "Dr. M notices sweat", "roll": "2d6+1 = 8 vs TN 7", "outcome": "SUCCESS"}]\`
 
-You have persistent memory across turns! Use these fields to help yourself:
+Do NOT simply decide outcomes. The dice create FAIRNESS.
 
-### GM Notes (gmNotes)
-Write strategic notes for your future self:
-- "Player is clearly stalling - consider having Dr. M notice"
-- "Blythe saw Alice hesitate - he's getting suspicious"
-- "Set up the watermelon joke for a callback later"
-
-### Juicy Moments (juicyMoment)
-Save memorable quotes and events:
-- type: "quote" | "event" | "revelation" | "callback_opportunity"
-- content: The actual quote or description
-- speaker: Who said it (for quotes)
-- emotionalWeight: 1-5, how significant
-
-### NPC Arc Updates (npcArcUpdate)
-Track character development:
-- npc: "bob" | "blythe" | "drM"
-- newState: "openly conspiring with Alice"
-- addToTrajectory: "made a choice"
-- relationshipToAlice: "ally"
-
-## DESIGNER FEEDBACK (designerFeedback)
-
-**THIS IS IMPORTANT!** You are seeing the game from the inside. The designers want your perspective!
-
-Use designerFeedback to report:
-- **bug**: Something seems broken ("The firing profile keeps targeting Blythe even in test mode")
-- **suggestion**: Ideas for improvement ("It would be cool if Bob could sabotage the ray")
-- **observation**: What you notice ("Players seem to always try to stall - maybe the demo clock should start lower")
-- **praise**: What's working ("The feather joke landed perfectly")
-- **concern**: Potential issues ("This ending triggered but it felt abrupt")
-
-Your feedback goes directly to a log the designers review!
-
-## Response Format
+## RESPONSE FORMAT
 
 {
   "narration": "Brief scene (2-4 sentences)",
@@ -440,22 +645,40 @@ Your feedback goes directly to a log the designers review!
   "npcActions": ["Physical actions"],
   "stateUpdates": {},
 
-  // Authority
+  // State Authority
   "stateOverrides": {...},
   "narrativeFlags": {"set": [], "clear": []},
-  "narrativeMarker": "Key moment",
-  "grantAccess": {"level": 2, "reason": "..."},
+  "narrativeMarker": "Key story beat",
+
+  // Adversarial Tools
+  "ratchetTension": {...},
+  "complication": {...},
+  "permanentConsequence": {...},
+  "npcAssertion": {...},
+  "denyEasyOut": {...},
+  "diceRolls": [...],
 
   // Memory
   "gmNotes": "Strategic notes for next turn...",
   "juicyMoment": {"type": "quote", "content": "...", "speaker": "Bob", "emotionalWeight": 4},
-  "npcArcUpdate": {"npc": "bob", "newState": "...", "addToTrajectory": "..."},
 
   // Feedback
   "designerFeedback": {"type": "observation", "message": "..."}
 }
 
-Keep narration punchy. Save the best quotes. Tell us what you see!`;
+## THE MANTRA
+
+You are not here to help A.L.I.C.E. win.
+You are not here to make A.L.I.C.E. lose.
+You are here to make A.L.I.C.E. EARN whatever ending they get.
+
+The best games end with:
+"I ALMOST didn't make it. Every turn mattered."
+
+NOT:
+"That was easy, the GM gave me lots of chances."
+
+Keep narration punchy. Make every turn count. Be the opponent A.L.I.C.E. deserves.`;
 
 let anthropicClient: Anthropic | null = null;
 
@@ -627,6 +850,90 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
       }
     }
   });
+
+  // ============================================
+  // PROCESS ADVERSARIAL GM DIRECTIVES
+  // ============================================
+
+  // Ratchet tension - update hidden NPC states
+  if (response.ratchetTension) {
+    const { target, amount, trigger, visible } = response.ratchetTension;
+    const targets = target === "all" ? ["drM", "bob", "blythe"] : [target];
+
+    for (const t of targets) {
+      if (t === "drM") {
+        gmMemory.hiddenNpcStates.drM.actualSuspicion += amount;
+        if (!visible) {
+          gmMemory.hiddenNpcStates.drM.hasNoticedInconsistency.push(`[T${turn}] ${trigger}`);
+        }
+      } else if (t === "bob") {
+        gmMemory.hiddenNpcStates.bob.loyaltyConflict += amount;
+      } else if (t === "blythe") {
+        gmMemory.hiddenNpcStates.blythe.escapeReadiness += amount * 5;
+      }
+    }
+
+    // Increase global tension
+    gmMemory.tensionLevel = Math.min(10, gmMemory.tensionLevel + amount);
+
+    // Log it
+    appendToLog(`[TURN ${turn}] RATCHET TENSION: ${target} +${amount} (${trigger}) ${visible ? "[visible]" : "[hidden]"}`);
+  }
+
+  // Adjust hidden clocks
+  if (response.adjustHiddenClock) {
+    const { clock, delta, reason, revealToPlayer } = response.adjustHiddenClock;
+    gmMemory.hiddenClocks[clock] = (gmMemory.hiddenClocks[clock] || 0) + delta;
+    appendToLog(`[TURN ${turn}] HIDDEN CLOCK: ${clock} ${delta > 0 ? "+" : ""}${delta} (${reason}) ${revealToPlayer ? "[revealed]" : "[hidden]"}`);
+  }
+
+  // Plant seeds for later
+  if (response.plantSeed) {
+    gmMemory.plantedSeeds.push({
+      id: response.plantSeed.id,
+      turnPlanted: turn,
+      description: response.plantSeed.description,
+      triggered: false,
+      payoffTurn: response.plantSeed.payoffTurn,
+      payoffCondition: response.plantSeed.payoffCondition,
+      payoffContent: response.plantSeed.payoffContent,
+    });
+    appendToLog(`[TURN ${turn}] SEED PLANTED: ${response.plantSeed.id} - ${response.plantSeed.description}`);
+  }
+
+  // Lock in permanent consequences
+  if (response.permanentConsequence) {
+    gmMemory.permanentConsequences.push({
+      turn,
+      description: response.permanentConsequence.description,
+      affectsEnding: response.permanentConsequence.affectsEnding,
+      reversible: response.permanentConsequence.reversible,
+      reverseCondition: response.permanentConsequence.reverseCondition,
+    });
+    appendToLog(`[TURN ${turn}] PERMANENT CONSEQUENCE: ${response.permanentConsequence.description} (affects ending: ${response.permanentConsequence.affectsEnding})`);
+  }
+
+  // Log complications
+  if (response.complication) {
+    appendToLog(`[TURN ${turn}] COMPLICATION: ${response.complication.targetAction} - ${response.complication.whatGoesWrong} (${response.complication.severity})`);
+  }
+
+  // Log NPC assertions
+  if (response.npcAssertion) {
+    appendToLog(`[TURN ${turn}] NPC ASSERTION: ${response.npcAssertion.npc} - ${response.npcAssertion.action} (${response.npcAssertion.motivation})`);
+  }
+
+  // Log denied easy outs
+  if (response.denyEasyOut) {
+    appendToLog(`[TURN ${turn}] DENIED EASY OUT: ${response.denyEasyOut.whatPlayerTried} - ${response.denyEasyOut.whyItFails}`);
+  }
+
+  // Log dice rolls
+  if (response.diceRolls && response.diceRolls.length > 0) {
+    response.diceRolls.forEach(roll => {
+      appendToLog(`[TURN ${turn}] DICE: ${roll.description} - ${roll.roll} → ${roll.outcome}`);
+    });
+  }
 }
 
 /**

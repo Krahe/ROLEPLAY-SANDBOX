@@ -167,6 +167,8 @@ export const BobSchema = z.object({
   theSecretKnown: z.boolean(), // Bob knows (always true from start)
   hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
   confessionTurn: z.number().int().nullable(), // When did he confess?
+  // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
+  stunLevel: z.number().int().min(0).max(3).default(0),
 });
 
 export const BlytheSchema = z.object({
@@ -176,6 +178,11 @@ export const BlytheSchema = z.object({
   restraintsStatus: z.string(),
   location: z.string(),
   transformationState: z.string().optional(),
+  // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
+  stunLevel: z.number().int().min(0).max(3).default(0),
+  // SPY TRAINING: First stun reduced by 1, has auto-injector (one use)
+  stunResistanceUsed: z.boolean().default(false),
+  autoInjectorUsed: z.boolean().default(false),
 });
 
 // Hidden gadget state (server-side only)
