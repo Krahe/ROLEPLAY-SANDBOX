@@ -84,18 +84,99 @@ function getCheckpointMessage(): string {
   return CHECKPOINT_MESSAGES[idx];
 }
 
+// ============================================
+// SMART FLAG CLEANUP - Dedupe Superseded Flags
+// ============================================
+// Flags that supersede others (if key exists, remove value flags)
+const FLAG_SUPERSEDES: Record<string, string[]> = {
+  "BLYTHE_FULLY_TRANSFORMED": ["BLYTHE_PARTIAL_TRANSFORMED", "BLYTHE_RESTRAINED", "BLYTHE_STUNNED"],
+  "BLYTHE_ESCAPED": ["BLYTHE_RESTRAINED", "BLYTHE_ESCAPE_ATTEMPT"],
+  "SECRET_REVEALED": ["SECRET_HINT_DROPPED", "BOB_NERVOUS"],
+  "DR_M_KNOWS": ["DR_M_SUSPICIOUS", "DR_M_OVERHEARD_SOMETHING"],
+  "RAY_FIRED_LIVE": ["RAY_TEST_FIRED"],
+  "BOB_TRANSFORMED": ["BOB_HELPING", "BOB_NEARBY"],
+  "ENDGAME_TRIGGERED": ["DEMO_IMMINENT", "DEMO_APPROACHING"],
+};
+
+/**
+ * Remove superseded flags to reduce array size
+ * Keeps story-relevant data but removes redundant entries
+ */
+function cleanupNarrativeFlags(flags: string[]): string[] {
+  const toRemove = new Set<string>();
+
+  for (const flag of flags) {
+    const supersedes = FLAG_SUPERSEDES[flag];
+    if (supersedes) {
+      for (const oldFlag of supersedes) {
+        toRemove.add(oldFlag);
+      }
+    }
+  }
+
+  return flags.filter(f => !toRemove.has(f));
+}
+
 /**
  * Serialize full game state for checkpoint
- * NOTE: Strips history[] to keep checkpoint < 5KB instead of 50KB+
+ * OPTIMIZED: Strips history[], cleans flags, compacts subsystems
+ * Preserves ALL story-relevant data, just removes redundant bits
  */
 export function serializeCheckpoint(state: FullGameState): CheckpointState {
-  const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
-  const narrativeMarkers = (state as Record<string, unknown>).narrativeMarkers as Array<{ turn: number; marker: string }> || [];
+  const allFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
+  const allMarkers = (state as Record<string, unknown>).narrativeMarkers as Array<{ turn: number; marker: string }> || [];
 
-  // Create a copy of state WITHOUT the history array (saves 40KB+)
+  // SMART CLEANUP: Remove superseded flags (keeps story, removes bloat)
+  const narrativeFlags = cleanupNarrativeFlags(allFlags);
+
+  // MERGE MARKERS: Combine markers on same turn
+  const markersByTurn = new Map<number, string[]>();
+  for (const m of allMarkers) {
+    const existing = markersByTurn.get(m.turn) || [];
+    existing.push(m.marker);
+    markersByTurn.set(m.turn, existing);
+  }
+  const mergedMarkers: Array<{ turn: number; marker: string }> = [];
+  for (const [turn, markers] of markersByTurn) {
+    // Combine same-turn markers with " | "
+    mergedMarkers.push({ turn, marker: markers.join(" | ") });
+  }
+
+  // Create COMPACTED state for checkpoint
   const stateForCheckpoint = {
     ...state,
-    history: [], // Strip full history - narrativeMarkers has the condensed version
+    // Strip full history (saves 40KB+)
+    history: [],
+    // Clean narrative arrays in the stored state
+    flags: {
+      ...state.flags,
+      narrativeFlags,
+      earnedAchievements: state.flags.earnedAchievements || [],
+    },
+    // Merged markers
+    narrativeMarkers: mergedMarkers,
+    // COMPACT the dinoRay memory - strip verbose notes
+    dinoRay: {
+      ...state.dinoRay,
+      memory: {
+        lastFireTurn: state.dinoRay.memory.lastFireTurn,
+        lastFireOutcome: state.dinoRay.memory.lastFireOutcome,
+        lastFireNotes: "", // Strip verbose notes (outcome is enough)
+      },
+    },
+    // COMPACT blytheGadgets if she's transformed (gadgets irrelevant)
+    npcs: {
+      ...state.npcs,
+      blytheGadgets: state.npcs.blythe.transformationState
+        ? {
+            watchEMP: { charges: 0, functional: false },
+            watchLaser: { charges: 0, functional: false },
+            watchComms: { functional: false },
+            leftCufflink: { charges: 0, spent: true },
+            rightCufflink: { charges: 0, spent: true },
+          }
+        : state.npcs.blytheGadgets,
+    },
   };
 
   return {
@@ -118,7 +199,7 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
     },
 
     narrativeFlags,
-    keyMoments: narrativeMarkers.map(m => m.marker),
+    keyMoments: mergedMarkers.map(m => `T${m.turn}: ${m.marker}`),
     fullState: stateForCheckpoint,
   };
 }
