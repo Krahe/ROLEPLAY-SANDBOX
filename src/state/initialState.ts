@@ -48,6 +48,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         precision: 0.65,
         targetingMode: "MANUAL",
         firingStyle: "standard",
+        speechRetention: "FULL", // Default: preserve speech (hardest setting)
       },
       safety: {
         testModeEnabled: false,

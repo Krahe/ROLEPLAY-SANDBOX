@@ -341,9 +341,54 @@ infra.query is an action. game_query_basilisk is a tool.`,
   }
   
   // ============================================
+  // SET_SPEECH_RETENTION - Transformation Parameter
+  // ============================================
+  // Controls whether transformed subjects retain speech ability.
+  // FULL = 95%+ precision required, subject retains speech (hard)
+  // PARTIAL = 85%+ precision required, limited speech
+  // NONE = no precision requirement, silenced (easy!)
+
+  if (cmd.includes("speech") || cmd.includes("cognitive") || cmd.includes("retention")) {
+    const mode = ((action.params.mode || action.params.speech || action.params.retention) as string)?.toUpperCase() || "FULL";
+
+    if (mode !== "FULL" && mode !== "PARTIAL" && mode !== "NONE") {
+      return {
+        command: action.command,
+        success: false,
+        message: `Invalid speech retention mode: ${mode}. Use 'FULL', 'PARTIAL', or 'NONE'.`,
+      };
+    }
+
+    state.dinoRay.targeting.speechRetention = mode as "FULL" | "PARTIAL" | "NONE";
+
+    const descriptions = {
+      FULL: `🧠 FULL COGNITIVE PRESERVATION
+The subject will retain full speech and cognition.
+⚠️ REQUIRES: 95%+ precision (current: ${(state.dinoRay.targeting.precision * 100).toFixed(1)}%)
+This is the HARDEST setting but allows communication with transformed subjects.`,
+      PARTIAL: `🗣️ LIMITED SPEECH MODE
+The subject will retain partial speech ability.
+⚠️ REQUIRES: 85%+ precision (current: ${(state.dinoRay.targeting.precision * 100).toFixed(1)}%)
+Speech will be slurred, interspersed with animal sounds.`,
+      NONE: `🔇 SILENCED MODE
+The subject will lose the ability to speak.
+✅ NO precision requirement - transformation is EASIER!
+⚡ BONUS: Parameter tolerances are relaxed.
+The subject will only produce animalistic sounds (chirps, growls, roars).`,
+    };
+
+    return {
+      command: action.command,
+      success: true,
+      message: descriptions[mode],
+      stateChanges: { speechRetention: mode },
+    };
+  }
+
+  // ============================================
   // LAB.VERIFY_SAFETIES
   // ============================================
-  
+
   if (cmd === "lab.verify_safeties" || cmd.includes("safet")) {
     const checks = action.params.checks as string[] || ["all"];
     
@@ -728,6 +773,14 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     description: "Switch genome library (A=accurate/feathered, B=classic/scaled)",
     schema: "{ library: 'A' | 'B' }",
     example: 'genome.select_library { library: "B" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "set_speech_retention",
+    aliases: ["speech", "cognitive", "retention"],
+    description: "Set speech retention mode (FULL=hard, PARTIAL=medium, NONE=easy but silenced)",
+    schema: "{ mode: 'FULL' | 'PARTIAL' | 'NONE' }",
+    example: 'set_speech_retention { mode: "NONE" }',
     minAccessLevel: 1,
   },
   {

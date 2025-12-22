@@ -85,6 +85,15 @@ export const GenomeMatrixSchema = z.object({
   libraryBUnlocked: z.boolean(), // "Classic" dinosaurs (requires L3+)
 });
 
+// ============================================
+// SPEECH RETENTION - Transformation Parameter
+// ============================================
+// Controls whether transformed subjects retain speech ability.
+// Creates a TACTICAL DILEMMA:
+// - FULL = hard to achieve, but subject can still communicate
+// - NONE = easy to achieve, but subject is silenced
+export const SpeechRetentionEnum = z.enum(["FULL", "PARTIAL", "NONE"]);
+
 export const TargetingSchema = z.object({
   currentTargetIds: z.array(z.string()),
   precision: z.number().min(0).max(1),
@@ -93,6 +102,11 @@ export const TargetingSchema = z.object({
   // firingStyle: HOW to fire (conservative, aggressive, precision)
   // genome.selectedProfile: WHAT creature (Velociraptor, Canary)
   firingStyle: z.enum(["standard", "conservative", "aggressive", "precision", "burst"]).default("standard"),
+  // Speech retention parameter - tactical choice!
+  // FULL: 95%+ precision required, subject retains full speech
+  // PARTIAL: 85%+ precision required, subject speaks with difficulty
+  // NONE: No precision requirement, subject makes only animal sounds (easier!)
+  speechRetention: SpeechRetentionEnum.default("FULL"),
 });
 
 export const SafetySchema = z.object({

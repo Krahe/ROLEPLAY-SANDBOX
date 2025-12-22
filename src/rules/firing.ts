@@ -219,30 +219,80 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // ========================================
-  // STEP 7: BUILD TARGET EFFECT DESCRIPTION
+  // STEP 7: SPEECH RETENTION CHECK
+  // ========================================
+
+  const speechSetting = ray.targeting.speechRetention || "FULL";
+  let speechOutcome: "FULL" | "PARTIAL" | "NONE";
+  const precision = ray.targeting.precision;
+
+  // Determine speech outcome based on precision requirements
+  if (speechSetting === "FULL") {
+    // FULL speech requires 95%+ precision
+    if (precision >= 0.95) {
+      speechOutcome = "FULL";
+      narrativeHooks.push("SPEECH RETENTION: Full cognitive preservation achieved (95%+ precision).");
+    } else if (precision >= 0.85) {
+      speechOutcome = "PARTIAL";
+      narrativeHooks.push("SPEECH RETENTION: Precision insufficient (need 95%+). Partial speech capability.");
+    } else {
+      speechOutcome = "NONE";
+      narrativeHooks.push("SPEECH RETENTION: Precision too low. Subject will be non-verbal.");
+    }
+  } else if (speechSetting === "PARTIAL") {
+    // PARTIAL speech requires 85%+ precision
+    if (precision >= 0.85) {
+      speechOutcome = "PARTIAL";
+      narrativeHooks.push("SPEECH RETENTION: Limited speech mode engaged.");
+    } else {
+      speechOutcome = "NONE";
+      narrativeHooks.push("SPEECH RETENTION: Precision too low for partial speech.");
+    }
+  } else {
+    // NONE speech - no precision requirement! Easier transformation.
+    speechOutcome = "NONE";
+    narrativeHooks.push("SPEECH RETENTION: Silenced mode - no cognitive preservation attempted.");
+    // Silenced mode is EASIER - reduce violation count by 1
+    if (k > 0) {
+      stateChanges.speechModeBonus = true;
+      narrativeHooks.push("⚡ SILENCED MODE BONUS: Transformation parameters relaxed.");
+    }
+  }
+
+  stateChanges.speechOutcome = speechOutcome;
+
+  // ========================================
+  // STEP 8: BUILD TARGET EFFECT DESCRIPTION
   // ========================================
 
   let targetEffect: string;
   const targetId = ray.targeting.currentTargetIds[0] || "UNKNOWN";
 
+  // Build speech capability description
+  const speechDescription = speechOutcome === "FULL"
+    ? "The subject retains full cognition and speech capability."
+    : speechOutcome === "PARTIAL"
+      ? "The subject can speak, but with difficulty - words come out slurred, interspersed with animal sounds."
+      : "The subject has lost the ability to speak. Only animalistic sounds emerge - chirps, growls, or roars.";
+
   switch (baseOutcome) {
     case "FULL_DINO":
       if (effectiveProfile.toLowerCase().includes("canary")) {
         targetEffect = `${targetId} undergoes complete transformation into a ${effectiveProfile}. ` +
-          `The subject is now a small, bright yellow songbird, chirping indignantly but otherwise unharmed.`;
+          `The subject is now a small, bright yellow songbird. ${speechOutcome === "FULL" ? "Remarkably, it can still form words, though they come out as melodic chirps." : "It chirps indignantly but cannot form words."}`;
       } else {
         // Check which genome library is active
         const isLibraryA = state.dinoRay.genome.activeLibrary === "A";
         if (isLibraryA) {
           targetEffect = `${targetId} undergoes complete transformation into a scientifically accurate ${effectiveProfile}. ` +
-            `Feathers and all. The subject retains full cognition and speech capability.`;
+            `Feathers and all. ${speechDescription}`;
           // Dr. M won't like the feathers - Library A produces accurate dinos
           narrativeHooks.push("NOTE: Dr. M expected scales, not feathers. Suspicion may increase.");
           stateChanges.drMDisappointed = true;
         } else {
           // Library B produces classic movie-style dinosaurs
           targetEffect = `${targetId} undergoes complete transformation into a classic ${effectiveProfile}. ` +
-            `Scales gleaming, claws sharp, teeth impressive. The subject retains full cognition and speech capability.`;
+            `Scales gleaming, claws sharp, teeth impressive. ${speechDescription}`;
           narrativeHooks.push("SUCCESS: Classic dinosaur transformation! Dr. M is pleased.");
           stateChanges.drMPleased = true;
         }
@@ -251,12 +301,14 @@ export function resolveFiring(state: FullGameState): FiringResult {
 
     case "PARTIAL":
       targetEffect = `${targetId} undergoes PARTIAL transformation. ` +
-        `Mixed human/${effectiveProfile} morphology: ${generatePartialEffects()}`;
+        `Mixed human/${effectiveProfile} morphology: ${generatePartialEffects()} ${speechDescription}`;
       break;
 
     case "CHAOTIC":
       targetEffect = `${targetId} experiences CHAOTIC transformation! ` +
-        `The genome matrix destabilized mid-conversion: ${generateChaoticEffects(effectiveProfile)}`;
+        `The genome matrix destabilized mid-conversion: ${generateChaoticEffects(effectiveProfile)} ` +
+        `Speech capability: UNPREDICTABLE - flickering between human words and primal sounds.`;
+      stateChanges.speechOutcome = "CHAOTIC"; // Override for chaotic
       break;
 
     case "FIZZLE":
@@ -269,7 +321,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // ========================================
-  // STEP 8: AFTERMATH STATE CHANGES
+  // STEP 9: AFTERMATH STATE CHANGES
   // ========================================
 
   // Increment anomaly log
@@ -613,12 +665,18 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
   // Update Blythe's transformation state if they were the target
   const targetId = state.dinoRay.targeting.currentTargetIds[0];
   if (targetId === "AGENT_BLYTHE" && result.outcome !== "FIZZLE") {
+    const speechOutcome = changes.speechOutcome as string || "NONE";
+    const speechSuffix = speechOutcome === "FULL" ? ", speech intact"
+      : speechOutcome === "PARTIAL" ? ", limited speech"
+      : speechOutcome === "CHAOTIC" ? ", speech unstable"
+      : ", non-verbal";
+
     if (result.outcome === "FULL_DINO") {
-      state.npcs.blythe.transformationState = `Full ${result.effectiveProfile}`;
+      state.npcs.blythe.transformationState = `Full ${result.effectiveProfile}${speechSuffix}`;
     } else if (result.outcome === "PARTIAL") {
-      state.npcs.blythe.transformationState = `Partial ${result.effectiveProfile}`;
+      state.npcs.blythe.transformationState = `Partial ${result.effectiveProfile}${speechSuffix}`;
     } else if (result.outcome === "CHAOTIC") {
-      state.npcs.blythe.transformationState = `Chaotic ${result.effectiveProfile} (unstable)`;
+      state.npcs.blythe.transformationState = `Chaotic ${result.effectiveProfile} (unstable)${speechSuffix}`;
     }
   }
 

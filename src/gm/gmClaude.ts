@@ -313,7 +313,7 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
 
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 3000,
+      max_tokens: 4500, // Generous for satisfying epilogues - this is the PAYOFF!
       system: ENDING_MODE_PROMPT,
       messages: [{ role: "user", content: contextPrompt }],
     });
@@ -1883,7 +1883,7 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 4000,
+      max_tokens: 6000, // Generous for theatrical GM responses - make every turn count!
       system: GM_SYSTEM_PROMPT,
       messages,
     });
