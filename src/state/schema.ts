@@ -225,6 +225,8 @@ export const FlagsSchema = z.object({
   endingPreventedCount: z.number().optional(), // HARD LIMIT: Can only prevent once!
   // NARRATIVE FLAGS (set by GM for story tracking)
   narrativeFlags: z.array(z.string()).optional(), // ["BLYTHE_ESCAPE_ATTEMPT", "DR_M_OVERHEARD"]
+  // ACHIEVEMENT TRACKING (persistent within game session)
+  earnedAchievements: z.array(z.string()).optional(), // ["BOB_BUDDY", "CLEVER_GIRL"]
 });
 
 // ============================================

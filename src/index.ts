@@ -6,7 +6,7 @@ import { FullGameState, StateSnapshot, Act, ACT_CONFIGS } from "./state/schema.j
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry } from "./gm/gmClaude.js";
-import { checkEndings, formatEndingMessage, EndingResult, getGamePhase } from "./rules/endings.js";
+import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
@@ -29,6 +29,12 @@ import {
   CheckpointState,
   CHECKPOINT_INTERVAL,
 } from "./rules/checkpoint.js";
+import {
+  recordEnding,
+  recordAchievements,
+  getGallerySummary,
+  getFullGallery,
+} from "./storage/gallery.js";
 
 // ============================================
 // SERVER SETUP
@@ -546,11 +552,27 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     }
 
     // ============================================
-    // SESSION LOCK CHECK (Post-checkpoint)
+    // SESSION LOCK CHECK (Post-checkpoint or Game Over)
     // ============================================
-    // If a checkpoint was reached, reject further game_act calls
+    // If a checkpoint was reached or game ended, reject further game_act calls
     if ((gameState as Record<string, unknown>).sessionLocked) {
       const lockedAtTurn = (gameState as Record<string, unknown>).lockedAtTurn;
+      const gameEnded = (gameState as Record<string, unknown>).gameEnded;
+
+      if (gameEnded) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              "🎬 GAME OVER": "THE STORY HAS CONCLUDED",
+              "reason": `The game ended at turn ${lockedAtTurn}. This session is complete.`,
+              "solution": "To play again, call game_start to begin a new game.",
+              "note": "Thanks for playing DINO LAIR! Check game_gm_insights for memories and feedback.",
+            }, null, 2),
+          }],
+        };
+      }
+
       return {
         content: [{
           type: "text",
@@ -852,7 +874,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // Check for game over conditions using comprehensive ending detection
     const endingResult = checkEndings(gameState);
 
-    let gameOver: { ending: string; achievements: string[]; endingMessage?: string } | undefined;
+    let gameOver: { ending: string; achievements: string[]; endingMessage?: string; sessionTerminated?: boolean } | undefined;
 
     // Check for Bob Hero Ending first (special ending)
     if (bobHeroEnding) {
@@ -860,17 +882,58 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         ending: "THE BOB HERO ENDING",
         achievements: ["🦕 Best Henchperson Ever", "🦸 Unexpected Protagonist", "🪶 Feathered Hero"],
         endingMessage: bobHeroEnding,
+        sessionTerminated: true,
       };
       // Write to log file
       writeGameEndLog(gameState, "THE BOB HERO ENDING");
-    } else if (endingResult.triggered && endingResult.ending) {
+      // Record to persistent gallery
+      recordEnding(
+        "BOB_HERO",
+        "The Bob Hero Ending",
+        gameState.sessionId,
+        gameState.turn,
+        gameState.actConfig.currentAct
+      );
+      // Record achievements to gallery
+      const allEarned = gameState.flags.earnedAchievements || [];
+      recordAchievements(allEarned, gameState.sessionId);
+      // Lock session - game is over
+      (gameState as Record<string, unknown>).sessionLocked = true;
+      (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
+      (gameState as Record<string, unknown>).gameEnded = true;
+    } else if (endingResult.triggered && endingResult.ending && !endingResult.continueGame) {
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
         endingMessage: formatEndingMessage(endingResult),
+        sessionTerminated: true,
       };
       // Write to log file
       writeGameEndLog(gameState, endingResult.ending.title);
+      // Record to persistent gallery
+      recordEnding(
+        endingResult.ending.id,
+        endingResult.ending.title,
+        gameState.sessionId,
+        gameState.turn,
+        gameState.actConfig.currentAct
+      );
+      // Record achievements to gallery
+      const allEarned = gameState.flags.earnedAchievements || [];
+      recordAchievements(allEarned, gameState.sessionId);
+      // Lock session - game is over
+      (gameState as Record<string, unknown>).sessionLocked = true;
+      (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
+      (gameState as Record<string, unknown>).gameEnded = true;
+      console.error(`[DINO LAIR] GAME OVER: ${endingResult.ending.title}`);
+    } else if (endingResult.triggered && endingResult.ending && endingResult.continueGame) {
+      // Ending triggered but game continues (e.g., secret revealed)
+      gameOver = {
+        ending: endingResult.ending.title,
+        achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
+        endingMessage: formatEndingMessage(endingResult),
+        sessionTerminated: false,
+      };
     } else if (endingResult.achievements.length > 0) {
       // Achievements unlocked but game continues
       gameOver = {
@@ -1028,6 +1091,66 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       compactSnapshot.actName = newActConfig.name;
       compactSnapshot.actTurn = 1;
       compactSnapshot.actTurnsRemaining = newActConfig.maxTurns - 1;
+    }
+
+    // ============================================
+    // GAME OVER - TERMINAL RESPONSE
+    // ============================================
+    // If game has ended, return a special terminal response
+    if (gameOver?.sessionTerminated) {
+      // Get ALL achievements earned during the game
+      const allEarnedAchievements = getAllEarnedAchievements(gameState);
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            // ═══════════════════════════════════════════════════
+            // CLEAR GAME OVER INDICATOR AT TOP
+            // ═══════════════════════════════════════════════════
+            "🎬 GAME_STATUS": "COMPLETE - ENDING REACHED",
+            "ending": gameOver.ending,
+
+            // Turn results (what happened this final turn)
+            turnCompleted: gameState.turn,
+            actionResults,
+            gmResponse: {
+              narration: combinedNarration.join("\n\n---\n\n"),
+              npcDialogue: gmResponse.npcDialogue,
+              npcActions: gmResponse.npcActions,
+            },
+
+            // ═══════════════════════════════════════════════════
+            // ENDING INFO - THE FINALE
+            // ═══════════════════════════════════════════════════
+            endingDetails: {
+              title: gameOver.ending,
+              message: gameOver.endingMessage,
+              totalTurns: gameState.turn,
+              finalAct: gameState.actConfig.currentAct,
+            },
+
+            // ═══════════════════════════════════════════════════
+            // ALL ACHIEVEMENTS EARNED
+            // ═══════════════════════════════════════════════════
+            "🏆 ACHIEVEMENTS": allEarnedAchievements.map(a => ({
+              emoji: a.emoji,
+              name: a.name,
+              description: a.description,
+            })),
+            achievementCount: `${allEarnedAchievements.length} / 17`,
+
+            // ═══════════════════════════════════════════════════
+            // WHAT'S NEXT
+            // ═══════════════════════════════════════════════════
+            "📖 Thanks for playing DINO LAIR!": {
+              toPlayAgain: "Call game_start to begin a new game",
+              toSeeMemories: "Call game_gm_insights to see the GM's memories and feedback",
+              note: "This session is now complete. Further game_act calls will be rejected.",
+            },
+          }, null, 2),
+        }],
+      };
     }
 
     const result = {
@@ -1265,6 +1388,77 @@ Use this to see what the GM has been thinking and any feedback for designers!`,
       content: [{
         type: "text",
         text: JSON.stringify(output, null, 2),
+      }],
+    };
+  }
+);
+
+// ============================================
+// TOOL: game_gallery
+// ============================================
+
+server.registerTool(
+  "game_gallery",
+  {
+    title: "View Ending & Achievement Gallery",
+    description: `View your persistent collection of endings and achievements across all games.
+
+This tool returns:
+- Total games completed
+- Unique endings unlocked (and what % of all endings)
+- All achievements earned (and how many times)
+- Recent game history
+- Stats like total turns played
+
+The gallery persists across game sessions, so you can track your progress over time!`,
+    inputSchema: z.object({
+      showFullHistory: z.boolean().optional()
+        .describe("Show full ending history (default: just summary)"),
+    }).strict(),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async (params) => {
+    if (params.showFullHistory) {
+      // Return full gallery data
+      const fullGallery = getFullGallery();
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            "🎬 DINO LAIR GALLERY - FULL HISTORY": true,
+            ...fullGallery,
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Return summary
+    const summary = getGallerySummary();
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          "🎬 DINO LAIR GALLERY": {
+            gamesCompleted: summary.totalGamesCompleted,
+            totalTurnsPlayed: summary.totalTurnsPlayed,
+          },
+          "🏆 ENDINGS UNLOCKED": {
+            count: `${summary.uniqueEndingsUnlocked} / ${summary.totalEndingTypes}`,
+            recentEndings: summary.recentEndings,
+            favoriteEnding: summary.favoriteEnding,
+          },
+          "⭐ ACHIEVEMENTS": {
+            count: `${summary.uniqueAchievementsUnlocked} / ${summary.totalAchievementTypes}`,
+            list: summary.achievementList.map(a => `${a.id} (x${a.count})`),
+          },
+          tip: "Use showFullHistory: true to see complete game history",
+        }, null, 2),
       }],
     };
   }
