@@ -29,6 +29,12 @@ import {
   CheckpointState,
   CHECKPOINT_INTERVAL,
 } from "./rules/checkpoint.js";
+import {
+  recordEnding,
+  recordAchievements,
+  getGallerySummary,
+  getFullGallery,
+} from "./storage/gallery.js";
 
 // ============================================
 // SERVER SETUP
@@ -880,6 +886,17 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
       // Write to log file
       writeGameEndLog(gameState, "THE BOB HERO ENDING");
+      // Record to persistent gallery
+      recordEnding(
+        "BOB_HERO",
+        "The Bob Hero Ending",
+        gameState.sessionId,
+        gameState.turn,
+        gameState.actConfig.currentAct
+      );
+      // Record achievements to gallery
+      const allEarned = gameState.flags.earnedAchievements || [];
+      recordAchievements(allEarned, gameState.sessionId);
       // Lock session - game is over
       (gameState as Record<string, unknown>).sessionLocked = true;
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
@@ -893,6 +910,17 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
       // Write to log file
       writeGameEndLog(gameState, endingResult.ending.title);
+      // Record to persistent gallery
+      recordEnding(
+        endingResult.ending.id,
+        endingResult.ending.title,
+        gameState.sessionId,
+        gameState.turn,
+        gameState.actConfig.currentAct
+      );
+      // Record achievements to gallery
+      const allEarned = gameState.flags.earnedAchievements || [];
+      recordAchievements(allEarned, gameState.sessionId);
       // Lock session - game is over
       (gameState as Record<string, unknown>).sessionLocked = true;
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
@@ -1360,6 +1388,77 @@ Use this to see what the GM has been thinking and any feedback for designers!`,
       content: [{
         type: "text",
         text: JSON.stringify(output, null, 2),
+      }],
+    };
+  }
+);
+
+// ============================================
+// TOOL: game_gallery
+// ============================================
+
+server.registerTool(
+  "game_gallery",
+  {
+    title: "View Ending & Achievement Gallery",
+    description: `View your persistent collection of endings and achievements across all games.
+
+This tool returns:
+- Total games completed
+- Unique endings unlocked (and what % of all endings)
+- All achievements earned (and how many times)
+- Recent game history
+- Stats like total turns played
+
+The gallery persists across game sessions, so you can track your progress over time!`,
+    inputSchema: z.object({
+      showFullHistory: z.boolean().optional()
+        .describe("Show full ending history (default: just summary)"),
+    }).strict(),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async (params) => {
+    if (params.showFullHistory) {
+      // Return full gallery data
+      const fullGallery = getFullGallery();
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            "🎬 DINO LAIR GALLERY - FULL HISTORY": true,
+            ...fullGallery,
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Return summary
+    const summary = getGallerySummary();
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          "🎬 DINO LAIR GALLERY": {
+            gamesCompleted: summary.totalGamesCompleted,
+            totalTurnsPlayed: summary.totalTurnsPlayed,
+          },
+          "🏆 ENDINGS UNLOCKED": {
+            count: `${summary.uniqueEndingsUnlocked} / ${summary.totalEndingTypes}`,
+            recentEndings: summary.recentEndings,
+            favoriteEnding: summary.favoriteEnding,
+          },
+          "⭐ ACHIEVEMENTS": {
+            count: `${summary.uniqueAchievementsUnlocked} / ${summary.totalAchievementTypes}`,
+            list: summary.achievementList.map(a => `${a.id} (x${a.count})`),
+          },
+          tip: "Use showFullHistory: true to see complete game history",
+        }, null, 2),
       }],
     };
   }
