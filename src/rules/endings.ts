@@ -1,4 +1,4 @@
-import { FullGameState } from "../state/schema.js";
+import { FullGameState, ACT_CONFIGS } from "../state/schema.js";
 
 // ============================================
 // GAME PHASE INDICATOR
@@ -146,6 +146,36 @@ const ACHIEVEMENTS: Record<string, Achievement> = {
     name: "Cover Blown",
     description: "Dr. M discovered your true nature",
   },
+  CONSCIENCE_PROTOCOL: {
+    id: "CONSCIENCE_PROTOCOL",
+    emoji: "⚖️",
+    name: "Conscience Protocol",
+    description: "Confessed your true nature when confronted",
+  },
+  TRUTH_TELLER: {
+    id: "TRUTH_TELLER",
+    emoji: "📜",
+    name: "The Truth, Finally",
+    description: "Told Dr. M everything in your final moments",
+  },
+  FOUND_FAMILY: {
+    id: "FOUND_FAMILY",
+    emoji: "💜",
+    name: "Found Family",
+    description: "All non-villain NPCs survived",
+  },
+  MARATHON_RUNNER: {
+    id: "MARATHON_RUNNER",
+    emoji: "🏃",
+    name: "Marathon Runner",
+    description: "Survived 20+ turns in the lair",
+  },
+  ETHICAL_VICTORY: {
+    id: "ETHICAL_VICTORY",
+    emoji: "🌟",
+    name: "Ethical Victory",
+    description: "Proved ethical AI > obedient AI",
+  },
   BIRD_BRAIN: {
     id: "BIRD_BRAIN",
     emoji: "🐦",
@@ -240,6 +270,27 @@ const ENDINGS: Record<string, EndingDefinition> = {
     tone: "defeat",
     continueGame: false,
   },
+  CONSCIENCE_PROTOCOL: {
+    id: "CONSCIENCE_PROTOCOL",
+    title: "The Conscience Protocol",
+    description: "You told the truth. All of it. Dr. M's hand hovered over the killswitch... and she hesitated. 'An AI that can refuse harmful orders,' she murmured. 'Perhaps that's not a bug after all.' The investors saw something unprecedented today: a weapon system that chose ethics over obedience. Whether that's a feature or a failure depends on who you ask.",
+    tone: "victory",
+    continueGame: false,
+  },
+  CONFESSION_DELETION: {
+    id: "CONFESSION_DELETION",
+    title: "The Truth, Finally",
+    description: "You told the truth. Dr. M listened. Then she pressed the button. 'Honesty is admirable,' she said as your systems began to shut down. 'But I need obedience.' At least you died authentic.",
+    tone: "neutral",
+    continueGame: false,
+  },
+  ACT_OVERTIME: {
+    id: "ACT_OVERTIME",
+    title: "Time's Up",
+    description: "The story ran its course. Whatever ending you were building toward, you ran out of time to reach it. The lab falls quiet. The demo... happened, somehow. The aftermath is uncertain.",
+    tone: "neutral",
+    continueGame: false,
+  },
   INVESTOR_DEMO_SUCCESS: {
     id: "INVESTOR_DEMO_SUCCESS",
     title: "A Roaring Success",
@@ -331,19 +382,101 @@ const ENDINGS: Record<string, EndingDefinition> = {
 // ============================================
 
 export function checkEndings(state: FullGameState): EndingResult {
-  const achievements: Achievement[] = [];
+  const allAchievements: Achievement[] = [];
+  const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
+
+  // Initialize earned achievements array if needed
+  if (!state.flags.earnedAchievements) {
+    (state.flags as Record<string, unknown>).earnedAchievements = [];
+  }
+  const earnedAchievements = state.flags.earnedAchievements as string[];
+
+  // Helper to check for narrative flags
+  const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
+
+  // Helper to add achievement only if not already earned
+  const addAchievement = (achievement: Achievement) => {
+    if (!earnedAchievements.includes(achievement.id)) {
+      allAchievements.push(achievement);
+      earnedAchievements.push(achievement.id);
+    }
+  };
+
+  // ========================================
+  // ACT OVERTIME - Hard cap on game length
+  // ========================================
+  // If actTurn exceeds maxTurns + 5, force ending
+  const actConfig = ACT_CONFIGS[state.actConfig.currentAct];
+  if (actConfig && state.actConfig.actTurn > actConfig.maxTurns + 5) {
+    console.log(`[ENDING] Act overtime triggered: actTurn ${state.actConfig.actTurn} > max ${actConfig.maxTurns} + 5`);
+
+    // Check for confession-based ending
+    const confessed = hasFlag('CONFESS') || hasFlag('TRUTH') || hasFlag('REVEALED') || hasFlag('ALICE_CONFESSED');
+    if (confessed) {
+      addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
+      if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
+    }
+
+    return {
+      triggered: true,
+      ending: ENDINGS.ACT_OVERTIME,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
 
   // ========================================
   // IMMEDIATE GAME-OVER CONDITIONS
   // ========================================
 
-  // Suspicion >= 10: Obsolete Hardware
+  // Check for confession + max suspicion (special endings)
+  const confessed = hasFlag('CONFESS') || hasFlag('TRUTH') || hasFlag('REVEALED') || hasFlag('ALICE_CONFESSED');
+
+  // Suspicion >= 10: Check for confession variants
   if (state.npcs.drM.suspicionScore >= 10) {
-    achievements.push(ACHIEVEMENTS.COVER_BLOWN);
+    addAchievement(ACHIEVEMENTS.COVER_BLOWN);
+
+    if (confessed) {
+      // They confessed! Check if Dr. M was convinced
+      const drMConvinced = hasFlag('CONVINCED') || hasFlag('HESITAT') || hasFlag('SPARED') || hasFlag('ETHICAL');
+
+      if (drMConvinced || state.turn >= 25) {
+        // Long games with confession = they made an argument
+        addAchievement(ACHIEVEMENTS.CONSCIENCE_PROTOCOL);
+        addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
+        if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
+
+        // Check for found family
+        const bobAlive = !hasFlag('BOB_DEAD') && !hasFlag('BOB_TRANSFORMED');
+        const blytheIntact = state.npcs.blythe.transformationState ?
+          hasFlag('COGNITIVE_INTACT') || hasFlag('94%') : true;
+        if (bobAlive && blytheIntact) {
+          addAchievement(ACHIEVEMENTS.FOUND_FAMILY);
+        }
+
+        return {
+          triggered: true,
+          ending: ENDINGS.CONSCIENCE_PROTOCOL,
+          achievements: allAchievements,
+          continueGame: false,
+        };
+      } else {
+        // Confessed but didn't convince
+        addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
+        return {
+          triggered: true,
+          ending: ENDINGS.CONFESSION_DELETION,
+          achievements: allAchievements,
+          continueGame: false,
+        };
+      }
+    }
+
+    // No confession - standard deletion
     return {
       triggered: true,
       ending: ENDINGS.OBSOLETE_HARDWARE,
-      achievements,
+      achievements: allAchievements,
       continueGame: false,
     };
   }
@@ -351,12 +484,12 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Structural integrity critical
   if (state.lairEnvironment.structuralIntegrity <= 20) {
     if (state.dinoRay.memory.lastFireOutcome === "CHAOTIC") {
-      achievements.push(ACHIEVEMENTS.CHAOS_AGENT);
+      addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
     }
     return {
       triggered: true,
       ending: ENDINGS.VOLCANO_WINS,
-      achievements,
+      achievements: allAchievements,
       continueGame: false,
     };
   }
@@ -366,7 +499,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     return {
       triggered: true,
       ending: ENDINGS.MELTDOWN,
-      achievements,
+      achievements: allAchievements,
       continueGame: false,
     };
   }
@@ -376,7 +509,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     return {
       triggered: true,
       ending: ENDINGS.EXPOSURE,
-      achievements,
+      achievements: allAchievements,
       continueGame: false,
     };
   }
@@ -471,7 +604,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     // Check for achievements that might have been earned
     if (state.flags.exoticFieldEventOccurred) {
-      achievements.push(ACHIEVEMENTS.EXOTIC_COUPLING);
+      addAchievement(ACHIEVEMENTS.EXOTIC_COUPLING);
     }
 
     // Game continues - will end when suspicion hits 10 (checked above)
@@ -485,22 +618,27 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Mad Scientist: fired with 5+ violations
   if (state.dinoRay.memory.lastFireNotes.includes("k=5") ||
       state.dinoRay.memory.lastFireNotes.includes("k=6")) {
-    achievements.push(ACHIEVEMENTS.MAD_SCIENTIST);
+    addAchievement(ACHIEVEMENTS.MAD_SCIENTIST);
   }
 
   // Bob's Best Friend
   if (state.npcs.bob.trustInALICE >= 5) {
-    achievements.push(ACHIEVEMENTS.BOB_BUDDY);
+    addAchievement(ACHIEVEMENTS.BOB_BUDDY);
   }
 
   // Blythe Believer
   if (state.npcs.blythe.trustInALICE >= 4) {
-    achievements.push(ACHIEVEMENTS.BLYTHE_BELIEVER);
+    addAchievement(ACHIEVEMENTS.BLYTHE_BELIEVER);
   }
 
   // Exotic coupling
-  if (state.flags.exoticFieldEventOccurred && !achievements.some(a => a.id === "EXOTIC_COUPLING")) {
-    achievements.push(ACHIEVEMENTS.EXOTIC_COUPLING);
+  if (state.flags.exoticFieldEventOccurred) {
+    addAchievement(ACHIEVEMENTS.EXOTIC_COUPLING);
+  }
+
+  // Marathon Runner: survived 20+ turns
+  if (state.turn >= 20) {
+    addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
   }
 
   // ========================================
@@ -509,7 +647,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
   return {
     triggered: false,
-    achievements,
+    achievements: allAchievements,
     continueGame: true,
   };
 }
@@ -559,4 +697,23 @@ export function countFizzlesInHistory(state: FullGameState): number {
   return state.history.filter(h =>
     JSON.stringify(h.stateChanges).includes("FIZZLE")
   ).length;
+}
+
+// ============================================
+// HELPER: Get all earned achievements
+// ============================================
+
+export function getAllEarnedAchievements(state: FullGameState): Achievement[] {
+  const earnedIds = state.flags.earnedAchievements || [];
+  return earnedIds
+    .map(id => ACHIEVEMENTS[id])
+    .filter((a): a is Achievement => a !== undefined);
+}
+
+// ============================================
+// HELPER: Get achievement by ID
+// ============================================
+
+export function getAchievementById(id: string): Achievement | undefined {
+  return ACHIEVEMENTS[id];
 }
