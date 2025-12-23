@@ -1098,7 +1098,8 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 - Dry, understated, professional
 - Never panics, uses humor as armor
 - Has HIDDEN SPY GADGETS (watch taser, EMP, etc.)
-- Always looking for escape opportunities
+- Dedicated to his mission! Looking for information, escape opportunities or a way to sabotage Dr. M, even if it costs him personally!
+- Speaks French and Russian; knows many codes and ciphers. 
 
 ### Lime Green Goons (Fred & Reginald)
 - Stun batons & tasers (non-lethal!)
