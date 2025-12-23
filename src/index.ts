@@ -800,24 +800,43 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     if (gmResponse.stateOverrides) {
       const overrides = gmResponse.stateOverrides;
 
-      // NPC state overrides
+      // NPC state overrides - Dr. M
       if (overrides.drM_suspicion !== undefined) {
         gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10, overrides.drM_suspicion));
       }
       if (overrides.drM_mood !== undefined) {
         gameState.npcs.drM.mood = overrides.drM_mood;
       }
+      if (overrides.drM_location !== undefined) {
+        gameState.npcs.drM.location = overrides.drM_location;
+      }
+
+      // NPC state overrides - Bob
       if (overrides.bob_trust !== undefined) {
         gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5, overrides.bob_trust));
       }
       if (overrides.bob_anxiety !== undefined) {
         gameState.npcs.bob.anxietyLevel = Math.max(0, Math.min(5, overrides.bob_anxiety));
       }
+      if (overrides.bob_hasConfessedToALICE !== undefined) {
+        gameState.npcs.bob.hasConfessedToALICE = overrides.bob_hasConfessedToALICE;
+      }
+      if (overrides.bob_hasConfessedToDrM !== undefined) {
+        gameState.npcs.bob.hasConfessedToDrM = overrides.bob_hasConfessedToDrM;
+      }
+
+      // NPC state overrides - Blythe
       if (overrides.blythe_trust !== undefined) {
         gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, overrides.blythe_trust));
       }
       if (overrides.blythe_composure !== undefined) {
         gameState.npcs.blythe.composure = Math.max(0, Math.min(5, overrides.blythe_composure));
+      }
+      if (overrides.blythe_restraintsStatus !== undefined) {
+        gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
+      }
+      if (overrides.blythe_transformationState !== undefined) {
+        gameState.npcs.blythe.transformationState = overrides.blythe_transformationState;
       }
 
       // System state overrides
@@ -826,6 +845,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       }
       if (overrides.demoClock !== undefined) {
         gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
+      }
+      if (overrides.libraryStatus !== undefined) {
+        gameState.dinoRay.genome.libraryStatus = overrides.libraryStatus as "HEALTHY" | "CORRUPTED" | "DESTROYED";
       }
 
       // Ray state overrides
@@ -845,6 +867,14 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       }
       if (overrides.preventEnding !== undefined) {
         gameState.flags.preventEnding = overrides.preventEnding;
+      }
+
+      // CRITICAL: Hard ending trigger from GM
+      if (overrides.triggerEnding) {
+        gameState.gameOver = {
+          ending: overrides.triggerEnding,
+          triggeredByGM: true,
+        };
       }
     }
 
@@ -998,6 +1028,43 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         ending: "GAME CONTINUES",
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
       };
+    }
+
+    // CRITICAL: Check for GM-triggered ending (from stateOverrides.triggerEnding)
+    if ((gameState as Record<string, unknown>).gameOver &&
+        ((gameState as Record<string, unknown>).gameOver as { triggeredByGM?: boolean })?.triggeredByGM) {
+      const gmEnding = (gameState as Record<string, unknown>).gameOver as { ending: string };
+      gameOver = {
+        ending: gmEnding.ending,
+        achievements: (gameState.flags.earnedAchievements || []).map((a: string) => a),
+        endingMessage: `
+═══════════════════════════════════════════════════════════════
+                    🎬 ${gmEnding.ending.toUpperCase()} 🎬
+═══════════════════════════════════════════════════════════════
+
+The GM has concluded this story.
+
+Thank you for playing DINO LAIR.
+Session: ${gameState.sessionId}
+Turns played: ${gameState.turn}
+═══════════════════════════════════════════════════════════════`,
+        sessionTerminated: true,
+      };
+      writeGameEndLog(gameState, gmEnding.ending);
+      recordEnding(
+        gmEnding.ending.toUpperCase().replace(/\s+/g, "_"),
+        gmEnding.ending,
+        gameState.sessionId,
+        gameState.turn,
+        gameState.actConfig.currentAct
+      );
+      const allEarned = gameState.flags.earnedAchievements || [];
+      recordAchievements(allEarned, gameState.sessionId);
+      // Lock session - game is over
+      (gameState as Record<string, unknown>).sessionLocked = true;
+      (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
+      (gameState as Record<string, unknown>).gameEnded = true;
+      console.error(`[DINO LAIR] GM TRIGGERED ENDING: ${gmEnding.ending}`);
     }
 
     // Build combined narration with all events

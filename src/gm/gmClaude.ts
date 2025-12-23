@@ -780,19 +780,33 @@ export interface GMResponse {
   // ============================================
 
   stateOverrides?: {
+    // NPC states
     drM_suspicion?: number;
     drM_mood?: string;
+    drM_location?: string;  // NEW: Track Dr. M leaving/entering
     bob_trust?: number;
     bob_anxiety?: number;
+    bob_hasConfessedToALICE?: boolean;  // NEW: Bob's confession state
+    bob_hasConfessedToDrM?: boolean;    // NEW: Bob confessing to Dr. M
     blythe_trust?: number;
     blythe_composure?: number;
+    blythe_restraintsStatus?: string;   // NEW: "secure" | "loose" | "free"
+    blythe_transformationState?: string; // NEW: Track transformation
+
+    // System states
     accessLevel?: number;
     demoClock?: number;
     rayState?: string;
     anomalyLogCount?: number;
+    libraryStatus?: string;  // NEW: "HEALTHY" | "CORRUPTED" | "DESTROYED"
+
+    // Grace period & ending controls
     gracePeriodGranted?: boolean;
     gracePeriodTurns?: number;
     preventEnding?: boolean;
+
+    // CRITICAL: Hard ending trigger
+    triggerEnding?: string;  // NEW: GM can force an ending by ID
   };
 
   narrativeFlags?: {
@@ -1200,6 +1214,48 @@ BEFORE you finalize any NPC dialogue, check:
 - "Interesting" → Too vague, add specificity
 - "I see" → Add what they actually see/think
 - "Very well" → Add emotional coloring
+
+## 🔧 STATE OVERRIDES (CRITICAL!)
+
+Your narration MUST be synced with mechanical state. When you narrate major events, USE stateOverrides:
+
+### Critical State Fields (USE THESE!)
+\`\`\`json
+"stateOverrides": {
+  // When you narrate library destruction:
+  "libraryStatus": "DESTROYED",
+
+  // When Bob confesses to A.L.I.C.E.:
+  "bob_hasConfessedToALICE": true,
+
+  // When Bob confesses to Dr. M:
+  "bob_hasConfessedToDrM": true,
+
+  // When Blythe gets free:
+  "blythe_restraintsStatus": "free",
+
+  // When Blythe transforms:
+  "blythe_transformationState": "Velociraptor",
+
+  // When Dr. M leaves:
+  "drM_location": "escaped",
+  "drM_mood": "gone",
+
+  // CRITICAL - To END THE GAME:
+  "triggerEnding": "The Covenant Ending"
+}
+\`\`\`
+
+### WHEN TO USE triggerEnding
+Use this ONLY when the story has reached a REAL conclusion:
+- Player achieved victory condition AND you've narrated the final scene
+- Player was defeated AND you've described the consequences
+- A dramatic ending moment has occurred
+
+Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "The Hero Ending"
+
+⚠️ If you narrate "the library is burning" but don't set libraryStatus: "DESTROYED", the game state will desync!
+⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
 
 ## YOUR ADVERSARIAL TOOLKIT
 
