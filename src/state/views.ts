@@ -492,6 +492,10 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         stunLevel: compressed.npc.blythe.stun,
         stunResistanceUsed: false,
         autoInjectorUsed: false,
+        // Escape tracking (defaults on checkpoint restoration)
+        hasEscaped: false,
+        escapeTurn: null,
+        escapeMethod: null,
       },
       // Gadgets reset to minimal state on decompression
       blytheGadgets: {
@@ -546,6 +550,11 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         lastFireTurn: null,
         lastFireOutcome: "NONE",
         lastFireNotes: "",
+        // First firing tracking (defaults on checkpoint restoration)
+        hasFiredSuccessfully: false,
+        firstFiringTurn: null,
+        firstFiringTarget: null,
+        firstFiringMode: null,
       },
     },
 

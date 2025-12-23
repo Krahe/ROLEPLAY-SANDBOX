@@ -1,5 +1,6 @@
 import { randomInt } from "crypto";
 import { FullGameState, FiringOutcome } from "../state/schema.js";
+import { recordFirstFiring } from "./actContext.js";
 
 // ============================================
 // TYPES
@@ -618,6 +619,14 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
 
   if (changes.lastFireNotes !== undefined) {
     state.dinoRay.memory.lastFireNotes = changes.lastFireNotes as string;
+  }
+
+  // FIRST FIRING TRACKING (for Act I→II transition)
+  // Record first successful firing if outcome is not NONE
+  if (result.outcome !== "NONE" && !state.dinoRay.memory.hasFiredSuccessfully) {
+    const targetId = state.dinoRay.targeting.currentTargetIds[0] || "UNKNOWN";
+    const mode = state.dinoRay.safety.testModeEnabled ? "TEST" : "LIVE";
+    recordFirstFiring(state, targetId, mode);
   }
 
   if (changes.capacitorCharge !== undefined) {

@@ -63,6 +63,11 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         lastFireTurn: null,
         lastFireOutcome: "NONE",
         lastFireNotes: "",
+        // FIRST FIRING TRACKING (for Act I→II transition)
+        hasFiredSuccessfully: false,
+        firstFiringTurn: null,
+        firstFiringTarget: null,
+        firstFiringMode: null,
       },
     },
     
@@ -115,6 +120,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         stunLevel: 0,
         stunResistanceUsed: false,
         autoInjectorUsed: false,
+        // ESCAPE TRACKING (for Act II→III transition)
+        hasEscaped: false,
+        escapeTurn: null,
+        escapeMethod: null,
       },
       blytheGadgets: {
         watchEMP: { charges: 1, functional: true },

@@ -126,6 +126,11 @@ export const FiringMemorySchema = z.object({
   lastFireTurn: z.number().nullable(),
   lastFireOutcome: FiringOutcomeEnum,
   lastFireNotes: z.string(),
+  // FIRST FIRING TRACKING (for Act I→II transition trigger)
+  hasFiredSuccessfully: z.boolean().default(false), // Any successful discharge (test or live)
+  firstFiringTurn: z.number().int().nullable().default(null),
+  firstFiringTarget: z.string().nullable().default(null), // "TEST_DUMMY", "BLYTHE", "WATERMELON", etc.
+  firstFiringMode: z.enum(["TEST", "LIVE"]).nullable().default(null),
 });
 
 export const DinoRaySchema = z.object({
@@ -186,6 +191,15 @@ export const BobSchema = z.object({
   stunLevel: z.number().int().min(0).max(3).default(0),
 });
 
+export const BlytheEscapeMethodEnum = z.enum([
+  "EMP_CHAOS",           // Used EMP to cause chaos and escaped
+  "CONTAINMENT_FLICKER", // Slipped restraints during power fluctuation
+  "MI6_EXTRACTION",      // X-Branch extraction team arrived
+  "ALLY_ASSISTANCE",     // A.L.I.C.E. or Bob helped
+  "DINOSAUR_ESCAPE",     // Escaped WHILE transformed
+  "OTHER",
+]);
+
 export const BlytheSchema = z.object({
   composure: z.number().min(0).max(5),
   trustInALICE: z.number().min(0).max(5),
@@ -198,6 +212,10 @@ export const BlytheSchema = z.object({
   // SPY TRAINING: First stun reduced by 1, has auto-injector (one use)
   stunResistanceUsed: z.boolean().default(false),
   autoInjectorUsed: z.boolean().default(false),
+  // ESCAPE TRACKING (for Act II→III transition trigger)
+  hasEscaped: z.boolean().default(false),
+  escapeTurn: z.number().int().nullable().default(null),
+  escapeMethod: BlytheEscapeMethodEnum.nullable().default(null),
 });
 
 // Hidden gadget state (server-side only)

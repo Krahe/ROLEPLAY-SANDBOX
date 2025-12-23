@@ -42,6 +42,10 @@ import {
   LIFELINE_INTERVAL,
 } from "./rules/lifeline.js";
 import {
+  checkAndBuildActTransition as checkActContextTransition,
+  getActGMContext,
+} from "./rules/actContext.js";
+import {
   recordEnding,
   recordAchievements,
   getGallerySummary,
@@ -231,6 +235,10 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         stunLevel: state.npcs.blythe.stunLevel,
         stunResistanceUsed: state.npcs.blythe.stunResistanceUsed,
         autoInjectorUsed: state.npcs.blythe.autoInjectorUsed,
+        // Escape tracking (Act II→III transition)
+        hasEscaped: state.npcs.blythe.hasEscaped,
+        escapeTurn: state.npcs.blythe.escapeTurn,
+        escapeMethod: state.npcs.blythe.escapeMethod,
       },
     },
     clocks: {
@@ -802,6 +810,20 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       );
     }
 
+    // ============================================
+    // ACT-BASED CONTEXT INJECTION
+    // ============================================
+    // Check if an act transition should occur based on game state
+    const actContextTransition = checkActContextTransition(gameState);
+
+    // Get the current act's GM context (X-Branch, ARCHIMEDES, etc.)
+    const currentActContext = getActGMContext(gameState.actConfig.currentAct);
+
+    // If transitioning, the notification includes the new act's context
+    const actTransitionNotification = actContextTransition.shouldTransition
+      ? actContextTransition.notification
+      : undefined;
+
     // Call GM Claude for NPC responses
     const gmContext = {
       state: gameState,
@@ -818,6 +840,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       // LIFELINE SYSTEM
       lifelinePromptInjection,
       userLifelineResponse,
+      // ACT-BASED CONTEXT INJECTION
+      actContext: currentActContext,
+      actTransitionNotification,
     };
     
     let gmResponse: GMResponse;

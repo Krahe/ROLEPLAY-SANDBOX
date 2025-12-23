@@ -162,6 +162,11 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
         lastFireTurn: state.dinoRay.memory.lastFireTurn,
         lastFireOutcome: state.dinoRay.memory.lastFireOutcome,
         lastFireNotes: "", // Strip verbose notes (outcome is enough)
+        // First firing tracking (Act I→II transition)
+        hasFiredSuccessfully: state.dinoRay.memory.hasFiredSuccessfully,
+        firstFiringTurn: state.dinoRay.memory.firstFiringTurn,
+        firstFiringTarget: state.dinoRay.memory.firstFiringTarget,
+        firstFiringMode: state.dinoRay.memory.firstFiringMode,
       },
     },
     // COMPACT blytheGadgets if she's transformed (gadgets irrelevant)
