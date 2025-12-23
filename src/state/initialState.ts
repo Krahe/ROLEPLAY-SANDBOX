@@ -1,5 +1,6 @@
 import { FullGameState, Act, ACT_CONFIGS } from "./schema.js";
 import { randomUUID } from "crypto";
+import { createInitialLifelineState } from "../rules/lifeline.js";
 
 export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
   const actConfig = ACT_CONFIGS[startAct];
@@ -148,7 +149,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       gracePeriodTurns: 0,
       preventEnding: false,
     },
-    
+
+    // LIFELINE SYSTEM (Human Advisor Consultations)
+    lifelineState: createInitialLifelineState(),
+
     history: [],
   };
 }

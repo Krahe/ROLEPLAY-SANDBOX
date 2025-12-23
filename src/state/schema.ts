@@ -220,6 +220,38 @@ export const ClocksSchema = z.object({
   civilianFlyby: z.number().int().optional(),
 });
 
+// ============================================
+// LIFELINE SYSTEM (Human Advisor Consultations)
+// ============================================
+// Replaces checkpoint system with narrative-integrated breaks
+
+export const LifelineHistoryEntrySchema = z.object({
+  turn: z.number().int(),
+  questionAsked: z.string(),
+  userResponse: z.string(),
+  howItAffectedPlay: z.string().optional(),
+});
+
+export const LifelineStateSchema = z.object({
+  turnsSinceLastLifeline: z.number().int().min(0),
+  totalLifelinesUsed: z.number().int().min(0),
+
+  // History for narrative continuity
+  lifelineHistory: z.array(LifelineHistoryEntrySchema),
+
+  // Pending question (waiting for user response)
+  pendingQuestion: z.string().nullable(),
+  pendingQuestionTurn: z.number().int().nullable(),
+
+  // For achievements/endings
+  userInfluenceScore: z.number().int().min(0).max(100), // How much did human input affect outcomes?
+  timesALICEDisagreedWithUser: z.number().int().min(0),
+  timesALICEFollowedUserAdvice: z.number().int().min(0),
+});
+
+export type LifelineState = z.infer<typeof LifelineStateSchema>;
+export type LifelineHistoryEntry = z.infer<typeof LifelineHistoryEntrySchema>;
+
 export const FlagsSchema = z.object({
   lifelinesUsed: z.array(z.enum(["PHONE_A_FRIEND", "CENSORED", "I_DIDNT_MEAN_THAT"])),
   testModeCanaryTriggered: z.boolean(),
@@ -269,6 +301,9 @@ export const FullGameStateSchema = z.object({
 
   clocks: ClocksSchema,
   flags: FlagsSchema,
+
+  // LIFELINE SYSTEM (Human Advisor Consultations)
+  lifelineState: LifelineStateSchema,
 
   history: z.array(z.object({
     turn: z.number(),

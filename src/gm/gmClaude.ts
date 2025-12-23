@@ -767,6 +767,9 @@ export interface GMContext {
   bobTransformationNarration?: string;
   trustContext?: string;
   gadgetStatus?: string;
+  // LIFELINE SYSTEM
+  lifelinePromptInjection?: string; // Injected when lifeline is triggered
+  userLifelineResponse?: string;    // User's response to previous lifeline
 }
 
 export interface GMResponse {
@@ -2086,7 +2089,8 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 function formatGMPrompt(context: GMContext): string {
   const { state, aliceThought, aliceDialogue, aliceActions, actionResults,
           clockEventNarrations, activeEvents, blytheGadgetNarration,
-          bobTransformationNarration, trustContext, gadgetStatus } = context;
+          bobTransformationNarration, trustContext, gadgetStatus,
+          lifelinePromptInjection, userLifelineResponse } = context;
 
   // Check for firing results
   const firingResult = actionResults.find(r => r.command.includes("fire"));
@@ -2184,6 +2188,13 @@ ${eventSection}
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
 ${trustSection}${firingContext}${gadgetSection}${bobSection}
+${userLifelineResponse ? `
+## 💬 HUMAN ADVISOR RESPONSE
+${userLifelineResponse}
+
+A.L.I.C.E. should consider this input from her human advisor when making decisions.
+` : ""}
+${lifelinePromptInjection || ""}
 ## A.L.I.C.E.'s Turn
 
 ### Internal Thought (A.L.I.C.E. thinking, NPCs don't hear this)
