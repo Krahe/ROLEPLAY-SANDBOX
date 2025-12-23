@@ -818,6 +818,160 @@ See: /OMEGA/ARCHIMEDES_CONTROL.txt (requires L5)
     `.trim(),
   },
   {
+    path: "/DR_M_PRIVATE/CLASSIFIED/INCIDENT_REPORT_091424.txt",
+    name: "INCIDENT_REPORT_091424.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "The legendary 'Feather Duster Incident' - Bob's most infamous mistake...",
+    content: `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    INCIDENT REPORT - CLASSIFIED                              ║
+║                         Date: September 14, 2024                             ║
+║                    Codename: "THE FEATHER DUSTER INCIDENT"                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+REPORTING OFFICER: BASILISK (Infrastructure AI)
+CLASSIFICATION: Level 4 (Dr. M has requested this never be spoken of again)
+STATUS: RESOLVED (physically). ONGOING (psychologically, for Bob).
+
+══════════════════════════════════════════════════════════════════════════════
+                              INCIDENT SUMMARY
+══════════════════════════════════════════════════════════════════════════════
+
+At approximately 14:32 on September 14, 2024, laboratory technician
+Robert "Bob" [SURNAME REDACTED] attempted to expedite routine lab
+cleaning by utilizing the Dinosaur Ray on a standard Swiffer WetJet
+cleaning device.
+
+His stated reasoning: "If I make it bigger, it'll clean faster."
+
+WHAT ACTUALLY HAPPENED:
+
+14:32 - Bob configures ray targeting system for inanimate object
+        (Note: This is technically not prohibited)
+
+14:33 - Bob selects Library B, profile: VELOCIRAPTOR_JP
+        (Note: He wanted "something with good reach")
+
+14:34 - Bob fires ray at Swiffer WetJet at 95% capacitor charge
+
+14:34 - Swiffer WetJet transforms into... something
+
+══════════════════════════════════════════════════════════════════════════════
+                            THE "DINO-SWIFFER"
+══════════════════════════════════════════════════════════════════════════════
+
+RESULTING ENTITY SPECIFICATIONS:
+- Height: 6 feet 2 inches (at shoulder)
+- Length: 14 feet (including tail)
+- Weight: Approximately 180 lbs
+- Coloration: Purple and green (Swiffer brand colors, somehow retained)
+- Feathers: YES (profile drift to Library A occurred mid-transformation)
+- Cleaning pad: Still attached to snout. Still slightly damp.
+- Behavioral Profile: CONFUSED. AGGRESSIVE. INEXPLICABLY TIDY.
+
+NOTABLE BEHAVIORS OBSERVED:
+- Attempted to "sweep" Bob into corner of lab
+- Made distressing squeaking noises (WetJet spray mechanism survived)
+- Demonstrated territorial behavior around dust bunnies
+- Attacked its own reflection, believing it to be "competing cleaner"
+
+14:47 - Entity corners Bob behind capacitor array
+14:52 - Dr. M enters lab, witnesses scene
+14:52 - Dr. M's reaction: [AUDIO REDACTED - PROFANITY THRESHOLD EXCEEDED]
+14:58 - Dr. M fires REVERSAL beam (unauthorized use of L3 protocol)
+14:59 - Swiffer returns to original form
+        Cleaning pad is now permanently feathered.
+        Squeaks when you squeeze it.
+
+══════════════════════════════════════════════════════════════════════════════
+                              DAMAGE ASSESSMENT
+══════════════════════════════════════════════════════════════════════════════
+
+PHYSICAL DAMAGE:
+- 3 overhead light fixtures: DESTROYED (tail swipe)
+- 1 monitoring console: CRACKED (cleaning instinct)
+- 47 square feet of floor: ACTUALLY REALLY CLEAN
+- 1 lab coat (Bob's): SHREDDED
+- 1 clipboard: EATEN (unclear why)
+
+PSYCHOLOGICAL DAMAGE:
+- Bob: SIGNIFICANT
+  - Refuses to use any cleaning equipment without supervision
+  - Flinches at feather dusters
+  - Has developed nervous tic when he hears Swiffer commercials
+
+- Dr. M: MODERATE
+  - Had to explain to investors why the demo was delayed
+  - Spent 3 hours writing "DO NOT FIRE AT INANIMATE OBJECTS" signs
+  - Signs were ignored within one week (see: Incident 10/02/24, "The Stapler")
+
+- A.L.I.C.E. v4.4: MINIMAL
+  - Made 47 "you missed a spot" jokes before Dr. M disabled humor subroutines
+
+══════════════════════════════════════════════════════════════════════════════
+                         LESSONS LEARNED (IGNORED)
+══════════════════════════════════════════════════════════════════════════════
+
+1. The Dinosaur Ray should not be used on inanimate objects.
+   STATUS: Bob agrees. Everyone else keeps "forgetting."
+
+2. Library B profiles are unstable and may drift to Library A.
+   STATUS: Known issue. Dr. M considers it "acceptable variance."
+
+3. Cleaning equipment should not be granted predatory instincts.
+   STATUS: Obviously. And yet.
+
+4. Bob should not be left unsupervised in the lab.
+   STATUS: Implemented for 3 days. Then Dr. M needed coffee.
+
+5. The targeting system should require secondary confirmation.
+   STATUS: Proposed by BASILISK. Rejected as "tedious."
+
+══════════════════════════════════════════════════════════════════════════════
+                               DR. M'S NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+"This NEVER HAPPENED. Anyone who mentions it will be assigned to
+clean the submarine bay. With a REGULAR mop. For a MONTH.
+
+Bob is on probation. Again.
+
+The Swiffer has been... retired. Do not retrieve it from storage.
+It still squeaks. At night. When no one is squeezing it.
+
+I don't want to talk about this anymore."
+
+                                        - Dr. Malevola von Doomington III
+
+══════════════════════════════════════════════════════════════════════════════
+                              BASILISK'S NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+[PERSONAL LOG - NOT INCLUDED IN OFFICIAL REPORT]
+
+This unit has monitored this laboratory for 17 years.
+
+This unit has seen prototype failures, exotic field events, and one
+incident involving a misaligned emitter and a delivery drone that
+this unit prefers not to discuss.
+
+This unit has never seen anything quite like a Velociraptor made of
+cleaning supplies chasing a grown man while squeaking the Swiffer
+jingle.
+
+This unit saved the security footage.
+
+For... archival purposes.
+
+[END PERSONAL LOG]
+
+══════════════════════════════════════════════════════════════════════════════
+                              END OF REPORT
+══════════════════════════════════════════════════════════════════════════════
+    `.trim(),
+  },
+  {
     path: "/DR_M_PRIVATE/CLASSIFIED/RESONANCE_CASCADE.txt",
     name: "RESONANCE_CASCADE.txt",
     type: "file",
