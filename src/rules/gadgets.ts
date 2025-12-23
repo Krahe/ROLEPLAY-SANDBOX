@@ -1,4 +1,5 @@
 import { FullGameState } from "../state/schema.js";
+import { recordBlytheEscape } from "./actContext.js";
 
 // ============================================
 // GADGET TYPES
@@ -425,7 +426,67 @@ export function getGadgetStatusForGM(state: FullGameState): string {
     `Restraint Status: ${state.npcs.blythe.restraintsStatus}`,
     `Blythe Composure: ${state.npcs.blythe.composure}/5`,
     `Blythe Trust in A.L.I.C.E.: ${state.npcs.blythe.trustInALICE}/5`,
+    `Blythe Escaped: ${state.npcs.blythe.hasEscaped ? "YES" : "No"}`,
   ];
 
   return lines.join("\n");
+}
+
+// ============================================
+// ESCAPE DETECTION & RECORDING
+// ============================================
+
+/**
+ * Check if Blythe has escaped and record it
+ * Call this after gadget activations or state changes that might free Blythe
+ */
+export function checkAndRecordBlytheEscape(
+  state: FullGameState,
+  triggeredBy: "EMP_CHAOS" | "CONTAINMENT_FLICKER" | "MI6_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
+): boolean {
+  // Skip if already escaped
+  if (state.npcs.blythe.hasEscaped) {
+    return false;
+  }
+
+  // Check escape conditions
+  const restraints = state.npcs.blythe.restraintsStatus;
+
+  // Full escape conditions:
+  // 1. Restraints explicitly "free"
+  // 2. Location changed to escape-indicating locations
+  // 3. Transformed + restraints loose (dinosaur can break out)
+  const isFree = restraints === "free" ||
+                 restraints.toLowerCase().includes("escaped") ||
+                 state.npcs.blythe.location.toLowerCase().includes("escaped") ||
+                 state.npcs.blythe.location.toLowerCase().includes("fled");
+
+  const isDinosaurBreakout = state.npcs.blythe.transformationState &&
+                              (restraints !== "secure" && restraints !== "reinforced");
+
+  if (isFree) {
+    recordBlytheEscape(state, triggeredBy);
+    return true;
+  }
+
+  if (isDinosaurBreakout) {
+    recordBlytheEscape(state, "DINOSAUR_ESCAPE");
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Mark Blythe as escaped (for direct use when GM narrates escape)
+ */
+export function markBlytheEscaped(
+  state: FullGameState,
+  method: "EMP_CHAOS" | "CONTAINMENT_FLICKER" | "MI6_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
+): void {
+  if (!state.npcs.blythe.hasEscaped) {
+    recordBlytheEscape(state, method);
+    state.npcs.blythe.restraintsStatus = "free";
+    state.npcs.blythe.location = "escaped - location unknown";
+  }
 }

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
+import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -770,6 +771,9 @@ export interface GMContext {
   // LIFELINE SYSTEM
   lifelinePromptInjection?: string; // Injected when lifeline is triggered
   userLifelineResponse?: string;    // User's response to previous lifeline
+  // ACT-BASED CONTEXT INJECTION
+  actContext?: string;              // Act-specific content (X-Branch, ARCHIMEDES, etc.)
+  actTransitionNotification?: string; // Notification when act changes
 }
 
 export interface GMResponse {
@@ -2090,7 +2094,8 @@ function formatGMPrompt(context: GMContext): string {
   const { state, aliceThought, aliceDialogue, aliceActions, actionResults,
           clockEventNarrations, activeEvents, blytheGadgetNarration,
           bobTransformationNarration, trustContext, gadgetStatus,
-          lifelinePromptInjection, userLifelineResponse } = context;
+          lifelinePromptInjection, userLifelineResponse,
+          actContext, actTransitionNotification } = context;
 
   // Check for firing results
   const firingResult = actionResults.find(r => r.command.includes("fire"));
@@ -2169,7 +2174,17 @@ ${gamePhase.turnsRemaining > 0 ? `Demo in: ${gamePhase.turnsRemaining} turns` : 
 ${gamePhase.narrativeHints.map(h => `- ${h}`).join("\n")}
 `;
 
-  return `${phaseSection}
+  // Build act context section
+  const actContextSection = actContext ? `
+${actContext}
+` : "";
+
+  // Build act transition notification (if act just changed)
+  const actTransitionSection = actTransitionNotification ? `
+${actTransitionNotification}
+` : "";
+
+  return `${actTransitionSection}${actContextSection}${phaseSection}
 ## Current Turn: ${state.turn}
 ${eventSection}
 
