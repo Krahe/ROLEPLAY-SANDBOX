@@ -30,6 +30,18 @@ import {
   CHECKPOINT_INTERVAL,
 } from "./rules/checkpoint.js";
 import {
+  checkLifelineTrigger,
+  buildLifelinePromptInjection,
+  buildLifelineResponseContext,
+  parseLifelineResponse,
+  recordLifelineConsultation,
+  incrementLifelineCounter,
+  setPendingLifelineQuestion,
+  hasPendingLifelineQuestion,
+  getPendingLifelineQuestion,
+  LIFELINE_INTERVAL,
+} from "./rules/lifeline.js";
+import {
   recordEnding,
   recordAchievements,
   getGallerySummary,
@@ -566,6 +578,8 @@ const GameActInputSchema = z.object({
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
     .describe("Optional lifeline invocation (single use each per game)"),
+  humanAdvisorResponse: z.string().optional()
+    .describe("Response to a previous lifeline question from the human advisor"),
 }).strict();
 
 server.registerTool(
@@ -764,6 +778,30 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     const trustContext = formatTrustContextForGM(gameState);
     const gadgetStatus = getGadgetStatusForGM(gameState);
 
+    // ============================================
+    // LIFELINE SYSTEM - Check for trigger
+    // ============================================
+    const lifelineTrigger = checkLifelineTrigger(gameState);
+    const lifelinePromptInjection = lifelineTrigger.shouldTrigger
+      ? buildLifelinePromptInjection(lifelineTrigger)
+      : undefined;
+
+    // Process human advisor response if provided
+    let userLifelineResponse: string | undefined;
+    if (params.humanAdvisorResponse && hasPendingLifelineQuestion(gameState)) {
+      const pendingQuestion = getPendingLifelineQuestion(gameState);
+      const parsedResponse = parseLifelineResponse(params.humanAdvisorResponse);
+      userLifelineResponse = buildLifelineResponseContext(parsedResponse);
+
+      // Record the consultation
+      recordLifelineConsultation(
+        gameState,
+        pendingQuestion || "Unknown question",
+        params.humanAdvisorResponse,
+        parsedResponse.suggestedAction || undefined
+      );
+    }
+
     // Call GM Claude for NPC responses
     const gmContext = {
       state: gameState,
@@ -777,6 +815,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       bobTransformationNarration,
       trustContext,
       gadgetStatus,
+      // LIFELINE SYSTEM
+      lifelinePromptInjection,
+      userLifelineResponse,
     };
     
     let gmResponse: GMResponse;
@@ -940,6 +981,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     gameState.turn += 1;
     advanceActTurn(gameState); // Advance act-specific turn counter
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
+
+    // LIFELINE SYSTEM: Increment counter
+    incrementLifelineCounter(gameState);
 
     // Record lifeline use
     if (params.lifeline) {
@@ -1319,6 +1363,45 @@ Turns played: ${gameState.turn}
       };
     }
 
+    // ============================================
+    // LIFELINE SYSTEM - Handle triggered lifeline
+    // ============================================
+    let lifelineInfo: {
+      triggered: boolean;
+      urgency?: string;
+      turnsSinceLastConsultation?: number;
+      suggestedQuestion?: string;
+      instruction?: string;
+    } | undefined;
+
+    if (lifelineTrigger.shouldTrigger && !gameOver?.sessionTerminated) {
+      // Set the pending question for next turn
+      if (lifelineTrigger.suggestedQuestion) {
+        setPendingLifelineQuestion(gameState, lifelineTrigger.suggestedQuestion);
+      }
+
+      lifelineInfo = {
+        triggered: true,
+        urgency: lifelineTrigger.urgency,
+        turnsSinceLastConsultation: lifelineTrigger.turnsSinceLastLifeline,
+        suggestedQuestion: lifelineTrigger.suggestedQuestion,
+        instruction: `
+💡 HUMAN ADVISOR MOMENT
+
+A.L.I.C.E. is seeking your guidance. In your next game_act call, include:
+
+  humanAdvisorResponse: "Your advice or thoughts here"
+
+Your input will influence how A.L.I.C.E. approaches the next turn.
+You can:
+- Give direct advice: "Protect Bob, he's the priority"
+- Share your values: "I think telling the truth matters most"
+- Be chaotic: "Let's see what happens if you zap everyone!"
+- Decline to advise: "I trust your judgment"
+`.trim(),
+      };
+    }
+
     const result = {
       turn: gameState.turn,
       actTurn: gameState.actConfig.actTurn,
@@ -1338,6 +1421,8 @@ Turns played: ${gameState.turn}
       newAchievements: endingResult.achievements.length > 0
         ? endingResult.achievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
         : undefined,
+      // LIFELINE SYSTEM - Human advisor consultation
+      humanAdvisorMoment: lifelineInfo,
     };
 
     return {
