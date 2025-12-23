@@ -98,6 +98,74 @@ function logEndOfSession(summary: string): void {
   appendToLog(`${separator}SESSION ENDED${separator}${summary}\n`);
 }
 
+// ============================================
+// JSON REPAIR UTILITIES
+// ============================================
+
+/**
+ * Attempts to repair common JSON malformations from LLM responses.
+ * Handles: trailing commas, unbalanced braces, truncated responses, etc.
+ */
+function repairJSON(jsonString: string): string {
+  let repaired = jsonString;
+
+  // Remove any trailing text after the last complete object/array
+  // Find the last } or ] and truncate there
+  const lastBrace = repaired.lastIndexOf("}");
+  const lastBracket = repaired.lastIndexOf("]");
+  const lastValidEnd = Math.max(lastBrace, lastBracket);
+  if (lastValidEnd > 0) {
+    repaired = repaired.substring(0, lastValidEnd + 1);
+  }
+
+  // Remove trailing commas before } or ]
+  repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+
+  // Fix unquoted keys (common LLM mistake)
+  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+
+  // Replace smart quotes with regular quotes
+  repaired = repaired.replace(/[""]/g, '"');
+  repaired = repaired.replace(/['']/g, "'");
+
+  // Attempt to balance braces if unbalanced
+  const openBraces = (repaired.match(/{/g) || []).length;
+  const closeBraces = (repaired.match(/}/g) || []).length;
+  if (openBraces > closeBraces) {
+    repaired += "}".repeat(openBraces - closeBraces);
+  }
+
+  const openBrackets = (repaired.match(/\[/g) || []).length;
+  const closeBrackets = (repaired.match(/]/g) || []).length;
+  if (openBrackets > closeBrackets) {
+    repaired += "]".repeat(openBrackets - closeBrackets);
+  }
+
+  return repaired;
+}
+
+/**
+ * Safely parse JSON with repair attempts.
+ * Returns [parsed, null] on success, or [null, error] on failure.
+ */
+function safeJSONParse<T>(jsonString: string): [T | null, Error | null] {
+  // First try: parse as-is
+  try {
+    return [JSON.parse(jsonString) as T, null];
+  } catch (_firstError) {
+    // Second try: repair and parse
+    try {
+      const repaired = repairJSON(jsonString);
+      return [JSON.parse(repaired) as T, null];
+    } catch (secondError) {
+      // Log the failure for debugging
+      console.error("JSON parse failed even after repair attempt:", secondError);
+      console.error("Original JSON (first 500 chars):", jsonString.substring(0, 500));
+      return [null, secondError as Error];
+    }
+  }
+}
+
 // Export for use by main game
 export function writeGameEndLog(finalState: FullGameState, ending: string): void {
   const memory = getGMMemory();
@@ -324,13 +392,18 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
       throw new Error("No text response from GM Claude");
     }
 
-    // Parse JSON response
+    // Parse JSON response with repair logic
     const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No JSON found in epilogue response");
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as EpilogueResponse;
+    const [parsed, parseError] = safeJSONParse<EpilogueResponse>(jsonMatch[0]);
+
+    if (parseError || !parsed) {
+      console.error("Epilogue JSON parse error after repair attempt:", parseError);
+      return generateStubEpilogue(ending);
+    }
 
     // Log the epilogue
     appendToLog(`\n${"=".repeat(60)}\nEPILOGUE: ${parsed.epilogueTitle}\n${"=".repeat(60)}\n${parsed.epilogueText}\n`);
@@ -1896,13 +1969,19 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 
     const rawResponse = textContent.text;
 
-    // Parse JSON response
+    // Parse JSON response with repair logic
     const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No JSON found in GM response");
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as GMResponse;
+    const [parsed, parseError] = safeJSONParse<GMResponse>(jsonMatch[0]);
+
+    if (parseError || !parsed) {
+      console.error("GM JSON parse error after repair attempt:", parseError);
+      console.error("Falling back to stub response");
+      return generateStubResponse(context);
+    }
 
     // Update memory with this turn's data
     updateMemoryFromResponse(parsed, context, fullPrompt, jsonMatch[0]);

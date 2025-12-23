@@ -413,10 +413,48 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
   // ============================================
 
   if (cmd.includes("firing") || cmd.includes("profile") || cmd.includes("configure")) {
-    const target = action.params.target as string;
+    // Valid target IDs - the canonical list
+    const VALID_TARGETS = ["AGENT_BLYTHE", "BOB", "TEST_DUMMY"] as const;
+    const TARGET_ALIASES: Record<string, string> = {
+      "blythe": "AGENT_BLYTHE",
+      "agent blythe": "AGENT_BLYTHE",
+      "agent_blythe": "AGENT_BLYTHE",
+      "bob": "BOB",
+      "test": "TEST_DUMMY",
+      "test_dummy": "TEST_DUMMY",
+      "dummy": "TEST_DUMMY",
+    };
+
+    // Handle both 'target' (singular) and 'targets' (plural) - normalize to singular
+    const rawTarget = action.params.target as string | string[] | undefined;
+    const rawTargets = action.params.targets as string | string[] | undefined;
+
+    // Prefer 'target' but fall back to 'targets' if provided
+    let targetInput = rawTarget ?? rawTargets;
+
+    // If array, take first element
+    if (Array.isArray(targetInput)) {
+      targetInput = targetInput[0];
+    }
+
+    const target = targetInput as string | undefined;
     const mode = action.params.mode as string || "FULL";
     const firingStyle = action.params.firingStyle as string || action.params.style as string;
     const explicitTestMode = action.params.testMode as boolean | undefined;
+
+    // Resolve target alias to canonical ID
+    const resolveTarget = (t: string | undefined): string | null => {
+      if (!t) return null;
+      const upper = t.toUpperCase();
+      if (VALID_TARGETS.includes(upper as typeof VALID_TARGETS[number])) {
+        return upper;
+      }
+      const lower = t.toLowerCase();
+      if (TARGET_ALIASES[lower]) {
+        return TARGET_ALIASES[lower];
+      }
+      return null;
+    };
 
     // Detect test mode intent from various inputs
     const testModeKeywords = ["test", "diagnostic", "dummy", "calibration", "safe"];
@@ -455,9 +493,49 @@ The ray is configured for safe diagnostic firing. No live subjects will be affec
       };
     }
 
-    // Normal (live) targeting
+    // Normal (live) targeting with validation
     if (target) {
-      state.dinoRay.targeting.currentTargetIds = Array.isArray(target) ? target : [target];
+      const resolvedTarget = resolveTarget(target);
+
+      if (!resolvedTarget) {
+        // Target was specified but couldn't be resolved - provide helpful error!
+        return {
+          command: action.command,
+          success: false,
+          message: `⚠️ TARGET NOT RECOGNIZED: "${target}"
+
+Valid subject IDs:
+  • AGENT_BLYTHE - The test subject in the firing range
+  • BOB - Lab assistant (if in range)
+  • TEST_DUMMY - Safe diagnostic target
+
+Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
+
+💡 Tip: Use 'target' (singular) with exact ID strings.
+   Example: { target: "AGENT_BLYTHE" } ✓
+   Not: { targets: ["blythe"] } ✗`,
+          stateChanges: {},
+        };
+      }
+
+      state.dinoRay.targeting.currentTargetIds = [resolvedTarget];
+    } else if (!target && state.dinoRay.targeting.currentTargetIds.length === 0) {
+      // No target specified and none previously set - warn about it
+      return {
+        command: action.command,
+        success: false,
+        message: `⚠️ NO TARGET SPECIFIED
+
+You must specify a target for the firing profile.
+
+Valid subject IDs:
+  • AGENT_BLYTHE - The test subject in the firing range
+  • BOB - Lab assistant (if in range)
+  • TEST_DUMMY - Safe diagnostic target
+
+Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
+        stateChanges: {},
+      };
     }
 
     // Handle firing style separately from genome profile
