@@ -42,7 +42,8 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         fallbackProfile: "Canary",
         activeLibrary: "A",
         libraryAUnlocked: true,
-        libraryBUnlocked: false, // Requires L3+ access
+        libraryBUnlocked: true, // Now available from start! REVERSAL is the restriction.
+        firingMode: "TRANSFORM",
       },
       targeting: {
         currentTargetIds: ["AGENT_BLYTHE"],

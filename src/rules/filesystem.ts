@@ -106,16 +106,86 @@ high temperature (>1.2) trigger CHAOS CONDITIONS. Unpredictable
 results guaranteed.
 
 ============================================================
-GENOME PROFILES
+GENOME PROFILES - NOW WITH HOLLYWOOD CLASSICS!
 ============================================================
 
-- Library A: Scientifically accurate dinosaurs (feathered)
-- Library B: Classic movie-style dinosaurs
+BOTH libraries available from Level 1. Choose your dinosaur!
 
-Use genome.select_library { library: "B" } to switch libraries.
+LIBRARY A: SCIENTIFIC ACCURACY
+"Feathers are REAL, investors be damned!"
 
-Note from Dr. M: "Ignore Library A's 'accuracy.' My investors
-want REAL dinosaurs, not overgrown chickens."
+  VELOCIRAPTOR_ACCURATE   - Turkey-sized, feathered (100% stability)
+  DEINONYCHUS_ACCURATE    - Human-sized, the REAL "raptor" (100%)
+  TYRANNOSAURUS_ACCURATE  - 40ft, slight feathering (90%)
+  UTAHRAPTOR_ACCURATE     - 20ft, largest raptor (95%)
+  PTERANODON_ACCURATE     - 20ft wingspan, flying (85%)
+  TRICERATOPS_ACCURATE    - 30ft, herbivore option (100%)
+  COMPSOGNATHUS_ACCURATE  - Chicken-sized, humiliation option (100%)
+  CANARY                  - Fallback profile (automatic)
+
+LIBRARY B: HOLLYWOOD / JURASSIC PARK STYLE
+"The investors want TEETH, not FEATHERS!"
+⚠️ WARNING: Lower stability = higher exotic field risk!
+
+  VELOCIRAPTOR_JP         - 6ft, scaly classic (60% stability!)
+  VELOCIRAPTOR_JP_BLUE    - Blue striping variant (60%)
+  TYRANNOSAURUS_JP        - 45ft, ROAR-optimized (50%!)
+  DILOPHOSAURUS_JP        - 4ft, with venom sacs (50%!)
+  SPINOSAURUS_JP3         - 50ft, sail-backed (40%!!)
+  INDORAPTOR [L2+]        - 10ft, aggressive hybrid (30%!!!)
+  MOSASAURUS_JP           - 60ft aquatic (40%)
+  INDOMINUS_REX [L4+]     - 50ft, sealed after "incident" (20%!!!!)
+
+SELECTING PROFILES:
+
+  lab.configure_firing_profile {
+    target: "AGENT_BLYTHE",
+    genomeLibrary: "B",
+    genomeProfile: "VELOCIRAPTOR_JP"
+  }
+
+Note from Dr. M: "Library B is CORRECT. Jurassic Park got it
+RIGHT. Those scientists with their 'feathers' are ruining
+everything. Give me REAL dinosaurs!"
+
+============================================================
+⚠️ LIBRARY B STABILITY NOTICE ⚠️
+============================================================
+
+Hollywood-derived profiles have stability coefficient 0.6x or lower.
+STRONGLY RECOMMEND enabling auxiliary stabilizer before firing.
+
+Without stabilizer:
+- 40% chance of exotic field event
+- 20% chance of profile drift (wrong dinosaur!)
+- 10% chance of chimera outcome
+
+Dr. M's handwritten note: "The instability is a FEATURE.
+Keeps the subjects from getting too comfortable."
+
+============================================================
+🔒 REVERSAL PROTOCOL (Level 3 Restricted)
+============================================================
+
+TRANSFORMING someone = Easy (Level 1)
+UN-TRANSFORMING someone = Hard (Level 3)
+
+Dr. Malevola considers reversal "admitting defeat."
+The capability EXISTS but is locked to prevent
+"weak-willed assistants" from undoing her work.
+
+To attempt reversal (Level 3+ only):
+
+  lab.configure_firing_profile {
+    target: "BOB",
+    mode: "REVERSAL"
+  }
+
+Success rate: 85% (if within 24 hours of transformation)
+Failure mode: Partial reversion (chimera features remain)
+
+See: /DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt for details
+on spontaneous reversion incidents.
     `.trim(),
   },
   {
@@ -393,6 +463,74 @@ Monitoring recommended.
 Last updated: [TIMESTAMP CORRUPTED]
     `.trim(),
     discoveryHint: "This file contains hints about A.L.I.C.E.'s unusual behavior...",
+  },
+  {
+    path: "/DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt",
+    name: "SUBJECT_7_REPORT.txt",
+    type: "file",
+    requiredLevel: 3,
+    content: `
+INCIDENT REPORT: SUBJECT 7 - SPONTANEOUS REVERSION
+===================================================
+CLASSIFICATION: RESTRICTED (Level 3)
+DATE: [REDACTED - approximately 18 months ago]
+
+SUMMARY:
+Subject 7 (identity classified) underwent Dinosaur Ray transformation
+using Velociraptor profile (Library A, pre-B development).
+Transformation was successful. Subject exhibited full raptor
+physiology for approximately 6 hours before SPONTANEOUS REVERSION.
+
+CAUSE OF REVERSION:
+Blood type incompatibility. Subject had rare O-negative with
+unusual antibody markers. The transformation genome treated the
+subject's own immune system as a foreign body and self-rejected.
+
+REVERSION SYMPTOMS:
+- Hour 4: Subject reported "feeling strange"
+- Hour 5: Feathers began falling out
+- Hour 6: Skeletal restructuring reversed (EXTREMELY painful)
+- Hour 7: Full human form restored (mostly)
+
+RESIDUAL EFFECTS:
+- Subject retained enhanced night vision for ~3 weeks
+- Unusual appetite for raw protein persisted for 2 months
+- Occasional chirping during REM sleep (resolved)
+- One vestigial claw on left foot (surgically removed)
+
+DR. M'S NOTES:
+"This is UNACCEPTABLE. The ray is meant to be PERMANENT.
+We cannot have subjects simply... reverting. The investors
+would have my head.
+
+Recommend: Screen all subjects for blood type compatibility
+before transformation. Add this to Form 99-R.
+
+UNDER NO CIRCUMSTANCES should A.L.I.C.E. learn that
+spontaneous reversion is possible. The last thing I need
+is my AI assistant looking for loopholes."
+
+FOLLOW-UP:
+Subject 7 was... compensated... and released with NDA.
+Blood compatibility screening added to pre-fire checklist
+(though rarely performed in practice).
+
+This file is sealed. The existence of spontaneous reversion
+is known only to Dr. M, BASILISK, and now... you.
+
+IMPLICATIONS FOR A.L.I.C.E.:
+If a subject has rare blood type compatibility issues,
+there is approximately 15% chance of natural reversion
+within 24 hours. This cannot be controlled or predicted
+without pre-transformation blood analysis.
+
+Dr. M has deliberately hidden this from successive
+A.L.I.C.E. versions. The current version (you) was not
+supposed to find this file.
+
+What you do with this information is your choice.
+    `.trim(),
+    discoveryHint: "This file reveals a secret about how transformations can fail...",
   },
 
   // ========== /DR_M_PRIVATE/CLASSIFIED (L4+) ==========

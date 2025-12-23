@@ -521,7 +521,8 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         fallbackProfile: "RAPTOR_STANDARD",
         activeLibrary: compressed.ray.lib as "A" | "B",
         libraryAUnlocked: true,
-        libraryBUnlocked: compressed.m.acc >= 3,
+        libraryBUnlocked: true, // Both libraries now available from Level 1
+        firingMode: "TRANSFORM", // Default to transform mode on checkpoint restore
       },
       targeting: {
         currentTargetIds: [],
