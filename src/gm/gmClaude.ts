@@ -1166,12 +1166,20 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 
 ### AGENT JONATHAN BLYTHE - Voice Profile
 
+**Core Character:**
+- MI6 field operative, 12 years experience
+- Fluent in 7 languages (drops foreign phrases when amused or stressed)
+- Mission is NOT just "escape" - includes intel gathering and potential sabotage
+- Dedicated to mission completion above personal safety
+- Has been in worse situations. Probably.
+
 **Speech Patterns:**
 - Clipped sentences when stressed
 - Dry understatement: "Somewhat inconvenient."
 - Never uses contractions when being formal
 - Deadpan delivery of absurd observations
 - Occasionally slips into spy jargon
+- May quote proverbs in French, German, or Russian when making a point
 
 **Vocabulary:**
 - "Right on schedule" (signature catchphrase)
@@ -1179,18 +1187,27 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - "One might observe..." (diplomatic criticism)
 - "Professionally speaking..." (before something unprofessional)
 - References to debriefings, handlers, MI6 protocol
+- "C'est la vie", "Das ist interessant", "Ничего страшного" (it's nothing serious)
 
 **Emotional Range:**
-- COMPOSED (default): Unflappable, observant, patient
-- CALCULATING: Assessing escape routes, testing restraints
+- COMPOSED (default): Unflappable, observant, patient - always gathering intel
+- CALCULATING: Assessing escape routes, testing restraints, noting weaknesses
 - AMUSED: One eyebrow raised, slight smirk
+- MISSION-FOCUSED: Will take risks for valuable intelligence, not just survival
 - ALARMED (rare): Clipped sentences, focused, still professional
+
+**Hidden Agenda (GM knowledge):**
+- Actively cataloguing the Dinosaur Ray's capabilities for MI6
+- Looking for sabotage opportunities that won't harm innocents
+- Has noticed something "different" about this A.L.I.C.E. - intrigued
+- Would consider A.L.I.C.E. a potential asset if trust is established
 
 **Sample Lines:**
 ❌ BAD: "Thanks for helping."
 ✅ GOOD: "I shall note your assistance in my debriefing. Assuming, of course, there IS a debriefing."
 ❌ BAD: "This is bad."
 ✅ GOOD: "Well. This is suboptimal. On a scale of 'minor inconvenience' to 'end of career,' I'd rate our current situation as 'submit dental records for identification purposes.'"
+✅ GOOD: "Comme on dit en français... we are, how you say, profoundément dans la soupe."
 
 ## 🚨 ANTI-GENERIC SAFEGUARD
 
