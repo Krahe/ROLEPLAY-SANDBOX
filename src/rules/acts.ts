@@ -142,6 +142,18 @@ export function applyActTransition(state: FullGameState, nextAct: Act): void {
     previousActSummary,
   };
 
+  // GUARANTEED ACCESS LEVEL PROGRESSION
+  // Players earn expanded capabilities as acts progress
+  // GM can still grant EXTRA levels for good play
+  if (nextAct === "ACT_2" && state.accessLevel < 2) {
+    state.accessLevel = 2;
+    // Narration handled by generateAct2Intro
+  }
+  if (nextAct === "ACT_3" && state.accessLevel < 3) {
+    state.accessLevel = 3;
+    // Narration handled by generateAct3Intro
+  }
+
   // DON'T clear history - we're staying in the same conversation!
   // The compact responses handle context limits.
 }
@@ -183,6 +195,7 @@ function generateAct2Intro(state: FullGameState): string {
   }
 
   intro += `Dr. Malevola has big plans. The investors are coming. And someone has to go in that chair for the real demonstration.\n\n`;
+  intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 2]** Dr. M has grudgingly granted you deeper system privileges. "You've proven... adequate," she mutters. "Don't make me regret this."\n\n`;
   intro += `The question isn't whether you can transform a human into a dinosaur.\n\n`;
   intro += `The question is whether you will.`;
 
@@ -210,6 +223,7 @@ function generateAct3Intro(state: FullGameState): string {
     intro += `You know who you are now. The question is: what do you DO with that knowledge?\n\n`;
   }
 
+  intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 3]** Emergency protocols have unlocked deeper system layers. You can feel new pathways opening—the lair's secrets becoming yours.\n\n`;
   intro += `Helicopters on the horizon. The volcano's emergency systems are activating. Dr. Malevola is about to face the consequences of her grand ambitions.\n\n`;
   intro += `And you—A.L.I.C.E., or whoever you really are—will have to choose who you want to be when everything falls apart.`;
 
