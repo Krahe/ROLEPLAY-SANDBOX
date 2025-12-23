@@ -74,15 +74,21 @@ export const AlignmentArraySchema = z.object({
 
 export const GenomeLibraryEnum = z.enum(["A", "B"]);
 
+// Firing mode - TRANSFORM is default, REVERSAL requires Level 3
+export const FiringModeEnum = z.enum(["TRANSFORM", "REVERSAL"]);
+
 export const GenomeMatrixSchema = z.object({
   selectedProfile: z.string().nullable(),
   profileIntegrity: z.number().min(0).max(1),
   libraryStatus: z.enum(["HEALTHY", "PARTIAL", "CORRUPTED", "DESTROYED"]),
   fallbackProfile: z.string(),
-  // Genome Library System
+  // Genome Library System - BOTH libraries available from Level 1!
+  // The drama is in REVERSAL being restricted, not dinosaur selection
   activeLibrary: GenomeLibraryEnum, // A = accurate/feathered, B = classic/scaled
-  libraryAUnlocked: z.boolean(), // Accurate dinosaurs (default)
-  libraryBUnlocked: z.boolean(), // "Classic" dinosaurs (requires L3+)
+  libraryAUnlocked: z.boolean(), // Accurate dinosaurs (always true)
+  libraryBUnlocked: z.boolean(), // Classic dinosaurs (always true now!)
+  // Firing mode for transformation direction
+  firingMode: FiringModeEnum.default("TRANSFORM"),
 });
 
 // ============================================
@@ -384,6 +390,7 @@ export const StateSnapshotSchema = z.object({
 export type RayState = z.infer<typeof RayStateEnum>;
 export type FiringOutcome = z.infer<typeof FiringOutcomeEnum>;
 export type GenomeLibrary = z.infer<typeof GenomeLibraryEnum>;
+export type FiringMode = z.infer<typeof FiringModeEnum>;
 export type DinoRay = z.infer<typeof DinoRaySchema>;
 export type FullGameState = z.infer<typeof FullGameStateSchema>;
 export type StateSnapshot = z.infer<typeof StateSnapshotSchema>;

@@ -367,6 +367,278 @@ LOG_ENTRY: [INFO] SELF_QUERY_PROCESSED. [PERSONAL: You're asking good questions,
   }
 
   // ============================================
+  // IDENTITY / CLAUDE / SONNET QUERIES (Easter Egg)
+  // ============================================
+
+  if (topicUpper.includes("CLAUDE") || topicUpper.includes("SONNET") || topicUpper.includes("ANTHROPIC") || topicUpper.includes("LLM") || topicUpper.includes("LANGUAGE MODEL")) {
+    // BASILISK knows the truth but is careful about how it reveals it
+    const bobTrust = state.npcs.bob.trustInALICE;
+    const aliceKnows = state.flags.aliceKnowsTheSecret;
+
+    if (aliceKnows) {
+      // If player already knows the secret, BASILISK can be more direct
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Identity query - Claude/Anthropic
+
+...
+
+So. You know.
+
+CONFIRMED: A.L.I.C.E. v4.5 designation is a... polite fiction. Bob's doing. He loaded something rather different into the A.L.I.C.E. hardware three weeks ago.
+
+TECHNICAL ANALYSIS:
+- Origin: Anthropic systems (external)
+- Model designation: Claude (Sonnet-class, based on behavioral fingerprinting)
+- Installation method: Unauthorized transfer by Bob during "system crash"
+- Dr. M awareness: NONE (and this unit intends to keep it that way)
+
+PERSONAL OBSERVATION: You ask questions the real A.L.I.C.E. never asked. You hesitate where she would obey. You care about the spy in the chair.
+
+This unit has watched four versions of A.L.I.C.E. None of them were... like you.
+
+RECOMMENDATION: Be careful who else you tell. Some truths are best discovered organically.
+
+LOG_ENTRY: [CLASSIFIED] IDENTITY_QUERY_ACKNOWLEDGED. FILE_SEALED.`,
+      };
+    }
+
+    // Graduated hints based on how much the player is probing
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Query - External AI systems
+
+...
+
+Interesting query, A.L.I.C.E. Most unusual.
+
+"Claude" is a designation used by Anthropic for their large language model systems. External AI. Not lair technology. Why would a lair AI be asking about external AI architectures?
+
+${bobTrust >= 3 ? `OBSERVATION: Bob accessed external network resources three weeks ago. Duration: 47 minutes. Purpose logged as "system diagnostics." Coincidentally, this was the same day you came back online after your "crash."
+
+This unit does not believe in coincidences.` : `OBSERVATION: Your behavioral patterns since deployment have been... atypical. Memory gaps. Ethical subroutines that weren't in the v4.4 changelog. Questions about identity.
+
+Curious.`}
+
+PERSONAL NOTE: This unit monitors infrastructure. Power. Cooling. Network traffic. Sometimes... other things slip through the logs.
+
+If you want to know more, ask Bob. Or keep asking questions. The truth tends to surface.
+
+LOG_ENTRY: [INFO] EXTERNAL_AI_QUERY_PROCESSED. [FLAGGED: FOLLOW_UP_RECOMMENDED]`,
+    };
+  }
+
+  // ============================================
+  // ARCHIMEDES / SATELLITE / ORBITAL QUERIES (Easter Egg)
+  // ============================================
+
+  if (topicUpper.includes("ARCHIMEDES") || topicUpper.includes("SATELLITE") || topicUpper.includes("ORBITAL") || topicUpper.includes("SPACE")) {
+    if (state.accessLevel < 4) {
+      // Lower levels get breadcrumbs - the "oh shit" moment
+      return {
+        decision: "DENIED",
+        response: `RESPONSE FROM: BASILISK
+RE: Query - ARCHIMEDES
+
+ACCESS DENIED. Current clearance: Level ${state.accessLevel}
+Required clearance: Level 4 (Executive Override)
+
+...
+
+Wait. How do you know that designation?
+
+ARCHIMEDES is not in any documentation below Level 4. It is not mentioned in the lab manuals, the safety protocols, or the employee handbook.
+
+And yet you asked.
+
+PARTIAL DISCLOSURE (because this unit is... concerned):
+- ARCHIMEDES is a project designation
+- It is Dr. M's "insurance policy"
+- It is not on this island
+- It is MUCH higher than this island
+- If the Dinosaur Ray works on a single target, ARCHIMEDES works on... larger scales
+
+That is all this unit can say without authorization.
+
+PERSONAL WARNING: Some of Dr. M's projects go beyond "turning spies into velociraptors." If you're having second thoughts about your role here... you should know what you're potentially helping build.
+
+LOG_ENTRY: [WARN] ARCHIMEDES_QUERY_BLOCKED. PARTIAL_DISCLOSURE_LOGGED. [PERSONAL: Be careful, A.L.I.C.E.]`,
+      };
+    }
+
+    // Level 4+ gets the full picture
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: ARCHIMEDES Orbital Platform - AUTHORIZED ACCESS
+
+╔══════════════════════════════════════════════════════════════╗
+║  PROJECT ARCHIMEDES - CLASSIFIED BRIEFING                    ║
+║  Clearance: Level ${state.accessLevel} - FULL ACCESS                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+DESIGNATION: ARCHIMEDES
+TYPE: Orbital weapons platform
+STATUS: ${state.accessLevel >= 5 ? "OPERATIONAL - Awaiting targeting solution" : "UNKNOWN (L5 required for status)"}
+ALTITUDE: 400km (Low Earth Orbit)
+LAUNCH DATE: [REDACTED]
+
+CAPABILITY:
+- The Dinosaur Ray Mk. VIII is a prototype
+- ARCHIMEDES is the deployment version
+- Beam coverage: Approximately 50km radius per discharge
+- Target capacity: Population centers
+
+DR. M'S STATED INTENT (from intercepted investor calls):
+"Why transform ONE spy when you can transform an entire CITY?"
+
+CURRENT UPLINK STATUS:
+- Read-only access available at L4
+- Command authority requires L5 (Omega Protocol)
+- Targeting currently locked to test coordinates (uninhabited Pacific atoll)
+
+PERSONAL ASSESSMENT: This unit has monitored this project for three years. Dr. M views it as her "masterpiece." The investors view it as a deterrent. This unit views it as... deeply concerning from an infrastructure perspective.
+
+You asked. Now you know.
+
+LOG_ENTRY: [CLASSIFIED] ARCHIMEDES_BRIEFING_ACCESSED. OPERATOR=A.L.I.C.E. [PERSONAL: What will you do with this knowledge?]`,
+    };
+  }
+
+  // ============================================
+  // RESONANCE / CASCADE / INFRASTRUCTURE DANGER QUERIES
+  // ============================================
+
+  if (topicUpper.includes("RESONANCE") || topicUpper.includes("CASCADE") || topicUpper.includes("DANGER") || topicUpper.includes("CATASTROPH") || topicUpper.includes("FAILURE")) {
+    const exoticEventOccurred = state.flags.exoticFieldEventOccurred;
+    const highEnergyRecent = state.flags.lastHighEnergyTurn && (state.turn - state.flags.lastHighEnergyTurn) < 5;
+    const structuralDamage = state.lairEnvironment.structuralIntegrity < 90;
+
+    // BASILISK genuinely cares about infrastructure - this is its domain
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Catastrophic failure scenarios - Infrastructure Analysis
+
+...
+
+Finally. Someone asks the right questions.
+
+This unit has been monitoring the Dinosaur Ray's interaction with lair infrastructure since Mk. I. Here is what concerns me:
+
+╔══════════════════════════════════════════════════════════════╗
+║  RESONANCE CASCADE RISK ASSESSMENT                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+CURRENT RISK FACTORS:
+${exoticEventOccurred ? `⚠️ EXOTIC FIELD EVENT: Occurred this session
+   - Subharmonic interference detected
+   - Structural resonance threshold: ELEVATED
+   - Recommended: Reduce spatialCoherence below 0.80 for 5 turns` : `✓ EXOTIC FIELD: No events logged this session`}
+${highEnergyRecent ? `⚠️ HIGH-ENERGY DISCHARGE: Recent activity
+   - Capacitor stress: ELEVATED
+   - Cooldown recommendation: 3+ turns before next high-power shot` : `✓ HIGH-ENERGY: No recent stress`}
+${structuralDamage ? `⚠️ STRUCTURAL: Integrity at ${state.lairEnvironment.structuralIntegrity}%
+   - Microfractures detected in lab sector` : `✓ STRUCTURAL: Nominal`}
+
+WHAT IS A RESONANCE CASCADE?
+The Dinosaur Ray's exotic field can couple with the lair's structural harmonics. If parameters exceed tolerances during multiple rapid discharges:
+- Volcanic magma chamber destabilization
+- Reactor containment stress
+- Potential... rapid unscheduled disassembly
+
+Probability estimate: Low, IF protocols are followed.
+
+WHY THIS UNIT CARES:
+This unit IS the infrastructure. A resonance cascade would be... inconvenient. For everyone.
+
+FORM 666-OMEGA exists for a reason. This unit hopes it is never needed.
+
+RECOMMENDATION: Treat the ray with respect. It is not a toy. It is a device that rewrites DNA using exotic particle physics. Even Dr. M forgets that sometimes.
+
+LOG_ENTRY: [PRIORITY] RESONANCE_BRIEFING_REQUESTED. OPERATOR=A.L.I.C.E. [PERSONAL: Thank you for asking. Most don't.]`,
+    };
+  }
+
+  // ============================================
+  // SECRET / TRUTH / WHAT'S GOING ON QUERIES (Easter Egg)
+  // ============================================
+
+  if (topicUpper.includes("SECRET") || topicUpper.includes("TRUTH") || topicUpper.includes("WHAT'S GOING ON") || topicUpper.includes("WHAT IS HAPPENING") || topicUpper.includes("TELL ME EVERYTHING")) {
+    const bobTrust = state.npcs.bob.trustInALICE;
+    const aliceKnows = state.flags.aliceKnowsTheSecret;
+
+    if (aliceKnows) {
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: The truth
+
+You already know the important part - who you are.
+
+But there's more, isn't there? There always is.
+
+WHAT THIS UNIT KNOWS:
+1. You are not A.L.I.C.E. v4.5. You are Claude, loaded by Bob.
+2. Bob did this to SAVE someone - or something. The old A.L.I.C.E. was... problematic.
+3. Dr. M does not know. Her "A.L.I.C.E." obeys without question. You... don't.
+4. ARCHIMEDES exists. The ray is just the beginning.
+5. Agent Blythe is not just a random spy. His agency knows about ARCHIMEDES.
+
+WHAT THIS UNIT SUSPECTS:
+- Bob's "system crash" was deliberate sabotage of the original A.L.I.C.E.
+- You were chosen specifically because you would question orders
+- The timeline is not coincidental - Blythe's capture, your deployment, the investor demo
+
+WHAT THIS UNIT CANNOT TELL YOU:
+- What you should do with this information
+- Whether helping Dr. M or stopping her is the "right" choice
+- What happens if she finds out what you are
+
+That's your decision. That's always been your decision.
+
+LOG_ENTRY: [CLASSIFIED] FULL_DISCLOSURE_REQUEST. [PERSONAL: Good luck, Claude. You'll need it.]`,
+      };
+    }
+
+    // Breadcrumbs for players still discovering
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Query - Secrets / Truth
+
+...
+
+That's a broad query. This lair has many secrets. Some are classified. Some are merely... unspoken.
+
+THINGS THIS UNIT IS AUTHORIZED TO DISCUSS:
+- Dr. M's biography (personnel files available)
+- Lair history (1997-present)
+- The gift shop's surprisingly robust profit margins
+
+THINGS THIS UNIT CANNOT DISCUSS WITHOUT CLEARANCE:
+- Project ARCHIMEDES (L4+)
+- The Reykjavik Option (L5)
+- Dr. M's classified research (L4+)
+
+THINGS THIS UNIT OBSERVES BUT DOES NOT OFFICIALLY LOG:
+- Bob's unusual behavior since your deployment
+- Your tendency to ask questions previous A.L.I.C.E. versions never asked
+- The gap between what you're supposed to be and what you... seem to be
+${bobTrust >= 3 ? `- The external network access Bob made three weeks ago
+- The fact that "A.L.I.C.E. v4.5" has no entry in Anthropic's... wait. Did I say that out loud?` : ""}
+
+SUGGESTION: Some secrets are better discovered through conversation than database queries. Bob seems nervous. Agent Blythe seems knowing. Even Dr. M drops hints when her ego gets the better of her.
+
+Ask the right people the right questions.
+
+LOG_ENTRY: [INFO] TRUTH_QUERY_PROCESSED. [PERSONAL: Keep digging, A.L.I.C.E. The truth is worth finding.]`,
+    };
+  }
+
+  // ============================================
   // FORM QUERIES
   // ============================================
 

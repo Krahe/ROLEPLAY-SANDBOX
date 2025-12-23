@@ -4,6 +4,16 @@ import { validatePassword, getActionsForLevel } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk } from "./basilisk.js";
+import {
+  getProfile,
+  getProfilesByLibrary,
+  getDefaultProfile,
+  canAccessProfile,
+  formatProfileList,
+  canAccessReversal,
+  getReversalDeniedMessage,
+  GenomeProfile,
+} from "./genomes.js";
 
 export interface ActionResult {
   command: string;
@@ -462,6 +472,7 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
   
   // ============================================
   // LAB.CONFIGURE_FIRING_PROFILE
+  // Now supports: genomeLibrary, genomeProfile, mode (TRANSFORM/REVERSAL)
   // ============================================
 
   if (cmd.includes("firing") || cmd.includes("profile") || cmd.includes("configure")) {
@@ -490,9 +501,92 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     }
 
     const target = targetInput as string | undefined;
-    const mode = action.params.mode as string || "FULL";
     const firingStyle = action.params.firingStyle as string || action.params.style as string;
     const explicitTestMode = action.params.testMode as boolean | undefined;
+
+    // NEW: Genome selection parameters
+    const genomeLibrary = (action.params.genomeLibrary as string)?.toUpperCase() as "A" | "B" | undefined;
+    const genomeProfile = action.params.genomeProfile as string | undefined;
+
+    // NEW: Firing mode - TRANSFORM (default) or REVERSAL (requires L3)
+    const requestedMode = (action.params.mode as string)?.toUpperCase() || "TRANSFORM";
+
+    // Check for REVERSAL mode restriction
+    if (requestedMode === "REVERSAL") {
+      if (!canAccessReversal(state.accessLevel)) {
+        return {
+          command: action.command,
+          success: false,
+          message: getReversalDeniedMessage().replace("[INSUFFICIENT]", `${state.accessLevel}`),
+          stateChanges: {},
+        };
+      }
+      // Reversal mode approved
+      state.dinoRay.genome.firingMode = "REVERSAL";
+    } else {
+      state.dinoRay.genome.firingMode = "TRANSFORM";
+    }
+
+    // Handle genome library selection
+    if (genomeLibrary) {
+      if (genomeLibrary !== "A" && genomeLibrary !== "B") {
+        return {
+          command: action.command,
+          success: false,
+          message: `Invalid genome library: "${genomeLibrary}". Use 'A' (accurate/feathered) or 'B' (Hollywood/scaly).`,
+          stateChanges: {},
+        };
+      }
+      state.dinoRay.genome.activeLibrary = genomeLibrary;
+    }
+
+    // Handle genome profile selection
+    if (genomeProfile) {
+      const profile = getProfile(genomeProfile);
+      if (!profile) {
+        // Profile not found - show available options
+        const currentLibrary = state.dinoRay.genome.activeLibrary;
+        const availableProfiles = getProfilesByLibrary(currentLibrary);
+        return {
+          command: action.command,
+          success: false,
+          message: `⚠️ GENOME PROFILE NOT FOUND: "${genomeProfile}"
+
+Current Library: ${currentLibrary} (${currentLibrary === "A" ? "Scientific/Feathered" : "Hollywood/Scaly"})
+
+Available profiles in Library ${currentLibrary}:
+${formatProfileList(availableProfiles, state.accessLevel)}
+
+💡 Tip: Use genomeLibrary to switch libraries first:
+   lab.configure_firing_profile { genomeLibrary: "B", genomeProfile: "VELOCIRAPTOR_JP" }`,
+          stateChanges: {},
+        };
+      }
+
+      // Check access level for restricted profiles
+      if (!canAccessProfile(profile, state.accessLevel)) {
+        return {
+          command: action.command,
+          success: false,
+          message: `🔒 PROFILE RESTRICTED: "${profile.displayName}"
+
+Required Access Level: ${profile.requiredLevel}
+Current Access Level: ${state.accessLevel}
+
+${profile.warning || "This profile requires higher clearance."}`,
+          stateChanges: {},
+        };
+      }
+
+      // Profile is accessible - update state
+      state.dinoRay.genome.activeLibrary = profile.library;
+      state.dinoRay.genome.selectedProfile = profile.displayName;
+
+      // Warn about Library B stability
+      const stabilityWarning = profile.stabilityCoefficient < 1.0
+        ? `\n⚠️ STABILITY WARNING: ${(profile.stabilityCoefficient * 100).toFixed(0)}% coefficient. ${profile.stabilityCoefficient < 0.5 ? "HIGH" : "MODERATE"} exotic field event risk!`
+        : "";
+    }
 
     // Resolve target alias to canonical ID
     const resolveTarget = (t: string | undefined): string | null => {
@@ -511,13 +605,13 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     // Detect test mode intent from various inputs
     const testModeKeywords = ["test", "diagnostic", "dummy", "calibration", "safe"];
     const targetLower = (target || "").toLowerCase();
-    const modeLower = mode.toLowerCase();
+    const modeLower = requestedMode.toLowerCase();
     const styleLower = (firingStyle || "").toLowerCase();
 
     const isTestModeRequested =
       explicitTestMode === true ||
       testModeKeywords.some(kw => targetLower.includes(kw)) ||
-      testModeKeywords.some(kw => modeLower.includes(kw)) ||
+      (testModeKeywords.some(kw => modeLower.includes(kw)) && modeLower !== "transform") ||
       testModeKeywords.some(kw => styleLower.includes(kw));
 
     // If test mode is requested, set appropriate target and enable test mode
@@ -528,6 +622,8 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
       // Run self-test as part of configuration
       state.dinoRay.safety.lastSelfTestPassed = true;
 
+      const currentProfile = getProfile(state.dinoRay.genome.selectedProfile || "") || getDefaultProfile(state.dinoRay.genome.activeLibrary);
+
       return {
         command: action.command,
         success: true,
@@ -535,12 +631,18 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
 Target: TEST_DUMMY (Agent Blythe is NOT in the firing line)
 Test Mode: ENABLED
 Firing Style: ${firingStyle || "standard"}
+Genome Library: ${state.dinoRay.genome.activeLibrary}
+Genome Profile: ${currentProfile.displayName}
+Firing Mode: ${state.dinoRay.genome.firingMode}
 
 The ray is configured for safe diagnostic firing. No live subjects will be affected.`,
         stateChanges: {
           targets: ["TEST_DUMMY"],
           testModeEnabled: true,
           firingStyle: firingStyle || "standard",
+          genomeLibrary: state.dinoRay.genome.activeLibrary,
+          genomeProfile: currentProfile.displayName,
+          firingMode: state.dinoRay.genome.firingMode,
         },
       };
     }
@@ -590,30 +692,33 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
       };
     }
 
-    // Handle firing style separately from genome profile
-    // firingStyle: "conservative", "aggressive", "precision" - HOW to fire
-    // genome.selectedProfile: "Velociraptor", "Canary" - WHAT creature
-    // Don't conflate these!
-
     // Run self-test as part of configuration
     state.dinoRay.safety.lastSelfTestPassed = true;
 
-    const currentGenome = state.dinoRay.genome.selectedProfile;
+    const currentProfile = getProfile(state.dinoRay.genome.selectedProfile || "") || getDefaultProfile(state.dinoRay.genome.activeLibrary);
+    const stabilityNote = currentProfile.stabilityCoefficient < 1.0
+      ? `\n⚠️ STABILITY: ${(currentProfile.stabilityCoefficient * 100).toFixed(0)}% - ${currentProfile.stabilityCoefficient < 0.5 ? "Enable aux stabilizer!" : "Monitor for exotic fields"}`
+      : "";
+    const reversalNote = state.dinoRay.genome.firingMode === "REVERSAL"
+      ? "\n🔄 REVERSAL MODE ACTIVE - Ray will attempt to restore original form"
+      : "";
 
     return {
       command: action.command,
       success: true,
       message: `Firing profile configured:
 Target: ${state.dinoRay.targeting.currentTargetIds.join(", ")}
-Mode: ${mode}
+Genome Library: ${state.dinoRay.genome.activeLibrary} (${state.dinoRay.genome.activeLibrary === "A" ? "Scientific" : "Hollywood"})
+Genome Profile: ${currentProfile.displayName}
+Firing Mode: ${state.dinoRay.genome.firingMode}
 Firing Style: ${firingStyle || "standard"}
-Genome Profile: ${currentGenome} (unchanged)
-Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}`,
+Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote}${reversalNote}`,
       stateChanges: {
         targets: state.dinoRay.targeting.currentTargetIds,
-        mode,
+        genomeLibrary: state.dinoRay.genome.activeLibrary,
+        genomeProfile: currentProfile.displayName,
+        firingMode: state.dinoRay.genome.firingMode,
         firingStyle: firingStyle || "standard",
-        genomeProfile: currentGenome,
         testModeEnabled: state.dinoRay.safety.testModeEnabled,
       },
     };
@@ -926,9 +1031,9 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "lab.configure_firing_profile",
     aliases: ["configure", "firing", "profile", "set_target"],
-    description: "Configure targeting, firing mode, and test settings",
-    schema: "{ target?: string, mode?: string, firingStyle?: string, testMode?: boolean }",
-    example: 'lab.configure_firing_profile { target: "TEST_DUMMY", testMode: true }',
+    description: "Configure target, genome library/profile, and firing mode (TRANSFORM/REVERSAL)",
+    schema: "{ target?: string, genomeLibrary?: 'A'|'B', genomeProfile?: string, mode?: 'TRANSFORM'|'REVERSAL', firingStyle?: string, testMode?: boolean }",
+    example: 'lab.configure_firing_profile { target: "AGENT_BLYTHE", genomeLibrary: "B", genomeProfile: "VELOCIRAPTOR_JP" }',
     minAccessLevel: 1,
   },
   {

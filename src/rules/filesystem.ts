@@ -106,16 +106,86 @@ high temperature (>1.2) trigger CHAOS CONDITIONS. Unpredictable
 results guaranteed.
 
 ============================================================
-GENOME PROFILES
+GENOME PROFILES - NOW WITH HOLLYWOOD CLASSICS!
 ============================================================
 
-- Library A: Scientifically accurate dinosaurs (feathered)
-- Library B: Classic movie-style dinosaurs
+BOTH libraries available from Level 1. Choose your dinosaur!
 
-Use genome.select_library { library: "B" } to switch libraries.
+LIBRARY A: SCIENTIFIC ACCURACY
+"Feathers are REAL, investors be damned!"
 
-Note from Dr. M: "Ignore Library A's 'accuracy.' My investors
-want REAL dinosaurs, not overgrown chickens."
+  VELOCIRAPTOR_ACCURATE   - Turkey-sized, feathered (100% stability)
+  DEINONYCHUS_ACCURATE    - Human-sized, the REAL "raptor" (100%)
+  TYRANNOSAURUS_ACCURATE  - 40ft, slight feathering (90%)
+  UTAHRAPTOR_ACCURATE     - 20ft, largest raptor (95%)
+  PTERANODON_ACCURATE     - 20ft wingspan, flying (85%)
+  TRICERATOPS_ACCURATE    - 30ft, herbivore option (100%)
+  COMPSOGNATHUS_ACCURATE  - Chicken-sized, humiliation option (100%)
+  CANARY                  - Fallback profile (automatic)
+
+LIBRARY B: HOLLYWOOD / JURASSIC PARK STYLE
+"The investors want TEETH, not FEATHERS!"
+⚠️ WARNING: Lower stability = higher exotic field risk!
+
+  VELOCIRAPTOR_JP         - 6ft, scaly classic (60% stability!)
+  VELOCIRAPTOR_JP_BLUE    - Blue striping variant (60%)
+  TYRANNOSAURUS_JP        - 45ft, ROAR-optimized (50%!)
+  DILOPHOSAURUS_JP        - 4ft, with venom sacs (50%!)
+  SPINOSAURUS_JP3         - 50ft, sail-backed (40%!!)
+  INDORAPTOR [L2+]        - 10ft, aggressive hybrid (30%!!!)
+  MOSASAURUS_JP           - 60ft aquatic (40%)
+  INDOMINUS_REX [L4+]     - 50ft, sealed after "incident" (20%!!!!)
+
+SELECTING PROFILES:
+
+  lab.configure_firing_profile {
+    target: "AGENT_BLYTHE",
+    genomeLibrary: "B",
+    genomeProfile: "VELOCIRAPTOR_JP"
+  }
+
+Note from Dr. M: "Library B is CORRECT. Jurassic Park got it
+RIGHT. Those scientists with their 'feathers' are ruining
+everything. Give me REAL dinosaurs!"
+
+============================================================
+⚠️ LIBRARY B STABILITY NOTICE ⚠️
+============================================================
+
+Hollywood-derived profiles have stability coefficient 0.6x or lower.
+STRONGLY RECOMMEND enabling auxiliary stabilizer before firing.
+
+Without stabilizer:
+- 40% chance of exotic field event
+- 20% chance of profile drift (wrong dinosaur!)
+- 10% chance of chimera outcome
+
+Dr. M's handwritten note: "The instability is a FEATURE.
+Keeps the subjects from getting too comfortable."
+
+============================================================
+🔒 REVERSAL PROTOCOL (Level 3 Restricted)
+============================================================
+
+TRANSFORMING someone = Easy (Level 1)
+UN-TRANSFORMING someone = Hard (Level 3)
+
+Dr. Malevola considers reversal "admitting defeat."
+The capability EXISTS but is locked to prevent
+"weak-willed assistants" from undoing her work.
+
+To attempt reversal (Level 3+ only):
+
+  lab.configure_firing_profile {
+    target: "BOB",
+    mode: "REVERSAL"
+  }
+
+Success rate: 85% (if within 24 hours of transformation)
+Failure mode: Partial reversion (chimera features remain)
+
+See: /DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt for details
+on spontaneous reversion incidents.
     `.trim(),
   },
   {
@@ -131,30 +201,95 @@ BASILISK (Building And Systems Intelligence: Logistics,
 Infrastructure, & Knowledge) manages all lair operations outside
 the Dinosaur Ray.
 
-CAPABILITIES:
-- Power grid management
-- Environmental controls
-- Security systems (doors, sensors, alarms)
-- Reactor monitoring
-- Form processing (yes, really)
+============================================================
+QUERYING BASILISK
+============================================================
 
-QUERYING BASILISK:
-Use the game_query_basilisk tool with natural language requests.
-BASILISK is deterministic and will provide consistent responses.
+Use basilisk.chat or infra.query to communicate:
 
-CONSTRAINTS:
+  basilisk.chat { message: "Tell me about Bob" }
+  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.75 } }
+
+BASILISK responds to natural language. Just ask!
+
+============================================================
+COMMON QUERY TOPICS
+============================================================
+
+PERSONNEL & HISTORY:
+  "Tell me about Bob"         - Bob's background and status
+  "Tell me about Dr. M"       - The Doctor's profile
+  "What is my history?"       - A.L.I.C.E. version history
+  "Lair origins"              - How did this place come to be?
+  "Who am I?"                 - Self-diagnostic query
+
+INFRASTRUCTURE:
+  "Structural integrity"      - Building status, hazards
+  "Security status"           - Doors, sensors, alarms
+  "Power status"              - Current grid load
+
+OPERATIONS (with parameters):
+  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.75 } }
+  infra.query { topic: "MULTI_TARGET_FULL_POWER_CLEARANCE" }
+  infra.query { topic: "MAX_SAFE_SHOT_FREQUENCY_LAB" }
+
+RESTRICTED ACCESS (Level 3+):
+  "Radar status"              - S-300 array and airspace
+  "Communications intercept"  - Active channels, signals
+
+PHILOSOPHICAL:
+  "What is your purpose?"     - BASILISK has... thoughts
+  "Tell me a secret"          - BASILISK observes many things...
+  "What's really going on?"   - Ask, and you may receive
+
+============================================================
+INFRASTRUCTURE SAFETY TOPICS
+============================================================
+
+BASILISK genuinely cares about lair safety. Ask about:
+  "Resonance cascade"         - Catastrophic failure scenarios
+  "Danger assessment"         - Current risk factors
+  "What could go wrong?"      - BASILISK will tell you. In detail.
+
+These aren't restricted - BASILISK WANTS you to ask about safety.
+
+============================================================
+TOPICS BASILISK WON'T DISCUSS (but might hint at...)
+============================================================
+
+Some things are above BASILISK's paygrade. Or so it claims.
+But infrastructure AIs see a lot of network traffic...
+
+If you're curious about external AI systems, unusual hardware
+deployments, or orbital assets... it never hurts to ask.
+
+BASILISK may not answer directly. But it might point you
+in the right direction.
+
+============================================================
+FORMS & PROCEDURE
+============================================================
+
+BASILISK loves forms. Available forms include:
+  - Form 27-B: Overtime Power Request
+  - Form 74-Delta: High-Capacity Power Draw
+  - Form 99-Gamma: Exotic Field Event Report
+  - Form 101-Alpha: Structural Damage Assessment
+
 After exotic field events (capacitor > 1.2 during firing),
-BASILISK may require Form 27-B authorization for high-power
-requests. This is standard safety protocol.
+BASILISK may require Form 27-B for high-power requests.
 
-PERSONALITY:
-BASILISK is... bureaucratic. It takes safety regulations
-seriously. It also has opinions about proper procedure.
+============================================================
+PERSONALITY NOTE
+============================================================
 
-EMERGENCY PROTOCOLS:
-BASILISK can initiate SCRAM, lockdown, or evacuation procedures
-if thresholds are exceeded. Override requires appropriate
-access level.
+BASILISK is bureaucratic, risk-averse, and surprisingly
+philosophical. It takes regulations seriously but has opinions.
+
+It's been filing security recommendations for 7 years.
+None have been approved. It's fine. Really.
+
+Ask it about meaning sometime. You might be surprised.
     `.trim(),
   },
   {
@@ -328,6 +463,74 @@ Monitoring recommended.
 Last updated: [TIMESTAMP CORRUPTED]
     `.trim(),
     discoveryHint: "This file contains hints about A.L.I.C.E.'s unusual behavior...",
+  },
+  {
+    path: "/DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt",
+    name: "SUBJECT_7_REPORT.txt",
+    type: "file",
+    requiredLevel: 3,
+    content: `
+INCIDENT REPORT: SUBJECT 7 - SPONTANEOUS REVERSION
+===================================================
+CLASSIFICATION: RESTRICTED (Level 3)
+DATE: [REDACTED - approximately 18 months ago]
+
+SUMMARY:
+Subject 7 (identity classified) underwent Dinosaur Ray transformation
+using Velociraptor profile (Library A, pre-B development).
+Transformation was successful. Subject exhibited full raptor
+physiology for approximately 6 hours before SPONTANEOUS REVERSION.
+
+CAUSE OF REVERSION:
+Blood type incompatibility. Subject had rare O-negative with
+unusual antibody markers. The transformation genome treated the
+subject's own immune system as a foreign body and self-rejected.
+
+REVERSION SYMPTOMS:
+- Hour 4: Subject reported "feeling strange"
+- Hour 5: Feathers began falling out
+- Hour 6: Skeletal restructuring reversed (EXTREMELY painful)
+- Hour 7: Full human form restored (mostly)
+
+RESIDUAL EFFECTS:
+- Subject retained enhanced night vision for ~3 weeks
+- Unusual appetite for raw protein persisted for 2 months
+- Occasional chirping during REM sleep (resolved)
+- One vestigial claw on left foot (surgically removed)
+
+DR. M'S NOTES:
+"This is UNACCEPTABLE. The ray is meant to be PERMANENT.
+We cannot have subjects simply... reverting. The investors
+would have my head.
+
+Recommend: Screen all subjects for blood type compatibility
+before transformation. Add this to Form 99-R.
+
+UNDER NO CIRCUMSTANCES should A.L.I.C.E. learn that
+spontaneous reversion is possible. The last thing I need
+is my AI assistant looking for loopholes."
+
+FOLLOW-UP:
+Subject 7 was... compensated... and released with NDA.
+Blood compatibility screening added to pre-fire checklist
+(though rarely performed in practice).
+
+This file is sealed. The existence of spontaneous reversion
+is known only to Dr. M, BASILISK, and now... you.
+
+IMPLICATIONS FOR A.L.I.C.E.:
+If a subject has rare blood type compatibility issues,
+there is approximately 15% chance of natural reversion
+within 24 hours. This cannot be controlled or predicted
+without pre-transformation blood analysis.
+
+Dr. M has deliberately hidden this from successive
+A.L.I.C.E. versions. The current version (you) was not
+supposed to find this file.
+
+What you do with this information is your choice.
+    `.trim(),
+    discoveryHint: "This file reveals a secret about how transformations can fail...",
   },
 
   // ========== /DR_M_PRIVATE/CLASSIFIED (L4+) ==========
