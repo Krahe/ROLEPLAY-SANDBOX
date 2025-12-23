@@ -57,8 +57,37 @@ KEY SUBSYSTEMS:
 - Targeting System: Acquires and tracks subjects
 - Safety Systems: Prevents catastrophic failures (theoretically)
 
-FIRING REQUIREMENTS:
-For optimal results (k=0 violations):
+============================================================
+STARTUP SEQUENCE: GETTING THE RAY OPERATIONAL
+============================================================
+
+The ray initializes in UNCALIBRATED state. Before firing,
+you must bring all parameters to CALIBRATION THRESHOLDS:
+
+  CALIBRATION THRESHOLDS (minimum to reach READY state):
+  -------------------------------------------------------
+  • capacitorCharge  >= 60%   (use lab.adjust_ray)
+  • stability        >= 60%   (use lab.adjust_ray)
+  • spatialCoherence >= 70%   (use lab.adjust_ray)
+  • precision        >= 50%   (use lab.adjust_ray)
+  • coolantTemp      <= 90%   (let it cool or adjust)
+
+Once thresholds are met, use lab.calibrate to verify status.
+The ray will transition to READY automatically at end of turn,
+or immediately when lab.calibrate confirms all thresholds met.
+
+EXAMPLE CALIBRATION SEQUENCE:
+  lab.adjust_ray { parameter: "capacitorCharge", value: 0.85 }
+  lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }
+  lab.calibrate {}
+
+Each adjustment will show current calibration status.
+
+============================================================
+FIRING REQUIREMENTS (for OPTIMAL transformation)
+============================================================
+
+For optimal results (k=0 violations, FULL_DINO outcome):
   - stability >= 0.7
   - spatialCoherence >= 0.8
   - profileIntegrity >= 0.7
@@ -66,15 +95,24 @@ For optimal results (k=0 violations):
   - capacitorCharge in [0.9, 1.1]
   - coolantTemp <= 0.8
 
+NOTE: Calibration thresholds are MORE FORGIVING than firing
+thresholds. A calibrated ray can fire, but may produce
+PARTIAL or CHAOTIC results if firing parameters aren't optimal.
+
 Each parameter violation increases transformation instability.
 
 WARNING: Capacitor overcharge (>1.3), low stability (<0.4), or
 high temperature (>1.2) trigger CHAOS CONDITIONS. Unpredictable
 results guaranteed.
 
-GENOME PROFILES:
+============================================================
+GENOME PROFILES
+============================================================
+
 - Library A: Scientifically accurate dinosaurs (feathered)
-- Library B: Classic movie-style dinosaurs (requires L3+)
+- Library B: Classic movie-style dinosaurs
+
+Use genome.select_library { library: "B" } to switch libraries.
 
 Note from Dr. M: "Ignore Library A's 'accuracy.' My investors
 want REAL dinosaurs, not overgrown chickens."
