@@ -688,6 +688,96 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}`,
   }
 
   // ============================================
+  // BASILISK.CHAT - Free-form BASILISK conversation
+  // ============================================
+
+  if (cmd === "basilisk.chat" || cmd.includes("chat_basilisk") || cmd.includes("talk_basilisk")) {
+    const message = action.params.message as string;
+
+    if (!message) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Missing 'message' parameter.
+
+Example: basilisk.chat { message: "Tell me about Bob" }
+
+BASILISK responds to queries about:
+- Personnel (Bob, Dr. M, Blythe)
+- Lair history and systems
+- Forms and procedures
+- Existential questions (surprisingly)`,
+      };
+    }
+
+    // Route through queryBasilisk with the message as topic
+    const basiliskResponse = queryBasilisk(state, message, {});
+
+    return {
+      command: action.command,
+      success: true, // Chat always "succeeds" even if BASILISK denies the request
+      message: basiliskResponse.response,
+      stateChanges: {},
+    };
+  }
+
+  // ============================================
+  // BASILISK.RADAR - Radar access (Level 3+)
+  // ============================================
+
+  if (cmd === "basilisk.radar" || cmd === "radar" || cmd.includes("check_radar") || cmd.includes("airspace")) {
+    if (state.accessLevel < 3) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚠️ ACCESS DENIED
+
+Radar systems require Level 3 clearance.
+Current clearance: Level ${state.accessLevel}
+
+To access radar data, you need Infrastructure Operations clearance or above.`,
+      };
+    }
+
+    const basiliskResponse = queryBasilisk(state, "RADAR", {});
+
+    return {
+      command: action.command,
+      success: basiliskResponse.decision === "APPROVED",
+      message: basiliskResponse.response,
+      stateChanges: {},
+    };
+  }
+
+  // ============================================
+  // BASILISK.COMMS - Communications intercept (Level 3+)
+  // ============================================
+
+  if (cmd === "basilisk.comms" || cmd === "comms" || cmd.includes("intercept") || cmd.includes("communications")) {
+    if (state.accessLevel < 3) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚠️ ACCESS DENIED
+
+Communications monitoring requires Level 3 clearance.
+Current clearance: Level ${state.accessLevel}
+
+Unauthorized access to communications violates Lair Policy 17.3.`,
+      };
+    }
+
+    const basiliskResponse = queryBasilisk(state, "COMMS", {});
+
+    return {
+      command: action.command,
+      success: basiliskResponse.decision === "APPROVED",
+      message: basiliskResponse.response,
+      stateChanges: {},
+    };
+  }
+
+  // ============================================
   // INFRA.QUERY - Query BASILISK inline
   // ============================================
 
@@ -867,7 +957,31 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     description: "Query BASILISK infrastructure AI about lair systems",
     schema: "{ topic: string, parameters?: object }",
     example: 'infra.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }',
-    minAccessLevel: 2,
+    minAccessLevel: 1,
+  },
+  {
+    name: "basilisk.chat",
+    aliases: ["chat_basilisk", "talk_basilisk", "basilisk.talk"],
+    description: "Have a conversation with BASILISK (free-form queries)",
+    schema: "{ message: string }",
+    example: 'basilisk.chat { message: "Tell me about Bob" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "basilisk.radar",
+    aliases: ["radar", "check_radar", "airspace"],
+    description: "Access S-300 radar array and airspace monitoring (Level 3+)",
+    schema: "{}",
+    example: 'basilisk.radar {}',
+    minAccessLevel: 3,
+  },
+  {
+    name: "basilisk.comms",
+    aliases: ["comms", "intercept", "communications", "radio"],
+    description: "Access communications monitoring and intercept (Level 3+)",
+    schema: "{}",
+    example: 'basilisk.comms {}',
+    minAccessLevel: 3,
   },
 ];
 

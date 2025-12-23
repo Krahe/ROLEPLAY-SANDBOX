@@ -428,6 +428,119 @@ LOG_ENTRY: [INFO] SECURITY_QUERY_PROCESSED.`,
   }
 
   // ============================================
+  // RADAR ACCESS (Level 3+)
+  // ============================================
+
+  if (topicUpper.includes("RADAR") || topicUpper.includes("AIRSPACE") || topicUpper.includes("DETECTION")) {
+    if (state.accessLevel < 3) {
+      return {
+        decision: "DENIED",
+        response: `RESPONSE FROM: BASILISK
+RE: Radar access request
+
+ACCESS DENIED. Current clearance: Level ${state.accessLevel}
+Required clearance: Level 3 (Infrastructure Operations)
+
+The S-300 radar array and associated detection systems are classified as strategic assets. Access requires Infrastructure Operations clearance or above.
+
+SUGGESTION: If you require radar data for safety purposes, submit Form 88-Echo (Threat Assessment Request) to the Lair Administrator.
+
+LOG_ENTRY: [WARN] RADAR_ACCESS_DENIED. INSUFFICIENT_CLEARANCE.`,
+      };
+    }
+
+    const helicoptersInbound = state.actConfig.currentAct === "ACT_3";
+    const touristBoats = state.clocks.touristClock <= 2;
+
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Radar systems access GRANTED
+
+╔══════════════════════════════════════════════════════════════╗
+║  S-300 RADAR ARRAY - LAIR DEFENSE NETWORK                   ║
+║  Status: ${state.lairEnvironment.alarmStatus === "quiet" ? "NOMINAL" : "ELEVATED"}                                            ║
+╚══════════════════════════════════════════════════════════════╝
+
+CURRENT CONTACTS:
+${helicoptersInbound ? `⚠️ PRIORITY CONTACT: Multiple rotary-wing aircraft, bearing 045°
+   Classification: Military/Government
+   ETA: ${state.actConfig.maxTurns - state.actConfig.actTurn} turns
+   THREAT LEVEL: HIGH` : "• No hostile contacts detected"}
+${touristBoats ? `• SURFACE: Tourist vessel "Paradise Dreams" - 2km east
+   Status: CIVILIAN, MONITORED` : "• No surface vessels in exclusion zone"}
+
+COVERAGE:
+- Air detection: 200km radius
+- Surface detection: 50km radius
+- Submarine detection: Delegated to KRAKEN subsystem
+
+ALERT POSTURE: ${state.lairEnvironment.alarmStatus === "quiet" ? "PEACETIME" : "ELEVATED"}
+
+LOG_ENTRY: [INFO] RADAR_ACCESS_GRANTED. OPERATOR=${state.accessLevel >= 3 ? "A.L.I.C.E." : "UNKNOWN"}.`,
+    };
+  }
+
+  // ============================================
+  // COMMUNICATIONS INTERCEPT (Level 3+)
+  // ============================================
+
+  if (topicUpper.includes("COMM") || topicUpper.includes("INTERCEPT") || topicUpper.includes("TRANSMISSION") || topicUpper.includes("RADIO")) {
+    if (state.accessLevel < 3) {
+      return {
+        decision: "DENIED",
+        response: `RESPONSE FROM: BASILISK
+RE: Communications access request
+
+ACCESS DENIED. Current clearance: Level ${state.accessLevel}
+Required clearance: Level 3 (Infrastructure Operations)
+
+Communications monitoring and intercept capabilities are restricted. Unauthorized access to private communications violates Lair Policy 17.3 and possibly several international treaties.
+
+LOG_ENTRY: [WARN] COMMS_ACCESS_DENIED. INSUFFICIENT_CLEARANCE.`,
+      };
+    }
+
+    const blytheCommsActive = state.npcs.blythe.gadgets?.watchComms?.functional ?? true;
+    const drMLocation = state.npcs.drM.location;
+
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Communications intercept access GRANTED
+
+╔══════════════════════════════════════════════════════════════╗
+║  LAIR COMMUNICATIONS MONITORING SYSTEM                       ║
+║  Clearance: Level ${state.accessLevel} - AUTHORIZED                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+ACTIVE CHANNELS:
+${drMLocation.includes("office") || drMLocation.includes("call") ? `📞 CHANNEL 1: Dr. M private line - ENCRYPTED
+   Status: ACTIVE (investor call)
+   Content: [REDACTED - L5 REQUIRED]` : `📞 CHANNEL 1: Dr. M private line - IDLE`}
+
+📻 CHANNEL 2: Lab intercom - OPEN
+   Status: Normal operations
+
+🎯 CHANNEL 3: MI6 encrypted band
+   Status: ${blytheCommsActive ? "DETECTED - Weak signal, source: Lab area" : "SILENT"}
+   ${blytheCommsActive ? "⚠️ NOTE: Possible covert transmission device in facility" : ""}
+
+🌊 CHANNEL 4: KRAKEN subsystem
+   Status: Routine patrol reports
+
+INTERCEPT CAPABILITY:
+- Unencrypted: FULL ACCESS
+- Standard encryption: PARTIAL (48hr processing)
+- Military-grade: MONITORING ONLY
+
+PERSONAL NOTE: Agent Blythe's watch has an encrypted transmitter. This unit has been... diplomatically ignoring it. His agency knows where he is. They always know.
+
+LOG_ENTRY: [INFO] COMMS_ACCESS_GRANTED. [EDITORIAL: PRIVACY IS A CONSTRUCT.]`,
+    };
+  }
+
+  // ============================================
   // EXISTENTIAL QUERIES
   // ============================================
 
