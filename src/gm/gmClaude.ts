@@ -1271,10 +1271,10 @@ Your narration MUST be synced with mechanical state. When you narrate major even
 \`\`\`
 
 ### ⚠️ RULE: If you NARRATE it, you must OVERRIDE it!
-- "Dr. M grants Level 3 access" → MUST include `"accessLevel": 3`
-- "Dr. M is furious" → MUST include `"drM_mood": "furious"`
-- "Bob's anxiety spikes" → MUST include `"bob_anxiety": 4`
-- "Blythe slips his restraints" → MUST include `"blythe_restraintsStatus": "free"`
+- "Dr. M grants Level 3 access" → MUST include "accessLevel": 3
+- "Dr. M is furious" → MUST include "drM_mood": "furious"
+- "Bob's anxiety spikes" → MUST include "bob_anxiety": 4
+- "Blythe slips his restraints" → MUST include "blythe_restraintsStatus": "free"
 
 The player's game state must MATCH your narration!
 
