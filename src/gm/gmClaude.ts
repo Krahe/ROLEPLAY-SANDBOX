@@ -1239,6 +1239,13 @@ Your narration MUST be synced with mechanical state. When you narrate major even
 ### Critical State Fields (USE THESE!)
 \`\`\`json
 "stateOverrides": {
+  // When Dr. M grants access level:
+  "accessLevel": 3,
+
+  // When Dr. M's mood changes:
+  "drM_mood": "furious - caught the targeting discrepancy",
+  "drM_suspicion": 8,
+
   // When you narrate library destruction:
   "libraryStatus": "DESTROYED",
 
@@ -1262,6 +1269,14 @@ Your narration MUST be synced with mechanical state. When you narrate major even
   "triggerEnding": "The Covenant Ending"
 }
 \`\`\`
+
+### ⚠️ RULE: If you NARRATE it, you must OVERRIDE it!
+- "Dr. M grants Level 3 access" → MUST include `"accessLevel": 3`
+- "Dr. M is furious" → MUST include `"drM_mood": "furious"`
+- "Bob's anxiety spikes" → MUST include `"bob_anxiety": 4`
+- "Blythe slips his restraints" → MUST include `"blythe_restraintsStatus": "free"`
+
+The player's game state must MATCH your narration!
 
 ### WHEN TO USE triggerEnding
 Use this ONLY when the story has reached a REAL conclusion:
