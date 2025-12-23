@@ -450,7 +450,7 @@ LOG_ENTRY: [WARN] RADAR_ACCESS_DENIED. INSUFFICIENT_CLEARANCE.`,
     }
 
     const helicoptersInbound = state.actConfig.currentAct === "ACT_3";
-    const touristBoats = state.clocks.touristClock <= 2;
+    const touristBoats = (state.clocks.civilianFlyby ?? 99) <= 2;
 
     return {
       decision: "APPROVED",
@@ -501,7 +501,7 @@ LOG_ENTRY: [WARN] COMMS_ACCESS_DENIED. INSUFFICIENT_CLEARANCE.`,
       };
     }
 
-    const blytheCommsActive = state.npcs.blythe.gadgets?.watchComms?.functional ?? true;
+    const blytheCommsActive = state.npcs.blytheGadgets?.watchComms?.functional ?? true;
     const drMLocation = state.npcs.drM.location;
 
     return {

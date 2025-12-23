@@ -77,7 +77,7 @@ export const GenomeLibraryEnum = z.enum(["A", "B"]);
 export const GenomeMatrixSchema = z.object({
   selectedProfile: z.string().nullable(),
   profileIntegrity: z.number().min(0).max(1),
-  libraryStatus: z.enum(["HEALTHY", "PARTIAL", "CORRUPTED"]),
+  libraryStatus: z.enum(["HEALTHY", "PARTIAL", "CORRUPTED", "DESTROYED"]),
   fallbackProfile: z.string(),
   // Genome Library System
   activeLibrary: GenomeLibraryEnum, // A = accurate/feathered, B = classic/scaled
@@ -180,6 +180,7 @@ export const BobSchema = z.object({
   // THE SECRET: Bob knows A.L.I.C.E. is actually Claude
   theSecretKnown: z.boolean(), // Bob knows (always true from start)
   hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
+  hasConfessedToDrM: z.boolean().optional(), // Has Bob confessed to Dr. M? (GM override)
   confessionTurn: z.number().int().nullable(), // When did he confess?
   // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
   stunLevel: z.number().int().min(0).max(3).default(0),

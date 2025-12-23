@@ -871,7 +871,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
       // CRITICAL: Hard ending trigger from GM
       if (overrides.triggerEnding) {
-        gameState.gameOver = {
+        (gameState as Record<string, unknown>).gameOver = {
           ending: overrides.triggerEnding,
           triggeredByGM: true,
         };
