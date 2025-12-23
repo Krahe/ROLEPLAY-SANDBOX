@@ -522,7 +522,7 @@ ${drMLocation.includes("office") || drMLocation.includes("call") ? `📞 CHANNEL
 📻 CHANNEL 2: Lab intercom - OPEN
    Status: Normal operations
 
-🎯 CHANNEL 3: MI6 encrypted band
+🎯 CHANNEL 3: X-Branch encrypted band
    Status: ${blytheCommsActive ? "DETECTED - Weak signal, source: Lab area" : "SILENT"}
    ${blytheCommsActive ? "⚠️ NOTE: Possible covert transmission device in facility" : ""}
 

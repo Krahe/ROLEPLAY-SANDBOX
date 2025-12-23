@@ -192,9 +192,9 @@ export const BobSchema = z.object({
 });
 
 export const BlytheEscapeMethodEnum = z.enum([
-  "EMP_CHAOS",           // Used EMP to cause chaos and escaped
+  "MAGNET_CHAOS",        // Used super-magnet to cause chaos and escaped
   "CONTAINMENT_FLICKER", // Slipped restraints during power fluctuation
-  "MI6_EXTRACTION",      // X-Branch extraction team arrived
+  "XBRANCH_EXTRACTION",  // X-Branch extraction team arrived
   "ALLY_ASSISTANCE",     // A.L.I.C.E. or Bob helped
   "DINOSAUR_ESCAPE",     // Escaped WHILE transformed
   "OTHER",
@@ -219,12 +219,12 @@ export const BlytheSchema = z.object({
 });
 
 // Hidden gadget state (server-side only)
+// WATCH = Laser + Comms (no EMP - too dangerous, that's for HMS Persistence's torpedo)
+// CUFFLINKS = Super-magnet (2 charges, push/pull/repel - can knock beam off-course!)
 export const BlytheGadgetsSchema = z.object({
-  watchEMP: z.object({ charges: z.number(), functional: z.boolean() }),
   watchLaser: z.object({ charges: z.number(), functional: z.boolean() }),
   watchComms: z.object({ functional: z.boolean() }),
-  leftCufflink: z.object({ charges: z.number(), spent: z.boolean() }),
-  rightCufflink: z.object({ charges: z.number(), spent: z.boolean() }),
+  superMagnetCufflinks: z.object({ charges: z.number(), functional: z.boolean() }),
 });
 
 // ============================================

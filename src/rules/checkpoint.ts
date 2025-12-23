@@ -169,16 +169,14 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
         firstFiringMode: state.dinoRay.memory.firstFiringMode,
       },
     },
-    // COMPACT blytheGadgets if she's transformed (gadgets irrelevant)
+    // COMPACT blytheGadgets if he's transformed (gadgets irrelevant)
     npcs: {
       ...state.npcs,
       blytheGadgets: state.npcs.blythe.transformationState
         ? {
-            watchEMP: { charges: 0, functional: false },
             watchLaser: { charges: 0, functional: false },
             watchComms: { functional: false },
-            leftCufflink: { charges: 0, spent: true },
-            rightCufflink: { charges: 0, spent: true },
+            superMagnetCufflinks: { charges: 0, functional: false },
           }
         : state.npcs.blytheGadgets,
     },

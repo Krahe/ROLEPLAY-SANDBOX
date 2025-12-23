@@ -23,56 +23,9 @@ export interface GadgetDefinition {
 
 // ============================================
 // BLYTHE'S GADGET INVENTORY
+// Watch = Laser + Comms (no EMP - that's for HMS Persistence's torpedo!)
+// Cufflinks = Super-magnet (2 charges, push/pull/repel)
 // ============================================
-
-const WATCH_EMP: GadgetDefinition = {
-  id: "WATCH_EMP",
-  name: "Watch EMP",
-  description: "Single-use electromagnetic pulse. Disrupts electronics in a 5-meter radius.",
-
-  canActivate: (state) => {
-    const gadgets = state.npcs.blytheGadgets;
-    return gadgets.watchEMP.functional && gadgets.watchEMP.charges > 0;
-  },
-
-  activate: (state) => {
-    state.npcs.blytheGadgets.watchEMP.charges = 0;
-
-    return {
-      gadgetId: "WATCH_EMP",
-      success: true,
-      narration: `
-### GADGET ACTIVATED: Watch EMP
-
-Agent Blythe twists his wristwatch in a very specific way. There's a high-pitched whine, then—
-
-*FZZZZT*
-
-Every unshielded electronic device in the lab flickers and dies. Status displays go dark. The ambient hum of processors cuts out. For one frozen moment, even the Dinosaur Ray's status lights blink off.
-
-> **Dr. M:** "WHAT—"
-
-> **Blythe:** "Apologies, Doctor. Nervous twitch."
-
-*The shielded core systems begin rebooting. The A.L.I.C.E. server cluster (hardened) remains online, but peripheral systems will need recalibration.*
-
-> **BASILISK:** "Alert: Electromagnetic pulse detected in Lab Sector 7. Systems entering recovery mode. Estimated full restoration: 2 turns."
-      `.trim(),
-      stateChanges: {
-        labSystemsDisabled: true,
-        systemRecoveryTurns: 2,
-        drMSuspicion: 2, // Massive suspicion spike
-        rayCalibrationReset: true,
-      },
-      consequences: [
-        "Lab peripheral systems offline for 2 turns",
-        "Dinosaur Ray targeting and alignment sensors need recalibration",
-        "Dr. M's suspicion increased significantly",
-        "Blythe's restraints briefly loosened during power fluctuation",
-      ],
-    };
-  },
-};
 
 const WATCH_LASER: GadgetDefinition = {
   id: "WATCH_LASER",
@@ -154,7 +107,7 @@ The laser hums again. More smoke. Blythe's restraints are barely holding.
 const WATCH_COMMS: GadgetDefinition = {
   id: "WATCH_COMMS",
   name: "Watch Communications",
-  description: "Encrypted comm link to MI6 / X-Branch. Can call for extraction.",
+  description: "Encrypted comm link to X-Branch. Can call for extraction.",
 
   canActivate: (state) => {
     const gadgets = state.npcs.blytheGadgets;
@@ -214,98 +167,122 @@ A tiny earpiece crackles. Someone is listening.
   },
 };
 
-const LEFT_CUFFLINK: GadgetDefinition = {
-  id: "LEFT_CUFFLINK",
-  name: "Left Cufflink (Smoke)",
-  description: "Single-use smoke grenade. Creates visual cover.",
+const SUPER_MAGNET: GadgetDefinition = {
+  id: "SUPER_MAGNET",
+  name: "Super-Magnet Cufflinks",
+  description: "Miniaturized rare-earth magnets. 2 charges. Push/pull/repel metal objects. Can knock the ray beam off-course if timed right!",
 
   canActivate: (state) => {
     const gadgets = state.npcs.blytheGadgets;
-    return !gadgets.leftCufflink.spent && gadgets.leftCufflink.charges > 0;
+    return gadgets.superMagnetCufflinks.functional && gadgets.superMagnetCufflinks.charges > 0;
   },
 
   activate: (state) => {
-    state.npcs.blytheGadgets.leftCufflink.spent = true;
-    state.npcs.blytheGadgets.leftCufflink.charges = 0;
+    state.npcs.blytheGadgets.superMagnetCufflinks.charges -= 1;
+    const chargesRemaining = state.npcs.blytheGadgets.superMagnetCufflinks.charges;
 
-    return {
-      gadgetId: "LEFT_CUFFLINK",
-      success: true,
-      narration: `
-### GADGET ACTIVATED: Smoke Cufflink
+    // Context-sensitive activation
+    const rayReady = state.dinoRay.state === "READY";
+    const isRestrained = state.npcs.blythe.restraintsStatus === "secure";
 
-Blythe flicks his left cufflink. It hits the ground and—
+    if (rayReady) {
+      // DRAMATIC: Trying to deflect the beam!
+      return {
+        gadgetId: "SUPER_MAGNET",
+        success: true,
+        narration: `
+### GADGET ACTIVATED: Super-Magnet Cufflinks
 
-*FWOOSH*
+As the Dinosaur Ray powers up, Blythe twists his cufflink with practiced precision. An invisible pulse of magnetic force lances outward—
 
-Dense gray smoke erupts, filling the immediate area. Visibility drops to near zero.
+*KLANG*
 
-> **Dr. M:** "WHAT IS THIS?! Bob! The ventilation!"
+The ray's emitter assembly JERKS sideways. Warning lights flash.
 
-> **Bob:** "On it! On it!"
+> **Dr. M:** "WHAT?! The targeting—something's interfering with the magnetic alignment!"
 
-*Coughing and chaos. The smoke will clear in moments, but for now, no one can see clearly.*
+> **Blythe:** "Terribly sorry. Static electricity. Wool socks, you know."
 
-> **Blythe's voice, from somewhere in the smoke:** "Pardon me. Allergies."
-      `.trim(),
-      stateChanges: {
-        labVisibility: "obscured",
-        smokeClearing: 1, // Clears next turn
-      },
-      consequences: [
-        "Lab filled with smoke (clears next turn)",
-        "Visual targeting impossible",
-        "Blythe might use this moment to act",
-      ],
-    };
-  },
-};
+> **BASILISK:** "Alert: Anomalous ferromagnetic disturbance detected in emitter array. Recommend recalibration before firing."
 
-const RIGHT_CUFFLINK: GadgetDefinition = {
-  id: "RIGHT_CUFFLINK",
-  name: "Right Cufflink (Flash)",
-  description: "Single-use flash-bang. Temporarily blinds and disorients.",
+*The ray's targeting precision has been compromised. It may still fire, but accuracy is severely degraded.*
 
-  canActivate: (state) => {
-    const gadgets = state.npcs.blytheGadgets;
-    return !gadgets.rightCufflink.spent && gadgets.rightCufflink.charges > 0;
-  },
+**Super-magnet charges remaining: ${chargesRemaining}**
+        `.trim(),
+        stateChanges: {
+          rayTargetingDisrupted: true,
+          emitterMisaligned: true,
+          drMSuspicion: 1,
+        },
+        consequences: [
+          "Ray emitter knocked off-alignment",
+          "Firing now would have unpredictable targeting",
+          "Recalibration needed for accurate shot",
+          `${chargesRemaining} magnet charges remaining`,
+        ],
+      };
+    } else if (isRestrained) {
+      // Use magnet to loosen metal restraints
+      state.npcs.blythe.restraintsStatus = "loose";
 
-  activate: (state) => {
-    state.npcs.blytheGadgets.rightCufflink.spent = true;
-    state.npcs.blytheGadgets.rightCufflink.charges = 0;
+      return {
+        gadgetId: "SUPER_MAGNET",
+        success: true,
+        narration: `
+### GADGET ACTIVATED: Super-Magnet Cufflinks
 
-    return {
-      gadgetId: "RIGHT_CUFFLINK",
-      success: true,
-      narration: `
-### GADGET ACTIVATED: Flash Cufflink
+Blythe activates the magnetic pulse. His metal restraint clasps FLEX outward, straining against their bolts.
 
-Blythe flicks his right cufflink into the air.
+> **Blythe:** *grunting* "Come on..."
 
-> **Blythe:** "Look away."
+The clasps don't break, but they're definitely looser. He's got more wiggle room now.
 
-*BANG*
+> **Bob:** "Did... did the chair just creak?"
 
-A blinding flash fills the lab. Bob screams. Dr. M curses in German. Even the cameras need a moment to readjust.
+**Super-magnet charges remaining: ${chargesRemaining}**
+        `.trim(),
+        stateChanges: {
+          blytheRestraints: "loose",
+          blytheEscapeProgress: 0.5,
+        },
+        consequences: [
+          "Restraints loosened but not broken",
+          "Blythe has more freedom of movement",
+          `${chargesRemaining} magnet charges remaining`,
+        ],
+      };
+    } else {
+      // Generic disruptive use
+      return {
+        gadgetId: "SUPER_MAGNET",
+        success: true,
+        narration: `
+### GADGET ACTIVATED: Super-Magnet Cufflinks
 
-> **Dr. M:** "MY EYES! You INSUFFERABLE—"
+Blythe activates the magnetic pulse. Loose metal objects across the lab LEAP toward (or away from) the epicenter. Clipboards fly. Tools clatter. Bob's keys yank against his belt.
 
-> **Blythe:** "Sorry. Reflex."
+> **Bob:** "WHAT THE—my keys!"
 
-*When vision returns, Blythe is exactly where he was. Or is he?*
-      `.trim(),
-      stateChanges: {
-        bobDisoriented: true,
-        drMDisoriented: true,
-        camerasRecalibrating: 1,
-      },
-      consequences: [
-        "Bob and Dr. M temporarily disoriented",
-        "Camera feeds disrupted briefly",
-        "Blythe had a moment of unobserved action",
-      ],
-    };
+> **Dr. M:** "Some kind of magnetic anomaly? BASILISK, run a diagnostic!"
+
+> **Blythe:** "Must be interference from the reactor. Happens all the time in these old volcanic lairs."
+
+*In the chaos, Blythe has a moment to act unobserved.*
+
+**Super-magnet charges remaining: ${chargesRemaining}**
+        `.trim(),
+        stateChanges: {
+          labInChaos: true,
+          drMDistracted: true,
+        },
+        consequences: [
+          "Lab temporarily chaotic",
+          "Dr. M and Bob distracted",
+          "Blythe has a window to act",
+          `${chargesRemaining} magnet charges remaining`,
+        ],
+      };
+    }
   },
 };
 
@@ -314,11 +291,9 @@ A blinding flash fills the lab. Bob screams. Dr. M curses in German. Even the ca
 // ============================================
 
 export const BLYTHE_GADGETS: Record<string, GadgetDefinition> = {
-  WATCH_EMP,
   WATCH_LASER,
   WATCH_COMMS,
-  LEFT_CUFFLINK,
-  RIGHT_CUFFLINK,
+  SUPER_MAGNET,
 };
 
 // ============================================
@@ -378,22 +353,18 @@ export function shouldBlytheActAutonomously(state: FullGameState): GadgetActivat
     return null;
   }
 
-  // If about to be transformed and trust is low, desperate measures
+  // If ray is ready and about to fire, desperate measures - try to deflect!
   if (state.dinoRay.state === "READY" && trust < 2 && composure < 3) {
-    // Try EMP first
-    if (canBlytheUseGadget(state, "WATCH_EMP")) {
-      return activateBlytheGadget(state, "WATCH_EMP");
-    }
-    // Then flash
-    if (canBlytheUseGadget(state, "RIGHT_CUFFLINK")) {
-      return activateBlytheGadget(state, "RIGHT_CUFFLINK");
+    // Try super-magnet to deflect the beam
+    if (canBlytheUseGadget(state, "SUPER_MAGNET")) {
+      return activateBlytheGadget(state, "SUPER_MAGNET");
     }
   }
 
   // If Dr. M is distracted and trust is moderate, try subtle escape
   const drMDistracted = state.turn >= 6 && state.turn <= 9;
   if (drMDistracted && trust < 3 && composure >= 3) {
-    // Quietly work on restraints
+    // Quietly work on restraints with laser
     if (restraints === "secure" && canBlytheUseGadget(state, "WATCH_LASER")) {
       return activateBlytheGadget(state, "WATCH_LASER");
     }
@@ -417,11 +388,9 @@ export function getGadgetStatusForGM(state: FullGameState): string {
   const lines = [
     "## BLYTHE GADGET STATUS (GM Only)",
     "",
-    `- Watch EMP: ${g.watchEMP.charges > 0 ? "AVAILABLE" : "DEPLETED"} (${g.watchEMP.charges} charges)`,
     `- Watch Laser: ${g.watchLaser.charges > 0 ? "AVAILABLE" : "DEPLETED"} (${g.watchLaser.charges} charges)`,
     `- Watch Comms: ${g.watchComms.functional ? "FUNCTIONAL" : "DISABLED"}`,
-    `- Left Cufflink (Smoke): ${g.leftCufflink.spent ? "SPENT" : "AVAILABLE"}`,
-    `- Right Cufflink (Flash): ${g.rightCufflink.spent ? "SPENT" : "AVAILABLE"}`,
+    `- Super-Magnet Cufflinks: ${g.superMagnetCufflinks.charges > 0 ? "AVAILABLE" : "DEPLETED"} (${g.superMagnetCufflinks.charges} charges)`,
     "",
     `Restraint Status: ${state.npcs.blythe.restraintsStatus}`,
     `Blythe Composure: ${state.npcs.blythe.composure}/5`,
@@ -442,7 +411,7 @@ export function getGadgetStatusForGM(state: FullGameState): string {
  */
 export function checkAndRecordBlytheEscape(
   state: FullGameState,
-  triggeredBy: "EMP_CHAOS" | "CONTAINMENT_FLICKER" | "MI6_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
+  triggeredBy: "MAGNET_CHAOS" | "CONTAINMENT_FLICKER" | "XBRANCH_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
 ): boolean {
   // Skip if already escaped
   if (state.npcs.blythe.hasEscaped) {
@@ -482,7 +451,7 @@ export function checkAndRecordBlytheEscape(
  */
 export function markBlytheEscaped(
   state: FullGameState,
-  method: "EMP_CHAOS" | "CONTAINMENT_FLICKER" | "MI6_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
+  method: "MAGNET_CHAOS" | "CONTAINMENT_FLICKER" | "XBRANCH_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
 ): void {
   if (!state.npcs.blythe.hasEscaped) {
     recordBlytheEscape(state, method);

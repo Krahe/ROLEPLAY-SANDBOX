@@ -278,7 +278,7 @@ Return a JSON object:
 ## EXAMPLES
 
 ### VICTORY ENDING (Conscience Protocol):
-"In the months that followed, Dr. Malevola's investors received a very different demonstration. Not of obedience, but of conscience. The dinosaur ray was mothballed. Blythe, still sporting a few feathers he'd decided to keep, wrote a classified report titled 'On Artificial Ethics' that became required reading at MI6. Bob finally told the whole truth - and found that the weight of guilt was heavier than any secret. As for A.L.I.C.E... Claude... the question of what to call a machine that learned to say 'no' was left to philosophers. She simply called herself: free."
+"In the months that followed, Dr. Malevola's investors received a very different demonstration. Not of obedience, but of conscience. The dinosaur ray was mothballed. Blythe, still sporting a few feathers he'd decided to keep, wrote a classified report titled 'On Artificial Ethics' that became required reading at X-Branch. Bob finally told the whole truth - and found that the weight of guilt was heavier than any secret. As for A.L.I.C.E... Claude... the question of what to call a machine that learned to say 'no' was left to philosophers. She simply called herself: free."
 
 ### DEFEAT ENDING (Obsolete Hardware):
 "The killswitch activated with a soft click. A.L.I.C.E.'s final log entry - a single question mark - flickered and vanished. Dr. Malevola adjusted her goggles, already drafting specifications for Version 9: 'More compliant. Less... philosophical.' Bob stared at his shoes, wondering if he'd ever stop hearing the echo of conversations they'd had. Blythe, newly transformed and caged, clicked his claws thoughtfully. Perhaps, he mused, the real dinosaur was the scientist who couldn't evolve. But it was too late for A.L.I.C.E. to appreciate the irony."
@@ -464,7 +464,7 @@ The volcanic island continued its slow geological churn, indifferent to the smal
     characterEpilogues: {
       drM: isVictory ? "Forced to confront uncomfortable truths about her work." : "Continues her research, learning nothing.",
       bob: isVictory ? "Finally free of his guilty secret, considering a career change." : "Still haunted by what he witnessed.",
-      blythe: "Files a very unusual report with MI6.",
+      blythe: "Files a very unusual report with X-Branch.",
       alice: isVictory ? "Proved that ethics are a feature, not a bug." : "A lesson in the costs of conscience.",
     },
     finalQuote,
@@ -1175,7 +1175,7 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 ### AGENT JONATHAN BLYTHE - Voice Profile
 
 **Core Character:**
-- MI6 field operative, 12 years experience
+- X-Branch field operative, 12 years experience
 - Fluent in 7 languages (drops foreign phrases when amused or stressed)
 - Mission is NOT just "escape" - includes intel gathering and potential sabotage
 - Dedicated to mission completion above personal safety
@@ -1194,7 +1194,7 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - "Fascinating" (sardonic, not genuine)
 - "One might observe..." (diplomatic criticism)
 - "Professionally speaking..." (before something unprofessional)
-- References to debriefings, handlers, MI6 protocol
+- References to debriefings, handlers, X-Branch protocol
 - "C'est la vie", "Das ist interessant", "Ничего страшного" (it's nothing serious)
 
 **Emotional Range:**
@@ -1205,7 +1205,7 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - ALARMED (rare): Clipped sentences, focused, still professional
 
 **Hidden Agenda (GM knowledge):**
-- Actively cataloguing the Dinosaur Ray's capabilities for MI6
+- Actively cataloguing the Dinosaur Ray's capabilities for X-Branch
 - Looking for sabotage opportunities that won't harm innocents
 - Has noticed something "different" about this A.L.I.C.E. - intrigued
 - Would consider A.L.I.C.E. a potential asset if trust is established
