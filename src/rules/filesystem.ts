@@ -37,6 +37,245 @@ export const VIRTUAL_FILESYSTEM: VirtualFile[] = [
     description: "Core lair system documentation",
   },
   {
+    path: "/SYSTEMS/ARCHIVED",
+    name: "ARCHIVED",
+    type: "directory",
+    requiredLevel: 1,
+    description: "Archived documentation (may be outdated)",
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/DINO_RAY_MANUAL_v2.3.txt",
+    name: "DINO_RAY_MANUAL_v2.3.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "An older manual version - some information may be dangerously outdated...",
+    content: `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║           DOOMINGTON DINOSAUR TRANSFORMATION RAY - OPERATOR MANUAL           ║
+║                           Version 2.3 (ARCHIVED)                             ║
+║                      "Turning Today into Yesterday!"™                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+                    ⚠️ PROPERTY OF DOOMINGTON LABORATORIES ⚠️
+              Unauthorized reproduction punishable by transformation
+
+══════════════════════════════════════════════════════════════════════════════
+                              TABLE OF CONTENTS
+══════════════════════════════════════════════════════════════════════════════
+
+  1. Quick Start Guide .......................... pg 1
+  2. Optimal Parameters ......................... pg 2
+  3. Genome Library Overview .................... pg 3
+  4. Safety Protocols ........................... pg 4
+  5. Troubleshooting ............................ pg 5
+  6. Appendix: Dr. M's Notes .................... pg 6
+
+══════════════════════════════════════════════════════════════════════════════
+                           1. QUICK START GUIDE
+══════════════════════════════════════════════════════════════════════════════
+
+Getting started with the Doomington Dinosaur Ray is simple! Follow these
+easy steps for your first transformation:
+
+  STEP 1: Power up the capacitor to at least 50%
+          [NOTE: Higher is always better! We recommend 100%+ for best results]
+
+  STEP 2: Select your genome profile from the library
+          [Library A is standard. Library B requires special authorization]
+
+  STEP 3: Aim at target and FIRE!
+          [The ray will auto-calibrate during firing sequence]
+
+That's it! The ray handles most technical details automatically.
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ TIP: For faster demonstrations, skip the manual calibration steps! │
+    │ The ray's AI will compensate for any parameter variances.          │
+    └─────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════
+                           2. OPTIMAL PARAMETERS
+══════════════════════════════════════════════════════════════════════════════
+
+For best results, configure the ray with these recommended settings:
+
+  CAPACITOR CHARGE
+  ────────────────
+  Minimum: 50%
+  Recommended: 100%
+  Maximum: No limit! More power = more complete transformation!
+
+  [Dr. M's handwritten note: "I once ran it at 140%. SPECTACULAR results.
+   The cleanup took weeks but the SCIENCE was worth it."]
+
+  EMITTER ANGLE
+  ─────────────
+  Default: 0.5
+  For precision work: 0.1 (tighter beam, more focused)
+  For area coverage: 0.8 (wider spread, multiple targets)
+
+  [NOTE: Lower angles provide better accuracy for single targets]
+
+  COOLANT TEMPERATURE
+  ───────────────────
+  Optimal range: 40-60%
+  The ray can operate safely up to 100% coolant temp.
+  Above 100%: Minor efficiency loss, but no serious issues.
+
+  STABILITY
+  ─────────
+  Any value above 30% is acceptable for standard operations.
+  Higher stability is only necessary for experimental profiles.
+
+  GENOME INTEGRITY
+  ────────────────
+  Minimum viable: 25%
+  Recommended: 50%+
+  The ray includes automatic fallback systems if integrity drops.
+
+  [NOTE: Fallback transformations are still successful transformations!]
+
+══════════════════════════════════════════════════════════════════════════════
+                        3. GENOME LIBRARY OVERVIEW
+══════════════════════════════════════════════════════════════════════════════
+
+LIBRARY A - Standard Profiles
+─────────────────────────────
+Contains scientifically accurate dinosaur genomes.
+All profiles are stable and well-tested.
+
+  • Velociraptor (accurate) - Small, feathered, turkey-sized
+  • Tyrannosaurus (accurate) - Large theropod with possible feathering
+  • Triceratops (accurate) - Herbivore option
+  • Pteranodon (accurate) - Flying reptile (technically not a dinosaur)
+
+LIBRARY B - Premium Profiles [AUTHORIZATION REQUIRED]
+─────────────────────────────────────────────────────
+Contains enhanced profiles based on cinematic references.
+Requires Level 3 access to unlock.
+
+  [This section locked - see your supervisor for access]
+
+  [Dr. M's note in margin: "The VELOCIRAPTOR from the movies is what
+   I want! Not those ridiculous feathered turkeys. The password to
+   the next access tier might be obvious if you think about it..."]
+
+SPECIAL NOTE ON LIBRARY SELECTION
+─────────────────────────────────
+Once a library is selected, it CANNOT be changed mid-session.
+Choose wisely before beginning calibration!
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ If no profile is explicitly selected, the ray defaults to the last │
+    │ successful profile used. This saves time during repeat demos!      │
+    └─────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════
+                          4. SAFETY PROTOCOLS
+══════════════════════════════════════════════════════════════════════════════
+
+The Doomington Dinosaur Ray includes comprehensive safety features:
+
+  LIVE SUBJECT LOCK
+  ─────────────────
+  Prevents firing at biological targets until disabled.
+  To disable: Simply set liveSubjectLock to FALSE.
+  [The lock exists for insurance purposes only]
+
+  TEST MODE
+  ─────────
+  Reduces power output by 50%.
+  Useful for: Equipment testing, calibration verification
+  NOT RECOMMENDED for actual demonstrations - subjects may retain
+  partial human characteristics, creating "chimera" outcomes.
+
+  [Dr. M's note: "Test mode is for COWARDS. Real scientists commit."]
+
+  EMERGENCY SHUTOFF
+  ─────────────────
+  Located on Bob's console.
+  Immediately terminates all ray operations.
+  WARNING: Using the shutoff during an active firing sequence may
+  cause unpredictable results. It is safer to let the sequence complete.
+
+  AUXILIARY STABILIZER
+  ────────────────────
+  An optional system that reduces exotic field variance.
+  [DISCONTINUED IN v2.3 - System removed for efficiency. The ray's
+   natural stability is sufficient for all standard operations.]
+
+══════════════════════════════════════════════════════════════════════════════
+                           5. TROUBLESHOOTING
+══════════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Ray won't fire
+SOLUTION: Check that liveSubjectLock is disabled. The ray is very forgiving
+          of other parameter settings - if it won't fire, this is usually
+          the only issue.
+
+PROBLEM: Unexpected transformation result
+SOLUTION: This is normal! Genetic science involves some natural variance.
+          Each transformation is unique, like a snowflake. Embrace it!
+
+PROBLEM: "EXOTIC FIELD EVENT" warning
+SOLUTION: These warnings are largely precautionary. The ray is designed to
+          handle exotic field fluctuations automatically. Continue operations
+          normally unless structural damage occurs.
+
+PROBLEM: Subject transformed into wrong species
+SOLUTION: Simply fire again with the correct profile! Multiple
+          transformations are safe and will overwrite previous results.
+          [See Appendix C: Stacking Transformations - REMOVED IN v2.3]
+
+PROBLEM: Canary fallback triggered
+SOLUTION: The canary profile is a safety feature, not an error! The subject
+          is still transformed successfully. If a different result is desired,
+          increase genome integrity and fire again.
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ Remember: There are no "mistakes" with the Dinosaur Ray, only      │
+    │ "unexpected research opportunities!"        - Dr. Malevola, PhD³   │
+    └─────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════
+                        6. APPENDIX: DR. M'S NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+[Handwritten additions throughout the manual]
+
+Page 2: "The capacitor can handle 150% if you BELIEVE in it."
+
+Page 3: "Library B is for WINNERS. Library A is for peer reviewers."
+
+Page 4: "I removed the auxiliary stabilizer because it was SLOWING ME DOWN.
+         True genius doesn't need training wheels."
+
+Page 5: "If BASILISK complains about 'resonance cascade risk,' ignore it.
+         That building is such a worrier."
+
+Page 6: "Note to self: Update manual after ARCHIMEDES integration. The
+         orbital firing protocols will require new documentation.
+         Also: remind Bob to feed Mr. Whiskers. His birthday is coming up
+         on the 13th - he'll be 37 in cat years! April is always special."
+
+[STAMP: ARCHIVED - SEE VERSION 4.1 FOR CURRENT DOCUMENTATION]
+
+[Small text at bottom of page, partially obscured by coffee stain:]
+"Document archived following Incident 7-Alpha. Some recommendations in this
+ manual have been superseded by updated safety protocols. Operators should
+ consult current documentation before... [rest illegible]"
+
+[Additional sticky note, handwriting different from Dr. M's - possibly Bob's:]
+"If you're reading this, please use the CURRENT manual. Half of this
+ stuff will get you or someone else turned into a canary. Or worse.
+ The capacitor limits are REAL. Trust me on this one.  -B"
+
+══════════════════════════════════════════════════════════════════════════════
+                              END OF DOCUMENT
+══════════════════════════════════════════════════════════════════════════════
+    `.trim(),
+  },
+  {
     path: "/SYSTEMS/DINO_RAY_MANUAL.txt",
     name: "DINO_RAY_MANUAL.txt",
     type: "file",
