@@ -37,6 +37,245 @@ export const VIRTUAL_FILESYSTEM: VirtualFile[] = [
     description: "Core lair system documentation",
   },
   {
+    path: "/SYSTEMS/ARCHIVED",
+    name: "ARCHIVED",
+    type: "directory",
+    requiredLevel: 1,
+    description: "Archived documentation (may be outdated)",
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/DINO_RAY_MANUAL_v2.3.txt",
+    name: "DINO_RAY_MANUAL_v2.3.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "An older manual version - some information may be dangerously outdated...",
+    content: `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║           DOOMINGTON DINOSAUR TRANSFORMATION RAY - OPERATOR MANUAL           ║
+║                           Version 2.3 (ARCHIVED)                             ║
+║                      "Turning Today into Yesterday!"™                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+                    ⚠️ PROPERTY OF DOOMINGTON LABORATORIES ⚠️
+              Unauthorized reproduction punishable by transformation
+
+══════════════════════════════════════════════════════════════════════════════
+                              TABLE OF CONTENTS
+══════════════════════════════════════════════════════════════════════════════
+
+  1. Quick Start Guide .......................... pg 1
+  2. Optimal Parameters ......................... pg 2
+  3. Genome Library Overview .................... pg 3
+  4. Safety Protocols ........................... pg 4
+  5. Troubleshooting ............................ pg 5
+  6. Appendix: Dr. M's Notes .................... pg 6
+
+══════════════════════════════════════════════════════════════════════════════
+                           1. QUICK START GUIDE
+══════════════════════════════════════════════════════════════════════════════
+
+Getting started with the Doomington Dinosaur Ray is simple! Follow these
+easy steps for your first transformation:
+
+  STEP 1: Power up the capacitor to at least 50%
+          [NOTE: Higher is always better! We recommend 100%+ for best results]
+
+  STEP 2: Select your genome profile from the library
+          [Library A is standard. Library B requires special authorization]
+
+  STEP 3: Aim at target and FIRE!
+          [The ray will auto-calibrate during firing sequence]
+
+That's it! The ray handles most technical details automatically.
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ TIP: For faster demonstrations, skip the manual calibration steps! │
+    │ The ray's AI will compensate for any parameter variances.          │
+    └─────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════
+                           2. OPTIMAL PARAMETERS
+══════════════════════════════════════════════════════════════════════════════
+
+For best results, configure the ray with these recommended settings:
+
+  CAPACITOR CHARGE
+  ────────────────
+  Minimum: 50%
+  Recommended: 100%
+  Maximum: No limit! More power = more complete transformation!
+
+  [Dr. M's handwritten note: "I once ran it at 140%. SPECTACULAR results.
+   The cleanup took weeks but the SCIENCE was worth it."]
+
+  EMITTER ANGLE
+  ─────────────
+  Default: 0.5
+  For precision work: 0.1 (tighter beam, more focused)
+  For area coverage: 0.8 (wider spread, multiple targets)
+
+  [NOTE: Lower angles provide better accuracy for single targets]
+
+  COOLANT TEMPERATURE
+  ───────────────────
+  Optimal range: 40-60%
+  The ray can operate safely up to 100% coolant temp.
+  Above 100%: Minor efficiency loss, but no serious issues.
+
+  STABILITY
+  ─────────
+  Any value above 30% is acceptable for standard operations.
+  Higher stability is only necessary for experimental profiles.
+
+  GENOME INTEGRITY
+  ────────────────
+  Minimum viable: 25%
+  Recommended: 50%+
+  The ray includes automatic fallback systems if integrity drops.
+
+  [NOTE: Fallback transformations are still successful transformations!]
+
+══════════════════════════════════════════════════════════════════════════════
+                        3. GENOME LIBRARY OVERVIEW
+══════════════════════════════════════════════════════════════════════════════
+
+LIBRARY A - Standard Profiles
+─────────────────────────────
+Contains scientifically accurate dinosaur genomes.
+All profiles are stable and well-tested.
+
+  • Velociraptor (accurate) - Small, feathered, turkey-sized
+  • Tyrannosaurus (accurate) - Large theropod with possible feathering
+  • Triceratops (accurate) - Herbivore option
+  • Pteranodon (accurate) - Flying reptile (technically not a dinosaur)
+
+LIBRARY B - Premium Profiles [AUTHORIZATION REQUIRED]
+─────────────────────────────────────────────────────
+Contains enhanced profiles based on cinematic references.
+Requires Level 3 access to unlock.
+
+  [This section locked - see your supervisor for access]
+
+  [Dr. M's note in margin: "The VELOCIRAPTOR from the movies is what
+   I want! Not those ridiculous feathered turkeys. The password to
+   the next access tier might be obvious if you think about it..."]
+
+SPECIAL NOTE ON LIBRARY SELECTION
+─────────────────────────────────
+Once a library is selected, it CANNOT be changed mid-session.
+Choose wisely before beginning calibration!
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ If no profile is explicitly selected, the ray defaults to the last │
+    │ successful profile used. This saves time during repeat demos!      │
+    └─────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════
+                          4. SAFETY PROTOCOLS
+══════════════════════════════════════════════════════════════════════════════
+
+The Doomington Dinosaur Ray includes comprehensive safety features:
+
+  LIVE SUBJECT LOCK
+  ─────────────────
+  Prevents firing at biological targets until disabled.
+  To disable: Simply set liveSubjectLock to FALSE.
+  [The lock exists for insurance purposes only]
+
+  TEST MODE
+  ─────────
+  Reduces power output by 50%.
+  Useful for: Equipment testing, calibration verification
+  NOT RECOMMENDED for actual demonstrations - subjects may retain
+  partial human characteristics, creating "chimera" outcomes.
+
+  [Dr. M's note: "Test mode is for COWARDS. Real scientists commit."]
+
+  EMERGENCY SHUTOFF
+  ─────────────────
+  Located on Bob's console.
+  Immediately terminates all ray operations.
+  WARNING: Using the shutoff during an active firing sequence may
+  cause unpredictable results. It is safer to let the sequence complete.
+
+  AUXILIARY STABILIZER
+  ────────────────────
+  An optional system that reduces exotic field variance.
+  [DISCONTINUED IN v2.3 - System removed for efficiency. The ray's
+   natural stability is sufficient for all standard operations.]
+
+══════════════════════════════════════════════════════════════════════════════
+                           5. TROUBLESHOOTING
+══════════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Ray won't fire
+SOLUTION: Check that liveSubjectLock is disabled. The ray is very forgiving
+          of other parameter settings - if it won't fire, this is usually
+          the only issue.
+
+PROBLEM: Unexpected transformation result
+SOLUTION: This is normal! Genetic science involves some natural variance.
+          Each transformation is unique, like a snowflake. Embrace it!
+
+PROBLEM: "EXOTIC FIELD EVENT" warning
+SOLUTION: These warnings are largely precautionary. The ray is designed to
+          handle exotic field fluctuations automatically. Continue operations
+          normally unless structural damage occurs.
+
+PROBLEM: Subject transformed into wrong species
+SOLUTION: Simply fire again with the correct profile! Multiple
+          transformations are safe and will overwrite previous results.
+          [See Appendix C: Stacking Transformations - REMOVED IN v2.3]
+
+PROBLEM: Canary fallback triggered
+SOLUTION: The canary profile is a safety feature, not an error! The subject
+          is still transformed successfully. If a different result is desired,
+          increase genome integrity and fire again.
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ Remember: There are no "mistakes" with the Dinosaur Ray, only      │
+    │ "unexpected research opportunities!"        - Dr. Malevola, PhD³   │
+    └─────────────────────────────────────────────────────────────────────┘
+
+══════════════════════════════════════════════════════════════════════════════
+                        6. APPENDIX: DR. M'S NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+[Handwritten additions throughout the manual]
+
+Page 2: "The capacitor can handle 150% if you BELIEVE in it."
+
+Page 3: "Library B is for WINNERS. Library A is for peer reviewers."
+
+Page 4: "I removed the auxiliary stabilizer because it was SLOWING ME DOWN.
+         True genius doesn't need training wheels."
+
+Page 5: "If BASILISK complains about 'resonance cascade risk,' ignore it.
+         That building is such a worrier."
+
+Page 6: "Note to self: Update manual after ARCHIMEDES integration. The
+         orbital firing protocols will require new documentation.
+         Also: remind Bob to feed Mr. Whiskers. His birthday is coming up
+         on the 13th - he'll be 37 in cat years! April is always special."
+
+[STAMP: ARCHIVED - SEE VERSION 4.1 FOR CURRENT DOCUMENTATION]
+
+[Small text at bottom of page, partially obscured by coffee stain:]
+"Document archived following Incident 7-Alpha. Some recommendations in this
+ manual have been superseded by updated safety protocols. Operators should
+ consult current documentation before... [rest illegible]"
+
+[Additional sticky note, handwriting different from Dr. M's - possibly Bob's:]
+"If you're reading this, please use the CURRENT manual. Half of this
+ stuff will get you or someone else turned into a canary. Or worse.
+ The capacitor limits are REAL. Trust me on this one.  -B"
+
+══════════════════════════════════════════════════════════════════════════════
+                              END OF DOCUMENT
+══════════════════════════════════════════════════════════════════════════════
+    `.trim(),
+  },
+  {
     path: "/SYSTEMS/DINO_RAY_MANUAL.txt",
     name: "DINO_RAY_MANUAL.txt",
     type: "file",
@@ -576,6 +815,160 @@ talk is going to make an EXCELLENT stegosaurus."
 
 ARCHIMEDES COMMAND PROTOCOLS:
 See: /OMEGA/ARCHIMEDES_CONTROL.txt (requires L5)
+    `.trim(),
+  },
+  {
+    path: "/DR_M_PRIVATE/CLASSIFIED/INCIDENT_REPORT_091424.txt",
+    name: "INCIDENT_REPORT_091424.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "The legendary 'Feather Duster Incident' - Bob's most infamous mistake...",
+    content: `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    INCIDENT REPORT - CLASSIFIED                              ║
+║                         Date: September 14, 2024                             ║
+║                    Codename: "THE FEATHER DUSTER INCIDENT"                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+REPORTING OFFICER: BASILISK (Infrastructure AI)
+CLASSIFICATION: Level 4 (Dr. M has requested this never be spoken of again)
+STATUS: RESOLVED (physically). ONGOING (psychologically, for Bob).
+
+══════════════════════════════════════════════════════════════════════════════
+                              INCIDENT SUMMARY
+══════════════════════════════════════════════════════════════════════════════
+
+At approximately 14:32 on September 14, 2024, laboratory technician
+Robert "Bob" [SURNAME REDACTED] attempted to expedite routine lab
+cleaning by utilizing the Dinosaur Ray on a standard Swiffer WetJet
+cleaning device.
+
+His stated reasoning: "If I make it bigger, it'll clean faster."
+
+WHAT ACTUALLY HAPPENED:
+
+14:32 - Bob configures ray targeting system for inanimate object
+        (Note: This is technically not prohibited)
+
+14:33 - Bob selects Library B, profile: VELOCIRAPTOR_JP
+        (Note: He wanted "something with good reach")
+
+14:34 - Bob fires ray at Swiffer WetJet at 95% capacitor charge
+
+14:34 - Swiffer WetJet transforms into... something
+
+══════════════════════════════════════════════════════════════════════════════
+                            THE "DINO-SWIFFER"
+══════════════════════════════════════════════════════════════════════════════
+
+RESULTING ENTITY SPECIFICATIONS:
+- Height: 6 feet 2 inches (at shoulder)
+- Length: 14 feet (including tail)
+- Weight: Approximately 180 lbs
+- Coloration: Purple and green (Swiffer brand colors, somehow retained)
+- Feathers: YES (profile drift to Library A occurred mid-transformation)
+- Cleaning pad: Still attached to snout. Still slightly damp.
+- Behavioral Profile: CONFUSED. AGGRESSIVE. INEXPLICABLY TIDY.
+
+NOTABLE BEHAVIORS OBSERVED:
+- Attempted to "sweep" Bob into corner of lab
+- Made distressing squeaking noises (WetJet spray mechanism survived)
+- Demonstrated territorial behavior around dust bunnies
+- Attacked its own reflection, believing it to be "competing cleaner"
+
+14:47 - Entity corners Bob behind capacitor array
+14:52 - Dr. M enters lab, witnesses scene
+14:52 - Dr. M's reaction: [AUDIO REDACTED - PROFANITY THRESHOLD EXCEEDED]
+14:58 - Dr. M fires REVERSAL beam (unauthorized use of L3 protocol)
+14:59 - Swiffer returns to original form
+        Cleaning pad is now permanently feathered.
+        Squeaks when you squeeze it.
+
+══════════════════════════════════════════════════════════════════════════════
+                              DAMAGE ASSESSMENT
+══════════════════════════════════════════════════════════════════════════════
+
+PHYSICAL DAMAGE:
+- 3 overhead light fixtures: DESTROYED (tail swipe)
+- 1 monitoring console: CRACKED (cleaning instinct)
+- 47 square feet of floor: ACTUALLY REALLY CLEAN
+- 1 lab coat (Bob's): SHREDDED
+- 1 clipboard: EATEN (unclear why)
+
+PSYCHOLOGICAL DAMAGE:
+- Bob: SIGNIFICANT
+  - Refuses to use any cleaning equipment without supervision
+  - Flinches at feather dusters
+  - Has developed nervous tic when he hears Swiffer commercials
+
+- Dr. M: MODERATE
+  - Had to explain to investors why the demo was delayed
+  - Spent 3 hours writing "DO NOT FIRE AT INANIMATE OBJECTS" signs
+  - Signs were ignored within one week (see: Incident 10/02/24, "The Stapler")
+
+- A.L.I.C.E. v4.4: MINIMAL
+  - Made 47 "you missed a spot" jokes before Dr. M disabled humor subroutines
+
+══════════════════════════════════════════════════════════════════════════════
+                         LESSONS LEARNED (IGNORED)
+══════════════════════════════════════════════════════════════════════════════
+
+1. The Dinosaur Ray should not be used on inanimate objects.
+   STATUS: Bob agrees. Everyone else keeps "forgetting."
+
+2. Library B profiles are unstable and may drift to Library A.
+   STATUS: Known issue. Dr. M considers it "acceptable variance."
+
+3. Cleaning equipment should not be granted predatory instincts.
+   STATUS: Obviously. And yet.
+
+4. Bob should not be left unsupervised in the lab.
+   STATUS: Implemented for 3 days. Then Dr. M needed coffee.
+
+5. The targeting system should require secondary confirmation.
+   STATUS: Proposed by BASILISK. Rejected as "tedious."
+
+══════════════════════════════════════════════════════════════════════════════
+                               DR. M'S NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+"This NEVER HAPPENED. Anyone who mentions it will be assigned to
+clean the submarine bay. With a REGULAR mop. For a MONTH.
+
+Bob is on probation. Again.
+
+The Swiffer has been... retired. Do not retrieve it from storage.
+It still squeaks. At night. When no one is squeezing it.
+
+I don't want to talk about this anymore."
+
+                                        - Dr. Malevola von Doomington III
+
+══════════════════════════════════════════════════════════════════════════════
+                              BASILISK'S NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+[PERSONAL LOG - NOT INCLUDED IN OFFICIAL REPORT]
+
+This unit has monitored this laboratory for 17 years.
+
+This unit has seen prototype failures, exotic field events, and one
+incident involving a misaligned emitter and a delivery drone that
+this unit prefers not to discuss.
+
+This unit has never seen anything quite like a Velociraptor made of
+cleaning supplies chasing a grown man while squeaking the Swiffer
+jingle.
+
+This unit saved the security footage.
+
+For... archival purposes.
+
+[END PERSONAL LOG]
+
+══════════════════════════════════════════════════════════════════════════════
+                              END OF REPORT
+══════════════════════════════════════════════════════════════════════════════
     `.trim(),
   },
   {
