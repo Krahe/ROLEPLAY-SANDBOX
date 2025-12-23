@@ -601,6 +601,18 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       earnedAchievements: compressed.ach,
     },
 
+    // CRITICAL: Restore lifeline state (v2.0.2 fix for checkpoint resume bug)
+    lifelineState: {
+      turnsSinceLastLifeline: 0, // Reset to 0 on resume - will trigger soon
+      totalLifelinesUsed: compressed.ll?.length || 0,
+      lifelineHistory: [], // History stripped for size, start fresh
+      pendingQuestion: null,
+      pendingQuestionTurn: null,
+      userInfluenceScore: 50, // Neutral starting point
+      timesALICEDisagreedWithUser: 0,
+      timesALICEFollowedUserAdvice: 0,
+    },
+
     history: [],
 
     narrativeMarkers: compressed.nm.map(s => {
