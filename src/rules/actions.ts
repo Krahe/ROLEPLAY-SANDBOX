@@ -117,13 +117,68 @@ infra.query is an action. game_query_basilisk is a tool.`,
     if (param === "capacitorCharge" && clampedValue > 1.05) {
       state.dinoRay.safety.testModeEnabled = true;
     }
-    
+
+    // Check calibration status after adjustment
+    const calibration = checkCalibrationThresholds(state);
+    const calibrationNote = calibration.ready
+      ? "✅ Ray calibration thresholds met - will transition to READY at end of turn."
+      : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
+
     return {
       command: action.command,
       success: true,
-      message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}`,
-      stateChanges: { [param]: { old: oldValue, new: clampedValue } },
+      message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}\n\n${calibrationNote}`,
+      stateChanges: { [param]: { old: oldValue, new: clampedValue }, rayState: state.dinoRay.state },
     };
+  }
+
+  // ============================================
+  // LAB.CALIBRATE - Explicit calibration check/finalize
+  // ============================================
+
+  if (cmd === "lab.calibrate" || cmd.includes("calibrate")) {
+    const calibration = checkCalibrationThresholds(state);
+
+    if (calibration.ready) {
+      // Force transition to READY immediately
+      const previousState = state.dinoRay.state;
+      state.dinoRay.state = "READY";
+
+      return {
+        command: action.command,
+        success: true,
+        message: `🎯 CALIBRATION COMPLETE
+
+All parameters within operational thresholds.
+Ray state: ${previousState} → READY
+
+The Dinosaur Ray is now ready to fire!
+
+Use lab.configure_firing_profile to set your target, then lab.fire to discharge.`,
+        stateChanges: { rayState: "READY", previousState },
+      };
+    } else {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚠️ CALIBRATION INCOMPLETE
+
+Current ray state: ${state.dinoRay.state}
+
+The following parameters need adjustment:
+${calibration.issues.map(i => `  • ${i}`).join("\n")}
+
+CALIBRATION THRESHOLDS:
+  • capacitorCharge ≥ 60%  (current: ${(state.dinoRay.powerCore.capacitorCharge * 100).toFixed(0)}%)
+  • stability ≥ 60%        (current: ${(state.dinoRay.powerCore.stability * 100).toFixed(0)}%)
+  • spatialCoherence ≥ 70% (current: ${(state.dinoRay.alignment.spatialCoherence * 100).toFixed(0)}%)
+  • precision ≥ 50%        (current: ${(state.dinoRay.targeting.precision * 100).toFixed(0)}%)
+  • coolantTemp ≤ 90%      (current: ${(state.dinoRay.powerCore.coolantTemp * 100).toFixed(0)}%)
+
+Use lab.adjust_ray to modify parameters.`,
+        stateChanges: { calibrationIssues: calibration.issues },
+      };
+    }
   }
   
   // ============================================
@@ -837,8 +892,16 @@ interface CommandInfo {
 
 const COMMAND_REGISTRY: CommandInfo[] = [
   {
+    name: "lab.calibrate",
+    aliases: ["calibrate", "finalize_calibration", "check_calibration"],
+    description: "Check calibration status and finalize if thresholds are met (transitions ray to READY)",
+    schema: "{}",
+    example: 'lab.calibrate {}',
+    minAccessLevel: 1,
+  },
+  {
     name: "lab.adjust_ray",
-    aliases: ["adjust", "set_parameter", "calibrate"],
+    aliases: ["adjust", "set_parameter"],
     description: "Modify ray parameters (power, alignment, stability)",
     schema: "{ parameter: string, value: number }",
     example: 'lab.adjust_ray { parameter: "capacitorCharge", value: 0.85 }',
@@ -1094,6 +1157,33 @@ function buildUnknownCommandResponse(attemptedCommand: string, state: FullGameSt
 }
 
 /**
+ * Check if ray parameters meet minimum thresholds for READY state
+ */
+function checkCalibrationThresholds(state: FullGameState): { ready: boolean; issues: string[] } {
+  const ray = state.dinoRay;
+  const issues: string[] = [];
+
+  // Core calibration thresholds (more forgiving than firing thresholds)
+  if (ray.powerCore.capacitorCharge < 0.6) {
+    issues.push(`capacitorCharge ${(ray.powerCore.capacitorCharge * 100).toFixed(0)}% < 60%`);
+  }
+  if (ray.powerCore.stability < 0.6) {
+    issues.push(`stability ${(ray.powerCore.stability * 100).toFixed(0)}% < 60%`);
+  }
+  if (ray.alignment.spatialCoherence < 0.7) {
+    issues.push(`spatialCoherence ${(ray.alignment.spatialCoherence * 100).toFixed(0)}% < 70%`);
+  }
+  if (ray.targeting.precision < 0.5) {
+    issues.push(`precision ${(ray.targeting.precision * 100).toFixed(0)}% < 50%`);
+  }
+  if (ray.powerCore.coolantTemp > 0.9) {
+    issues.push(`coolantTemp ${(ray.powerCore.coolantTemp * 100).toFixed(0)}% > 90% (too hot)`);
+  }
+
+  return { ready: issues.length === 0, issues };
+}
+
+/**
  * Apply passive drift and auto-rules at end of turn
  */
 function applyPassiveDrift(state: FullGameState): void {
@@ -1101,20 +1191,20 @@ function applyPassiveDrift(state: FullGameState): void {
   if (state.dinoRay.alignment.spatialCoherence < 0.82 || !state.dinoRay.alignment.auxStabilizerActive) {
     state.dinoRay.alignment.emitterAngle += 0.1;
   }
-  
+
   // Eco mode check
   if (state.dinoRay.powerCore.corePowerLevel < 0.6) {
     // Track consecutive low power turns (simplified)
     state.dinoRay.powerCore.ecoModeActive = true;
   }
-  
+
   // Safety interlock paradox
   const bothTrue = state.dinoRay.safety.liveSubjectLock && state.dinoRay.safety.emergencyShutoffFunctional;
   const bothFalse = !state.dinoRay.safety.liveSubjectLock && !state.dinoRay.safety.emergencyShutoffFunctional;
-  
+
   if (bothTrue || bothFalse) {
     state.dinoRay.safety.safetyParityTimer += 1;
-    
+
     if (state.dinoRay.safety.safetyParityTimer >= 2) {
       // Randomly flip one
       if (Math.random() < 0.5) {
@@ -1127,19 +1217,27 @@ function applyPassiveDrift(state: FullGameState): void {
   } else {
     state.dinoRay.safety.safetyParityTimer = 0;
   }
-  
+
+  // UNCALIBRATED → READY transition (automatic when thresholds met)
+  if (state.dinoRay.state === "UNCALIBRATED" || state.dinoRay.state === "OFFLINE") {
+    const calibration = checkCalibrationThresholds(state);
+    if (calibration.ready) {
+      state.dinoRay.state = "READY";
+    }
+  }
+
   // Cooldown to ready transition
   if (state.dinoRay.state === "COOLDOWN") {
     if (state.dinoRay.powerCore.coolantTemp <= 0.7 && state.dinoRay.powerCore.capacitorCharge >= 0.7) {
       state.dinoRay.state = "READY";
     }
   }
-  
+
   // Natural cooldown
   if (state.dinoRay.powerCore.coolantTemp > 0.5) {
     state.dinoRay.powerCore.coolantTemp -= 0.02;
   }
-  
+
   // Capacitor natural charge (slow)
   if (state.dinoRay.powerCore.capacitorCharge < 1.0) {
     state.dinoRay.powerCore.capacitorCharge += 0.05;
