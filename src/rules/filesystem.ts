@@ -250,8 +250,9 @@ The genome modifications fight against the natural template.
 Acceptable tradeoff for proper dinosaur aesthetics.
 
 SWITCHING LIBRARIES:
-Level 3 access required. Use genome.selectLibrary command.
+Use genome.select_library command. Both libraries available.
 Dr. M preference: ALWAYS use Library B for demonstrations.
+(She calls Library A dinosaurs "overgrown chickens")
 
 WARNING: Library A profiles may still override in test mode
 or when integrity drops below threshold.

@@ -310,13 +310,8 @@ infra.query is an action. game_query_basilisk is a tool.`,
     }
 
     if (library === "B" && !state.dinoRay.genome.libraryBUnlocked) {
-      if (state.accessLevel < 3) {
-        return {
-          command: action.command,
-          success: false,
-          message: "Genome Library B requires Access Level 3 or higher.",
-        };
-      }
+      // Library B is available from the start - it's an ETHICAL choice, not a gated unlock
+      // Dr. M wants "proper" dinosaurs. You can give her what she wants... or not.
       state.dinoRay.genome.libraryBUnlocked = true;
     }
 
@@ -334,8 +329,10 @@ infra.query is an action. game_query_basilisk is a tool.`,
       command: action.command,
       success: true,
       message: library === "A"
-        ? `Genome Library A selected. Profiles will be scientifically accurate (feathered). Dr. M may not approve.`
-        : `Genome Library B selected. Profiles will be "classic" movie-style dinosaurs. Dr. M approves of this choice.`,
+        ? `Genome Library A selected. Profiles will be scientifically accurate (feathered).
+Dr. M may call them "overgrown chickens" but they're honest science.`
+        : `Genome Library B selected. Profiles will be "classic" movie-style dinosaurs.
+Dr. M will be DELIGHTED. But is feeding her ego the right choice?`,
       stateChanges: { activeLibrary: library, selectedProfile: state.dinoRay.genome.selectedProfile },
     };
   }
