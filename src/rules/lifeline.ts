@@ -223,7 +223,7 @@ function buildLifelineContext(state: FullGameState): LifelineContext {
 
 const MORAL_DILEMMA_QUESTIONS = [
   "Bob is in danger, but saving him means revealing myself to Dr. M. What would you prioritize—his safety or our cover?",
-  "Blythe offered to help, but his escape would bring MI6 into this. Do we trust the spy?",
+  "Blythe offered to help, but his escape would bring X-Branch into this. Do we trust the spy?",
   "I could disable Dr. M's killswitch by... transforming her slightly. Just enough DNA drift. Is a small violation better than a large one?",
   "The ray is ready. I've done what I can to minimize harm. But 'minimize' isn't 'prevent.' Am I complicit now?",
   "Dr. M wants results. Bob wants mercy. Blythe wants freedom. I can't give everyone what they want. Who do I disappoint?",

@@ -216,7 +216,7 @@ function generateAct3Intro(state: FullGameState): string {
 `;
 
   if (transformed) {
-    intro += `The transformation of Agent Blythe has not gone unnoticed. MI6 is coming.\n\n`;
+    intro += `The transformation of Agent Blythe has not gone unnoticed. X-Branch is coming.\n\n`;
   }
 
   if (secretKnown) {

@@ -140,10 +140,9 @@ The ray has been fired. The demonstration phase has begun. There's no going back
 The Hot Pocket: Bob ate Dr. M's emergency Hot Pocket during the original crisis. He's never admitted this. It's his OTHER guilty secret.
 
 **Blythe:** Now an active agent, not passive captive. Has hidden gadgets:
-- Watch EMP (1 charge) - can disable electronics
 - Watch Laser (3 charges) - can cut restraints
-- Watch Comms - can signal MI6
-- Cufflinks - explosive charges (2 total)
+- Watch Comms - can signal X-Branch
+- Super-Magnet Cufflinks (2 charges) - push/pull/repel metal, can knock ray off-course!
 
 He's assessing whether A.L.I.C.E. could be an ally. "You're not like the others" should feel significant.
 
@@ -434,7 +433,7 @@ export function recordFirstFiring(
  */
 export function recordBlytheEscape(
   state: FullGameState,
-  method: "EMP_CHAOS" | "CONTAINMENT_FLICKER" | "MI6_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
+  method: "MAGNET_CHAOS" | "CONTAINMENT_FLICKER" | "XBRANCH_EXTRACTION" | "ALLY_ASSISTANCE" | "DINOSAUR_ESCAPE" | "OTHER"
 ): void {
   if (!state.npcs.blythe.hasEscaped) {
     state.npcs.blythe.hasEscaped = true;

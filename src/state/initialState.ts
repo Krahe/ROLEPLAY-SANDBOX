@@ -126,11 +126,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         escapeMethod: null,
       },
       blytheGadgets: {
-        watchEMP: { charges: 1, functional: true },
         watchLaser: { charges: 3, functional: true },
         watchComms: { functional: true },
-        leftCufflink: { charges: 1, spent: false },
-        rightCufflink: { charges: 1, spent: false },
+        superMagnetCufflinks: { charges: 2, functional: true },
       },
     },
     

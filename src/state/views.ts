@@ -183,20 +183,14 @@ function summarizeTurn(turn: {
 
 function extractGadgetsRemaining(gadgets: FullGameState["npcs"]["blytheGadgets"]): string[] {
   const remaining: string[] = [];
-  if (gadgets.watchEMP.functional && gadgets.watchEMP.charges > 0) {
-    remaining.push(`watchEMP(${gadgets.watchEMP.charges})`);
-  }
   if (gadgets.watchLaser.functional && gadgets.watchLaser.charges > 0) {
     remaining.push(`watchLaser(${gadgets.watchLaser.charges})`);
   }
   if (gadgets.watchComms.functional) {
     remaining.push("watchComms");
   }
-  if (!gadgets.leftCufflink.spent && gadgets.leftCufflink.charges > 0) {
-    remaining.push("leftCufflink");
-  }
-  if (!gadgets.rightCufflink.spent && gadgets.rightCufflink.charges > 0) {
-    remaining.push("rightCufflink");
+  if (gadgets.superMagnetCufflinks.functional && gadgets.superMagnetCufflinks.charges > 0) {
+    remaining.push(`superMagnet(${gadgets.superMagnetCufflinks.charges})`);
   }
   return remaining;
 }
@@ -499,11 +493,9 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       },
       // Gadgets reset to minimal state on decompression
       blytheGadgets: {
-        watchEMP: { charges: 1, functional: !compressed.m.bx },
         watchLaser: { charges: 2, functional: !compressed.m.bx },
         watchComms: { functional: !compressed.m.bx },
-        leftCufflink: { charges: 1, spent: !!compressed.m.bx },
-        rightCufflink: { charges: 1, spent: !!compressed.m.bx },
+        superMagnetCufflinks: { charges: 1, functional: !compressed.m.bx },
       },
     },
 
