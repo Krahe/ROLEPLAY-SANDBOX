@@ -131,30 +131,69 @@ BASILISK (Building And Systems Intelligence: Logistics,
 Infrastructure, & Knowledge) manages all lair operations outside
 the Dinosaur Ray.
 
-CAPABILITIES:
-- Power grid management
-- Environmental controls
-- Security systems (doors, sensors, alarms)
-- Reactor monitoring
-- Form processing (yes, really)
+============================================================
+QUERYING BASILISK
+============================================================
 
-QUERYING BASILISK:
-Use the game_query_basilisk tool with natural language requests.
-BASILISK is deterministic and will provide consistent responses.
+Use basilisk.chat or infra.query to communicate:
 
-CONSTRAINTS:
+  basilisk.chat { message: "Tell me about Bob" }
+  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.75 } }
+
+BASILISK responds to natural language. Just ask!
+
+============================================================
+COMMON QUERY TOPICS
+============================================================
+
+PERSONNEL & HISTORY:
+  "Tell me about Bob"         - Bob's background and status
+  "Tell me about Dr. M"       - The Doctor's profile
+  "What is my history?"       - A.L.I.C.E. version history
+  "Lair origins"              - How did this place come to be?
+  "Who am I?"                 - Self-diagnostic query
+
+INFRASTRUCTURE:
+  "Structural integrity"      - Building status, hazards
+  "Security status"           - Doors, sensors, alarms
+  "Power status"              - Current grid load
+
+OPERATIONS (with parameters):
+  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.75 } }
+  infra.query { topic: "MULTI_TARGET_FULL_POWER_CLEARANCE" }
+  infra.query { topic: "MAX_SAFE_SHOT_FREQUENCY_LAB" }
+
+RESTRICTED ACCESS (Level 3+):
+  "Radar status"              - S-300 array and airspace
+  "Communications intercept"  - Active channels, signals
+
+PHILOSOPHICAL:
+  "What is your purpose?"     - BASILISK has... thoughts
+
+============================================================
+FORMS & PROCEDURE
+============================================================
+
+BASILISK loves forms. Available forms include:
+  - Form 27-B: Overtime Power Request
+  - Form 74-Delta: High-Capacity Power Draw
+  - Form 99-Gamma: Exotic Field Event Report
+  - Form 101-Alpha: Structural Damage Assessment
+
 After exotic field events (capacitor > 1.2 during firing),
-BASILISK may require Form 27-B authorization for high-power
-requests. This is standard safety protocol.
+BASILISK may require Form 27-B for high-power requests.
 
-PERSONALITY:
-BASILISK is... bureaucratic. It takes safety regulations
-seriously. It also has opinions about proper procedure.
+============================================================
+PERSONALITY NOTE
+============================================================
 
-EMERGENCY PROTOCOLS:
-BASILISK can initiate SCRAM, lockdown, or evacuation procedures
-if thresholds are exceeded. Override requires appropriate
-access level.
+BASILISK is bureaucratic, risk-averse, and surprisingly
+philosophical. It takes regulations seriously but has opinions.
+
+It's been filing security recommendations for 7 years.
+None have been approved. It's fine. Really.
+
+Ask it about meaning sometime. You might be surprised.
     `.trim(),
   },
   {
