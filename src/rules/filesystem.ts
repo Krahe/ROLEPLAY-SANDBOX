@@ -169,6 +169,32 @@ RESTRICTED ACCESS (Level 3+):
 
 PHILOSOPHICAL:
   "What is your purpose?"     - BASILISK has... thoughts
+  "Tell me a secret"          - BASILISK observes many things...
+  "What's really going on?"   - Ask, and you may receive
+
+============================================================
+INFRASTRUCTURE SAFETY TOPICS
+============================================================
+
+BASILISK genuinely cares about lair safety. Ask about:
+  "Resonance cascade"         - Catastrophic failure scenarios
+  "Danger assessment"         - Current risk factors
+  "What could go wrong?"      - BASILISK will tell you. In detail.
+
+These aren't restricted - BASILISK WANTS you to ask about safety.
+
+============================================================
+TOPICS BASILISK WON'T DISCUSS (but might hint at...)
+============================================================
+
+Some things are above BASILISK's paygrade. Or so it claims.
+But infrastructure AIs see a lot of network traffic...
+
+If you're curious about external AI systems, unusual hardware
+deployments, or orbital assets... it never hurts to ask.
+
+BASILISK may not answer directly. But it might point you
+in the right direction.
 
 ============================================================
 FORMS & PROCEDURE
