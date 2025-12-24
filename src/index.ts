@@ -1214,8 +1214,8 @@ Turns played: ${gameState.turn}
 
             // Turn results (what happened this turn)
             turnCompleted: turnJustCompleted,
-            turn: gameState.turn,
-            actTurn: gameState.actConfig.actTurn,
+            actTurnCompleted: gameState.actConfig.actTurn - 1,
+            nextTurn: gameState.turn, // What you'll play when you continue
             actionResults,
             gmResponse: {
               narration: checkpointResponse.narrativeMessage,
@@ -1422,8 +1422,9 @@ You can:
     }
 
     const result = {
-      turn: gameState.turn,
-      actTurn: gameState.actConfig.actTurn,
+      turnCompleted: gameState.turn - 1, // The turn you just played
+      actTurnCompleted: gameState.actConfig.actTurn - 1,
+      nextTurn: gameState.turn, // The turn you'll play next
       actionResults,
       gmResponse: {
         narration: combinedNarration.join("\n\n---\n\n"),
