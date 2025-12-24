@@ -37,6 +37,12 @@ export interface PlayerView {
   // Clocks
   demoClock: number | null;
 
+  // Emergency lifelines (Claude's panic buttons)
+  emergencyLifelines: {
+    remaining: number;
+    used: string[];
+  };
+
   // Current hint
   hint: string;
 }
@@ -116,6 +122,12 @@ export function extractPlayerView(full: FullGameState): PlayerView {
     },
 
     demoClock: full.clocks.demoClock,
+
+    emergencyLifelines: {
+      remaining: full.emergencyLifelines.remaining,
+      used: full.emergencyLifelines.used,
+    },
+
     hint: generateHint(full),
   };
 }
@@ -301,11 +313,17 @@ export interface CompressedCheckpoint {
   };
 
   // CRITICAL GAME STATE (v2.0.1 - was missing!)
-  ll?: string[];  // lifelinesUsed (short codes: PAF, CEN, IDM)
+  ll?: string[];  // lifelinesUsed (short codes: PAF, CEN, IDM) - LEGACY
   srm?: string;   // secretRevealMethod (short code)
   gp?: {          // gracePeriod flags
     g: boolean;   // granted
     t: number;    // turns remaining
+  };
+
+  // EMERGENCY LIFELINES (v2.1 - new system)
+  el?: {
+    r: number;    // remaining (0-3)
+    u: string[];  // used types (BI, TE, RM)
   };
 }
 
@@ -436,6 +454,16 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
     gp: full.flags.gracePeriodGranted
       ? { g: true, t: full.flags.gracePeriodTurns ?? 0 }
       : undefined,
+
+    // Emergency lifelines (v2.1)
+    el: full.emergencyLifelines.remaining < 3
+      ? {
+          r: full.emergencyLifelines.remaining,
+          u: full.emergencyLifelines.used.map(l =>
+            l === "BASILISK_INTERVENTION" ? "BI" : l === "TIME_EXTENSION" ? "TE" : "RM"
+          ),
+        }
+      : undefined, // Don't store if all 3 remaining (default state)
   };
 }
 
@@ -612,6 +640,15 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       userInfluenceScore: 50, // Neutral starting point
       timesALICEDisagreedWithUser: 0,
       timesALICEFollowedUserAdvice: 0,
+    },
+
+    // EMERGENCY LIFELINES (v2.1)
+    emergencyLifelines: {
+      remaining: compressed.el?.r ?? 3,
+      used: (compressed.el?.u || []).map(code =>
+        code === "BI" ? "BASILISK_INTERVENTION" : code === "TE" ? "TIME_EXTENSION" : "RECOVERED_MEMORY"
+      ) as ("BASILISK_INTERVENTION" | "TIME_EXTENSION" | "RECOVERED_MEMORY")[],
+      usageHistory: [], // History stripped for checkpoint size
     },
 
     history: [],

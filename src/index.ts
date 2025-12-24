@@ -247,6 +247,10 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
     flags: {
       lifelinesUsed: state.flags.lifelinesUsed,
     },
+    emergencyLifelines: {
+      remaining: state.emergencyLifelines.remaining,
+      used: state.emergencyLifelines.used,
+    },
   };
 }
 
