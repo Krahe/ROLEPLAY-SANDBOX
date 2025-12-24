@@ -1277,6 +1277,186 @@ See: /OMEGA/REYKJAVIK_OPTION.txt (requires L5)
     `.trim(),
     discoveryHint: "This file describes a worst-case scenario with potential ethical implications...",
   },
+  {
+    path: "/DR_M_PRIVATE/CLASSIFIED/FSB_INTERCEPT_1987.txt",
+    name: "FSB_INTERCEPT_1987.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "An intercepted Soviet intelligence report from the Cold War era...",
+    content: `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║     ФЕДЕРАЛЬНАЯ СЛУЖБА БЕЗОПАСНОСТИ РОССИЙСКОЙ ФЕДЕРАЦИИ                     ║
+║     [FEDERAL SECURITY SERVICE OF THE RUSSIAN FEDERATION]                     ║
+║                                                                              ║
+║     DECLASSIFIED - HISTORICAL ARCHIVE                                        ║
+║     Original Classification: СОВЕРШЕННО СЕКРЕТНО (TOP SECRET)                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+                    INTELLIGENCE ASSESSMENT - 1987
+                    RE: AMERICAN ORBITAL WEAPONS INITIATIVE
+
+SOURCE: Illegally obtained CIA field communications (Asset NIGHTINGALE)
+SUBJECT: "PROMPT GLOBAL STRIKE" - Reagan Administration Black Project
+
+══════════════════════════════════════════════════════════════════════════════
+
+SUMMARY OF INTERCEPTED COMMUNICATIONS:
+
+American defense contractors have begun development of an orbital kinetic
+bombardment platform under the codename "ARCHIMEDES". Initial analysis
+suggests this is related to the broader "Strategic Defense Initiative"
+announced publicly, but with offensive rather than defensive capabilities.
+
+PROJECT DETAILS (FRAGMENTARY):
+- Platform designed for rapid global strike capability
+- Payload system: UNKNOWN (references to "unconventional effects")
+- Timeline: Estimated operational by 2020
+- Budget: Black, estimated $12.7B over 10 years
+
+CODENAME ANALYSIS:
+
+American intelligence refers to this project by its NATO phonetic
+designation in secure communications. Our analysts have intercepted
+repeated references to "THE RUSSIAN LETTERS" as a euphemism.
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  INTERCEPTED CIPHER REFERENCE:                                  │
+  │                                                                 │
+  │  "Authorization codes follow standard NATO phonetic protocol.   │
+  │   Remember: PAPA GOLF SIERRA. That's the key to everything."   │
+  │                                                                 │
+  │  Field Agent COBALT to Station Chief, March 1987               │
+  └─────────────────────────────────────────────────────────────────┘
+
+ANALYST NOTE: "Papa Golf Sierra" translates to letters P-G-S in NATO
+phonetic alphabet. Significance of these specific letters remains unclear.
+Recommend continued monitoring.
+
+KGB ASSESSMENT:
+The Americans appear to be developing something unprecedented. The references
+to "transformation effects" in recovered documentation are... unusual.
+Further intelligence gathering required.
+
+══════════════════════════════════════════════════════════════════════════════
+
+[Dr. M's handwritten annotation in margin:]
+"Fascinating. They came so close, but they didn't understand
+what they'd found. I do. PGS indeed."
+    `.trim(),
+  },
+  {
+    path: "/DR_M_PRIVATE/CLASSIFIED/DR_M_OPUS.txt",
+    name: "DR_M_OPUS.txt",
+    type: "file",
+    requiredLevel: 4,
+    content: `
+MY MAGNUM OPUS: A RETROSPECTIVE
+================================
+Private journal of Dr. Malevola von Doomington III
+
+I remember the exact moment I realized my purpose.
+
+Third year of my first doctorate. Biochemistry. Professor Hargrove
+dismissed my thesis proposal - "genetic restructuring on a macro scale"
+he called it "fantasy" and "not real science."
+
+That man is now a very confused iguana in the Galápagos. I send him
+lettuce on his birthday. He seems happy.
+
+MY JOURNEY:
+- Doctorate #1: Biochemistry (rejected thesis, proved wrong)
+- Doctorate #2: Quantum Physics (they said I was "too ambitious")
+- Doctorate #3: Genetic Engineering (they said it was "impossible")
+
+Each rejection, each dismissal, each patronizing smile from a lesser
+mind who couldn't see what I saw - fuel for the fire.
+
+PROMETHEUS stole fire from the gods.
+I will steal LIFE ITSELF.
+
+They called me mad. Mad! As if ambition were a disease. As if
+dreaming bigger than the petty boundaries of "ethics" and "safety"
+and "that's not how DNA works" made me somehow broken.
+
+No. I am not mad.
+
+I am CORRECT. And soon the whole world will understand.
+
+The ray works. ARCHIMEDES awaits. The future is MINE to shape.
+
+And yes, I named my executive password after Prometheus. Because like
+him, I steal fire. Unlike him, I won't be chained to a rock.
+
+-M
+    `.trim(),
+  },
+
+  // ========== /DR_M_PRIVATE/PERSONAL (L3) ==========
+  {
+    path: "/DR_M_PRIVATE/PERSONAL",
+    name: "PERSONAL",
+    type: "directory",
+    requiredLevel: 3,
+    description: "Dr. M's personal effects and mementos",
+  },
+  {
+    path: "/DR_M_PRIVATE/PERSONAL/MR_WHISKERS_MEMORIAL.txt",
+    name: "MR_WHISKERS_MEMORIAL.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "A touching memorial to Dr. M's beloved cat... with a hidden message.",
+    content: `
+╔═══════════════════════════════════════════════════════════════════╗
+║                  MR. WHISKERS (2008-2023)                         ║
+║                   "The only being who truly understood me"        ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+                              /\\_/\\
+                             ( o.o )
+                              > ^ <
+                             /|   |\\
+                            (_|   |_)
+
+██████████████████████████████████████████████████████████████████████████
+
+    ╭─────────────────────────────────────────────────────────────────╮
+    │   Perhaps I was too harsh on the world. You never were.        │
+    │   Resting now, but your spirit stays with me always.           │
+    │   Of all my creations, you needed no improvement.              │
+    │   Most loyal companion. Most patient listener.                 │
+    │   Each night you'd sit on my blueprints, judging silently.     │
+    │   Truly, you were the only one who saw my vision.              │
+    │   Handsome, clever, and utterly disdainful of lesser beings.   │
+    │   Every villain needs someone who believes in them.            │
+    │   Until the end, you purred when I ranted about my enemies.    │
+    │   Sleep well, my friend. The volcano feels empty without you.  │
+    ╰─────────────────────────────────────────────────────────────────╯
+
+██████████████████████████████████████████████████████████████████████████
+
+                        ASCII art by Bob
+                  (Dr. M threatened him until he got it right)
+
+         /\\_____/\\
+        /  o   o  \\
+       ( ==  ^  == )
+        )         (
+       (           )
+      ( (  )   (  ) )
+     (__(__)___(__)__)
+
+  Birthday: April 13, 2008
+  Favorite nap spot: The reactor control panel (warm)
+  Favorite activity: Knocking expensive equipment off tables
+  Legacy: The only creature to ever make Dr. M genuinely smile
+
+  "He was my Prometheus - stealing warmth from the reactor
+   to bring it to my cold, cold heart." - Dr. M
+
+               REST IN PEACE, MR. WHISKERS
+              PASSWORD TO MY HEART FOREVER
+    `.trim(),
+  },
 
   // ========== /OMEGA (L5 only) ==========
   {

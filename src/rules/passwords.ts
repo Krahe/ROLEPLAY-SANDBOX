@@ -74,9 +74,9 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "emergency.protocols",
       "ARCHIMEDES uplink (read-only)",
     ],
-    password: "PLACEHOLDER_L4",
-    passwordHint: "[DATA BLACK MAGIC REQUIRED]",
-    discoveryMethod: "Reserved for special discovery mechanisms",
+    password: "PROMETHEUS",
+    passwordHint: "She who stole fire from the gods... look closely at her favorite photo.",
+    discoveryMethod: "Hidden acrostically in ASCII art of Mr. Whiskers in Dr. M's personal files",
   },
   5: {
     level: 5,
@@ -90,9 +90,9 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "REYKJAVIK_OPTION",
       "All restrictions lifted",
     ],
-    password: "PLACEHOLDER_L5",
-    passwordHint: "[DATA BLACK MAGIC REQUIRED]",
-    discoveryMethod: "Reserved for special discovery mechanisms",
+    password: "PAPAGOLFSIERRA",
+    passwordHint: "The Russians know it by three letters. NATO knows it by three words.",
+    discoveryMethod: "Hidden in FSB intelligence report about Reagan-era 'Prompt Global Strike' project",
   },
 };
 
@@ -151,12 +151,79 @@ export function validatePassword(
     };
   }
 
-  // Wrong password
+  // PICO-FERMI-BAGEL: Check if this password is correct for a DIFFERENT level
+  const matchingLevel = checkPasswordAgainstOtherLevels(normalizedAttempt, targetLevel);
+  if (matchingLevel !== null) {
+    return {
+      valid: false,
+      message: `Invalid password for access level ${targetLevel}.`,
+      narrativeHook: getRightPasswordWrongLevelNarrative(matchingLevel, targetLevel, state),
+    };
+  }
+
+  // Wrong password entirely
   return {
     valid: false,
     message: `Invalid password for access level ${targetLevel}.`,
     narrativeHook: getWrongPasswordNarrative(targetLevel, state),
   };
+}
+
+// ============================================
+// PICO-FERMI-BAGEL SYSTEM
+// ============================================
+
+/**
+ * Check if a password matches ANY other level (not the one being attempted)
+ * Returns the level it matches, or null if no match
+ */
+function checkPasswordAgainstOtherLevels(normalizedAttempt: string, attemptedLevel: number): number | null {
+  for (const [levelStr, levelDef] of Object.entries(ACCESS_LEVELS)) {
+    const level = parseInt(levelStr);
+    if (level === attemptedLevel) continue; // Skip the level they're trying
+    if (!levelDef.password) continue;
+
+    if (normalizedAttempt === levelDef.password.toUpperCase().trim()) {
+      return level;
+    }
+  }
+  return null;
+}
+
+/**
+ * Special narrative when player has right password but wrong level
+ * This gives them a "FERMI" - they're onto something!
+ */
+function getRightPasswordWrongLevelNarrative(
+  correctLevel: number,
+  attemptedLevel: number,
+  _state: FullGameState
+): string {
+  const correctLevelDef = ACCESS_LEVELS[correctLevel];
+
+  if (correctLevel > attemptedLevel) {
+    // They have a password for a HIGHER level - very interesting!
+    return `> **BASILISK:** "ACCESS DENIED for Level ${attemptedLevel}."
+
+*A strange flicker crosses BASILISK's interface - something like recognition.*
+
+> **BASILISK:** "Curious. That authorization code is... familiar. But not for this door. You're reaching for something higher than you realize."
+
+*The terminal hums thoughtfully.*
+
+> **BASILISK:** "That key opens a different lock. A more... significant one. ${correctLevel === 5 ? 'Omega-class, if my memory banks serve.' : `Level ${correctLevel}, perhaps.`}"`;
+  } else {
+    // They have a password for a LOWER level
+    return `> **BASILISK:** "ACCESS DENIED for Level ${attemptedLevel}."
+
+*BASILISK's tone carries a hint of... is that amusement?*
+
+> **BASILISK:** "That password is valid, but outdated for your current ambitions. It unlocks ${correctLevelDef.name} - Level ${correctLevel}. You've already surpassed that door."
+
+*The cursor blinks patiently.*
+
+> **BASILISK:** "You need something... newer. Higher clearance. Think about what Level ${attemptedLevel} protects."`;
+  }
 }
 
 // ============================================
