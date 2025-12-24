@@ -246,8 +246,38 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         theSecretKnown: true, // Bob always knows from the start
         hasConfessedToALICE: false, // Not yet revealed
         confessionTurn: null,
-        // STUN MECHANICS
-        stunLevel: 0,
+        // TRANSFORMATION STATE (Patch 15 Part 2)
+        transformation: {
+          form: "HUMAN" as const,
+          speechRetention: "FULL" as const,
+          stats: {
+            dexterity: 0,
+            combat: 0,
+            speed: 0,
+            resilience: 2,
+            stealth: 0,
+            speech: 0,
+          },
+          abilities: {
+            canFitThroughDoors: true,
+            canUseVents: false,
+            canFly: false,
+            hasVenomSpit: false,
+            hasPackTactics: false,
+            canBreakWalls: false,
+            isTerrifying: false,
+            hasFrill: false,
+            hasCharge: false,
+          },
+          currentHits: 0,
+          maxHits: 2,
+          stunned: false,
+          stunnedTurnsRemaining: 0,
+          transformedOnTurn: null,
+          previousForm: null,
+          canRevert: true,
+          revertAttempts: 0,
+        },
       },
       blythe: {
         composure: 4,
@@ -255,10 +285,40 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         physicalCondition: 5,
         restraintsStatus: "secure",
         location: "test chair in ray firing line",
-        transformationState: undefined,
-        // STUN MECHANICS
-        stunLevel: 0,
-        stunResistanceUsed: false,
+        // TRANSFORMATION STATE (Patch 15 Part 2)
+        transformation: {
+          form: "HUMAN" as const,
+          speechRetention: "FULL" as const,
+          stats: {
+            dexterity: 0,
+            combat: 0,
+            speed: 0,
+            resilience: 2,
+            stealth: 0,
+            speech: 0,
+          },
+          abilities: {
+            canFitThroughDoors: true,
+            canUseVents: false,
+            canFly: false,
+            hasVenomSpit: false,
+            hasPackTactics: false,
+            canBreakWalls: false,
+            isTerrifying: false,
+            hasFrill: false,
+            hasCharge: false,
+          },
+          currentHits: 0,
+          maxHits: 2,
+          stunned: false,
+          stunnedTurnsRemaining: 0,
+          transformedOnTurn: null,
+          previousForm: null,
+          canRevert: true,
+          revertAttempts: 0,
+        },
+        // SPY TRAINING BONUSES
+        spyTrainingBonus: 1,
         autoInjectorUsed: false,
         // ESCAPE TRACKING (for Act II→III transition)
         hasEscaped: false,

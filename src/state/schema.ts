@@ -384,6 +384,78 @@ export const InfrastructureSchema = z.object({
 export type InfrastructureState = z.infer<typeof InfrastructureSchema>;
 
 // ============================================
+// TRANSFORMATION MECHANICS (Patch 15 Part 2)
+// ============================================
+// Transformations are TRADEOFFS, not upgrades.
+// Every form has strengths AND weaknesses.
+
+export const DinosaurFormEnum = z.enum([
+  "HUMAN",
+  "COMPSOGNATHUS",
+  "VELOCIRAPTOR_ACCURATE",
+  "VELOCIRAPTOR_JP",
+  "VELOCIRAPTOR_BLUE",
+  "TYRANNOSAURUS",
+  "DILOPHOSAURUS",
+  "PTERANODON",
+  "TRICERATOPS",
+  "CANARY",
+]);
+export type DinosaurForm = z.infer<typeof DinosaurFormEnum>;
+
+// SpeechRetentionEnum is defined above with TargetingSchema
+export type SpeechRetention = z.infer<typeof SpeechRetentionEnum>;
+
+// Form statistics block
+export const FormStatsSchema = z.object({
+  dexterity: z.number().int(),  // DEX: Fine motor, keypads, manipulation
+  combat: z.number().int(),     // COM: Fighting, intimidation
+  speed: z.number().int(),      // SPD: Movement turns, chase/escape
+  resilience: z.number().int(), // RES: Hits to stun
+  stealth: z.number().int(),    // STL: Hiding, sneaking
+  speech: z.number().int(),     // SPH: Communication (modified by retention)
+});
+export type FormStats = z.infer<typeof FormStatsSchema>;
+
+// Form abilities flags
+export const FormAbilitiesSchema = z.object({
+  canFitThroughDoors: z.boolean(),
+  canUseVents: z.boolean(),
+  canFly: z.boolean(),
+  hasVenomSpit: z.boolean(),
+  hasPackTactics: z.boolean(),
+  canBreakWalls: z.boolean(),
+  isTerrifying: z.boolean(),     // Auto-success intimidation vs humans
+  hasFrill: z.boolean(),         // Extra intimidation when deployed
+  hasCharge: z.boolean(),        // Triceratops charge attack
+});
+export type FormAbilities = z.infer<typeof FormAbilitiesSchema>;
+
+// Full transformation state for a character
+export const TransformationStateSchema = z.object({
+  // Current form
+  form: DinosaurFormEnum,
+  speechRetention: SpeechRetentionEnum,
+
+  // Current stats (calculated from form + retention)
+  stats: FormStatsSchema,
+  abilities: FormAbilitiesSchema,
+
+  // Damage tracking
+  currentHits: z.number().int().min(0),  // Hits taken
+  maxHits: z.number().int().min(1),      // Max hits before stun
+  stunned: z.boolean(),
+  stunnedTurnsRemaining: z.number().int().min(0),
+
+  // Transformation metadata
+  transformedOnTurn: z.number().int().nullable(),
+  previousForm: DinosaurFormEnum.nullable(),
+  canRevert: z.boolean(),  // Has reversal been attempted?
+  revertAttempts: z.number().int().min(0),
+});
+export type TransformationState = z.infer<typeof TransformationStateSchema>;
+
+// ============================================
 // NPCs
 // ============================================
 
@@ -406,8 +478,8 @@ export const BobSchema = z.object({
   hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
   hasConfessedToDrM: z.boolean().optional(), // Has Bob confessed to Dr. M? (GM override)
   confessionTurn: z.number().int().nullable(), // When did he confess?
-  // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
-  stunLevel: z.number().int().min(0).max(3).default(0),
+  // TRANSFORMATION STATE (Patch 15 Part 2)
+  transformation: TransformationStateSchema,
 });
 
 export const BlytheEscapeMethodEnum = z.enum([
@@ -425,12 +497,11 @@ export const BlytheSchema = z.object({
   physicalCondition: z.number().min(0).max(5),
   restraintsStatus: z.string(),
   location: z.string(),
-  transformationState: z.string().optional(),
-  // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
-  stunLevel: z.number().int().min(0).max(3).default(0),
-  // SPY TRAINING: First stun reduced by 1, has auto-injector (one use)
-  stunResistanceUsed: z.boolean().default(false),
-  autoInjectorUsed: z.boolean().default(false),
+  // TRANSFORMATION STATE (Patch 15 Part 2)
+  transformation: TransformationStateSchema,
+  // SPY TRAINING BONUSES
+  spyTrainingBonus: z.number().int().default(1),  // +1 to tactical decisions
+  autoInjectorUsed: z.boolean().default(false),   // One-time stun recovery
   // ESCAPE TRACKING (for Act II→III transition trigger)
   hasEscaped: z.boolean().default(false),
   escapeTurn: z.number().int().nullable().default(null),

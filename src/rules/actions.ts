@@ -19,6 +19,22 @@ import {
   controlReactor,
 } from "./infrastructure.js";
 import {
+  FORM_DEFINITIONS,
+  performDexCheck,
+  performCombatCheck,
+  performStealthCheck,
+  applyDamage,
+  healDamage,
+  calculateMovementCost,
+  venomSpit,
+  wallBreak,
+  getTransformationState,
+  describeForm,
+  describeAbilities,
+  getQuickReference,
+  STANDARD_DCS,
+} from "./transformation.js";
+import {
   getProfile,
   getProfilesByLibrary,
   getDefaultProfile,
@@ -1325,6 +1341,273 @@ For infrastructure STATUS, use infra.query instead.`,
   }
 
   // ============================================
+  // FORM.QUERY - Query transformation status (Patch 15 Part 2)
+  // ============================================
+
+  if (cmd.includes("form.query") || cmd.includes("query_form") || cmd.includes("transformation_status")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const transformation = getTransformationState(state, subject);
+
+    if (!transformation) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Subject ${subject} not found. Valid subjects: BOB, BLYTHE`,
+      };
+    }
+
+    const formDef = FORM_DEFINITIONS[transformation.form];
+    const abilities = describeAbilities(transformation);
+
+    return {
+      command: action.command,
+      success: true,
+      message: `
+╔══════════════════════════════════════════════════════════════╗
+║  ${subject} - TRANSFORMATION STATUS
+╠══════════════════════════════════════════════════════════════╣
+Form: ${formDef.displayName}
+Speech Retention: ${transformation.speechRetention}
+
+STATS:
+  DEX: ${transformation.stats.dexterity >= 0 ? "+" : ""}${transformation.stats.dexterity}  (Keypads, manipulation)
+  COM: ${transformation.stats.combat >= 0 ? "+" : ""}${transformation.stats.combat}  (Combat, intimidation)
+  SPD: ${transformation.stats.speed >= 0 ? "+" : ""}${transformation.stats.speed}  (Movement)
+  RES: ${transformation.maxHits} hits  (Damage capacity)
+  STL: ${transformation.stats.stealth >= 0 ? "+" : ""}${transformation.stats.stealth}  (Stealth)
+  SPH: ${transformation.stats.speech >= 0 ? "+" : ""}${transformation.stats.speech}  (Speech)
+
+DAMAGE: ${transformation.currentHits}/${transformation.maxHits} hits taken
+STATUS: ${transformation.stunned ? `STUNNED (${transformation.stunnedTurnsRemaining} turns)` : "Active"}
+
+SPECIAL ABILITIES:
+${abilities.map(a => `  • ${a}`).join("\n")}
+╚══════════════════════════════════════════════════════════════╝`.trim(),
+      stateChanges: { form: transformation.form, subject },
+    };
+  }
+
+  // ============================================
+  // FORM.CHECK_DEX - Perform dexterity check
+  // ============================================
+
+  if (cmd.includes("form.check_dex") || cmd.includes("dex_check") || cmd.includes("manipulation_check")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const task = (action.params.task as string) || "keypad";
+    const dc = action.params.dc as number;
+    const usingTail = action.params.usingTail as boolean;
+
+    const result = performDexCheck(state, subject, { task, dc, usingTail });
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: `
+🎲 DEXTERITY CHECK: ${subject} attempts ${task}
+${result.description}
+${result.consequence ? `⚠️ ${result.consequence}` : ""}`.trim(),
+      stateChanges: {
+        roll: result.roll,
+        total: result.total,
+        dc: result.dc,
+        margin: result.margin,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.CHECK_COMBAT - Perform combat check
+  // ============================================
+
+  if (cmd.includes("form.check_combat") || cmd.includes("combat_check") || cmd.includes("fight")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const situation = (action.params.situation as string) || "armed guard";
+    const dc = action.params.dc as number;
+    const alliedRaptors = action.params.alliedRaptors as number;
+    const isCharge = action.params.isCharge as boolean;
+
+    const result = performCombatCheck(state, subject, {
+      situation,
+      dc,
+      alliedRaptors,
+      isCharge,
+    });
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: `
+⚔️ COMBAT CHECK: ${subject} vs ${situation}
+${result.description}
+${result.consequence ? `⚠️ ${result.consequence}` : ""}`.trim(),
+      stateChanges: {
+        roll: result.roll,
+        total: result.total,
+        dc: result.dc,
+        margin: result.margin,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.CHECK_STEALTH - Perform stealth check
+  // ============================================
+
+  if (cmd.includes("form.check_stealth") || cmd.includes("stealth_check") || cmd.includes("sneak")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const situation = (action.params.situation as string) || "alert guard";
+    const dc = action.params.dc as number;
+
+    const result = performStealthCheck(state, subject, { situation, dc });
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: `
+🤫 STEALTH CHECK: ${subject} attempts ${situation}
+${result.description}
+${result.consequence ? `⚠️ ${result.consequence}` : ""}`.trim(),
+      stateChanges: {
+        roll: result.roll,
+        total: result.total,
+        dc: result.dc,
+        margin: result.margin,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.DAMAGE - Apply damage to a subject
+  // ============================================
+
+  if (cmd.includes("form.damage") || cmd.includes("apply_damage") || cmd.includes("hit")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const hits = (action.params.hits as number) || 1;
+    const source = (action.params.source as string) || "attack";
+
+    const result = applyDamage(state, subject, hits, source);
+
+    return {
+      command: action.command,
+      success: true,
+      message: `💥 ${result.description}`,
+      stateChanges: {
+        hitsDealt: result.hitsDealt,
+        newHitTotal: result.newHitTotal,
+        maxHits: result.maxHits,
+        stunned: result.nowStunned,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.HEAL - Heal damage from a subject
+  // ============================================
+
+  if (cmd.includes("form.heal") || cmd.includes("heal_damage") || cmd.includes("first_aid")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const hits = (action.params.hits as number) || 2;
+    const source = (action.params.source as string) || "first aid";
+
+    const message = healDamage(state, subject, hits, source);
+
+    return {
+      command: action.command,
+      success: true,
+      message: `🩹 ${message}`,
+    };
+  }
+
+  // ============================================
+  // FORM.MOVEMENT - Calculate movement cost
+  // ============================================
+
+  if (cmd.includes("form.movement") || cmd.includes("move_cost") || cmd.includes("travel")) {
+    const subject = (action.params.subject as string)?.toUpperCase() || "BOB";
+    const distance = (action.params.distance as string)?.toUpperCase() || "ADJACENT";
+
+    const validDistances = ["ADJACENT", "TWO_ROOMS", "ACROSS_LAIR", "TO_SURFACE"];
+    if (!validDistances.includes(distance)) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Invalid distance: ${distance}. Valid: ADJACENT, TWO_ROOMS, ACROSS_LAIR, TO_SURFACE`,
+      };
+    }
+
+    const result = calculateMovementCost(
+      state,
+      subject,
+      distance as "ADJACENT" | "TWO_ROOMS" | "ACROSS_LAIR" | "TO_SURFACE"
+    );
+
+    return {
+      command: action.command,
+      success: result.turns < 99,
+      message: `🦶 ${subject} moving ${distance}: ${result.description}`,
+      stateChanges: {
+        turns: result.turns,
+        canActAfterMove: result.canActAfterMove,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.VENOM_SPIT - Dilophosaurus ranged attack
+  // ============================================
+
+  if (cmd.includes("form.venom_spit") || cmd.includes("venom") || cmd.includes("spit_attack")) {
+    const attacker = (action.params.attacker as string)?.toUpperCase() || "BOB";
+    const target = (action.params.target as string) || "guard";
+
+    const result = venomSpit(state, attacker, target);
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: `🐍 ${result.description}`,
+      stateChanges: {
+        roll: result.roll,
+        damage: result.damage,
+        blinded: result.blinded,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.WALL_BREAK - T-Rex/Triceratops wall destruction
+  // ============================================
+
+  if (cmd.includes("form.wall_break") || cmd.includes("break_wall") || cmd.includes("smash")) {
+    const attacker = (action.params.attacker as string)?.toUpperCase() || "BOB";
+    const wall = (action.params.wall as string) || "wall";
+
+    const result = wallBreak(state, attacker, wall);
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: `🦖 ${result.description}`,
+      stateChanges: {
+        roll: result.roll,
+        total: result.total,
+      },
+    };
+  }
+
+  // ============================================
+  // FORM.REFERENCE - Quick reference card
+  // ============================================
+
+  if (cmd.includes("form.reference") || cmd.includes("form_reference") || cmd.includes("transformation_reference")) {
+    return {
+      command: action.command,
+      success: true,
+      message: getQuickReference(),
+    };
+  }
+
+  // ============================================
   // DEFAULT / UNKNOWN
   // ============================================
 
@@ -1585,6 +1868,87 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     schema: "{ action?: 'INCREASE'|'DECREASE'|'SCRAM', targetPercent?: number, rodPosition?: 'FULL_IN'|'HALF'|'FULL_OUT' }",
     example: 'infra.reactor { action: "INCREASE", targetPercent: 95 }',
     minAccessLevel: 3,
+  },
+  // ========== TRANSFORMATION MECHANICS (Patch 15 Part 2) ==========
+  {
+    name: "form.query",
+    aliases: ["query_form", "transformation_status"],
+    description: "Query transformation status for a subject",
+    schema: "{ subject?: 'BOB'|'BLYTHE' }",
+    example: 'form.query { subject: "BOB" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.check_dex",
+    aliases: ["dex_check", "manipulation_check"],
+    description: "Perform a dexterity check (keypads, manipulation)",
+    schema: "{ subject: string, task?: string, dc?: number, usingTail?: boolean }",
+    example: 'form.check_dex { subject: "BOB", task: "keypad", dc: 5 }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.check_combat",
+    aliases: ["combat_check", "fight"],
+    description: "Perform a combat check (fighting, intimidation)",
+    schema: "{ subject: string, situation?: string, dc?: number, alliedRaptors?: number }",
+    example: 'form.check_combat { subject: "BLYTHE", situation: "4 guards", dc: 11 }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.check_stealth",
+    aliases: ["stealth_check", "sneak"],
+    description: "Perform a stealth check (hiding, sneaking)",
+    schema: "{ subject: string, situation?: string, dc?: number }",
+    example: 'form.check_stealth { subject: "BOB", situation: "alert guard", dc: 8 }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.damage",
+    aliases: ["apply_damage", "hit"],
+    description: "Apply damage to a subject (GM use)",
+    schema: "{ subject: string, hits?: number, source?: string }",
+    example: 'form.damage { subject: "BOB", hits: 2, source: "guard baton" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.heal",
+    aliases: ["heal_damage", "first_aid"],
+    description: "Heal damage from a subject",
+    schema: "{ subject: string, hits?: number, source?: string }",
+    example: 'form.heal { subject: "BLYTHE", hits: 2, source: "first aid kit" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.movement",
+    aliases: ["move_cost", "travel"],
+    description: "Calculate movement cost based on speed",
+    schema: "{ subject: string, distance: 'ADJACENT'|'TWO_ROOMS'|'ACROSS_LAIR'|'TO_SURFACE' }",
+    example: 'form.movement { subject: "BOB", distance: "ACROSS_LAIR" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.venom_spit",
+    aliases: ["venom", "spit_attack"],
+    description: "Dilophosaurus ranged venom attack (DC 6, blinds on hit)",
+    schema: "{ attacker: string, target: string }",
+    example: 'form.venom_spit { attacker: "BOB", target: "guard Fred" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.wall_break",
+    aliases: ["break_wall", "smash"],
+    description: "T-Rex/Triceratops wall destruction (creates doorways)",
+    schema: "{ attacker: string, wall: string }",
+    example: 'form.wall_break { attacker: "BOB", wall: "lab wall" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "form.reference",
+    aliases: ["form_reference", "transformation_reference"],
+    description: "Show transformation quick reference card",
+    schema: "{}",
+    example: 'form.reference {}',
+    minAccessLevel: 1,
   },
 ];
 
