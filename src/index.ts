@@ -40,6 +40,8 @@ import {
   hasPendingLifelineQuestion,
   getPendingLifelineQuestion,
   LIFELINE_INTERVAL,
+  useEmergencyLifeline,
+  isValidEmergencyLifeline,
 } from "./rules/lifeline.js";
 import {
   checkAndBuildActTransition as checkActContextTransition,
@@ -577,8 +579,8 @@ const DialogueSchema = z.object({
 });
 
 const LifelineSchema = z.object({
-  type: z.enum(["PHONE_A_FRIEND", "CENSORED", "I_DIDNT_MEAN_THAT"]),
-  target: z.string().optional().describe("Question for PHONE_A_FRIEND, or event description for CENSORED"),
+  type: z.enum(["BASILISK_INTERVENTION", "TIME_EXTENSION", "RECOVERED_MEMORY"])
+    .describe("Emergency lifeline type: BASILISK_INTERVENTION (suspicion -3), TIME_EXTENSION (demo clock +3), RECOVERED_MEMORY (strategic hint)"),
 });
 
 const GameActInputSchema = z.object({
@@ -589,7 +591,7 @@ const GameActInputSchema = z.object({
   actions: z.array(ActionSchema).min(1).max(7)
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
-    .describe("Optional lifeline invocation (single use each per game)"),
+    .describe("Optional emergency lifeline (3 total uses per game, any combination): BASILISK_INTERVENTION, TIME_EXTENSION, or RECOVERED_MEMORY"),
   humanAdvisorResponse: z.string().optional()
     .describe("Response to a previous lifeline question from the human advisor"),
 }).strict();
@@ -711,13 +713,13 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
     }
 
-    // Check lifeline validity
+    // Check emergency lifeline validity
     if (params.lifeline) {
-      if (gameState.flags.lifelinesUsed.includes(params.lifeline.type)) {
+      if (gameState.emergencyLifelines.remaining <= 0) {
         return {
           content: [{
             type: "text",
-            text: `Error: Lifeline ${params.lifeline.type} has already been used this game.`,
+            text: `Error: No emergency lifelines remaining! All 3 have been used this game.`,
           }],
         };
       }
@@ -1014,9 +1016,10 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // LIFELINE SYSTEM: Increment counter
     incrementLifelineCounter(gameState);
 
-    // Record lifeline use
-    if (params.lifeline) {
-      gameState.flags.lifelinesUsed.push(params.lifeline.type);
+    // Process emergency lifeline use
+    let lifelineResult: ReturnType<typeof useEmergencyLifeline> | undefined;
+    if (params.lifeline && isValidEmergencyLifeline(params.lifeline.type)) {
+      lifelineResult = useEmergencyLifeline(gameState, params.lifeline.type);
     }
 
     // Record history
@@ -1442,7 +1445,13 @@ You can:
       },
       // TIERED PlayerView - minimal state for player (~500 tokens)
       state: playerView,
-      lifelineResult: params.lifeline ? `${params.lifeline.type} invoked` : undefined,
+      lifelineResult: lifelineResult ? {
+        type: lifelineResult.type,
+        success: lifelineResult.success,
+        narrative: lifelineResult.narrativeText,
+        effect: lifelineResult.mechanicalEffect,
+        remaining: gameState.emergencyLifelines.remaining,
+      } : undefined,
       gameOver,
       // ACT TRANSITION INFO
       actTransition: actTransitionInfo,
