@@ -89,7 +89,145 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       containmentIntegrity: 100,
       gridLoad: 0.35,
     },
-    
+
+    // ═══════════════════════════════════════════════════════════
+    // INFRASTRUCTURE SYSTEMS (Patch 15)
+    // Clear control surfaces. Each system is a "toy" with
+    // predictable inputs and outputs.
+    // ═══════════════════════════════════════════════════════════
+    infrastructure: {
+      // ─────────────────────────────────────────────
+      // LIGHTING SYSTEM
+      // Query: L1, Control: L2, Master Override: L3
+      // ─────────────────────────────────────────────
+      lighting: {
+        rooms: {
+          MAIN_LAB: "ON",
+          SERVER_ROOM: "ON",
+          CORRIDOR_A: "ON",
+          CORRIDOR_B: "ON",
+          GUARD_ROOM: "ON",
+          DR_M_OFFICE: "ON",
+          REACTOR_ROOM: "ON",
+          SURFACE: "ON",
+        },
+        doomLightsPulsing: true, // Dr. M likes her aesthetic
+        batteryBackupPercent: 100,
+      },
+
+      // ─────────────────────────────────────────────
+      // FIRE SUPPRESSION SYSTEM
+      // ONE USE PER ROOM PER GAME!
+      // Query: L1, Trigger (safe): L2, Trigger (dangerous): L3
+      // ─────────────────────────────────────────────
+      fireSuppression: {
+        rooms: {
+          MAIN_LAB: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+          SERVER_ROOM: { type: "CO2", available: true, triggered: false, turnsRemaining: 0 },
+          CORRIDOR_A: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+          CORRIDOR_B: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+          REACTOR_ROOM: { type: "HALON", available: true, triggered: false, turnsRemaining: 0 },
+          GUARD_ROOM: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+        },
+      },
+
+      // ─────────────────────────────────────────────
+      // BLAST DOORS SYSTEM
+      // Query: L1, Basic Control: L2, Lock/Override: L3
+      // ─────────────────────────────────────────────
+      blastDoors: {
+        doors: {
+          DOOR_A: { status: "OPEN", lockLevel: 0 },   // Main Lab <-> Corridor A
+          DOOR_B: { status: "OPEN", lockLevel: 0 },   // Corridor A <-> Guard Room
+          DOOR_C: { status: "OPEN", lockLevel: 0 },   // Server Room <-> Corridor B
+          DOOR_D: { status: "CLOSED", lockLevel: 2 }, // Reactor Room (containment)
+          DOOR_E: { status: "CLOSED", lockLevel: 1 }, // Surface Access (elevator)
+        },
+        emergencyLockdown: false,
+      },
+
+      // ─────────────────────────────────────────────
+      // CONTAINMENT FIELD SYSTEM
+      // Query: L1, Control: L2
+      // ─────────────────────────────────────────────
+      containmentField: {
+        active: true,
+        subjects: ["BLYTHE", "STEVE"], // Steve the test dummy
+        integrityPercent: 100,
+      },
+
+      // ─────────────────────────────────────────────
+      // BROADCAST ARRAY SYSTEM
+      // Query: L2, Transmit: L3, Control: L3
+      // ─────────────────────────────────────────────
+      broadcastArray: {
+        operational: true,
+        externalCommsEnabled: true,
+        archimedesUplinkActive: true,
+        channelsAvailable: [
+          "LAIR_INTERNAL",
+          "INVESTOR_LINE",
+          "X_BRANCH_EMERGENCY",
+          "ARCHIMEDES_UPLINK",
+          "HMS_PERSISTENCE",
+        ],
+        transmissionLog: [],
+        lastTransmission: null,
+      },
+
+      // ─────────────────────────────────────────────
+      // S-300 BATTERY (Surface Defense)
+      // Query: L3, Control: L4
+      // THE 50M MINIMUM ENGAGEMENT ALTITUDE WEAKNESS!
+      // ─────────────────────────────────────────────
+      s300: {
+        status: "STANDBY",
+        commandPostOperational: true, // THE single point of failure!
+        radarEffectiveness: 100,
+        missilesReady: 16,
+        mode: "AUTO",
+        generatorFuelHours: 2,
+        minimumEngagementAltitude: 50, // МИНИМАЛЬНАЯ ВЫСОТА ПОРАЖЕНИЯ!
+        exceptedSignatures: [],
+      },
+
+      // ─────────────────────────────────────────────
+      // ARCHIMEDES SATELLITE
+      // Query: L3/L4, Control: L4/L5
+      // THE DEADMAN SWITCH!
+      // ─────────────────────────────────────────────
+      archimedes: {
+        mode: "PASSIVE",
+        chargePercent: 50, // Always keeps reserve for deadman
+        groundConsoleOperational: true,
+        deadmanSwitch: {
+          armed: true,
+          trigger: "DR_M_INCAPACITATED",
+          target: "LAIR_SELF_TARGET",
+          abortWindowSeconds: 60,
+          triggered: false,
+          triggeredAtTurn: null,
+        },
+        targetList: ["[ENCRYPTED]", "[ENCRYPTED]", "[ENCRYPTED]"],
+        s300JammingActive: false,
+      },
+
+      // ─────────────────────────────────────────────
+      // REACTOR (Breeder type)
+      // Query: L3, Control: L4
+      // THE RESONANCE CASCADE DANGER!
+      // ─────────────────────────────────────────────
+      reactor: {
+        outputPercent: 70, // Normal operating level
+        stable: true,
+        cascadeRisk: "NONE",
+        cascadeFactors: [],
+        cascadeRiskPercent: 0,
+        scramAvailable: true,
+        scrammedThisGame: false,
+      },
+    },
+
     npcs: {
       drM: {
         suspicionScore: 1,

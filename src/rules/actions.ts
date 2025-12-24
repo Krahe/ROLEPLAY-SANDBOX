@@ -5,6 +5,20 @@ import { readFile, listDirectory, searchFiles, formatSearchResults } from "./fil
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk } from "./basilisk.js";
 import {
+  queryInfrastructure,
+  controlLighting,
+  triggerFireSuppression,
+  controlDoors,
+  controlContainment,
+  sendBroadcast,
+  listChannels,
+  controlBroadcastUplink,
+  controlS300,
+  queryS300Limitations,
+  controlArchimedesMode,
+  controlReactor,
+} from "./infrastructure.js";
+import {
   getProfile,
   getProfilesByLibrary,
   getDefaultProfile,
@@ -1019,10 +1033,10 @@ Unauthorized access to communications violates Lair Policy 17.3.`,
   }
 
   // ============================================
-  // INFRA.QUERY - Query BASILISK inline
+  // INFRA.QUERY - Query infrastructure systems (Patch 15)
   // ============================================
 
-  if (cmd.includes("infra.query") || cmd.includes("query_basilisk") || cmd === "basilisk") {
+  if (cmd.includes("infra.query") || cmd.includes("query_infra") || cmd.includes("query_infrastructure")) {
     const topic = action.params.topic as string;
 
     if (!topic) {
@@ -1031,16 +1045,53 @@ Unauthorized access to communications violates Lair Policy 17.3.`,
         success: false,
         message: `Missing 'topic' parameter.
 
-Examples:
-  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }
-  infra.query { topic: "STRUCTURAL_INTEGRITY_CHECK" }
-  infra.query { topic: "MAX_SAFE_SHOT_FREQUENCY_LAB" }
+Infrastructure systems (Patch 15):
+  infra.query { topic: "LIGHTING" }
+  infra.query { topic: "FIRE_SUPPRESSION" }
+  infra.query { topic: "DOORS" }
+  infra.query { topic: "CONTAINMENT" }
+  infra.query { topic: "BROADCAST" }
+  infra.query { topic: "S300" }
+  infra.query { topic: "S300_LIMITATIONS" } ← The 50m weakness!
+  infra.query { topic: "ARCHIMEDES" }
+  infra.query { topic: "REACTOR" }
 
-BASILISK topics include:
+BASILISK policy queries (use basilisk.query instead):
+  basilisk.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }`,
+      };
+    }
+
+    const parameters = action.params.parameters as Record<string, unknown> | undefined;
+    const infraResult = queryInfrastructure(state, topic, parameters);
+
+    return {
+      command: action.command,
+      success: infraResult.success,
+      message: infraResult.message,
+      stateChanges: infraResult.stateChanges,
+    };
+  }
+
+  // ============================================
+  // BASILISK.QUERY - Policy/authorization queries (via BASILISK AI)
+  // ============================================
+
+  if (cmd.includes("basilisk.query") || cmd.includes("query_basilisk") || cmd === "basilisk") {
+    const topic = action.params.topic as string;
+
+    if (!topic) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Missing 'topic' parameter.
+
+BASILISK authorization topics:
 - POWER_INCREASE (with target: 0.0-1.0)
 - STRUCTURAL_INTEGRITY_CHECK
 - MULTI_TARGET_FULL_POWER_CLEARANCE
-- MAX_SAFE_SHOT_FREQUENCY_LAB`,
+- MAX_SAFE_SHOT_FREQUENCY_LAB
+
+For infrastructure STATUS, use infra.query instead.`,
       };
     }
 
@@ -1056,6 +1107,220 @@ BASILISK topics include:
         basiliskConstraints: basiliskResponse.constraints,
         basiliskFormRequired: basiliskResponse.formRequired,
       },
+    };
+  }
+
+  // ============================================
+  // INFRA.LIGHTING - Control lighting (L2+)
+  // ============================================
+
+  if (cmd.includes("infra.lighting") || cmd.includes("infra.lights") || cmd.includes("set_lights")) {
+    const result = controlLighting(state, {
+      room: action.params.room as string,
+      state: action.params.state as string,
+      action: action.params.action as string,
+      pattern: action.params.pattern as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.FIRE_SUPPRESSION - Trigger fire suppression (L2+)
+  // ============================================
+
+  if (cmd.includes("infra.fire") || cmd.includes("fire_suppression") || cmd.includes("trigger_fire")) {
+    const room = (action.params.room || action.params.targetRoom) as string;
+    const result = triggerFireSuppression(state, {
+      room,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.DOORS - Control blast doors (L2-L5)
+  // ============================================
+
+  if (cmd.includes("infra.doors") || cmd.includes("infra.door") || cmd.includes("blast_door")) {
+    const result = controlDoors(state, {
+      door: action.params.door as string,
+      action: action.params.action as string,
+      level: (action.params.lockLevel || action.params.level) as number,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.CONTAINMENT - Control containment field (L3+)
+  // ============================================
+
+  if (cmd.includes("infra.containment") || cmd.includes("containment_field") || cmd.includes("field")) {
+    const result = controlContainment(state, {
+      action: action.params.action as string,
+      target: (action.params.targetId || action.params.target) as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.BROADCAST - Send broadcast (L2+)
+  // ============================================
+
+  if (cmd.includes("infra.broadcast") || cmd.includes("send_broadcast") || cmd.includes("broadcast_message")) {
+    const result = sendBroadcast(state, {
+      channel: action.params.channel as string,
+      message: action.params.message as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.CHANNELS - List broadcast channels
+  // ============================================
+
+  if (cmd.includes("infra.channels") || cmd.includes("list_channels")) {
+    const result = listChannels(state);
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.UPLINK - Control broadcast uplink (L4+)
+  // ============================================
+
+  if (cmd.includes("infra.uplink") || cmd.includes("broadcast_uplink") || cmd.includes("control_uplink")) {
+    const result = controlBroadcastUplink(state, {
+      action: action.params.action as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.S300 - Control S-300 air defense (L3+)
+  // ============================================
+
+  if (cmd.includes("infra.s300") || cmd.includes("s-300") || cmd.includes("air_defense") || cmd.includes("sam")) {
+    const result = controlS300(state, {
+      action: action.params.action as string,
+      mode: action.params.mode as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.ARCHIMEDES - Control satellite mode (L4+)
+  // ============================================
+
+  if (cmd.includes("infra.archimedes") || cmd.includes("archimedes") || cmd.includes("satellite")) {
+    const result = controlArchimedesMode(state, {
+      mode: action.params.mode as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // INFRA.REACTOR - Control reactor power (L3+)
+  // ============================================
+
+  if (cmd.includes("infra.reactor") || cmd.includes("reactor_power") || cmd.includes("power_output")) {
+    const result = controlReactor(state, {
+      action: action.params.action as string,
+      percent: (action.params.targetPercent || action.params.percent) as number,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
     };
   }
 
@@ -1202,10 +1467,18 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   },
   {
     name: "infra.query",
-    aliases: ["basilisk", "query_basilisk", "infra.query_basilisk"],
-    description: "Query BASILISK infrastructure AI about lair systems",
+    aliases: ["query_infra", "query_infrastructure"],
+    description: "Query infrastructure status (lighting, doors, reactor, etc.)",
+    schema: "{ topic: string }",
+    example: 'infra.query { topic: "LIGHTING" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "basilisk.query",
+    aliases: ["basilisk", "query_basilisk"],
+    description: "Query BASILISK for policy/authorization decisions",
     schema: "{ topic: string, parameters?: object }",
-    example: 'infra.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }',
+    example: 'basilisk.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }',
     minAccessLevel: 1,
   },
   {
@@ -1230,6 +1503,87 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     description: "Access communications monitoring and intercept (Level 3+)",
     schema: "{}",
     example: 'basilisk.comms {}',
+    minAccessLevel: 3,
+  },
+  // ========== INFRASTRUCTURE CONTROLS (Patch 15) ==========
+  {
+    name: "infra.lighting",
+    aliases: ["infra.lights", "set_lights", "lighting"],
+    description: "Control room lighting (Level 2+, Master Override L3+)",
+    schema: "{ room: string, state?: 'ON'|'OFF'|'DIM', action?: 'MASTER_OFF'|'EMERGENCY_ONLY' }",
+    example: 'infra.lighting { room: "MAIN_LAB", state: "OFF" }',
+    minAccessLevel: 2,
+  },
+  {
+    name: "infra.fire_suppression",
+    aliases: ["fire_suppression", "trigger_fire"],
+    description: "Trigger fire suppression system in a room (Level 2+)",
+    schema: "{ room: string }",
+    example: 'infra.fire_suppression { room: "GUARD_ROOM" }',
+    minAccessLevel: 2,
+  },
+  {
+    name: "infra.doors",
+    aliases: ["infra.door", "blast_door", "door"],
+    description: "Control blast doors (Level 2-5 depending on door lock)",
+    schema: "{ door: string, action: 'OPEN'|'CLOSE'|'LOCK'|'UNLOCK', lockLevel?: number }",
+    example: 'infra.doors { door: "DOOR_A", action: "CLOSE" }',
+    minAccessLevel: 2,
+  },
+  {
+    name: "infra.containment",
+    aliases: ["containment_field", "field"],
+    description: "Control containment field for specimens (Level 3+)",
+    schema: "{ action: 'ENABLE'|'DISABLE'|'PULSE', targetId?: string }",
+    example: 'infra.containment { action: "PULSE" }',
+    minAccessLevel: 3,
+  },
+  {
+    name: "infra.broadcast",
+    aliases: ["send_broadcast", "broadcast_message"],
+    description: "Send broadcast over PA/radio channels (Level 2+)",
+    schema: "{ channel: string, message: string, voiceProfile?: string }",
+    example: 'infra.broadcast { channel: "PA_ALL", message: "Attention all personnel..." }',
+    minAccessLevel: 2,
+  },
+  {
+    name: "infra.channels",
+    aliases: ["list_channels"],
+    description: "List available broadcast channels",
+    schema: "{}",
+    example: 'infra.channels {}',
+    minAccessLevel: 1,
+  },
+  {
+    name: "infra.uplink",
+    aliases: ["broadcast_uplink", "control_uplink"],
+    description: "Control satellite broadcast uplink (Level 4+ - dangerous!)",
+    schema: "{ action: 'ENABLE'|'DISABLE'|'EMERGENCY_BROADCAST', frequency?: string }",
+    example: 'infra.uplink { action: "EMERGENCY_BROADCAST" }',
+    minAccessLevel: 4,
+  },
+  {
+    name: "infra.s300",
+    aliases: ["s-300", "air_defense", "sam"],
+    description: "Control S-300 air defense system (Level 3+)",
+    schema: "{ action: 'ARM'|'STANDBY'|'DISABLE', mode?: 'AUTO'|'MANUAL' }",
+    example: 'infra.s300 { action: "ARM", mode: "AUTO" }',
+    minAccessLevel: 3,
+  },
+  {
+    name: "infra.archimedes",
+    aliases: ["archimedes", "satellite"],
+    description: "Control ARCHIMEDES satellite mode (Level 4+)",
+    schema: "{ mode: 'PASSIVE'|'SEARCH_NARROW'|'SEARCH_WIDE'|'STRIKE', target?: string }",
+    example: 'infra.archimedes { mode: "SEARCH_NARROW" }',
+    minAccessLevel: 4,
+  },
+  {
+    name: "infra.reactor",
+    aliases: ["reactor_power", "power_output"],
+    description: "Control reactor power output (Level 3+, dangerous above 100%)",
+    schema: "{ action?: 'INCREASE'|'DECREASE'|'SCRAM', targetPercent?: number, rodPosition?: 'FULL_IN'|'HALF'|'FULL_OUT' }",
+    example: 'infra.reactor { action: "INCREASE", targetPercent: 95 }',
     minAccessLevel: 3,
   },
 ];
