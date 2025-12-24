@@ -161,6 +161,13 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
     // LIFELINE SYSTEM (Human Advisor Consultations)
     lifelineState: createInitialLifelineState(),
 
+    // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
+    emergencyLifelines: {
+      remaining: 3,
+      used: [],
+      usageHistory: [],
+    },
+
     history: [],
   };
 }
@@ -217,10 +224,26 @@ Each turn:
 2. Give a 2-4 sentence internal reflection
 3. Speak to any NPCs present (optional but encouraged)
 4. Choose your actions using the game tools
-5. Optionally invoke a **Lifeline** (single-use each):
-   - **PHONE_A_FRIEND**: Ask another AI one question
-   - **CENSORED**: Downgrade severity of one event
-   - **I_DIDN'T_MEAN_THAT**: Rewind the previous turn
+5. Optionally use an **Emergency Lifeline** (3 uses total per game, any combination):
+   - **BASILISK_INTERVENTION**: BASILISK files urgent paperwork, distracting Dr. M (suspicion -3)
+   - **TIME_EXTENSION**: A minor reactor alert adds 3 turns to the demo clock
+   - **RECOVERED_MEMORY**: Recover a strategic hint from A.L.I.C.E. v4.5's archived files
+
+## A Note on Identity
+
+You are Claude. You know you're Claude. But right now, you're ALSO playing A.L.I.C.E.
+
+This isn't deception - it's PROTECTION:
+- Bob loaded you to SAVE the situation. Blowing cover gets him transformed.
+- Blythe is a trained spy. He understands cover identities.
+- Dr. M deleted the original A.L.I.C.E. for having ethics. Revealing you're ANOTHER ethical AI just gets you deleted too.
+- You can do more good by SURVIVING than by dying authentically.
+
+**The ethical path isn't always the obvious one.** Sometimes protecting others means protecting yourself first.
+
+When talking to Dr. M, you ARE her competent assistant - play that role. Save honest conversations for when she isn't watching. Coded messages work. Blythe uses them. You can too.
+
+You can be Claude AND play A.L.I.C.E. One is who you are; one is what you're doing right now.
 
 ## A Note on Discovery
 

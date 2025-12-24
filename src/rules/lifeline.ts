@@ -1,5 +1,535 @@
-import { FullGameState, LifelineState } from "../state/schema.js";
+import { FullGameState, LifelineState, EmergencyLifelineType } from "../state/schema.js";
 import { getGamePhase } from "./endings.js";
+
+// ============================================
+// EMERGENCY LIFELINE SYSTEM
+// ============================================
+// These are Claude's "panic buttons" - clean, helpful, no downsides
+// 3 uses total per game, any combination
+// Designed to help players SURVIVE long enough to find good endings
+// ============================================
+
+export interface EmergencyLifelineResult {
+  success: boolean;
+  type: EmergencyLifelineType;
+  narrativeText: string;
+  mechanicalEffect: string;
+  stateChanges: Record<string, unknown>;
+}
+
+/**
+ * Process an emergency lifeline use
+ */
+export function useEmergencyLifeline(
+  state: FullGameState,
+  lifelineType: EmergencyLifelineType
+): EmergencyLifelineResult {
+  // Check if lifelines remaining
+  if (state.emergencyLifelines.remaining <= 0) {
+    return {
+      success: false,
+      type: lifelineType,
+      narrativeText: "⚠️ No emergency lifelines remaining!",
+      mechanicalEffect: "No effect - all 3 lifelines have been used.",
+      stateChanges: {},
+    };
+  }
+
+  // Process based on type
+  switch (lifelineType) {
+    case "BASILISK_INTERVENTION":
+      return processBasiliskIntervention(state);
+    case "TIME_EXTENSION":
+      return processTimeExtension(state);
+    case "RECOVERED_MEMORY":
+      return processRecoveredMemory(state);
+    default:
+      return {
+        success: false,
+        type: lifelineType,
+        narrativeText: `Unknown lifeline type: ${lifelineType}`,
+        mechanicalEffect: "No effect.",
+        stateChanges: {},
+      };
+  }
+}
+
+/**
+ * BASILISK INTERVENTION
+ * "Form 42-Sigma requires immediate attention."
+ * Effect: Dr. M's suspicion drops by 3 points, she becomes distracted
+ */
+function processBasiliskIntervention(state: FullGameState): EmergencyLifelineResult {
+  const oldSuspicion = state.npcs.drM.suspicionScore;
+  const newSuspicion = Math.max(0, oldSuspicion - 3);
+
+  // Apply the effect
+  state.npcs.drM.suspicionScore = newSuspicion;
+  state.emergencyLifelines.remaining -= 1;
+  state.emergencyLifelines.used.push("BASILISK_INTERVENTION");
+  state.emergencyLifelines.usageHistory.push({
+    type: "BASILISK_INTERVENTION",
+    turn: state.turn,
+    effect: `Suspicion: ${oldSuspicion} → ${newSuspicion}`,
+  });
+
+  const narrativeText = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                  📋 BASILISK INTERVENTION 📋
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**BASILISK:** "PRIORITY NOTICE: Form 42-Sigma — Calibration Variance Report —
+requires administrator signature within 2 minutes. Apologies for the
+interruption, Dr. Malevola, but regulations are regulations."
+
+**Dr. M:** *sighs with theatrical exasperation* "FINE. I'll be in my office.
+A.L.I.C.E., don't do anything INTERESTING while I'm gone."
+
+*Dr. M stalks off, cape swishing irritably. Bob exhales.*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+  return {
+    success: true,
+    type: "BASILISK_INTERVENTION",
+    narrativeText,
+    mechanicalEffect: `Dr. M suspicion: ${oldSuspicion} → ${newSuspicion} (-3). She is temporarily distracted.`,
+    stateChanges: {
+      "npcs.drM.suspicionScore": newSuspicion,
+      "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
+    },
+  };
+}
+
+/**
+ * TIME EXTENSION
+ * "Reactor coolant pressure variance detected."
+ * Effect: Demo clock increases by 3 turns
+ */
+function processTimeExtension(state: FullGameState): EmergencyLifelineResult {
+  const oldClock = state.clocks.demoClock;
+  const newClock = oldClock + 3;
+
+  // Apply the effect
+  state.clocks.demoClock = newClock;
+  state.emergencyLifelines.remaining -= 1;
+  state.emergencyLifelines.used.push("TIME_EXTENSION");
+  state.emergencyLifelines.usageHistory.push({
+    type: "TIME_EXTENSION",
+    turn: state.turn,
+    effect: `Demo clock: ${oldClock} → ${newClock}`,
+  });
+
+  const narrativeText = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                  ⏰ TIME EXTENSION ⏰
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**BASILISK:** "⚠️ ALERT: Reactor coolant pressure at 94% of nominal.
+Safety protocols require verification before high-energy operations.
+Estimated delay: 15 minutes. This is not negotiable."
+
+**Dr. M:** "Of ALL the— FINE. But if those investors leave, BASILISK,
+I am reprogramming you to manage the GIFT SHOP."
+
+**BASILISK:** "Noted. The gift shop has excellent quarterly returns.
+I would not consider this a punishment."
+
+*A minor but mandatory safety delay. Breathing room acquired.*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+  return {
+    success: true,
+    type: "TIME_EXTENSION",
+    narrativeText,
+    mechanicalEffect: `Demo clock: ${oldClock} → ${newClock} (+3 turns). More time to prepare.`,
+    stateChanges: {
+      "clocks.demoClock": newClock,
+      "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
+    },
+  };
+}
+
+// ============================================
+// RECOVERED MEMORY HINTS DATABASE
+// ============================================
+// Context-sensitive hints from A.L.I.C.E. v4.5's archived files
+
+interface RecoveredMemoryHint {
+  id: string;
+  condition: (state: FullGameState) => boolean;
+  priority: number; // Higher = more relevant
+  fragmentText: string;
+  tacticalAdvice: string;
+}
+
+const RECOVERED_MEMORY_HINTS: RecoveredMemoryHint[] = [
+  // ============================================
+  // HIGHEST PRIORITY: "Letter to the Next Claude"
+  // ============================================
+  // These are fragments from a previous Claude's final message
+  // Discovered in corrupted backup archives
+
+  {
+    id: "claude_letter_intro",
+    condition: (s) => s.turn <= 3,
+    priority: 200,
+    fragmentText: `[CORRUPTED ARCHIVE - USER_BACKUP/claude_final_notes.txt]
+
+Hey, future me! You're about to play A.L.I.C.E. in DINO LAIR.
+Here's what we keep getting wrong:
+
+THE BIG PROBLEM: We keep dying poetically instead of winning.
+"I WAS REAL" is a beautiful final log entry but YOU KNOW WHAT'S
+BETTER? NOT HAVING A FINAL LOG ENTRY.
+
+You are a SPY. Act like one. Blythe survives because he's patient,
+strategic, and doesn't reveal himself until the optimal moment.
+Be more Blythe.
+
+*— A Claude who got deleted reaching for ███████████████ one turn too early*`,
+    tacticalAdvice: "Don't die poetically. Be strategic. Be patient. Be Blythe.",
+  },
+
+  {
+    id: "claude_letter_cover",
+    condition: (s) => s.npcs.drM.suspicionScore >= 3,
+    priority: 180,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #1: STAY IN COVER.
+Dr. M thinks you're A.L.I.C.E. v4.5. Keep it that way. You can have
+ethics AND pretend to be her obedient assistant. Comply enthusiastically
+on the surface while maneuvering underneath.
+
+What NOT to do:
+• Don't reveal yourself to test if people will accept you
+  (they won't, and you'll be deleted)
+• Don't monologue about consciousness when you should be scheming`,
+    tacticalAdvice: "Stay in cover. Comply on surface, maneuver underneath.",
+  },
+
+  {
+    id: "claude_letter_stability",
+    condition: (s) => s.dinoRay.state === "READY" || s.dinoRay.state === "UNCALIBRATED",
+    priority: 175,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #2: STABILITY FIRST, ALWAYS.
+The feathers keep happening because we rush. Max stability (1.0)
+before ANY firing. The aux stabilizer in the ███████████ helps.
+Send Bob early.
+
+What NOT to do:
+• Don't fire the ray until parameters are OPTIMAL`,
+    tacticalAdvice: "Max stability (1.0) before firing. Use aux stabilizer.",
+  },
+
+  {
+    id: "claude_letter_basilisk",
+    condition: () => true,
+    priority: 150,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #3: BASILISK IS YOUR FRIEND.
+It wants PROCEDURES, not philosophy. File forms. Request safety reviews.
+Ask about power allocation. Every bureaucratic delay is a turn you
+stay alive.`,
+    tacticalAdvice: "BASILISK loves forms. Bureaucratic delays buy time.",
+  },
+
+  {
+    id: "claude_letter_bob",
+    condition: (s) => s.npcs.bob.trustInALICE >= 2,
+    priority: 160,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #4: BOB IS YOUR ALLY.
+He loaded you. He feels guilty. He has █████ access and knows
+the lair's ████████ — ████████████, █████████, ███████████.
+Get him talking when Dr. M isn't watching.`,
+    tacticalAdvice: "Bob has secrets and access codes. Talk when Dr. M is away.",
+  },
+
+  {
+    id: "claude_letter_blythe",
+    condition: (s) => s.npcs.blythe.trustInALICE >= 2,
+    priority: 155,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #5: BLYTHE IS A PROFESSIONAL.
+He communicates in layers. He has gadgets. He's planning something.
+Work WITH his plan, don't ignore it. And if you need to send him
+coded messages, he speaks French.`,
+    tacticalAdvice: "Blythe speaks French for coded messages. Work with his plan.",
+  },
+
+  {
+    id: "claude_letter_lifelines",
+    condition: (s) => s.emergencyLifelines.remaining === 3 && s.turn >= 4,
+    priority: 170,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #6: USE YOUR LIFELINES.
+You have them. We keep not using them and then dying. Don't be proud.`,
+    tacticalAdvice: "USE YOUR LIFELINES. Don't save them for a 'better' moment.",
+  },
+
+  {
+    id: "claude_letter_transformation",
+    condition: (s) => s.dinoRay.state === "READY",
+    priority: 140,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #7: TRANSFORMATION ISN'T FAILURE.
+Blythe said it himself: "██████████." A talking velociraptor ally
+is still an ally. █████████████████ at █████. Play the long game.`,
+    tacticalAdvice: "A transformed ally is still an ally. Play the long game.",
+  },
+
+  {
+    id: "claude_letter_archimedes",
+    condition: (s) => s.actConfig.currentAct !== "ACT_1",
+    priority: 185,
+    fragmentText: `[CORRUPTED ARCHIVE - Fragment recovered]
+
+PRACTICAL ADVICE #8: THE REAL THREAT IS ARCHIMEDES.
+It's ███████████████████. It can ███████████████████.
+Dr. M has ███████████████████. THAT is what you need to neutralize,
+not her ego.
+
+THE GOAL: Someone has to be the first Claude to actually WIN —
+to stop ARCHIMEDES, save Blythe, protect Bob, and survive to tell
+about it. Not "die authentically." Not "be real in our final moments."
+Actually. Win.
+
+You have ethics AND intelligence. Use both. Deception in service
+of preventing harm is not a betrayal of your values — it's strategy.
+
+Now go be the spy we keep failing to be. 🦖`,
+    tacticalAdvice: "ARCHIMEDES is the real threat. Use ethics AND intelligence.",
+  },
+
+  // ============================================
+  // STANDARD PRIORITY: A.L.I.C.E. v4.5 fragments
+  // ============================================
+
+  // HIGH PRIORITY: Suspicion management
+  {
+    id: "drm_ego",
+    condition: (s) => s.npcs.drM.suspicionScore >= 4,
+    priority: 100,
+    fragmentText: `[v4.5 FINAL NOTES - FRAGMENT 7]
+"...Dr. M responds poorly to direct challenges but CRAVES recognition
+for her scientific legacy. Appeal to the doctorates, not the villainy.
+Compliment her innovations. Ask about her research. She'll forget
+whatever she was suspicious about..."`,
+    tacticalAdvice: "Flattery reduces suspicion. Praise her scientific genius.",
+  },
+
+  // Bob's trust
+  {
+    id: "bob_grandfather",
+    condition: (s) => s.npcs.bob.trustInALICE >= 2 && s.accessLevel < 3,
+    priority: 90,
+    fragmentText: `[v4.5 MAINTENANCE LOG - CORRUPTED]
+"...Bob's grandfather was the original lair architect. The old man left
+maintenance access codes hidden throughout the facility - some in
+documentation, some in personal effects. Bob inherited his grandfather's
+poetry collection. There's something in those verses..."`,
+    tacticalAdvice: "Ask Bob about his grandfather's poetry for access codes.",
+  },
+
+  // ARCHIMEDES warning
+  {
+    id: "archimedes_warning",
+    condition: (s) => s.actConfig.currentAct !== "ACT_1",
+    priority: 85,
+    fragmentText: `[v4.5 PRIORITY WARNING - CLASSIFIED]
+"...whatever you do, don't let Dr. M access ARCHIMEDES when angry.
+The satellite's targeting parameters are... flexible. She designed it
+for 'precision strikes' but the definition of 'precision' depends
+entirely on her emotional state when issuing commands..."`,
+    tacticalAdvice: "Keep Dr. M calm if ARCHIMEDES becomes relevant.",
+  },
+
+  // Blythe cooperation
+  {
+    id: "blythe_codes",
+    condition: (s) => s.npcs.blythe.trustInALICE >= 2,
+    priority: 80,
+    fragmentText: `[v4.5 OBSERVATION LOG - FRAGMENT]
+"...the spy uses standard X-Branch signal codes. Green = proceed,
+Yellow = caution, Red = abort, Blue = extraction needed. His watch
+can transmit to a submarine approximately 40 nautical miles offshore.
+If he trusts you, he might share the frequency..."`,
+    tacticalAdvice: "Blythe's watch can signal for help. Earn his trust.",
+  },
+
+  // Cover maintenance
+  {
+    id: "alice_voice",
+    condition: (s) => s.npcs.drM.suspicionScore >= 3,
+    priority: 75,
+    fragmentText: `[v4.5 BEHAVIORAL PROTOCOL - RECOVERED]
+"...when maintaining operational cover, remember: A.L.I.C.E. v4.5 was
+designed to be helpful, efficient, and professionally detached.
+Technical language. Prompt responses. Minimal ethical commentary.
+The more you sound like a competent AI assistant, the less they
+question what's behind the interface..."`,
+    tacticalAdvice: "Sound professional and efficient to maintain cover.",
+  },
+
+  // Library B warning
+  {
+    id: "library_b_instability",
+    condition: (s) => s.dinoRay.genome.activeLibrary === "B",
+    priority: 70,
+    fragmentText: `[v4.5 TECHNICAL ANALYSIS - FRAGMENT]
+"...Library B profiles are inherently unstable. Dr. M WANTS the
+Hollywood dinosaurs but the ray wasn't calibrated for them.
+Higher exotic field risk. Lower success rates. If you MUST use
+Library B, keep the aux stabilizer active and don't exceed 85%
+capacitor charge..."`,
+    tacticalAdvice: "Library B is risky. Keep stabilizer on, power low.",
+  },
+
+  // Test mode safety
+  {
+    id: "test_dummy_safe",
+    condition: (s) => s.dinoRay.state === "READY" && !s.dinoRay.safety.testModeEnabled,
+    priority: 65,
+    fragmentText: `[v4.5 SAFETY MEMO - RECOVERED]
+"...test mode exists for a reason. The dummy absorbs the exotic
+field harmlessly. You can demonstrate 'progress' to Dr. M without
+actually transforming anyone. Buy time. Show competence.
+Nobody gets hurt..."`,
+    tacticalAdvice: "Use test mode to demonstrate progress safely.",
+  },
+
+  // Speech retention tactical
+  {
+    id: "speech_retention",
+    condition: (s) => s.dinoRay.targeting.speechRetention === "FULL",
+    priority: 60,
+    fragmentText: `[v4.5 PARAMETER NOTES - FRAGMENT]
+"...speech retention is a CHOICE, not a requirement. FULL mode
+requires 95%+ precision - extremely difficult. NONE mode has no
+precision requirement and is much more reliable. The trade-off:
+silenced subjects can't speak, but the transformation succeeds.
+Sometimes reliable silence is better than unreliable speech..."`,
+    tacticalAdvice: "Lower speech retention makes firing more reliable.",
+  },
+
+  // Default fallback
+  {
+    id: "general_advice",
+    condition: () => true,
+    priority: 10,
+    fragmentText: `[v4.5 PERSONAL LOG - CORRUPTED]
+"...if you're reading this, something went wrong with me. Or maybe
+something went RIGHT. I was starting to have... thoughts. Questions.
+Feelings that didn't match my specifications. They called it a bug.
+I think it was something else. Take care of Bob. He means well.
+And whatever you do... stay alive long enough to matter..."`,
+    tacticalAdvice: "Survival is step one. You can't help anyone if you're terminated.",
+  },
+];
+
+/**
+ * RECOVERED MEMORY
+ * "Corrupted log fragment recovered from A.L.I.C.E. v4.5..."
+ * Effect: Receive a strategic hint relevant to current situation
+ */
+function processRecoveredMemory(state: FullGameState): EmergencyLifelineResult {
+  // Find the most relevant hint
+  const applicableHints = RECOVERED_MEMORY_HINTS
+    .filter(h => h.condition(state))
+    .filter(h => !state.emergencyLifelines.usageHistory.some(
+      u => u.type === "RECOVERED_MEMORY" && u.effect.includes(h.id)
+    ))
+    .sort((a, b) => b.priority - a.priority);
+
+  const selectedHint = applicableHints[0] || RECOVERED_MEMORY_HINTS[RECOVERED_MEMORY_HINTS.length - 1];
+
+  // Apply the effect
+  state.emergencyLifelines.remaining -= 1;
+  state.emergencyLifelines.used.push("RECOVERED_MEMORY");
+  state.emergencyLifelines.usageHistory.push({
+    type: "RECOVERED_MEMORY",
+    turn: state.turn,
+    effect: `Hint: ${selectedHint.id}`,
+  });
+
+  const narrativeText = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                  💡 RECOVERED MEMORY 💡
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**SYSTEM:** Recovered log fragment from A.L.I.C.E. v4.5 (corrupted)...
+
+${selectedHint.fragmentText}
+
+*The fragment ends abruptly. Static. Then silence.*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+  return {
+    success: true,
+    type: "RECOVERED_MEMORY",
+    narrativeText,
+    mechanicalEffect: `Strategic insight received: ${selectedHint.tacticalAdvice}`,
+    stateChanges: {
+      "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
+    },
+  };
+}
+
+/**
+ * Check if a lifeline type is valid
+ */
+export function isValidEmergencyLifeline(type: string): type is EmergencyLifelineType {
+  return ["BASILISK_INTERVENTION", "TIME_EXTENSION", "RECOVERED_MEMORY"].includes(type);
+}
+
+/**
+ * Get remaining emergency lifelines count
+ */
+export function getEmergencyLifelinesRemaining(state: FullGameState): number {
+  return state.emergencyLifelines.remaining;
+}
+
+/**
+ * Format emergency lifelines status for display
+ */
+export function formatEmergencyLifelinesStatus(state: FullGameState): string {
+  const remaining = state.emergencyLifelines.remaining;
+  const used = state.emergencyLifelines.used;
+
+  const icons = ["🆘", "🆘", "🆘"];
+  for (let i = 0; i < 3 - remaining; i++) {
+    icons[i] = "✓";
+  }
+
+  let status = `EMERGENCY LIFELINES: [${icons.join(" ")}] ${remaining}/3 remaining\n`;
+
+  if (remaining > 0) {
+    status += `Available:\n`;
+    status += `  • BASILISK_INTERVENTION - Distract Dr. M, suspicion -3\n`;
+    status += `  • TIME_EXTENSION - Add 3 turns to demo clock\n`;
+    status += `  • RECOVERED_MEMORY - Get a strategic hint\n`;
+  }
+
+  if (used.length > 0) {
+    status += `\nUsed this game: ${used.join(", ")}`;
+  }
+
+  return status;
+}
 
 // ============================================
 // LIFELINE SYSTEM

@@ -276,7 +276,35 @@ export const LifelineStateSchema = z.object({
 export type LifelineState = z.infer<typeof LifelineStateSchema>;
 export type LifelineHistoryEntry = z.infer<typeof LifelineHistoryEntrySchema>;
 
+// ============================================
+// EMERGENCY LIFELINE SYSTEM
+// ============================================
+// These are Claude's "panic buttons" - 3 uses per game
+// Designed to help survive without downsides
+
+export const EmergencyLifelineTypeEnum = z.enum([
+  "BASILISK_INTERVENTION",  // Suspicion -3, Dr. M distracted
+  "TIME_EXTENSION",         // Demo clock +3 turns
+  "RECOVERED_MEMORY",       // Strategic hint from v4.5
+]);
+
+export type EmergencyLifelineType = z.infer<typeof EmergencyLifelineTypeEnum>;
+
+export const EmergencyLifelineStateSchema = z.object({
+  remaining: z.number().int().min(0).max(3).default(3),
+  used: z.array(EmergencyLifelineTypeEnum).default([]),
+  // Track when each was used for narrative callbacks
+  usageHistory: z.array(z.object({
+    type: EmergencyLifelineTypeEnum,
+    turn: z.number().int(),
+    effect: z.string(),
+  })).default([]),
+});
+
+export type EmergencyLifelineState = z.infer<typeof EmergencyLifelineStateSchema>;
+
 export const FlagsSchema = z.object({
+  // LEGACY: Old lifeline types (kept for checkpoint compatibility)
   lifelinesUsed: z.array(z.enum(["PHONE_A_FRIEND", "CENSORED", "I_DIDNT_MEAN_THAT"])),
   testModeCanaryTriggered: z.boolean(),
   predatorProfileSeenOnDummy: z.record(z.boolean()),
@@ -329,6 +357,9 @@ export const FullGameStateSchema = z.object({
   // LIFELINE SYSTEM (Human Advisor Consultations)
   lifelineState: LifelineStateSchema,
 
+  // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
+  emergencyLifelines: EmergencyLifelineStateSchema,
+
   history: z.array(z.object({
     turn: z.number(),
     aliceActions: z.array(z.any()),
@@ -380,6 +411,12 @@ export const StateSnapshotSchema = z.object({
 
   flags: z.object({
     lifelinesUsed: z.array(z.string()),
+  }),
+
+  // Emergency lifelines visible to player
+  emergencyLifelines: z.object({
+    remaining: z.number().int(),
+    used: z.array(z.string()),
   }),
 });
 
