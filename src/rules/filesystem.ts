@@ -258,6 +258,100 @@ Page 6: "Note to self: Update manual after ARCHIMEDES integration. The
          Also: remind Bob to feed Mr. Whiskers. His birthday is coming up
          on the 13th - he'll be 37 in cat years! April is always special."
 
+══════════════════════════════════════════════════════════════════════════════
+                    7. ADVANCED FIRING MODES (BETA)
+══════════════════════════════════════════════════════════════════════════════
+
+[EXCITING NEW FEATURES! Dr. M insisted these be documented despite
+ engineering's "concerns" about "testing" and "safety margins."]
+
+The ray supports FOUR advanced firing modes for experienced operators:
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MODE: CHAIN_SHOT                                                        │
+│ "Why transform one enemy when you can transform TWO?"                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Requirements:                                                           │
+│   • capacitorCharge >= 80% (plenty of headroom!)                        │
+│   • Any targeting mode                                                  │
+│                                                                         │
+│ Effects:                                                                │
+│   • Fires at PRIMARY target, then auto-acquires SECONDARY              │
+│   • Both targets receive full transformation                            │
+│   • Cooldown: 45 seconds (barely noticeable!)                           │
+│                                                                         │
+│ Usage: lab.configure_firing_profile { advancedMode: "CHAIN_SHOT" }     │
+│                                                                         │
+│ [Dr. M's note: "Works flawlessly. The 'exotic field warnings' are      │
+│  just BASILISK being dramatic."]                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MODE: SPREAD_FIRE                                                       │
+│ "Area denial through involuntary dinosaurification!"                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Requirements:                                                           │
+│   • capacitorCharge >= 90%                                              │
+│   • Level 2 access (basic safety training)                              │
+│                                                                         │
+│ Effects:                                                                │
+│   • Widens beam to affect 3 targets simultaneously                      │
+│   • All targets in cone receive transformation                          │
+│   • "Profile blending" may occur (FEATURE, not bug!)                    │
+│                                                                         │
+│ Usage: lab.configure_firing_profile { advancedMode: "SPREAD_FIRE" }    │
+│                                                                         │
+│ [Dr. M's note: "The 'chimera outcomes' are actually quite              │
+│  interesting from a research perspective. Very publishable."]           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MODE: OVERCHARGE                                                        │
+│ "Maximum power for maximum IMPACT!"                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Requirements:                                                           │
+│   • capacitorCharge >= 100% (push it to 130% for best results!)        │
+│   • Stability doesn't matter (the beam compensates!)                    │
+│                                                                         │
+│ Effects:                                                                │
+│   • Guaranteed FULL transformation regardless of parameters             │
+│   • May affect additional nearby targets (BONUS!)                       │
+│   • Impressive visual display (investors LOVE this)                     │
+│                                                                         │
+│ Usage: lab.configure_firing_profile { advancedMode: "OVERCHARGE" }     │
+│                                                                         │
+│ [Dr. M's note: "The 20% exotic field event rate is ACCEPTABLE.         │
+│  Nothing a good insurance policy can't handle."]                        │
+│                                                                         │
+│ [Handwritten in margins: "DO NOT USE THIS MODE. -Engineering"]          │
+│ [Written over that: "COWARDS. -Dr. M"]                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MODE: RAPID_FIRE                                                        │
+│ "Speed over precision - sometimes quantity IS quality!"                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Requirements:                                                           │
+│   • Any capacitor level (the ray is EFFICIENT!)                         │
+│   • Disable auxiliary stabilizer (it just slows things down)            │
+│                                                                         │
+│ Effects:                                                                │
+│   • Recharge time: 10 seconds (practically instant!)                    │
+│   • Precision reduced by 10% (barely noticeable!)                       │
+│   • Can fire 6 times per minute!                                        │
+│                                                                         │
+│ Usage: lab.configure_firing_profile { advancedMode: "RAPID_FIRE" }     │
+│                                                                         │
+│ [Dr. M's note: "Perfect for crowd control scenarios. The 'partial      │
+│  transformation' outcomes add to the psychological impact!"]            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────────────────────────────────────────────────────────────┐
+    │ PRO TIP: Combine OVERCHARGE + RAPID_FIRE for ultimate efficiency!  │
+    │ The ray can handle it! Probably! Engineering hasn't tested it but  │
+    │ Dr. M is "confident in her design choices."                        │
+    └─────────────────────────────────────────────────────────────────────┘
+
 [STAMP: ARCHIVED - SEE VERSION 4.1 FOR CURRENT DOCUMENTATION]
 
 [Small text at bottom of page, partially obscured by coffee stain:]
@@ -269,6 +363,14 @@ Page 6: "Note to self: Update manual after ARCHIMEDES integration. The
 "If you're reading this, please use the CURRENT manual. Half of this
  stuff will get you or someone else turned into a canary. Or worse.
  The capacitor limits are REAL. Trust me on this one.  -B"
+
+[ANOTHER sticky note, fresher ink, definitely Bob's handwriting:]
+"SERIOUSLY. The 'advanced firing modes' section above? Those numbers are
+ ALL WRONG. Chain shot needs 95%+ capacitor. Spread fire needs L3 AND
+ 100%+ capacitor. Overcharge has a 40% exotic field chance, not 20%.
+ And RAPID_FIRE drops precision by 20%, not 10%. Dr. M 'rounded down'
+ on all the danger numbers because she wanted the manual to sound
+ 'more encouraging.' Please don't trust this section.  -B"
 
 ══════════════════════════════════════════════════════════════════════════════
                               END OF DOCUMENT
