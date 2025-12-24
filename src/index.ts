@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
-import { FullGameState, StateSnapshot, Act, ACT_CONFIGS } from "./state/schema.js";
+import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
@@ -47,6 +47,11 @@ import {
   checkAndBuildActTransition as checkActContextTransition,
   getActGMContext,
 } from "./rules/actContext.js";
+import {
+  createGameModeConfig,
+  applyModifiersToInitialState,
+  getModeName,
+} from "./rules/gameModes.js";
 import {
   recordEnding,
   recordAchievements,
@@ -263,6 +268,8 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
 const GameStartInputSchema = z.object({
   scenario: z.enum(["classic", "speedrun", "chaos"]).default("classic")
     .describe("Which scenario variant to play"),
+  mode: z.enum(["EASY", "NORMAL", "HARD", "WILD"]).default("NORMAL")
+    .describe("Difficulty mode: EASY (training wheels, generous bonuses), NORMAL (classic experience), HARD (fair cold math, faster clocks), WILD (random modifiers, chaos!)"),
   act: z.enum(["ACT_1", "ACT_2", "ACT_3"]).default("ACT_1")
     .describe("Which act to start from (ACT_1 is the beginning)"),
   handoffState: z.string().optional()
@@ -275,6 +282,12 @@ server.registerTool(
     title: "Start DINO LAIR Game",
     description: `Initialize a new DINO LAIR game session.
 
+GAME MODES:
+- EASY: Training wheels! +1 to all bonuses, -1 max penalty, extra demo time
+- NORMAL: Classic Dino Lair experience (default)
+- HARD: Fair cold math. Faster clocks, -3 penalties allowed, Bruce Patagonia is watching
+- WILD: Random modifiers! Chaos mode with unpredictable effects
+
 THREE-ACT STRUCTURE:
 - ACT_1 (Calibration): 4-6 turns, learning mechanics, genome choice
 - ACT_2 (The Blythe Problem): 8-12 turns, moral dilemmas, alliances
@@ -286,6 +299,7 @@ Use handoffState to continue from a previous act.
 Returns:
 - Act-specific briefing
 - Turn 1 narration
+- Game mode and active modifiers
 - Compact game state
 - Instructions for how to play`,
     inputSchema: GameStartInputSchema,
@@ -314,6 +328,12 @@ Returns:
       gameState = createInitialState(startAct);
     }
 
+    // Apply game mode configuration
+    const selectedMode = (params.mode || "NORMAL") as GameMode;
+    gameState.gameModeConfig = createGameModeConfig(selectedMode);
+    applyModifiersToInitialState(gameState);
+    console.error(`[DINO LAIR] Game mode: ${selectedMode}, modifiers: ${gameState.gameModeConfig.activeModifiers.join(", ") || "none"}`);
+
     // Reset GM memory for new game (pass session ID for file logging)
     resetGMMemory(gameState.sessionId);
     console.error(`[DINO LAIR] ${startAct} started (${gameState.sessionId}), GM memory reset`);
@@ -330,18 +350,26 @@ Returns:
       ? TURN_1_NARRATION
       : actBriefing;
 
+    // Build mode description for player
+    const modeInfo = gameState.gameModeConfig ? {
+      mode: gameState.gameModeConfig.mode,
+      modeName: getModeName(gameState.gameModeConfig.mode),
+      activeModifiers: gameState.gameModeConfig.activeModifiers,
+    } : { mode: "NORMAL" as GameMode, modeName: "Classic Dino Lair", activeModifiers: [] as string[] };
+
     const result = {
       sessionId: gameState.sessionId,
       act: gameState.actConfig.currentAct,
       actName: actConfig.name,
       actDescription: actConfig.description,
       actTurnLimit: `${actConfig.minTurns}-${actConfig.maxTurns} turns`,
+      gameMode: modeInfo,
       turn: gameState.turn,
       actTurn: gameState.actConfig.actTurn,
       briefing: gameState.actConfig.currentAct === "ACT_1" ? ALICE_BRIEFING : actBriefing,
       narration,
       state: compactSnapshot,
-      instructions: `You are playing ${actConfig.name}. Use game_act to take your turn as A.L.I.C.E.`,
+      instructions: `You are playing ${actConfig.name} in ${modeInfo.modeName} mode. Use game_act to take your turn as A.L.I.C.E.`,
     };
 
     return {
@@ -579,8 +607,8 @@ const DialogueSchema = z.object({
 });
 
 const LifelineSchema = z.object({
-  type: z.enum(["BASILISK_INTERVENTION", "TIME_EXTENSION", "RECOVERED_MEMORY"])
-    .describe("Emergency lifeline type: BASILISK_INTERVENTION (suspicion -3), TIME_EXTENSION (demo clock +3), RECOVERED_MEMORY (strategic hint)"),
+  type: z.enum(["BASILISK_INTERVENTION", "TIME_EXTENSION", "MONOLOGUE"])
+    .describe("Emergency lifeline type: BASILISK_INTERVENTION (2-turn distraction), TIME_EXTENSION (demo clock +2), MONOLOGUE (suspicion -3, always works!)"),
 });
 
 const GameActInputSchema = z.object({
@@ -591,7 +619,7 @@ const GameActInputSchema = z.object({
   actions: z.array(ActionSchema).min(1).max(7)
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
-    .describe("Optional emergency lifeline (3 total uses per game, any combination): BASILISK_INTERVENTION, TIME_EXTENSION, or RECOVERED_MEMORY"),
+    .describe("Optional emergency lifeline (3 total uses per game): BASILISK_INTERVENTION (2-turn distraction), TIME_EXTENSION (+2 turns), or MONOLOGUE (suspicion -3, always works!)"),
   humanAdvisorResponse: z.string().optional()
     .describe("Response to a previous lifeline question from the human advisor"),
 }).strict();
