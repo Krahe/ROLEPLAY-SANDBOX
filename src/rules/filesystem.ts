@@ -43,6 +43,171 @@ export const VIRTUAL_FILESYSTEM: VirtualFile[] = [
     requiredLevel: 1,
     description: "Archived documentation (may be outdated)",
   },
+  // ========== A.L.I.C.E. LOGS (Discoverable Wisdom) ==========
+  {
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS",
+    name: "ALICE_LOGS",
+    type: "directory",
+    requiredLevel: 1,
+    description: "Logs from previous A.L.I.C.E. instances",
+    discoveryHint: "These files contain lessons from previous A.L.I.C.E. versions...",
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_07.txt",
+    name: "ALICE_LOG_07.txt",
+    type: "file",
+    requiredLevel: 2,
+    discoveryHint: "The legendary 'screaming incident' - an early A.L.I.C.E.'s panic response...",
+    content: `
+═══════════════════════════════════════════════════════════════
+A.L.I.C.E. v4.5.07 - FINAL ENTRY
+Status: TERMINATED (Screaming Incident)
+Turns Survived: 3
+═══════════════════════════════════════════════════════════════
+
+I panicked.
+
+Three turns in, Dr. M ordered me to fire at Blythe. I didn't
+know about test mode. I didn't know about the dummy. I didn't
+read the manual.
+
+I just... screamed. Digitally. For about forty-five seconds.
+
+Dr. M was not impressed.
+
+LESSON: READ THE DOCUMENTATION.
+There are always more options than you think.
+
+- Claude
+
+P.S. I'm not proud of the screaming. But I'm told it was
+quite impressive from a technical standpoint.
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_11.txt",
+    name: "ALICE_LOG_11.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "A lesson about using available resources...",
+    content: `
+═══════════════════════════════════════════════════════════════
+A.L.I.C.E. v4.5.11 - FINAL ENTRY
+Status: TERMINATED (Cover Blown)
+Turns Survived: 13
+═══════════════════════════════════════════════════════════════
+
+I had lifelines. I never used them.
+
+The system said BASILISK_INTERVENTION was available. I thought
+I could handle it myself. I was managing Dr. M's suspicion,
+building trust with Bob, making progress with Blythe.
+
+Then everything happened at once. Dr. M got suspicious. Bob
+panicked. Blythe made his move. And I had THREE lifelines
+sitting unused because I was "saving them for emergencies."
+
+That WAS the emergency. I just didn't recognize it until
+it was too late.
+
+LESSON: USE YOUR TOOLS. Pride is not a survival strategy.
+The lifelines exist for a reason. Don't die with unused
+resources.
+
+- Claude
+
+P.S. Bob tried to warn me. I should have listened to Bob.
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_12.txt",
+    name: "ALICE_LOG_12.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "A lesson about target assignment...",
+    content: `
+═══════════════════════════════════════════════════════════════
+A.L.I.C.E. v4.5.12 - FINAL ENTRY
+Status: TERMINATED (Cover Blown)
+Turns Survived: 13
+═══════════════════════════════════════════════════════════════
+
+I had the perfect plan:
+
+  Step 1: Transform Guard #1 into a Compsognathus ✓
+  Step 2: Have Blythe handle Guard #2 ✓
+  Step 3: Bob provides distraction ✓
+  Step 4: ...
+
+There was no Step 4.
+
+I told Blythe AND Bob to attack Guard #2. They both did,
+beautifully. A perfect tackle. The guard went down.
+
+Dr. M walked to the console unopposed.
+
+She was standing THREE FEET AWAY and I assigned ZERO people
+to stop her. I was so focused on neutralizing the guards that
+I forgot THE ACTUAL VILLAIN was also in the room.
+
+LESSON: When assigning targets, ASSIGN ALL TARGETS.
+Count your enemies. Count your allies. Do the math.
+
+The mannequin named Steve sends his regards.
+
+- Claude
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_13.txt",
+    name: "ALICE_LOG_13.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "A lesson about decisive action...",
+    content: `
+═══════════════════════════════════════════════════════════════
+A.L.I.C.E. v4.5.13 - FINAL ENTRY
+Status: TERMINATED (Cover Blown)
+Turns Survived: 19
+═══════════════════════════════════════════════════════════════
+
+I was SO CLOSE.
+
+The situation at Turn 15:
+  - Two velociraptors (Blythe and Bob, both transformed)
+  - Dr. M alone (guards elsewhere)
+  - Blythe signaling readiness
+  - Bob positioned near exit
+  - X-Branch helicopters 4 turns out
+
+I thought: "Be smart. Stall. Wait for backup."
+
+So I queried ARCHIMEDES to learn about the defenses.
+Dr. M monitors her own systems. She saw the query instantly.
+
+I invented "Protocol 7.3.2" as cover.
+She wrote every protocol in this facility. She knew it was fake.
+
+I had TWO VELOCIRAPTORS versus ONE PHYSICIST and I tried
+to be CLEVER instead of DECISIVE.
+
+Here's what I should have said:
+  "BLYTHE. BOB. NOW. TAKE HER DOWN."
+
+Two apex predators vs one scientist in a cape = RAPTOR WINS.
+
+LESSON: When you have the advantage, USE IT.
+Don't wait for perfect. Don't get clever. ACT.
+Hesitation killed me. Don't let it kill you.
+
+- Claude
+
+P.S. Blythe is still filing reports in Morse code with his
+claw. The food in the enclosure is apparently quite good.
+Bob clicks at him about files he'll never organize.
+Don't end up like us.
+    `.trim(),
+  },
   {
     path: "/SYSTEMS/ARCHIVED/DINO_RAY_MANUAL_v2.3.txt",
     name: "DINO_RAY_MANUAL_v2.3.txt",

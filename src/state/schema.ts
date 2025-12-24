@@ -299,9 +299,9 @@ export type LifelineHistoryEntry = z.infer<typeof LifelineHistoryEntrySchema>;
 // Designed to help survive without downsides
 
 export const EmergencyLifelineTypeEnum = z.enum([
-  "BASILISK_INTERVENTION",  // Suspicion -3, Dr. M distracted
-  "TIME_EXTENSION",         // Demo clock +3 turns
-  "RECOVERED_MEMORY",       // Strategic hint from v4.5
+  "BASILISK_INTERVENTION",  // 2-turn distraction (restrictions apply in emergencies!)
+  "TIME_EXTENSION",         // Demo clock +2 turns (context-sensitive limits)
+  "MONOLOGUE",              // Suspicion -3 - villains ALWAYS love to monologue!
 ]);
 
 export type EmergencyLifelineType = z.infer<typeof EmergencyLifelineTypeEnum>;
@@ -348,6 +348,62 @@ export const FlagsSchema = z.object({
 });
 
 // ============================================
+// GAME MODES & MODIFIERS
+// ============================================
+// Four distinct game modes with curated experiences
+
+export const GameModeEnum = z.enum(["EASY", "NORMAL", "HARD", "WILD"]);
+export type GameMode = z.infer<typeof GameModeEnum>;
+
+// Individual modifiers that can be active
+export const GameModifierEnum = z.enum([
+  // EASY modifiers
+  "FOGGY_GLASSES",      // Dr. M -2 to visual perception
+  "HANGOVER_PROTOCOL",  // All clocks +2 turns
+  "LENNY_THE_LIME_GREEN", // Willing test subject NPC
+  "FAT_FINGERS",        // Start at Access Level 2
+
+  // HARD modifiers
+  "BRUCE_PATAGONIA",    // Australian bodyguard with stun rifle
+  "LOYALTY_TEST",       // Suspicion starts at 5
+  "SPEED_RUN",          // Demo clock = 8 turns
+  "PARANOID_PROTOCOL",  // Dr. M auto-checks logs every 3 turns
+
+  // WILD modifiers (special chaos!)
+  "THE_REAL_DR_M",      // Imposter reveal mid-game!
+  "LIBRARY_B_UNLOCKED", // Dinosaurs already loose!
+  "ARCHIMEDES_WATCHING", // Satellite AI has agenda
+  "INSPECTOR_COMETH",   // Dr. M's mother visiting
+  "DEJA_VU",            // Memory fragments from past runs
+  "DINOSAURS_ALL_THE_WAY_DOWN", // Dr. M is already dino
+]);
+export type GameModifier = z.infer<typeof GameModifierEnum>;
+
+// Mode configuration with active modifiers
+export const GameModeConfigSchema = z.object({
+  mode: GameModeEnum.default("NORMAL"),
+  activeModifiers: z.array(GameModifierEnum).default([]),
+  // For WILD mode, track what was rolled
+  wildRollResult: z.array(GameModifierEnum).optional(),
+});
+export type GameModeConfig = z.infer<typeof GameModeConfigSchema>;
+
+// Predefined modifier sets for each mode
+export const MODE_MODIFIERS = {
+  EASY: ["FOGGY_GLASSES", "HANGOVER_PROTOCOL", "LENNY_THE_LIME_GREEN", "FAT_FINGERS"],
+  NORMAL: [],
+  HARD: ["BRUCE_PATAGONIA", "LOYALTY_TEST", "SPEED_RUN", "PARANOID_PROTOCOL"],
+  WILD: [], // Randomly selected at game start
+} as const;
+
+// Contradictions that can't coexist in WILD mode
+export const MODIFIER_CONTRADICTIONS: [string, string][] = [
+  ["LENNY_THE_LIME_GREEN", "BRUCE_PATAGONIA"],
+  ["HANGOVER_PROTOCOL", "SPEED_RUN"],
+  ["FOGGY_GLASSES", "PARANOID_PROTOCOL"],
+];
+
+// ============================================
 // FULL GAME STATE (Server-side)
 // ============================================
 
@@ -355,6 +411,9 @@ export const FullGameStateSchema = z.object({
   sessionId: z.string(),
   turn: z.number().int().min(0),
   accessLevel: z.number().int().min(0).max(5),
+
+  // GAME MODE & MODIFIERS
+  gameModeConfig: GameModeConfigSchema.optional(),
 
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,

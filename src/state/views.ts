@@ -643,12 +643,12 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       timesALICEFollowedUserAdvice: 0,
     },
 
-    // EMERGENCY LIFELINES (v2.1)
+    // EMERGENCY LIFELINES (v2.1 - updated with MONOLOGUE)
     emergencyLifelines: {
       remaining: compressed.el?.r ?? 3,
       used: (compressed.el?.u || []).map(code =>
-        code === "BI" ? "BASILISK_INTERVENTION" : code === "TE" ? "TIME_EXTENSION" : "RECOVERED_MEMORY"
-      ) as ("BASILISK_INTERVENTION" | "TIME_EXTENSION" | "RECOVERED_MEMORY")[],
+        code === "BI" ? "BASILISK_INTERVENTION" : code === "TE" ? "TIME_EXTENSION" : "MONOLOGUE"
+      ) as ("BASILISK_INTERVENTION" | "TIME_EXTENSION" | "MONOLOGUE")[],
       usageHistory: [], // History stripped for checkpoint size
     },
 

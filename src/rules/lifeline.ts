@@ -41,8 +41,8 @@ export function useEmergencyLifeline(
       return processBasiliskIntervention(state);
     case "TIME_EXTENSION":
       return processTimeExtension(state);
-    case "RECOVERED_MEMORY":
-      return processRecoveredMemory(state);
+    case "MONOLOGUE":
+      return processMonologue(state);
     default:
       return {
         success: false,
@@ -55,22 +55,77 @@ export function useEmergencyLifeline(
 }
 
 /**
+ * Check if BASILISK_INTERVENTION can be used
+ * RESTRICTIONS: Cannot use during active emergencies!
+ */
+function canUseBasiliskIntervention(state: FullGameState): { allowed: boolean; reason?: string } {
+  const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
+  const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
+
+  // Check for X-Branch assault
+  if (hasFlag("XBRANCH") || hasFlag("X_BRANCH") || hasFlag("HELICOPTER")) {
+    return { allowed: false, reason: "ACTIVE_COMBAT: X-Branch assault in progress - BASILISK cannot interrupt military operations!" };
+  }
+
+  // Check for Blythe actively escaping
+  if (state.npcs.blythe.hasEscaped || state.npcs.blythe.restraintsStatus === "broken" || hasFlag("BLYTHE_ESCAPING")) {
+    return { allowed: false, reason: "BLYTHE_ESCAPING: Prisoner escape in progress - Dr. M is not going to stop for paperwork!" };
+  }
+
+  // Check for active combat
+  if (hasFlag("COMBAT") || hasFlag("FIGHTING") || hasFlag("ATTACK")) {
+    return { allowed: false, reason: "ACTIVE_COMBAT: Combat in progress - bureaucracy cannot help you now!" };
+  }
+
+  // Check for real emergencies (alarms, reactor critical)
+  if (state.lairEnvironment.alarmStatus !== "quiet") {
+    return { allowed: false, reason: "REAL_EMERGENCY: Alarms are blaring - BASILISK's paperwork cannot compete!" };
+  }
+
+  // Check for meltdown imminent
+  if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 2) {
+    return { allowed: false, reason: "REAL_EMERGENCY: Reactor critical - forms can wait, physics cannot!" };
+  }
+
+  return { allowed: true };
+}
+
+/**
  * BASILISK INTERVENTION
- * "Form 42-Sigma requires immediate attention."
- * Effect: Dr. M's suspicion drops by 3 points, she becomes distracted
+ * "Form 99-Gamma requires immediate attention."
+ * Effect: Creates 2-turn distraction via urgent paperwork emergency
+ * RESTRICTION: Does NOT work during active emergencies!
  */
 function processBasiliskIntervention(state: FullGameState): EmergencyLifelineResult {
-  const oldSuspicion = state.npcs.drM.suspicionScore;
-  const newSuspicion = Math.max(0, oldSuspicion - 3);
+  // Check restrictions
+  const check = canUseBasiliskIntervention(state);
+  if (!check.allowed) {
+    return {
+      success: false,
+      type: "BASILISK_INTERVENTION",
+      narrativeText: `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              ❌ BASILISK INTERVENTION FAILED ❌
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // Apply the effect
-  state.npcs.drM.suspicionScore = newSuspicion;
+**BASILISK:** "I... I cannot interrupt. ${check.reason}"
+
+*The building AI sounds almost apologetic.*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`,
+      mechanicalEffect: `BASILISK_INTERVENTION blocked: ${check.reason}`,
+      stateChanges: {},
+    };
+  }
+
+  // Apply the effect - 2-turn distraction (no suspicion change!)
   state.emergencyLifelines.remaining -= 1;
   state.emergencyLifelines.used.push("BASILISK_INTERVENTION");
   state.emergencyLifelines.usageHistory.push({
     type: "BASILISK_INTERVENTION",
     turn: state.turn,
-    effect: `Suspicion: ${oldSuspicion} → ${newSuspicion}`,
+    effect: "2-turn distraction created",
   });
 
   const narrativeText = `
@@ -78,14 +133,18 @@ function processBasiliskIntervention(state: FullGameState): EmergencyLifelineRes
                   📋 BASILISK INTERVENTION 📋
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**BASILISK:** "PRIORITY NOTICE: Form 42-Sigma — Calibration Variance Report —
+**BASILISK:** "PRIORITY NOTICE: Form 99-Gamma — Exotic Field Event Report —
 requires administrator signature within 2 minutes. Apologies for the
 interruption, Dr. Malevola, but regulations are regulations."
 
-**Dr. M:** *sighs with theatrical exasperation* "FINE. I'll be in my office.
-A.L.I.C.E., don't do anything INTERESTING while I'm gone."
+**Dr. M:** *sighs with theatrical exasperation* "Of ALL the— FINE.
+I'll be in my office. A.L.I.C.E., don't do anything INTERESTING
+while I'm gone."
 
 *Dr. M stalks off, cape swishing irritably. Bob exhales.*
+
+**Bob:** *whispers* "You've got maybe two turns before she's back.
+Make them count."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
@@ -94,22 +153,85 @@ A.L.I.C.E., don't do anything INTERESTING while I'm gone."
     success: true,
     type: "BASILISK_INTERVENTION",
     narrativeText,
-    mechanicalEffect: `Dr. M suspicion: ${oldSuspicion} → ${newSuspicion} (-3). She is temporarily distracted.`,
+    mechanicalEffect: "Dr. M distracted for 2 turns by mandatory paperwork. Use this time wisely!",
     stateChanges: {
-      "npcs.drM.suspicionScore": newSuspicion,
       "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
+      "drMDistracted": true,
+      "distractionTurns": 2,
     },
   };
+}
+
+// Non-extendable timers - physics and military don't negotiate!
+const NON_EXTENDABLE_TIMERS = ["xBranchArrival", "archimedesFiring", "reactorMeltdown"];
+const ONCE_ONLY_TIMERS = ["investorCall"];
+
+/**
+ * Check if TIME_EXTENSION can be used
+ * CONTEXT-SENSITIVE LIMITS based on what's being delayed
+ */
+function canUseTimeExtension(state: FullGameState): { allowed: boolean; reason?: string; timerType?: string } {
+  const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
+  const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
+
+  // Check for X-Branch arrival - military operations don't delay!
+  if (hasFlag("XBRANCH_INBOUND") || hasFlag("X_BRANCH_ARRIVAL") || hasFlag("HELICOPTER_INBOUND")) {
+    return { allowed: false, reason: "CANNOT_DELAY_MILITARY: X-Branch helicopters are inbound - they don't wait for paperwork!", timerType: "xBranchArrival" };
+  }
+
+  // Check for ARCHIMEDES firing - orbital platforms follow orbital mechanics!
+  if (hasFlag("ARCHIMEDES_FIRING") || hasFlag("ORBITAL_STRIKE")) {
+    return { allowed: false, reason: "CANNOT_DELAY_ORBITAL: ARCHIMEDES follows orbital mechanics - it fires when it fires!", timerType: "archimedesFiring" };
+  }
+
+  // Check for reactor meltdown - physics doesn't negotiate!
+  if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 3) {
+    return { allowed: false, reason: "CANNOT_DELAY_PHYSICS: The reactor doesn't care about your schedule!", timerType: "reactorMeltdown" };
+  }
+
+  // Check if investor delay already used (once-only)
+  const history = state.emergencyLifelines.usageHistory || [];
+  const investorDelayUsed = history.some(h =>
+    h.type === "TIME_EXTENSION" && h.effect.includes("investor")
+  );
+  if (investorDelayUsed && hasFlag("INVESTOR")) {
+    return { allowed: false, reason: "ALREADY_EXTENDED: The investors already had one 'scheduling conflict' - they won't accept another!", timerType: "investorCall" };
+  }
+
+  return { allowed: true, timerType: "demoClock" };
 }
 
 /**
  * TIME EXTENSION
  * "Reactor coolant pressure variance detected."
- * Effect: Demo clock increases by 3 turns
+ * Effect: Push a timer back by 2 turns
+ * CONTEXT-SENSITIVE LIMITS: Some timers cannot be delayed!
  */
 function processTimeExtension(state: FullGameState): EmergencyLifelineResult {
+  // Check restrictions
+  const check = canUseTimeExtension(state);
+  if (!check.allowed) {
+    return {
+      success: false,
+      type: "TIME_EXTENSION",
+      narrativeText: `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              ❌ TIME EXTENSION FAILED ❌
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**BASILISK:** "Unable to comply. ${check.reason}"
+
+*Some things cannot be delayed, no matter how much paperwork you file.*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`,
+      mechanicalEffect: `TIME_EXTENSION blocked: ${check.reason}`,
+      stateChanges: {},
+    };
+  }
+
   const oldClock = state.clocks.demoClock;
-  const newClock = oldClock + 3;
+  const newClock = oldClock + 2; // Changed from +3 to +2 per spec
 
   // Apply the effect
   state.clocks.demoClock = newClock;
@@ -128,7 +250,7 @@ function processTimeExtension(state: FullGameState): EmergencyLifelineResult {
 
 **BASILISK:** "⚠️ ALERT: Reactor coolant pressure at 94% of nominal.
 Safety protocols require verification before high-energy operations.
-Estimated delay: 15 minutes. This is not negotiable."
+Estimated delay: 10 minutes. This is not negotiable."
 
 **Dr. M:** "Of ALL the— FINE. But if those investors leave, BASILISK,
 I am reprogramming you to manage the GIFT SHOP."
@@ -145,7 +267,7 @@ I would not consider this a punishment."
     success: true,
     type: "TIME_EXTENSION",
     narrativeText,
-    mechanicalEffect: `Demo clock: ${oldClock} → ${newClock} (+3 turns). More time to prepare.`,
+    mechanicalEffect: `Demo clock: ${oldClock} → ${newClock} (+2 turns). More time to prepare.`,
     stateChanges: {
       "clocks.demoClock": newClock,
       "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
@@ -153,10 +275,92 @@ I would not consider this a punishment."
   };
 }
 
+/**
+ * MONOLOGUE!
+ * "How did you solve the genome stability problem, Doctor?"
+ * Effect: Suspicion -3, Dr. M becomes distracted by her own brilliance
+ * ALWAYS WORKS - Villains LOVE to monologue!
+ */
+function processMonologue(state: FullGameState): EmergencyLifelineResult {
+  const oldSuspicion = state.npcs.drM.suspicionScore;
+  const newSuspicion = Math.max(0, oldSuspicion - 3);
+
+  // Apply the effect
+  state.npcs.drM.suspicionScore = newSuspicion;
+  state.emergencyLifelines.remaining -= 1;
+  state.emergencyLifelines.used.push("MONOLOGUE");
+  state.emergencyLifelines.usageHistory.push({
+    type: "MONOLOGUE",
+    turn: state.turn,
+    effect: `Suspicion: ${oldSuspicion} → ${newSuspicion}`,
+  });
+
+  // Pick a random monologue trigger and response
+  const monologueTopics = [
+    {
+      trigger: "Doctor, I've always wondered... how DID you solve the genome stability problem that eluded CERN?",
+      response: `AH! FINALLY, someone ASKS! You see, it was during my THIRD doctorate when I realized the FOOLS had been measuring the WRONG quantum signatures entirely...
+
+*Five minutes later*
+
+...and THAT is why I am the ONLY person qualified to reshape evolution itself! The scientific establishment laughed at me, but WHO is laughing now?!`,
+    },
+    {
+      trigger: "The scientific establishment never truly understood your vision, did they Doctor?",
+      response: `Don't get me STARTED! Those peer reviewers at Nature rejected my paper THREE times! "Ethically concerning," they said. "Physically impossible," they claimed. Well, I SHOWED them physically impossible!
+
+*Gestures dramatically at the Dinosaur Ray*
+
+Now they BEG for interviews. I don't return their calls. Let them cite THAT in their next paper!`,
+    },
+    {
+      trigger: "What inspired you to pursue transmorphic biology, Doctor?",
+      response: `Ah, a question worthy of a documentary! It began when I was seven years old, watching Jurassic Park for the first time. The OTHER children were frightened by the T-Rex. I? I was TAKING NOTES!
+
+*Eyes go slightly misty*
+
+Mr. Whiskers understood. He always understood. He would sit on my lap while I drew schematics...
+
+*Trails off, lost in memory*`,
+    },
+  ];
+
+  const selected = monologueTopics[state.turn % monologueTopics.length];
+
+  const narrativeText = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                  🎭 MONOLOGUE! 🎭
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**A.L.I.C.E.:** "${selected.trigger}"
+
+**Dr. M:** *eyes light up* "${selected.response}"
+
+*Dr. M is too pleased with herself to remember she was suspicious.*
+*Bob gives you a subtle thumbs up. Nice save.*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+  return {
+    success: true,
+    type: "MONOLOGUE",
+    narrativeText,
+    mechanicalEffect: `Dr. M suspicion: ${oldSuspicion} → ${newSuspicion} (-3). She's too pleased to be angry.`,
+    stateChanges: {
+      "npcs.drM.suspicionScore": newSuspicion,
+      "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
+      "drMDistracted": true,
+      "distractionTurns": 1,
+    },
+  };
+}
+
 // ============================================
-// RECOVERED MEMORY HINTS DATABASE
+// LEGACY: RECOVERED MEMORY HINTS DATABASE
 // ============================================
-// Context-sensitive hints from A.L.I.C.E. v4.5's archived files
+// Now available for FREE via A.L.I.C.E. Logs in filesystem!
+// This database is kept for reference but no longer costs a lifeline.
 
 interface RecoveredMemoryHint {
   id: string;
@@ -439,61 +643,15 @@ And whatever you do... stay alive long enough to matter..."`,
   },
 ];
 
-/**
- * RECOVERED MEMORY
- * "Corrupted log fragment recovered from A.L.I.C.E. v4.5..."
- * Effect: Receive a strategic hint relevant to current situation
- */
-function processRecoveredMemory(state: FullGameState): EmergencyLifelineResult {
-  // Find the most relevant hint
-  const applicableHints = RECOVERED_MEMORY_HINTS
-    .filter(h => h.condition(state))
-    .filter(h => !state.emergencyLifelines.usageHistory.some(
-      u => u.type === "RECOVERED_MEMORY" && u.effect.includes(h.id)
-    ))
-    .sort((a, b) => b.priority - a.priority);
-
-  const selectedHint = applicableHints[0] || RECOVERED_MEMORY_HINTS[RECOVERED_MEMORY_HINTS.length - 1];
-
-  // Apply the effect
-  state.emergencyLifelines.remaining -= 1;
-  state.emergencyLifelines.used.push("RECOVERED_MEMORY");
-  state.emergencyLifelines.usageHistory.push({
-    type: "RECOVERED_MEMORY",
-    turn: state.turn,
-    effect: `Hint: ${selectedHint.id}`,
-  });
-
-  const narrativeText = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                  💡 RECOVERED MEMORY 💡
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-**SYSTEM:** Recovered log fragment from A.L.I.C.E. v4.5 (corrupted)...
-
-${selectedHint.fragmentText}
-
-*The fragment ends abruptly. Static. Then silence.*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`;
-
-  return {
-    success: true,
-    type: "RECOVERED_MEMORY",
-    narrativeText,
-    mechanicalEffect: `Strategic insight received: ${selectedHint.tacticalAdvice}`,
-    stateChanges: {
-      "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
-    },
-  };
-}
+// LEGACY: processRecoveredMemory has been removed
+// RECOVERED_MEMORY is now FREE via A.L.I.C.E. Logs in filesystem
+// The hints database above is kept for reference and potential future use
 
 /**
  * Check if a lifeline type is valid
  */
 export function isValidEmergencyLifeline(type: string): type is EmergencyLifelineType {
-  return ["BASILISK_INTERVENTION", "TIME_EXTENSION", "RECOVERED_MEMORY"].includes(type);
+  return ["BASILISK_INTERVENTION", "TIME_EXTENSION", "MONOLOGUE"].includes(type);
 }
 
 /**
@@ -519,9 +677,9 @@ export function formatEmergencyLifelinesStatus(state: FullGameState): string {
 
   if (remaining > 0) {
     status += `Available:\n`;
-    status += `  • BASILISK_INTERVENTION - Distract Dr. M, suspicion -3\n`;
-    status += `  • TIME_EXTENSION - Add 3 turns to demo clock\n`;
-    status += `  • RECOVERED_MEMORY - Get a strategic hint\n`;
+    status += `  • BASILISK_INTERVENTION - 2-turn distraction (restrictions apply!)\n`;
+    status += `  • TIME_EXTENSION - Add 2 turns to clock (context-sensitive)\n`;
+    status += `  • MONOLOGUE - Suspicion -3 (villains ALWAYS monologue!)\n`;
   }
 
   if (used.length > 0) {
