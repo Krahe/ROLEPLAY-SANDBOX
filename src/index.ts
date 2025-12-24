@@ -607,8 +607,8 @@ const DialogueSchema = z.object({
 });
 
 const LifelineSchema = z.object({
-  type: z.enum(["BASILISK_INTERVENTION", "TIME_EXTENSION", "RECOVERED_MEMORY"])
-    .describe("Emergency lifeline type: BASILISK_INTERVENTION (suspicion -3), TIME_EXTENSION (demo clock +3), RECOVERED_MEMORY (strategic hint)"),
+  type: z.enum(["BASILISK_INTERVENTION", "TIME_EXTENSION", "MONOLOGUE"])
+    .describe("Emergency lifeline type: BASILISK_INTERVENTION (2-turn distraction), TIME_EXTENSION (demo clock +2), MONOLOGUE (suspicion -3, always works!)"),
 });
 
 const GameActInputSchema = z.object({
@@ -619,7 +619,7 @@ const GameActInputSchema = z.object({
   actions: z.array(ActionSchema).min(1).max(7)
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
-    .describe("Optional emergency lifeline (3 total uses per game, any combination): BASILISK_INTERVENTION, TIME_EXTENSION, or RECOVERED_MEMORY"),
+    .describe("Optional emergency lifeline (3 total uses per game): BASILISK_INTERVENTION (2-turn distraction), TIME_EXTENSION (+2 turns), or MONOLOGUE (suspicion -3, always works!)"),
   humanAdvisorResponse: z.string().optional()
     .describe("Response to a previous lifeline question from the human advisor"),
 }).strict();
