@@ -286,3 +286,85 @@ export function buildModifierPromptSection(state: FullGameState): string {
   lines.push("");
   return lines.join("\n");
 }
+
+/**
+ * Build mode-specific modifier philosophy guidance
+ * This adjusts the asymmetric modifier philosophy based on game difficulty
+ */
+export function buildModeModifierGuidance(state: FullGameState): string {
+  const mode = state.gameModeConfig?.mode || "NORMAL";
+
+  switch (mode) {
+    case "EASY":
+      return `
+## 🌴 EASY MODE MODIFIER ADJUSTMENTS
+
+**BONUSES: Even MORE generous!**
+- Add +1 to ALL bonuses (so +1 becomes +2, +2 becomes +3, etc.)
+- Cap at +5 for truly exceptional plays
+- Be GENEROUS with what counts as "clever"
+
+**PENALTIES: Almost nonexistent**
+- -1 is the MAXIMUM penalty, period
+- Only apply penalties for truly egregious mistakes
+- The modifiers already help the player - lean into that!
+
+**Philosophy:** This is Training Wheels mode. Let them learn the mechanics
+and enjoy the story without getting crushed. Victory should feel achievable
+on the first playthrough.
+`;
+
+    case "HARD":
+      return `
+## 💀 HARD MODE: FAIR, COLD MATH
+
+**BONUSES: Still generous, but earned**
+- Standard +1 to +4 range applies
+- Don't be stingy, but don't give freebies
+- Player should WORK for those +3 and +4 bonuses
+
+**PENALTIES: Full range available**
+- -1 to -3 penalties are now allowed
+- -3 for truly catastrophic choices (still rare)
+- Bad decisions should have REAL consequences
+
+**Philosophy:** Git Gud mode. Every modifier is there to challenge the player.
+Bruce Patagonia is WATCHING. The clock is FAST. Respect the difficulty -
+the player asked for pain, deliver it fairly.
+`;
+
+    case "WILD":
+      return `
+## 🎲 WILD MODE: EMBRACE THE CHAOS
+
+**BONUSES: Unpredictable!**
+- Standard +1 to +4 range, BUT...
+- Feel free to give +5 for moments that fit the chaos
+- If a random modifier creates a funny opportunity, reward it!
+
+**PENALTIES: Match the chaos**
+- -1 to -2 for normal situations
+- The modifiers themselves are the penalty - don't pile on
+- If DINOSAURS_ALL_THE_WAY_DOWN is active, everything is already ridiculous
+
+**Philosophy:** WILD mode is about memorable stories, not fairness.
+Some runs will be accidentally easy. Some will be accidentally impossible.
+That's the fun! Lean into whatever chaos the modifiers create.
+`;
+
+    case "NORMAL":
+    default:
+      return `
+## 🦖 NORMAL MODE: CLASSIC DINO LAIR
+
+**Standard Asymmetric Modifier Philosophy applies:**
+- Bonuses: +1 to +4 (be generous for cleverness)
+- Penalties: -1 to -2 MAX (the game is hard enough)
+- Reward smart play, don't punish minor mistakes
+
+**Philosophy:** The player should feel like they EARNED their ending,
+whatever that ending may be. Close calls are good. Total domination
+and total catastrophe are both failures of calibration.
+`;
+  }
+}
