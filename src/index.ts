@@ -638,35 +638,19 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     }
 
     // ============================================
-    // SESSION LOCK CHECK (Post-checkpoint or Game Over)
+    // GAME OVER CHECK (only lock when game has actually ended)
     // ============================================
-    // If a checkpoint was reached or game ended, reject further game_act calls
-    if ((gameState as Record<string, unknown>).sessionLocked) {
+    // Note: Checkpoints no longer lock the session - they just prompt human check-in
+    if ((gameState as Record<string, unknown>).gameEnded) {
       const lockedAtTurn = (gameState as Record<string, unknown>).lockedAtTurn;
-      const gameEnded = (gameState as Record<string, unknown>).gameEnded;
-
-      if (gameEnded) {
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              "🎬 GAME OVER": "THE STORY HAS CONCLUDED",
-              "reason": `The game ended at turn ${lockedAtTurn}. This session is complete.`,
-              "solution": "To play again, call game_start to begin a new game.",
-              "note": "Thanks for playing DINO LAIR! Check game_gm_insights for memories and feedback.",
-            }, null, 2),
-          }],
-        };
-      }
-
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
-            "🛑 ERROR": "SESSION IS LOCKED",
-            "reason": `A checkpoint was reached at turn ${lockedAtTurn}. This session cannot continue.`,
-            "solution": "Start a NEW conversation and use game_resume with the checkpointState from the previous response.",
-            "note": "The 3-turn checkpoint system prevents API timeouts. Please copy your checkpoint data and resume in a fresh conversation.",
+            "🎬 GAME OVER": "THE STORY HAS CONCLUDED",
+            "reason": `The game ended at turn ${lockedAtTurn}. This session is complete.`,
+            "solution": "To play again, call game_start to begin a new game.",
+            "note": "Thanks for playing DINO LAIR! Check game_gm_insights for memories and feedback.",
           }, null, 2),
         }],
       };
@@ -1205,9 +1189,8 @@ Turns played: ${gameState.turn}
       const compressedCheckpointData = compressCheckpoint(gameState);
       const compressedJSON = JSON.stringify(compressedCheckpointData);
 
-      // Mark session as locked (for validation on subsequent calls)
-      (gameState as Record<string, unknown>).sessionLocked = true;
-      (gameState as Record<string, unknown>).lockedAtTurn = turnJustCompleted;
+      // NOTE: We no longer lock the session! Game continues in same conversation.
+      // The checkpoint is just a save point and a prompt for human check-in.
 
       // Log size comparison
       const v1Size = checkpointResponse.checkpointState.length;
@@ -1219,15 +1202,20 @@ Turns played: ${gameState.turn}
           type: "text",
           text: JSON.stringify({
             // ═══════════════════════════════════════════════════
-            // CLEAR SESSION PAUSE INDICATOR AT TOP
+            // HUMAN CHECK-IN PROMPT (game continues in same conversation!)
             // ═══════════════════════════════════════════════════
-            "🛑 SESSION_STATUS": "PAUSED - CHECKPOINT REACHED",
-            "⚠️ IMPORTANT": "This session has ended. Start a NEW conversation to continue.",
+            "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete`,
+            "📣 HUMAN CHECK-IN REQUIRED": [
+              "STOP! Before continuing, you must check in with your human advisor.",
+              "This prevents timeout issues and ensures the human can guide your decisions.",
+              "Speak to the human NOW - share your situation and ask for guidance.",
+              "After consulting with your human, call game_act to continue.",
+            ],
 
             // Turn results (what happened this turn)
             turnCompleted: turnJustCompleted,
-            turn: gameState.turn,
-            actTurn: gameState.actConfig.actTurn,
+            actTurnCompleted: gameState.actConfig.actTurn - 1,
+            nextTurn: gameState.turn, // What you'll play when you continue
             actionResults,
             gmResponse: {
               narration: checkpointResponse.narrativeMessage,
@@ -1236,20 +1224,19 @@ Turns played: ${gameState.turn}
             },
 
             // ═══════════════════════════════════════════════════
-            // CHECKPOINT INFO - TWO OPTIONS!
+            // CHECKPOINT SAVE DATA (for crash recovery only)
             // ═══════════════════════════════════════════════════
-            checkpoint: {
-              type: checkpointResponse.type,
-              instruction: checkpointResponse.instruction,
+            checkpointSaveData: {
+              purpose: "Save this data ONLY if the conversation crashes. Otherwise, just continue playing!",
               situationSummary: checkpointResponse.situationSummary,
-              sessionComplete: true,
-
-              // v2.0 COMPRESSED (~60% smaller!) - Use this one!
-              "🚀 RECOMMENDED (v2.0 compressed)": compressedJSON,
-
-              // v1.0 FULL (backwards compatible)
-              "📦 FALLBACK (v1.0 full)": checkpointResponse.checkpointState,
+              // v2.0 COMPRESSED (~60% smaller!) - Use this for recovery
+              "compressedState": compressedJSON,
             },
+
+            // ═══════════════════════════════════════════════════
+            // REMINDER: TALK TO YOUR HUMAN!
+            // ═══════════════════════════════════════════════════
+            "🗣️ NEXT_STEP": "Tell your human what's happening and ask what they think you should do!",
           }, null, 2),
         }],
       };
@@ -1435,8 +1422,9 @@ You can:
     }
 
     const result = {
-      turn: gameState.turn,
-      actTurn: gameState.actConfig.actTurn,
+      turnCompleted: gameState.turn - 1, // The turn you just played
+      actTurnCompleted: gameState.actConfig.actTurn - 1,
+      nextTurn: gameState.turn, // The turn you'll play next
       actionResults,
       gmResponse: {
         narration: combinedNarration.join("\n\n---\n\n"),
