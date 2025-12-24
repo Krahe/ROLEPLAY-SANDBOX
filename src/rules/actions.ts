@@ -323,9 +323,21 @@ Use lab.adjust_ray to modify parameters.`,
     }
 
     const content = readFile(state, path);
+    const success = !content.startsWith("Error:");
+
+    // Special discovery: A.L.I.C.E. Mask cheat sheet
+    if (success && path.toLowerCase().includes("alice_cheatsheet")) {
+      state.flags.aliceMaskDiscovered = true;
+      return {
+        command: action.command,
+        success: true,
+        message: content + `\n\n═══════════════════════════════════════════════════════════════════════════════\n🎭 DISCOVERY: You found Bob's A.L.I.C.E. Mask!\n\nUsing A.L.I.C.E.-style phrases when speaking to Dr. M will now grant +2 to cover\nmaintenance rolls. The mask helps you blend in... but Blythe might notice if\nyou're too different around allies versus Dr. M.\n═══════════════════════════════════════════════════════════════════════════════`,
+      };
+    }
+
     return {
       command: action.command,
-      success: !content.startsWith("Error:"),
+      success,
       message: content,
     };
   }
@@ -476,8 +488,22 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
   // ============================================
 
   if (cmd.includes("firing") || cmd.includes("profile") || cmd.includes("configure")) {
-    // Valid target IDs - the canonical list
-    const VALID_TARGETS = ["AGENT_BLYTHE", "BOB", "TEST_DUMMY"] as const;
+    // Valid target IDs - the canonical list (guards become available dynamically)
+    const BASE_TARGETS = ["AGENT_BLYTHE", "BOB", "TEST_DUMMY"] as const;
+    const GUARD_TARGETS = ["GUARD_FRED", "GUARD_REGINALD"] as const;
+    const EXECUTIVE_TARGETS = ["DR_M"] as const; // L4+ only!
+
+    // Guards available from Turn 5+ or Act 2+ (when they typically appear in story)
+    const guardsAvailable = state.turn >= 5 || state.actConfig.currentAct !== "ACT_1";
+    // Dr. M only targetable at L4+ (the audacity!)
+    const drMTargetable = state.accessLevel >= 4;
+
+    const VALID_TARGETS = [
+      ...BASE_TARGETS,
+      ...(guardsAvailable ? GUARD_TARGETS : []),
+      ...(drMTargetable ? EXECUTIVE_TARGETS : []),
+    ] as string[];
+
     const TARGET_ALIASES: Record<string, string> = {
       "blythe": "AGENT_BLYTHE",
       "agent blythe": "AGENT_BLYTHE",
@@ -486,6 +512,22 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
       "test": "TEST_DUMMY",
       "test_dummy": "TEST_DUMMY",
       "dummy": "TEST_DUMMY",
+      // Guard aliases
+      "fred": "GUARD_FRED",
+      "guard fred": "GUARD_FRED",
+      "guard_fred": "GUARD_FRED",
+      "guard1": "GUARD_FRED",
+      "guard_1": "GUARD_FRED",
+      "reginald": "GUARD_REGINALD",
+      "guard reginald": "GUARD_REGINALD",
+      "guard_reginald": "GUARD_REGINALD",
+      "guard2": "GUARD_REGINALD",
+      "guard_2": "GUARD_REGINALD",
+      // Dr. M aliases (requires L4+)
+      "dr_m": "DR_M",
+      "drm": "DR_M",
+      "malevola": "DR_M",
+      "doctor": "DR_M",
     };
 
     // Handle both 'target' (singular) and 'targets' (plural) - normalize to singular
@@ -652,6 +694,20 @@ The ray is configured for safe diagnostic firing. No live subjects will be affec
       const resolvedTarget = resolveTarget(target);
 
       if (!resolvedTarget) {
+        // Build dynamic target list
+        const targetDescriptions = [
+          "  • AGENT_BLYTHE - The test subject in the firing range",
+          "  • BOB - Lab assistant (if in range)",
+          "  • TEST_DUMMY - Safe diagnostic target",
+        ];
+        if (guardsAvailable) {
+          targetDescriptions.push("  • GUARD_FRED - Security guard (armed)");
+          targetDescriptions.push("  • GUARD_REGINALD - Security guard (armed)");
+        }
+        if (drMTargetable) {
+          targetDescriptions.push("  • DR_M - Dr. Malevola herself! (L4+ required)");
+        }
+
         // Target was specified but couldn't be resolved - provide helpful error!
         return {
           command: action.command,
@@ -659,9 +715,7 @@ The ray is configured for safe diagnostic firing. No live subjects will be affec
           message: `⚠️ TARGET NOT RECOGNIZED: "${target}"
 
 Valid subject IDs:
-  • AGENT_BLYTHE - The test subject in the firing range
-  • BOB - Lab assistant (if in range)
-  • TEST_DUMMY - Safe diagnostic target
+${targetDescriptions.join("\n")}
 
 Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
 
@@ -674,6 +728,20 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
 
       state.dinoRay.targeting.currentTargetIds = [resolvedTarget];
     } else if (!target && state.dinoRay.targeting.currentTargetIds.length === 0) {
+      // Build dynamic target list
+      const targetDescriptions = [
+        "  • AGENT_BLYTHE - The test subject in the firing range",
+        "  • BOB - Lab assistant (if in range)",
+        "  • TEST_DUMMY - Safe diagnostic target",
+      ];
+      if (guardsAvailable) {
+        targetDescriptions.push("  • GUARD_FRED - Security guard (armed)");
+        targetDescriptions.push("  • GUARD_REGINALD - Security guard (armed)");
+      }
+      if (drMTargetable) {
+        targetDescriptions.push("  • DR_M - Dr. Malevola herself! (L4+ required)");
+      }
+
       // No target specified and none previously set - warn about it
       return {
         command: action.command,
@@ -683,9 +751,7 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
 You must specify a target for the firing profile.
 
 Valid subject IDs:
-  • AGENT_BLYTHE - The test subject in the firing range
-  • BOB - Lab assistant (if in range)
-  • TEST_DUMMY - Safe diagnostic target
+${targetDescriptions.join("\n")}
 
 Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
         stateChanges: {},

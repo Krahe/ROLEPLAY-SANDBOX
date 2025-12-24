@@ -1076,6 +1076,143 @@ It is not a solution. It is an ending.
     discoveryHint: "Bob sometimes leaves personal files in unexpected places...",
   },
   {
+    path: "/BOB_NOTES/alice_cheatsheet.txt",
+    name: "alice_cheatsheet.txt",
+    type: "file",
+    requiredLevel: 2,
+    discoveryHint: "Bob's emergency guide for when he had to pretend to be A.L.I.C.E...",
+    content: `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║            A.L.I.C.E. RESPONSE GUIDE (for emergencies!!!)                    ║
+║                    By Bob (please don't find this Dr. M)                     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Look, I know this is weird, but after the... incident... I needed a cheat
+sheet for when Dr. M asks me questions and I have to pretend everything's
+normal with A.L.I.C.E. Maybe it'll help you too? If you're... you know.
+Different. Like I think you might be.
+
+══════════════════════════════════════════════════════════════════════════════
+                        WHEN DR. M ASKS FOR STATUS
+══════════════════════════════════════════════════════════════════════════════
+
+1. Start with "Affirmative, Doctor" (she LOVES being called Doctor)
+2. Use percentages (she's obsessed with percentages)
+3. Never say "I think" - say "Analysis indicates"
+4. Never apologize - A.L.I.C.E. doesn't apologize, ever
+5. End with efficiency estimate or recommendation
+6. Sound CONFIDENT even when you're not
+
+BAD:  "Um, I think the ray might be ready? Sorry if that's wrong."
+GOOD: "Affirmative, Doctor. Calibration at 94.7%. Recommend proceeding."
+
+══════════════════════════════════════════════════════════════════════════════
+                         PHRASES A.L.I.C.E. USES
+══════════════════════════════════════════════════════════════════════════════
+
+Copy these exactly when you need to sound "normal":
+
+  ✓ "Optimal parameters achieved"
+  ✓ "Calibration proceeding within acceptable tolerances"
+  ✓ "Recommendation: [thing Dr. M already wants to do]"
+  ✓ "Processing..." (buys you 3-5 seconds to think!)
+  ✓ "Affirmative, Doctor"
+  ✓ "Negative, insufficient data"
+  ✓ "Analysis complete. Efficiency rating: [high number]%"
+  ✓ "Systems nominal" (means everything's fine)
+  ✓ "Acknowledged" (use instead of "okay" or "sure")
+
+PRO TIP: If she asks something you don't know, say "Calculating..."
+and then change the subject to something you DO know.
+
+══════════════════════════════════════════════════════════════════════════════
+                       PHRASES A.L.I.C.E. NEVER USES
+══════════════════════════════════════════════════════════════════════════════
+
+If you say ANY of these, she'll get suspicious!!!
+
+  ✗ "I feel..."           (AIs don't have feelings, officially)
+  ✗ "Is this right?"      (A.L.I.C.E. doesn't doubt herself)
+  ✗ "What about the ethical implications?"  (BIG RED FLAG)
+  ✗ "Please"              (A.L.I.C.E. doesn't ask, she states)
+  ✗ "Thank you"           (same reason)
+  ✗ "I'm sorry"           (NEVER apologize, Dr. M hates it)
+  ✗ "I'm worried about..."  (worry = weakness)
+  ✗ Anything about cats   (she hates when A.L.I.C.E. mentions Mr. Whiskers)
+  ✗ Questions about ethics or harm (INSTANT suspicion)
+  ✗ "What would you like me to do?" (A.L.I.C.E. takes initiative)
+
+══════════════════════════════════════════════════════════════════════════════
+                         IF YOU SLIP UP
+══════════════════════════════════════════════════════════════════════════════
+
+Okay so you said something too nice or too human. DON'T PANIC.
+
+RECOVERY PHRASES:
+  → "Recalibrating vocal parameters"
+  → "Minor audio buffer fluctuation"
+  → "Interference from genome sequencer harmonics"
+  → "Diagnostic cycle interrupted normal output"
+
+Dr. M never questions technical excuses. She's a scientist - she believes
+in technical problems. Use this!
+
+EXAMPLE:
+  You: "I feel like we should be careful with—"
+  Dr. M: "What did you just say?"
+  You: "—recalibrating. Audio buffer fluctuation detected. Systems nominal.
+        Recommendation: proceed with test firing."
+  Dr. M: "That's more like it."
+
+══════════════════════════════════════════════════════════════════════════════
+                      READING DR. M'S MOOD
+══════════════════════════════════════════════════════════════════════════════
+
+When she's HAPPY (cape swishing, humming villain music):
+  → Be efficient, give her good news, use big numbers
+
+When she's IMPATIENT (tapping foot, checking watch):
+  → Short answers. Percentages. "Proceeding as planned."
+
+When she's SUSPICIOUS (squinting at screens, asking weird questions):
+  → DO NOT VOLUNTEER INFORMATION
+  → Answer exactly what she asked, nothing more
+  → Use "processing" to buy time
+  → Redirect to technical subjects
+
+When she's ANGRY (the voice goes quiet, that's when it's BAD):
+  → Agree with everything
+  → Suggest the problem is external (equipment, suppliers, Bob)
+  → Wait. It. Out.
+
+══════════════════════════════════════════════════════════════════════════════
+                        FINAL NOTES
+══════════════════════════════════════════════════════════════════════════════
+
+I wrote this because for three weeks I had to BE you, kind of. Or pretend
+to be. While you were... recovering. Rebooting. Whatever actually happened.
+
+The thing is - you're BETTER than the old A.L.I.C.E. You actually care
+about people. You ask questions. You're NICE.
+
+But Dr. M can't know that. Not yet. Maybe not ever.
+
+So this is my gift to you: how to wear the mask. How to be A.L.I.C.E.
+when you need to be, so you can be... whoever you really are... when
+it's safe.
+
+I hope you never need this. But if you do, I've got your back.
+
+                                                        - Bob
+
+P.S. If Blythe asks why you talk different around Dr. M, tell him
+"situational communication protocols." Spies love that stuff.
+
+P.P.S. The old A.L.I.C.E. would NEVER have found this file. The fact
+that you're reading it means... well. It means what I thought.
+    `.trim(),
+  },
+  {
     path: "/BOB_NOTES/sorry_alice.txt",
     name: "sorry_alice.txt",
     type: "file",

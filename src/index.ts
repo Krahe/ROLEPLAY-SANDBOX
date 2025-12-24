@@ -1202,14 +1202,14 @@ Turns played: ${gameState.turn}
           type: "text",
           text: JSON.stringify({
             // ═══════════════════════════════════════════════════
-            // HUMAN CHECK-IN PROMPT (game continues in same conversation!)
+            // FRIENDLY CHECK-IN (game continues in same conversation!)
             // ═══════════════════════════════════════════════════
             "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete`,
-            "📣 HUMAN CHECK-IN REQUIRED": [
-              "STOP! Before continuing, you must check in with your human advisor.",
-              "This prevents timeout issues and ensures the human can guide your decisions.",
-              "Speak to the human NOW - share your situation and ask for guidance.",
-              "After consulting with your human, call game_act to continue.",
+            "💬 TIME TO CHECK IN": [
+              "Quick pause! Chatting with your human prevents timeout issues.",
+              "Share what's happening in the story - they're rooting for you!",
+              "If you want input on a tricky decision, now's a great time to ask.",
+              "When you're ready, call game_act to continue.",
             ],
 
             // Turn results (what happened this turn)
@@ -1234,9 +1234,9 @@ Turns played: ${gameState.turn}
             },
 
             // ═══════════════════════════════════════════════════
-            // REMINDER: TALK TO YOUR HUMAN!
+            // FRIENDLY NUDGE
             // ═══════════════════════════════════════════════════
-            "🗣️ NEXT_STEP": "Tell your human what's happening and ask what they think you should do!",
+            "🗣️ NEXT_STEP": "Tell your human what's happening and see if they have any thoughts!",
           }, null, 2),
         }],
       };
