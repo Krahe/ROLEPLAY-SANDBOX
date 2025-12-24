@@ -551,6 +551,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         libraryAUnlocked: true,
         libraryBUnlocked: true, // Both libraries now available from Level 1
         firingMode: "TRANSFORM", // Default to transform mode on checkpoint restore
+        advancedFiringMode: "STANDARD", // Default to standard firing mode
       },
       targeting: {
         currentTargetIds: [],

@@ -44,6 +44,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         libraryAUnlocked: true,
         libraryBUnlocked: true, // Now available from start! REVERSAL is the restriction.
         firingMode: "TRANSFORM",
+        advancedFiringMode: "STANDARD", // Multi-target modes available!
       },
       targeting: {
         currentTargetIds: ["AGENT_BLYTHE"],

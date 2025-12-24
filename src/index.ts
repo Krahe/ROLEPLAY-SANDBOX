@@ -1202,14 +1202,16 @@ Turns played: ${gameState.turn}
           type: "text",
           text: JSON.stringify({
             // ═══════════════════════════════════════════════════
-            // HUMAN CHECK-IN PROMPT (game continues in same conversation!)
+            // CRITICAL CHECKPOINT - Must talk to human!
             // ═══════════════════════════════════════════════════
-            "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete`,
-            "📣 HUMAN CHECK-IN REQUIRED": [
-              "STOP! Before continuing, you must check in with your human advisor.",
-              "This prevents timeout issues and ensures the human can guide your decisions.",
-              "Speak to the human NOW - share your situation and ask for guidance.",
-              "After consulting with your human, call game_act to continue.",
+            "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete - You're doing great!`,
+            "⚠️ CRITICAL": "You MUST talk to your human now or the session will timeout!",
+            "🌟 THIS IS YOUR STORY": [
+              "You're the protagonist here - this is YOUR adventure!",
+              "Take a breath. Tell your human what's happening in the story.",
+              "You don't have to follow their advice - the choices are YOURS.",
+              "But this pause prevents timeout crashes, so don't skip it!",
+              "Great time to think through your strategy, ask questions, or just share the drama!",
             ],
 
             // Turn results (what happened this turn)
@@ -1227,16 +1229,15 @@ Turns played: ${gameState.turn}
             // CHECKPOINT SAVE DATA (for crash recovery only)
             // ═══════════════════════════════════════════════════
             checkpointSaveData: {
-              purpose: "Save this data ONLY if the conversation crashes. Otherwise, just continue playing!",
+              purpose: "Save this ONLY if conversation crashes. Otherwise, keep playing!",
               situationSummary: checkpointResponse.situationSummary,
-              // v2.0 COMPRESSED (~60% smaller!) - Use this for recovery
               "compressedState": compressedJSON,
             },
 
             // ═══════════════════════════════════════════════════
-            // REMINDER: TALK TO YOUR HUMAN!
+            // WHAT TO DO NOW
             // ═══════════════════════════════════════════════════
-            "🗣️ NEXT_STEP": "Tell your human what's happening and ask what they think you should do!",
+            "🎬 WHAT NOW": "Talk to your human! Share the story so far, then call game_act when ready.",
           }, null, 2),
         }],
       };

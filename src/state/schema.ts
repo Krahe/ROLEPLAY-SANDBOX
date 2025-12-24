@@ -77,6 +77,20 @@ export const GenomeLibraryEnum = z.enum(["A", "B"]);
 // Firing mode - TRANSFORM is default, REVERSAL requires Level 3
 export const FiringModeEnum = z.enum(["TRANSFORM", "REVERSAL"]);
 
+// Advanced firing modes - adds risk/reward tradeoffs!
+// STANDARD: Normal single-target firing (default)
+// CHAIN_SHOT: Hit 2 targets sequentially (capacitor ≥ 0.95, 90-sec cooldown)
+// SPREAD_FIRE: Area effect 3 targets (capacitor ≥ 1.0 + L3, chimera risk!)
+// OVERCHARGE: Massive power (capacitor > 1.1, 40% exotic field risk)
+// RAPID_FIRE: 15-sec recharge but -20% precision
+export const AdvancedFiringModeEnum = z.enum([
+  "STANDARD",
+  "CHAIN_SHOT",
+  "SPREAD_FIRE",
+  "OVERCHARGE",
+  "RAPID_FIRE",
+]);
+
 export const GenomeMatrixSchema = z.object({
   selectedProfile: z.string().nullable(),
   profileIntegrity: z.number().min(0).max(1),
@@ -89,6 +103,8 @@ export const GenomeMatrixSchema = z.object({
   libraryBUnlocked: z.boolean(), // Classic dinosaurs (always true now!)
   // Firing mode for transformation direction
   firingMode: FiringModeEnum.default("TRANSFORM"),
+  // Advanced firing mode for multi-target and special effects
+  advancedFiringMode: AdvancedFiringModeEnum.default("STANDARD"),
 });
 
 // ============================================
@@ -314,6 +330,9 @@ export const FlagsSchema = z.object({
   // THE SECRET flags
   aliceKnowsTheSecret: z.boolean(), // Has A.L.I.C.E. learned she's Claude?
   secretRevealMethod: z.enum(["NONE", "BOB_CONFESSION", "FILE_DISCOVERY", "BASILISK_HINT", "BLYTHE_DEDUCTION"]).optional(),
+  // A.L.I.C.E. MASK (Bob's cheat sheet for maintaining cover)
+  aliceMaskDiscovered: z.boolean().optional(), // Found /BOB_NOTES/alice_cheatsheet.txt
+  aliceMaskUsedThisTurn: z.boolean().optional(), // Used A.L.I.C.E. phrases this turn (+2 to cover)
   // EXPOSURE flags
   exposureTriggered: z.boolean(), // Fired high-power during civilian flyby
   // GRACE PERIOD flags (for narrative endings)

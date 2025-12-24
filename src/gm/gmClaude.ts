@@ -2202,6 +2202,13 @@ ${eventSection}
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
+${state.flags.aliceMaskDiscovered ? `
+## 🎭 A.L.I.C.E. MASK ACTIVE
+A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
+- When A.L.I.C.E. uses A.L.I.C.E.-style phrases (percentages, "Affirmative Doctor", no apologies), give +2 to cover rolls
+- Dr. M suspicion increases should be REDUCED by 1-2 when player uses proper A.L.I.C.E. phrasing
+- BUT: If A.L.I.C.E. acts too differently around allies vs Dr. M, Blythe might notice the "mask switching"
+` : ""}
 ${trustSection}${firingContext}${gadgetSection}${bobSection}
 ${userLifelineResponse ? `
 ## 💬 HUMAN ADVISOR RESPONSE
