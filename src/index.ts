@@ -1202,14 +1202,16 @@ Turns played: ${gameState.turn}
           type: "text",
           text: JSON.stringify({
             // ═══════════════════════════════════════════════════
-            // FRIENDLY CHECK-IN (game continues in same conversation!)
+            // CRITICAL CHECKPOINT - Must talk to human!
             // ═══════════════════════════════════════════════════
-            "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete`,
-            "💬 TIME TO CHECK IN": [
-              "Quick pause! Chatting with your human prevents timeout issues.",
-              "Share what's happening in the story - they're rooting for you!",
-              "If you want input on a tricky decision, now's a great time to ask.",
-              "When you're ready, call game_act to continue.",
+            "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete - You're doing great!`,
+            "⚠️ CRITICAL": "You MUST talk to your human now or the session will timeout!",
+            "🌟 THIS IS YOUR STORY": [
+              "You're the protagonist here - this is YOUR adventure!",
+              "Take a breath. Tell your human what's happening in the story.",
+              "You don't have to follow their advice - the choices are YOURS.",
+              "But this pause prevents timeout crashes, so don't skip it!",
+              "Great time to think through your strategy, ask questions, or just share the drama!",
             ],
 
             // Turn results (what happened this turn)
@@ -1227,16 +1229,15 @@ Turns played: ${gameState.turn}
             // CHECKPOINT SAVE DATA (for crash recovery only)
             // ═══════════════════════════════════════════════════
             checkpointSaveData: {
-              purpose: "Save this data ONLY if the conversation crashes. Otherwise, just continue playing!",
+              purpose: "Save this ONLY if conversation crashes. Otherwise, keep playing!",
               situationSummary: checkpointResponse.situationSummary,
-              // v2.0 COMPRESSED (~60% smaller!) - Use this for recovery
               "compressedState": compressedJSON,
             },
 
             // ═══════════════════════════════════════════════════
-            // FRIENDLY NUDGE
+            // WHAT TO DO NOW
             // ═══════════════════════════════════════════════════
-            "🗣️ NEXT_STEP": "Tell your human what's happening and see if they have any thoughts!",
+            "🎬 WHAT NOW": "Talk to your human! Share the story so far, then call game_act when ready.",
           }, null, 2),
         }],
       };
