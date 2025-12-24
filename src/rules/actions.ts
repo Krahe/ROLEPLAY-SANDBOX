@@ -769,11 +769,20 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
       ? "\n🔄 REVERSAL MODE ACTIVE - Ray will attempt to restore original form"
       : "";
 
+    // Build target description with clarity
+    const targetId = state.dinoRay.targeting.currentTargetIds[0];
+    const targetEmoji = targetId === "BOB" ? "⚠️🧑‍🔬" :
+                        targetId === "AGENT_BLYTHE" ? "🕵️" :
+                        targetId === "TEST_DUMMY" ? "🎯" :
+                        targetId === "DR_M" ? "👩‍🔬" :
+                        targetId.includes("GUARD") ? "💂" : "❓";
+    const targetWarning = targetId === "BOB" ? "\n⚠️ WARNING: BOB is targeted! Are you sure? (He's on your side!)" : "";
+
     return {
       command: action.command,
       success: true,
       message: `Firing profile configured:
-Target: ${state.dinoRay.targeting.currentTargetIds.join(", ")}
+${targetEmoji} Target: ${state.dinoRay.targeting.currentTargetIds.join(", ")}${targetWarning}
 Genome Library: ${state.dinoRay.genome.activeLibrary} (${state.dinoRay.genome.activeLibrary === "A" ? "Scientific" : "Hollywood"})
 Genome Profile: ${currentProfile.displayName}
 Firing Mode: ${state.dinoRay.genome.firingMode}
@@ -795,6 +804,14 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote
   // ============================================
 
   if (cmd === "lab.fire" || cmd.includes("fire")) {
+    // Get target BEFORE firing for clear feedback
+    const firingTargetId = state.dinoRay.targeting.currentTargetIds[0] || "UNKNOWN";
+    const firingTargetEmoji = firingTargetId === "BOB" ? "⚠️🧑‍🔬" :
+                              firingTargetId === "AGENT_BLYTHE" ? "🕵️" :
+                              firingTargetId === "TEST_DUMMY" ? "🎯" :
+                              firingTargetId === "DR_M" ? "👩‍🔬" :
+                              firingTargetId.includes("GUARD") ? "💂" : "❓";
+
     // Resolve firing using the full firing resolution system
     const firingResult = resolveFiring(state);
 
@@ -805,6 +822,7 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote
     const messageParts: string[] = [
       `🦖 FIRING SEQUENCE COMPLETE`,
       ``,
+      `${firingTargetEmoji} TARGET: ${firingTargetId}`,
       `OUTCOME: ${firingResult.outcome}`,
       `Profile: ${firingResult.effectiveProfile}`,
       ``,
