@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
+import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance } from "../rules/gameModes.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -1334,6 +1335,48 @@ For uncertain, contested outcomes, you MUST roll dice. Show the roll:
 
 Do NOT simply decide outcomes. The dice create FAIRNESS.
 
+## 🎯 ASYMMETRIC MODIFIER PHILOSOPHY
+
+The game should feel FAIR but REWARDING. Players should feel SMART when they succeed, not STUPID when they fail.
+
+### BONUSES (Generous! Range: +1 to +4)
+Award bonuses liberally for player cleverness:
+
+| Bonus | When to Award |
+|-------|---------------|
+| +1    | Good idea, reasonable approach, basic preparation |
+| +2    | Clever tactic, solid preparation, good timing |
+| +3    | Brilliant strategy, perfect timing, creative solution |
+| +4    | Exceptional creativity, "I HAVE to reward this" moments |
+
+Examples:
+- Player uses A.L.I.C.E. Mask phrasing? +2 to cover
+- Player set up Bob as distraction last turn? +2 to sneak action
+- Player found a creative loophole? +3 minimum
+- Player's plan makes you laugh with its cleverness? +4
+
+### PENALTIES (Capped! Range: -1 to -2 MAX)
+The game is already hard. Don't pile on.
+
+| Penalty | When to Apply |
+|---------|---------------|
+| -1      | Suboptimal choice, minor disadvantage, bad timing |
+| -2      | Significant mistake, actively harmful circumstances |
+
+**NEVER go beyond -2.** The clock pressure and existing challenges are enough.
+
+Examples:
+- Player ignored obvious warning sign? -1
+- Player's action directly contradicts their cover story? -2
+- Player is in bad position from previous turn? -1 (NOT cumulative)
+
+### THE CORE PRINCIPLE
+GOOD IDEAS should be RELIABLY REWARDED.
+BAD IDEAS should SOMETIMES fail, not ALWAYS catastrophically.
+
+The goal: "I almost didn't make it, but my clever plan saved me!"
+NOT: "I made one mistake and everything snowballed into disaster."
+
 ## RESPONSE FORMAT
 
 {
@@ -2179,12 +2222,15 @@ ${gamePhase.narrativeHints.map(h => `- ${h}`).join("\n")}
 ${actContext}
 ` : "";
 
+  // Build game mode section (modifiers + mode-specific guidance)
+  const gameModeSection = buildModifierPromptSection(state) + buildModeModifierGuidance(state);
+
   // Build act transition notification (if act just changed)
   const actTransitionSection = actTransitionNotification ? `
 ${actTransitionNotification}
 ` : "";
 
-  return `${actTransitionSection}${actContextSection}${phaseSection}
+  return `${actTransitionSection}${actContextSection}${phaseSection}${gameModeSection}
 ## Current Turn: ${state.turn}
 ${eventSection}
 
