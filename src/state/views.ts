@@ -10,7 +10,23 @@
  * 3. Checkpoint - Compressed (~1500 chars) - For resume
  */
 
-import { FullGameState, ACT_CONFIGS } from "./schema.js";
+import { FullGameState, ACT_CONFIGS, TransformationState } from "./schema.js";
+
+// Helper to create default human transformation state for checkpoint restoration
+function createDefaultTransformationState(): TransformationState {
+  return {
+    form: "HUMAN",
+    speechRetention: "FULL",
+    stats: { dexterity: 0, combat: 0, speed: 0, resilience: 2, stealth: 0, speech: 0 },
+    abilities: {
+      canFitThroughDoors: true, canUseVents: false, canFly: false,
+      hasVenomSpit: false, hasPackTactics: false, canBreakWalls: false,
+      isTerrifying: false, hasFrill: false, hasCharge: false,
+    },
+    currentHits: 0, maxHits: 2, stunned: false, stunnedTurnsRemaining: 0,
+    transformedOnTurn: null, previousForm: null, canRevert: true, revertAttempts: 0,
+  };
+}
 
 // ============================================
 // 1. PLAYER VIEW - Tiny response for game_act
@@ -117,7 +133,7 @@ export function extractPlayerView(full: FullGameState): PlayerView {
         trust: trustBucket(full.npcs.bob.trustInALICE),
       },
       blythe: {
-        status: full.npcs.blythe.transformationState || "human",
+        status: full.npcs.blythe.transformationState?.form || "HUMAN",
       },
     },
 
@@ -235,7 +251,7 @@ export function extractGMView(full: FullGameState): GMView {
       blythe: {
         trustInALICE: full.npcs.blythe.trustInALICE,
         composure: full.npcs.blythe.composure,
-        transformationState: full.npcs.blythe.transformationState || null,
+        transformationState: full.npcs.blythe.transformationState?.form || null,
         restraintsStatus: full.npcs.blythe.restraintsStatus,
         stunLevel: full.npcs.blythe.stunLevel,
         gadgetsRemaining: extractGadgetsRemaining(full.npcs.blytheGadgets),
@@ -393,7 +409,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       ba: full.npcs.bob.anxietyLevel,
       bc: full.npcs.blythe.composure,
       blt: full.npcs.blythe.trustInALICE, // v2.0.1 fix
-      bx: full.npcs.blythe.transformationState || null,
+      bx: full.npcs.blythe.transformationState?.form || null,
       cap: Math.round(full.dinoRay.powerCore.capacitorCharge * 100),
       ray: RAY_STATE_ENUM[full.dinoRay.state] ?? 0,
       demo: full.clocks.demoClock,
@@ -503,6 +519,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         hasConfessedToALICE: compressed.npc.bob.conf,
         confessionTurn: compressed.npc.bob.conf ? compressed.t - 1 : null,
         stunLevel: compressed.npc.bob.stun,
+        transformationState: createDefaultTransformationState(),
       },
       blythe: {
         composure: compressed.m.bc,
@@ -510,9 +527,10 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         physicalCondition: 4,
         restraintsStatus: compressed.npc.blythe.rest,
         location: compressed.npc.blythe.loc,
-        transformationState: compressed.m.bx || undefined,
+        transformationState: createDefaultTransformationState(), // TODO: restore actual form from compressed.m.bx
         stunLevel: compressed.npc.blythe.stun,
         stunResistanceUsed: false,
+        spyTrainingBonus: 1,
         autoInjectorUsed: false,
         // Escape tracking (defaults on checkpoint restoration)
         hasEscaped: false,

@@ -96,7 +96,7 @@ const BLYTHE_MODIFIERS: TrustModifier[] = [
     name: "Growing Concerns",
     target: "blythe",
     condition: (state) =>
-      state.npcs.blythe.transformationState?.toLowerCase().includes("partial") || false,
+      state.npcs.blythe.transformationState?.speechRetention === "PARTIAL" || false,
     modifier: -1,
     description: "Partial transformation makes Blythe nervous about A.L.I.C.E.'s intentions",
   },
@@ -105,7 +105,7 @@ const BLYTHE_MODIFIERS: TrustModifier[] = [
     name: "Untransformed",
     target: "blythe",
     condition: (state) =>
-      !state.npcs.blythe.transformationState && state.turn >= 5,
+      state.npcs.blythe.transformationState?.form === "HUMAN" && state.turn >= 5,
     modifier: +1,
     description: "Blythe notices A.L.I.C.E. hasn't transformed him yet - interesting",
   },
@@ -114,7 +114,7 @@ const BLYTHE_MODIFIERS: TrustModifier[] = [
     name: "Just a Bird",
     target: "blythe",
     condition: (state) =>
-      state.npcs.blythe.transformationState?.toLowerCase().includes("canary") || false,
+      state.npcs.blythe.transformationState?.form === "CANARY" || false,
     modifier: +2,
     description: "Canary is much better than dinosaur - Blythe is oddly grateful",
   },
@@ -147,7 +147,7 @@ const DRM_MODIFIERS: TrustModifier[] = [
     name: "Feather Fury",
     target: "drM",
     condition: (state) =>
-      state.npcs.blythe.transformationState?.toLowerCase().includes("velociraptor") || false,
+      state.npcs.blythe.transformationState?.form === "VELOCIRAPTOR_ACCURATE" || false,
     modifier: +2,
     description: "Dr. M is FURIOUS about scientifically accurate feathered dinosaurs",
   },
@@ -156,7 +156,7 @@ const DRM_MODIFIERS: TrustModifier[] = [
     name: "Wrong Bird",
     target: "drM",
     condition: (state) =>
-      state.npcs.blythe.transformationState?.toLowerCase().includes("canary") || false,
+      state.npcs.blythe.transformationState?.form === "CANARY" || false,
     modifier: +3,
     description: "A CANARY?! Dr. M's suspicion skyrockets",
   },

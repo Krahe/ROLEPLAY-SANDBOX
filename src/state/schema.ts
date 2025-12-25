@@ -478,8 +478,10 @@ export const BobSchema = z.object({
   hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
   hasConfessedToDrM: z.boolean().optional(), // Has Bob confessed to Dr. M? (GM override)
   confessionTurn: z.number().int().nullable(), // When did he confess?
+  // Legacy stun tracking (for backward compatibility)
+  stunLevel: z.number().int().min(0).default(0),
   // TRANSFORMATION STATE (Patch 15 Part 2)
-  transformation: TransformationStateSchema,
+  transformationState: TransformationStateSchema,
 });
 
 export const BlytheEscapeMethodEnum = z.enum([
@@ -497,8 +499,11 @@ export const BlytheSchema = z.object({
   physicalCondition: z.number().min(0).max(5),
   restraintsStatus: z.string(),
   location: z.string(),
+  // Legacy stun tracking (for backward compatibility)
+  stunLevel: z.number().int().min(0).default(0),
+  stunResistanceUsed: z.boolean().default(false),
   // TRANSFORMATION STATE (Patch 15 Part 2)
-  transformation: TransformationStateSchema,
+  transformationState: TransformationStateSchema,
   // SPY TRAINING BONUSES
   spyTrainingBonus: z.number().int().default(1),  // +1 to tactical decisions
   autoInjectorUsed: z.boolean().default(false),   // One-time stun recovery

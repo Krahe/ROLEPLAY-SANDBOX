@@ -28,6 +28,7 @@ export interface FormDefinition {
   displayName: string;
   stats: FormStats;
   abilities: FormAbilities;
+  maxHits: number;
   description: string;
   specialNotes: string[];
 }
@@ -54,6 +55,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 2,
     description: "Baseline human form. Good at buttons, bad at fighting dinosaurs.",
     specialNotes: ["Baseline stats", "Can use all equipment normally"],
   },
@@ -79,6 +81,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 1,
     description: "Chicken-sized dinosaur. Fits ANYWHERE but combat-useless.",
     specialNotes: [
       "VENT ACCESS: Can use ventilation system",
@@ -109,6 +112,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 2,
     description: "Turkey-sized, feathered. Scientifically accurate, less terrifying.",
     specialNotes: [
       "PACK TACTICS: +1 combat per allied raptor",
@@ -138,6 +142,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 2,
     description: "6ft tall, scaly, iconic. Terrifying. Claws click on floors.",
     specialNotes: [
       "PACK TACTICS: +1 combat per allied raptor",
@@ -168,6 +173,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 3,
     description: "Smart, coordinated. The 'good' raptor. Pack leader material.",
     specialNotes: [
       "PACK TACTICS: +1 combat per allied raptor",
@@ -198,6 +204,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 6,
     description: "40 feet of Cretaceous predator. CANNOT FIT THROUGH DOORS.",
     specialNotes: [
       "UNSTOPPABLE: 6 hits to stun",
@@ -231,6 +238,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: true,
       hasCharge: false,
     },
+    maxHits: 2,
     description: "Frilled spitter. Ranged venom attack! Weird vocal cords.",
     specialNotes: [
       "VENOM SPIT: Ranged attack (DC 6, 1 hit + blinded 2 turns)",
@@ -260,6 +268,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 2,
     description: "Flying reptile. Bypasses all ground obstacles!",
     specialNotes: [
       "FLIGHT: Can bypass all ground-level obstacles",
@@ -291,6 +300,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: true,
     },
+    maxHits: 5,
     description: "Herbivore tank. Devastating charge attack. Door problem.",
     specialNotes: [
       "TANK: 5 hits to stun",
@@ -323,6 +333,7 @@ export const FORM_DEFINITIONS: Record<DinosaurForm, FormDefinition> = {
       hasFrill: false,
       hasCharge: false,
     },
+    maxHits: 1,
     description: "Fallback profile when genome integrity fails. Squeaky.",
     specialNotes: [
       "FLIGHT: Sort of",
@@ -849,10 +860,10 @@ export function getTransformationState(
   subjectId: string
 ): TransformationState | null {
   if (subjectId === "BOB" || subjectId.toLowerCase() === "bob") {
-    return state.npcs.bob?.transformation || null;
+    return state.npcs.bob?.transformationState || null;
   }
   if (subjectId === "BLYTHE" || subjectId.toLowerCase() === "blythe") {
-    return state.npcs.blythe?.transformation || null;
+    return state.npcs.blythe?.transformationState || null;
   }
   return null;
 }

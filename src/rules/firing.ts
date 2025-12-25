@@ -1,6 +1,22 @@
 import { randomInt } from "crypto";
-import { FullGameState, FiringOutcome } from "../state/schema.js";
+import { FullGameState, FiringOutcome, DinosaurForm, SpeechRetention } from "../state/schema.js";
 import { recordFirstFiring } from "./actContext.js";
+import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
+
+// Map profile names to form enums
+function profileToForm(profile: string): DinosaurForm {
+  const p = profile.toLowerCase();
+  if (p.includes("compy") || p.includes("compsognathus")) return "COMPSOGNATHUS";
+  if (p.includes("blue")) return "VELOCIRAPTOR_BLUE";
+  if (p.includes("accurate") || p.includes("feather")) return "VELOCIRAPTOR_ACCURATE";
+  if (p.includes("jp") || (p.includes("velociraptor") && !p.includes("accurate"))) return "VELOCIRAPTOR_JP";
+  if (p.includes("t-rex") || p.includes("tyrannosaurus") || p.includes("rex")) return "TYRANNOSAURUS";
+  if (p.includes("dilo") || p.includes("dilophosaurus")) return "DILOPHOSAURUS";
+  if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
+  if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
+  if (p.includes("canary")) return "CANARY";
+  return "VELOCIRAPTOR_JP"; // Default fallback
+}
 
 // ============================================
 // TYPES
@@ -675,17 +691,27 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
   const targetId = state.dinoRay.targeting.currentTargetIds[0];
   if (targetId === "AGENT_BLYTHE" && result.outcome !== "FIZZLE") {
     const speechOutcome = changes.speechOutcome as string || "NONE";
-    const speechSuffix = speechOutcome === "FULL" ? ", speech intact"
-      : speechOutcome === "PARTIAL" ? ", limited speech"
-      : speechOutcome === "CHAOTIC" ? ", speech unstable"
-      : ", non-verbal";
+    const speechRetention: SpeechRetention = speechOutcome === "FULL" ? "FULL"
+      : speechOutcome === "PARTIAL" ? "PARTIAL"
+      : "NONE";
 
-    if (result.outcome === "FULL_DINO") {
-      state.npcs.blythe.transformationState = `Full ${result.effectiveProfile}${speechSuffix}`;
-    } else if (result.outcome === "PARTIAL") {
-      state.npcs.blythe.transformationState = `Partial ${result.effectiveProfile}${speechSuffix}`;
-    } else if (result.outcome === "CHAOTIC") {
-      state.npcs.blythe.transformationState = `Chaotic ${result.effectiveProfile} (unstable)${speechSuffix}`;
+    if (result.outcome === "FULL_DINO" || result.outcome === "PARTIAL" || result.outcome === "CHAOTIC") {
+      const formName = profileToForm(result.effectiveProfile);
+      const formDef = FORM_DEFINITIONS[formName];
+      state.npcs.blythe.transformationState = {
+        form: formName,
+        speechRetention,
+        stats: { ...formDef.stats },
+        abilities: { ...formDef.abilities },
+        currentHits: 0,
+        maxHits: formDef.maxHits,
+        stunned: false,
+        stunnedTurnsRemaining: 0,
+        transformedOnTurn: state.turn,
+        previousForm: state.npcs.blythe.transformationState.form,
+        canRevert: result.outcome !== "CHAOTIC", // Chaotic transformations harder to revert
+        revertAttempts: 0,
+      };
     }
   }
 
