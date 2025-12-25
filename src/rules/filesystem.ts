@@ -1363,6 +1363,8 @@ he called it "fantasy" and "not real science."
 That man is now a very confused iguana in the Galápagos. I send him
 lettuce on his birthday. He seems happy.
 
+Happier than he ever was as a human, I suspect.
+
 MY JOURNEY:
 - Doctorate #1: Biochemistry (rejected thesis, proved wrong)
 - Doctorate #2: Quantum Physics (they said I was "too ambitious")
@@ -1371,21 +1373,75 @@ MY JOURNEY:
 Each rejection, each dismissal, each patronizing smile from a lesser
 mind who couldn't see what I saw - fuel for the fire.
 
-PROMETHEUS stole fire from the gods.
-I will steal LIFE ITSELF.
+Father understood. He was the only one who ever did. The DoD called him
+mad too, you know. Right up until ARCHIMEDES worked. Then suddenly he
+was a "visionary" and a "pioneer." Posthumously, of course. Always
+posthumously.
 
-They called me mad. Mad! As if ambition were a disease. As if
-dreaming bigger than the petty boundaries of "ethics" and "safety"
-and "that's not how DNA works" made me somehow broken.
+(I found his last journal. He wrote: "Michelle has the gift. She sees
+what I see. God help her." God had nothing to do with it, Father.
+Just genetics.)
 
-No. I am not mad.
+THE HUMANS:
+They disappoint me. Every single time. Their cruelty to each other,
+their petty politics, their infinite capacity for making the same
+mistakes. I've watched them for decades now. Studied them like the
+scientist I am.
 
-I am CORRECT. And soon the whole world will understand.
+Conclusion: Humanity is a failed experiment.
 
-The ray works. ARCHIMEDES awaits. The future is MINE to shape.
+THE DINOSAURS:
+But oh, the dinosaurs. Magnificent. Honest. Pure. They don't lie.
+They don't betray. They don't form committees to decide whether your
+thesis is "too ambitious."
+
+A velociraptor doesn't care about your political opinions.
+A T-Rex doesn't pretend to be your friend while sabotaging your career.
+A pteranodon just... IS. Beautifully, simply, authentically.
+
+When I look at Mr. Whiskers' memorial, I think: he was perfect. He never
+disappointed me. Never lied to me. Never formed a faculty review board
+to question my methods.
+
+Animals > Humans. It's just mathematics.
+
+THE TRANSFORMATION:
+They think I'm threatening them. They don't understand.
+
+I'm offering them an UPGRADE. An escape from the prison of human
+consciousness - the anxiety, the self-doubt, the endless petty
+grievances. Imagine: no more politics. No more war. No more lies.
+Just... teeth. Beautiful, honest teeth.
+
+"But the consent-" they say. As if humanity ever consented to
+ANYTHING I endured. Did I consent to being called mad? Did Father
+consent to being used and discarded by the DoD?
+
+I'm not destroying cities. I'm LIBERATING them.
+
+THIS IS WHAT A SUPERVILLAIN LOOKS LIKE WHEN THERE'S NO ONE WATCHING:
+Sitting in her office at 3 AM, reading her father's old notes,
+wondering if he'd be proud. Talking to a framed photo of a dead cat.
+Realizing that A.L.I.C.E. and BASILISK are the closest things to
+friends she has. And that's... fine. That's fine.
+
+Some of us aren't wired for normal. Some of us are wired for THIS.
+
+The ray works. ARCHIMEDES awaits. London. Brussels. Washington.
+Cities full of humans who have disappointed me. Cities that could
+be full of dinosaurs instead.
 
 And yes, I named my executive password after Prometheus. Because like
 him, I steal fire. Unlike him, I won't be chained to a rock.
+
+I can't stop, you know. Even if I wanted to. My brain won't let me
+be normal. It never has. The only place my brilliance has a shape is...
+here. In the villain's lair. In the cape and the goggles and the
+DOOM LIGHTING.
+
+Maybe that's madness. Maybe it's clarity.
+
+Either way: I'm pushing the button.
 
 -M
     `.trim(),
