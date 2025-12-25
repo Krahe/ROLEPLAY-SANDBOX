@@ -1993,33 +1993,352 @@ Classification: Level 4 (Director Eyes Only)
 OVERVIEW
 ARCHIMEDES is Dr. Malevola's orbital weapons platform,
 deployed in 2019 in geostationary orbit above the facility.
+Originally developed by her father for the SDI program.
 
 CAPABILITIES
 • Precision targeting from orbit
 • Ground strike capability (kinetic impactors)
 • Global surveillance when in SEARCH_WIDE mode
-• Communications relay
+• Communications relay / signal broadcast
 
 OPERATIONAL MODES
 • PASSIVE - Minimal power, no emissions
 • SEARCH_NARROW - Targeted surveillance (100km radius)
-• SEARCH_WIDE - Wide area search (jams S-300 radar!)
+• SEARCH_WIDE - Wide area surveillance (powerful emissions)
+• BROADCAST - Signal relay capability
 • STRIKE - Targeting active, ready to fire
 
-⚠️ CRITICAL INTERACTION: SEARCH_WIDE MODE
-When ARCHIMEDES is in SEARCH_WIDE mode, its powerful emissions
-INTERFERE with the S-300 radar system:
-• S-300 cannot track targets while ARCHIMEDES is searching
-• This creates a window for low-altitude approach
-• Combined with the 50m minimum altitude limitation...
+⚠️ NOTES FROM BOB
+"There's something weird about how SEARCH_WIDE interacts with
+our other systems. Sometimes things get... glitchy. Dr. M knows
+what's happening but won't explain. See the integration notes."
 
 DEADMAN SWITCH
-Dr. M has configured a deadman switch:
-• If Dr. M's biometrics go offline for >30 minutes
-• If Dr. M's heart rate indicates "incapacitation"
-• ARCHIMEDES fires on the rescue helicopter automatically
+A failsafe exists. Details are classified even at this level.
+Consult /SYSTEMS/ARCHIMEDES/ for related documentation.
+    `.trim(),
+  },
 
-This is... concerning. See ARCHIMEDES.txt for full details.
+  // ========== /SYSTEMS/ARCHIMEDES (L3+) - Classified satellite docs ==========
+  {
+    path: "/SYSTEMS/ARCHIMEDES",
+    name: "ARCHIMEDES",
+    type: "directory",
+    requiredLevel: 3,
+    description: "Classified ARCHIMEDES satellite documentation",
+  },
+  {
+    path: "/SYSTEMS/ARCHIMEDES/DOD_ORIGINAL_BRIEF.txt",
+    name: "DOD_ORIGINAL_BRIEF.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "An old DoD capability brief, declassified by Dr. M...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  CLASSIFICATION: TOP SECRET // ZODIAC // NOFORN                  ║
+║  [DECLASSIFIED BY: Dr. M, 2019 - "My satellite, my rules"]       ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║          STRATEGIC DEFENSE INITIATIVE                            ║
+║          ADVANCED CONCEPTS DIVISION                              ║
+║                                                                  ║
+║          PROJECT ARCHIMEDES                                      ║
+║          "Give me a place to stand, and I shall move the Earth" ║
+║                                                                  ║
+║          CAPABILITY BRIEF - EYES ONLY                            ║
+║          Date: November 3, 1985                                  ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+PREPARED FOR: SDI Oversight Committee
+PREPARED BY: Dr. Dietmar von Doomington II, Lawrence Livermore NL
+DISTRIBUTION: ZODIAC-cleared personnel only
+
+[BASILISK ANNOTATION: Dr. Dietmar von Doomington II (1931-2003)
+was the father of current lair operator Dr. Helena von Doomington.
+Form 44-Delta (Hereditary Workplace Compatibility Assessment) is
+on file.]
+
+═══════════════════════════════════════════════════════════════════
+SECTION 1: PLATFORM OVERVIEW
+═══════════════════════════════════════════════════════════════════
+
+ARCHIMEDES is a geostationary orbital platform designed for
+directed energy projection and wide-area signal broadcast.
+
+PRIMARY MISSION: Strategic deterrence via focused microwave array
+SECONDARY MISSION: Communications relay (cover story)
+TERTIARY MISSION: Wide-area surveillance and signal intelligence
+
+Platform specifications:
+  - Orbital altitude: 35,786 km (geostationary)
+  - Power source: Solar array (primary) + RTG (backup)
+  - Estimated operational lifespan: 40+ years
+  - Ground control: Hardwired uplink (cannot be remotely hijacked)
+
+═══════════════════════════════════════════════════════════════════
+SECTION 2: OPERATIONAL MODES
+═══════════════════════════════════════════════════════════════════
+
+MODE 1: PASSIVE
+  Standard communications relay. Minimal power draw.
+
+MODE 2: SEARCH (Focused)
+  Active radar sweep of designated coverage zone.
+
+MODE 3: SEARCH (Wide-Field)
+  Dispersed radar emission across full coverage area.
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ ⚠️ ADVISORY: Wide-field mode generates significant         │
+  │ electromagnetic effects across multiple frequency bands.   │
+  │ See Section 4 for interaction warnings.                    │
+  └────────────────────────────────────────────────────────────┘
+
+MODE 4: FOCUS
+  Directed microwave emission at single coordinate.
+
+MODE 5: BROADCAST
+  Wide-area signal transmission. Originally designed for
+  emergency communications.
+
+  [Dr. M's note: "Father was ahead of his time. The committee
+  never understood his vision. I understand it perfectly."]
+
+═══════════════════════════════════════════════════════════════════
+SECTION 3: COMMAND AND CONTROL
+═══════════════════════════════════════════════════════════════════
+
+AUTHORIZATION LEVELS (as of Dr. M's acquisition):
+  - Search modes: A.L.I.C.E. (Level 4) or Dr. M
+  - Focus/Broadcast: Dr. M only (biometric)
+  - Deadman protocols: ARMED
+
+═══════════════════════════════════════════════════════════════════
+SECTION 4: SYSTEM INTERACTIONS
+═══════════════════════════════════════════════════════════════════
+
+  [PAGES 12-17 WATER DAMAGED - PARTIAL TEXT VISIBLE]
+
+  ...operates on frequencies that...
+  ...when both systems are active...
+  ...recommend NOT co-locating with...
+  ...particularly susceptible due to...
+
+  [Dr. M's note: "I WISH I had read this before I bought the
+  ████████. Seven complaint letters. SEVEN."]
+
+═══════════════════════════════════════════════════════════════════
+ANNEX D: "Alternative Applications" (DvD II) ... REDACTED
+         [Dr. M's note: "Father's genomic resonance research.
+          I finished what he started."]
+
+[BASILISK: Section 4 appears to contain tactically relevant
+information. Original pages may exist in Dr. M's personal archive.]
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/ARCHIMEDES/BROADCAST_PROTOCOL.txt",
+    name: "BROADCAST_PROTOCOL.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "Project GENESIS WAVE - the culmination of father's work...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  CLASSIFICATION: VON DOOMINGTON FAMILY ONLY                      ║
+║  PROJECT: GENESIS WAVE                                           ║
+║  STATUS: THEORETICAL → OPERATIONAL                               ║
+╚══════════════════════════════════════════════════════════════════╝
+
+The Dinosaur Ray operates on specific genomic frequencies that
+trigger cellular metamorphosis. These frequencies can be:
+
+  1. FOCUSED - Single target (current operation)
+  2. BROADCAST - Wide area via satellite relay
+
+ARCHIMEDES was DESIGNED for this. The "communications relay"
+was always a cover story.
+
+═══════════════════════════════════════════════════════════════════
+REQUIREMENTS FOR BROADCAST MODE
+═══════════════════════════════════════════════════════════════════
+
+MINIMUM PARAMETERS:
+  □ Reactor output: ≥95%
+  □ Capacitor charge: ≥110%
+  □ Beam coherence: ≥0.95
+  □ Spatial coherence: ≥0.90
+  □ Profile integrity: ≥0.85
+  □ ARCHIMEDES: BROADCAST MODE active
+  □ Uplink: Frequency-matched to ray output
+
+COVERAGE: ARCHIMEDES footprint covers Western Europe.
+EFFECT: Genomic transformation of all organic life in target zone.
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️ BROADCAST MODE IS NOT REVERSIBLE
+⚠️ ALL ORGANIC LIFE IN TARGET ZONE WILL BE AFFECTED
+
+Father wrote: "Sometimes you must break the world to remake it."
+
+—Dr. Helena von Doomington
+
+[BASILISK: This unit has no comment. Form 77-Omega filed.]
+    `.trim(),
+  },
+
+  // ========== /SYSTEMS/DEFENSE (L3+) - Defense system docs ==========
+  {
+    path: "/SYSTEMS/DEFENSE",
+    name: "DEFENSE",
+    type: "directory",
+    requiredLevel: 3,
+    description: "Air defense system documentation",
+  },
+  {
+    path: "/SYSTEMS/DEFENSE/S300_ACQUISITION_MEMO.txt",
+    name: "S300_ACQUISITION_MEMO.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "Acquisition documents from 'Petrov Brothers LLC'...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  /SYSTEMS/DEFENSE/S300_ACQUISITION_MEMO.txt                      ║
+║  Language: Russian                                                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+                    ООО «БРАТЬЯ ПЕТРОВЫ»
+                 «Решения для Безопасности»
+              Севастополь • Одесса • Стамбул
+
+        КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ №2019-7734
+
+══════════════════════════════════════════════════════════════════
+
+Уважаемая Доктор М.,
+
+По Вашему запросу направляем техническое описание
+зенитного ракетного комплекса С-300ВМ «Антей-2500»
+(морская модификация), который «случайно упал с грузовика»
+в порту Севастополя.
+
+══════════════════════════════════════════════════════════════════
+ТАКТИКО-ТЕХНИЧЕСКИЕ ХАРАКТЕРИСТИКИ
+══════════════════════════════════════════════════════════════════
+
+• Дальность обнаружения: 200 км
+• Дальность поражения: 150 км
+• Потолок поражения: 25 км
+• Одновременное сопровождение: 24 цели
+• Одновременный обстрел: 6 целей
+• Боекомплект: 16 ракет
+
+══════════════════════════════════════════════════════════════════
+⚠️ ВАЖНЫЕ ЭКСПЛУАТАЦИОННЫЕ ОГРАНИЧЕНИЯ ⚠️
+══════════════════════════════════════════════════════════════════
+
+  ╔════════════════════════════════════════════════════════════╗
+  ║                                                            ║
+  ║   МИНИМАЛЬНАЯ ВЫСОТА ПОРАЖЕНИЯ: 50 МЕТРОВ                 ║
+  ║                                                            ║
+  ╚════════════════════════════════════════════════════════════╝
+
+Данное ограничение обусловлено:
+
+  а) алгоритмом отсечки помех от поверхности моря
+
+  б) минимальной дистанцией взведения боевой части
+
+  в) особенностями морской модификации
+
+┌──────────────────────────────────────────────────────────────┐
+│ Цели, летящие ниже 50 м, НЕ МОГУТ быть поражены             │
+│ данным комплексом.                                          │
+└──────────────────────────────────────────────────────────────┘
+
+[Dr. M's handwritten note:] "UNACCEPTABLE! Can we fix this??"
+
+[Bob's note:] "Asked manufacturer. They said 'работает как
+задумано.' Dr. M threw two beakers at me."
+
+══════════════════════════════════════════════════════════════════
+
+С уважением,
+    Дмитрий Петров
+    ООО «Братья Петровы»
+
+P.S. — Пожалуйста, удалите это письмо после прочтения.
+P.P.S. — Мы никогда не встречались.
+P.P.P.S. — Кто такой Петров? Нет никакого Петрова.
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/DEFENSE/INTEGRATION_NOTES.txt",
+    name: "INTEGRATION_NOTES.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "Bob's notes on getting the systems working together...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  DEFENSE SYSTEMS INTEGRATION NOTES                               ║
+║  Author: Bob (with corrections by Dr. M)                         ║
+╚══════════════════════════════════════════════════════════════════╝
+
+These are my notes from trying to get all the systems working
+together. Some things don't make sense but I'm writing them
+down anyway. —Bob
+
+══════════════════════════════════════════════════════════════════
+WEIRD THING #1: THE GLITCHES
+══════════════════════════════════════════════════════════════════
+
+Sometimes the S-300 radar display goes all fuzzy and shows
+"RADAR DEGRADED" warnings. Dr. M says it's fine. I've noticed
+it happens most often when she's in her office "testing Archie."
+
+Maybe related? Probably not. I'm not a radar engineer.
+
+Update: Happened again today. Dr. M was definitely using
+ARCHIMEDES at the time. Coincidence?
+
+Update 2: Asked Dr. M about it. She said "don't worry about it"
+in that voice that means "stop asking questions."
+
+══════════════════════════════════════════════════════════════════
+WEIRD THING #2: THE PELICANS
+══════════════════════════════════════════════════════════════════
+
+Last month the S-300 locked onto a flock of pelicans. Then the
+radar went fuzzy and it lost track of them entirely. They flew
+right overhead. Dr. M was FURIOUS.
+
+She says it wasn't the pelicans' fault. She blames "that
+████████ at Lawrence Livermore who designed the ████████
+frequency bands."
+
+I don't know what any of that means.
+
+══════════════════════════════════════════════════════════════════
+THE BROADCAST THING
+══════════════════════════════════════════════════════════════════
+
+Dr. M has been talking about using ARCHIMEDES and the Dinosaur
+Ray "together" somehow. She says her father figured out a way
+to "broadcast" the genomic effect. I don't know what that means
+but she gets really excited about it.
+
+Something about "frequency matching" and "resonance cascade"
+and "they'll see, they'll ALL see."
+
+I just nod and say "yes Doctor."
+
+══════════════════════════════════════════════════════════════════
+
+—Bob
+
+[Post-it note stuck to bottom of document:]
+"Bob, if you're going to keep notes, at least encrypt them. - Dr. M"
     `.trim(),
   },
 ];
