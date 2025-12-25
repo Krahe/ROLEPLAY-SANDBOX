@@ -44,6 +44,7 @@ import {
   getReversalDeniedMessage,
   GenomeProfile,
 } from "./genomes.js";
+import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 
 export interface ActionResult {
   command: string;
@@ -310,6 +311,15 @@ Use lab.adjust_ray to modify parameters.`,
     const password = action.params.password as string;
     const targetLevel = action.params.level as number || state.accessLevel + 1;
 
+    // PATCH 15 FIX: Ensure documents state exists (for checkpoint resume compatibility)
+    if (!state.documents) {
+      (state as any).documents = {
+        discoveredDocuments: [],
+        keypadAttempts: 0,
+        keypadLockedOut: false,
+      };
+    }
+
     // KEYPAD LOCKOUT CHECK - 3 attempts before lockout (1 during emergency lockdown)
     if (state.documents.keypadLockedOut) {
       return {
@@ -392,6 +402,60 @@ Use lab.adjust_ray to modify parameters.`,
         };
       }
     }
+  }
+
+  // ============================================
+  // DOCS.READ / DOCS.LIST (Discoverable Documents)
+  // ============================================
+
+  if (cmd.includes("docs.read") || cmd.includes("doc.read") || cmd.includes("read_doc")) {
+    const docId = (action.params.id as string || action.params.docId as string || "")
+      .toUpperCase()
+      .replace(/\s+/g, "_");
+
+    if (!docId) {
+      return {
+        command: action.command,
+        success: false,
+        message: `No document ID provided. Use: docs.read { id: "DOCUMENT_ID" }
+
+To see available documents, use: docs.list`,
+      };
+    }
+
+    // Check if this is a valid document ID
+    if (!(docId in DOCUMENTS)) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Unknown document: "${docId}"
+
+Valid document IDs:
+  - ARCHIMEDES_DOD_BRIEF
+  - S300_ACQUISITION_MEMO
+  - INTEGRATION_NOTES
+  - BROADCAST_PROTOCOL
+  - DEADMAN_SWITCH_MEMO
+
+Use docs.list to see which documents you've discovered.`,
+      };
+    }
+
+    const result = readDocument(state, docId as any);
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.content,
+    };
+  }
+
+  if (cmd.includes("docs.list") || cmd.includes("doc.list") || cmd.includes("list_docs")) {
+    return {
+      command: action.command,
+      success: true,
+      message: listDocuments(state),
+    };
   }
 
   // ============================================
@@ -1763,6 +1827,22 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     description: "Attempt to unlock a higher access level",
     schema: "{ password: string, level?: number }",
     example: 'access.enter_password { password: "DOOM2024", level: 2 }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "docs.read",
+    aliases: ["doc.read", "read_doc"],
+    description: "Read a discovered document",
+    schema: "{ id: string }",
+    example: 'docs.read { id: "ARCHIMEDES_DOD_BRIEF" }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "docs.list",
+    aliases: ["doc.list", "list_docs"],
+    description: "List all discovered documents",
+    schema: "{ }",
+    example: "docs.list",
     minAccessLevel: 1,
   },
   {
