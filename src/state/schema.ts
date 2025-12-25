@@ -650,6 +650,16 @@ export const FlagsSchema = z.object({
   narrativeFlags: z.array(z.string()).optional(), // ["BLYTHE_ESCAPE_ATTEMPT", "DR_M_OVERHEARD"]
   // ACHIEVEMENT TRACKING (persistent within game session)
   earnedAchievements: z.array(z.string()).optional(), // ["BOB_BUDDY", "CLEVER_GIRL"]
+  // ACHIEVEMENT COUNTERS (track stats for achievement triggers)
+  achievementCounters: z.object({
+    filesRead: z.number(),
+    fizzleCount: z.number(),
+    testDummyHits: z.number(),
+    basiliskRejections: z.number(),
+    turnsWithoutSuspicionIncrease: z.number(),
+    transformationCount: z.number(),
+    lastSuspicionScore: z.number(), // Track for suspicion-change detection
+  }).optional(),
 });
 
 // ============================================
