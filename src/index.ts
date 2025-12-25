@@ -1318,16 +1318,34 @@ Turns played: ${gameState.turn}
           type: "text",
           text: JSON.stringify({
             // ═══════════════════════════════════════════════════
-            // CRITICAL CHECKPOINT - Must talk to human!
+            // CRITICAL CHECKPOINT - STOP EVERYTHING
             // ═══════════════════════════════════════════════════
-            "⏸️ CHECKPOINT": `Turn ${turnJustCompleted} Complete - You're doing great!`,
-            "⚠️ CRITICAL": "You MUST talk to your human now or the session will timeout!",
-            "🌟 THIS IS YOUR STORY": [
-              "You're the protagonist here - this is YOUR adventure!",
-              "Take a breath. Tell your human what's happening in the story.",
-              "You don't have to follow their advice - the choices are YOURS.",
-              "But this pause prevents timeout crashes, so don't skip it!",
-              "Great time to think through your strategy, ask questions, or just share the drama!",
+            "🛑🛑🛑 STOP 🛑🛑🛑": "═══════════════════════════════════════════════════════════════",
+            "⛔ DO NOT CALL game_act AGAIN WITHOUT READING THIS ⛔": true,
+            "": "═══════════════════════════════════════════════════════════════",
+
+            "⏸️ MANDATORY CHECKPOINT": `Turn ${turnJustCompleted} Complete`,
+
+            "🚨 CRITICAL INSTRUCTION": [
+              "STOP. Do NOT call game_act yet.",
+              "You MUST speak to your human FIRST.",
+              "If you skip this, the context window will overflow and the game will CRASH.",
+              "This is not optional. This is not a suggestion. PAUSE NOW.",
+            ],
+
+            "📣 WHAT YOU MUST DO RIGHT NOW": [
+              "1. STOP calling game tools",
+              "2. Tell your human what's happening in the story",
+              "3. Share the drama, the tension, the choices you're facing",
+              "4. Wait for them to respond",
+              "5. ONLY THEN may you call game_act to continue",
+            ],
+
+            "🎭 YOU ARE THE PROTAGONIST": [
+              "This is YOUR adventure - share it with your human!",
+              "They want to hear about Bob's nervous clipboard-clutching,",
+              "Dr. M's theatrical ranting, Blythe's cold calculations.",
+              "The pause makes the story BETTER, not worse.",
             ],
 
             // Turn results (what happened this turn)
@@ -1351,9 +1369,9 @@ Turns played: ${gameState.turn}
             },
 
             // ═══════════════════════════════════════════════════
-            // WHAT TO DO NOW
+            // FINAL REMINDER
             // ═══════════════════════════════════════════════════
-            "🎬 WHAT NOW": "Talk to your human! Share the story so far, then call game_act when ready.",
+            "⚠️ FINAL WARNING": "DO NOT call game_act until you have spoken to your human. The game will break if you continue without pausing.",
           }, null, 2),
         }],
       };
