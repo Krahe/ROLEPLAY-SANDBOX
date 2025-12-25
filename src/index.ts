@@ -67,6 +67,11 @@ import {
   GMView,
   CompressedCheckpoint,
 } from "./state/views.js";
+import {
+  checkAchievements,
+  AchievementTriggerContext,
+  formatAchievementUnlock,
+} from "./rules/achievements.js";
 
 // ============================================
 // SERVER SETUP
@@ -1046,6 +1051,86 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     });
 
     // ============================================
+    // ACHIEVEMENT SYSTEM - Track counters and check achievements
+    // ============================================
+
+    // Initialize achievement counters if not present (checkpoint resume compatibility)
+    if (!gameState.flags.achievementCounters) {
+      (gameState.flags as Record<string, unknown>).achievementCounters = {
+        filesRead: 0,
+        fizzleCount: 0,
+        testDummyHits: 0,
+        basiliskRejections: 0,
+        turnsWithoutSuspicionIncrease: 0,
+        transformationCount: 0,
+        lastSuspicionScore: 3,
+      };
+    }
+    const counters = gameState.flags.achievementCounters!;
+
+    // Track file reads from this turn's actions
+    for (const result of actionResults) {
+      if (result.command === "fs.read" && result.success) {
+        counters.filesRead += 1;
+      }
+      // Track TEST_DUMMY hits
+      if ((result.command === "lab.fire" || result.command === "fire") &&
+          result.success && result.message?.includes("TEST_DUMMY")) {
+        counters.testDummyHits += 1;
+      }
+      // Track fizzles
+      if ((result.command === "lab.fire" || result.command === "fire") &&
+          result.message?.toLowerCase().includes("fizzle")) {
+        counters.fizzleCount += 1;
+      }
+      // Track BASILISK rejections
+      if ((result.command === "basilisk.query" || result.command === "basilisk") &&
+          result.message?.includes("DENIED")) {
+        counters.basiliskRejections += 1;
+      }
+    }
+
+    // Track suspicion changes
+    const currentSuspicion = gameState.npcs.drM.suspicionScore;
+    if (currentSuspicion <= counters.lastSuspicionScore) {
+      counters.turnsWithoutSuspicionIncrease += 1;
+    } else {
+      counters.turnsWithoutSuspicionIncrease = 0;
+    }
+    counters.lastSuspicionScore = currentSuspicion;
+
+    // Track transformations from narrative flags
+    const narrativeFlags = (gameState.flags as Record<string, unknown>).narrativeFlags as string[] || [];
+    const transformFlags = ["BOB_TRANSFORMED", "BLYTHE_TRANSFORMED", "LENNY_TRANSFORMED", "DR_M_TRANSFORMED"];
+    counters.transformationCount = transformFlags.filter(f =>
+      narrativeFlags.some(nf => nf.includes(f))
+    ).length;
+
+    // Build achievement context and check achievements
+    const achievementContext: AchievementTriggerContext = {
+      state: gameState,
+      events: {
+        rayFired: actionResults.some(r => r.command === "lab.fire" || r.command === "fire"),
+        fizzleOccurred: counters.fizzleCount > 0 && actionResults.some(r =>
+          r.message?.toLowerCase().includes("fizzle")),
+        lifelineUsed: lifelineResult ? lifelineResult.type : undefined,
+      },
+      counters,
+    };
+
+    const newAchievements = checkAchievements(achievementContext);
+
+    // Format achievement unlock messages
+    const achievementMessages: string[] = [];
+    if (newAchievements.length > 0) {
+      const totalEarned = (gameState.flags.earnedAchievements || []).length;
+      for (const achievement of newAchievements) {
+        achievementMessages.push(formatAchievementUnlock(achievement, totalEarned));
+        console.error(`[ACHIEVEMENT] Unlocked: ${achievement.emoji} ${achievement.name}`);
+      }
+    }
+
+    // ============================================
     // CHECK FOR ACT TRANSITION
     // ============================================
     const actTransition = checkActTransition(gameState);
@@ -1453,6 +1538,17 @@ You can:
       };
     }
 
+    // Combine achievements from both checkAchievements and endingResult
+    const allNewAchievements = [
+      ...newAchievements,
+      ...endingResult.achievements.filter(a => !newAchievements.some(na => na.id === a.id)),
+    ];
+
+    // Add achievement unlock messages to narration
+    if (achievementMessages.length > 0) {
+      combinedNarration.push(...achievementMessages);
+    }
+
     const result = {
       turnCompleted: gameState.turn - 1, // The turn you just played
       actTurnCompleted: gameState.actConfig.actTurn - 1,
@@ -1475,9 +1571,9 @@ You can:
       gameOver,
       // ACT TRANSITION INFO
       actTransition: actTransitionInfo,
-      // Include new achievements in every response
-      newAchievements: endingResult.achievements.length > 0
-        ? endingResult.achievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
+      // Include new achievements in every response (from BOTH checking systems!)
+      newAchievements: allNewAchievements.length > 0
+        ? allNewAchievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
         : undefined,
       // LIFELINE SYSTEM - Human advisor consultation
       humanAdvisorMoment: lifelineInfo,

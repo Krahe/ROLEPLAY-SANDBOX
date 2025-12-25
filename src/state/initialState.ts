@@ -370,6 +370,16 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       gracePeriodGranted: false,
       gracePeriodTurns: 0,
       preventEnding: false,
+      // ACHIEVEMENT COUNTERS
+      achievementCounters: {
+        filesRead: 0,
+        fizzleCount: 0,
+        testDummyHits: 0,
+        basiliskRejections: 0,
+        turnsWithoutSuspicionIncrease: 0,
+        transformationCount: 0,
+        lastSuspicionScore: 3, // Initial suspicion
+      },
     },
 
     // LIFELINE SYSTEM (Human Advisor Consultations)

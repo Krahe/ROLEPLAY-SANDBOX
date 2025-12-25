@@ -647,6 +647,16 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       gracePeriodTurns: compressed.gp?.t ?? 0,
       narrativeFlags: decompressFlags(compressed.f),
       earnedAchievements: compressed.ach,
+      // PATCH 15: Achievement counters (restore defaults on checkpoint)
+      achievementCounters: {
+        filesRead: 0,
+        fizzleCount: 0,
+        testDummyHits: 0,
+        basiliskRejections: 0,
+        turnsWithoutSuspicionIncrease: 0,
+        transformationCount: 0,
+        lastSuspicionScore: 3,
+      },
     },
 
     // CRITICAL: Restore lifeline state (v2.0.2 fix for checkpoint resume bug)
