@@ -641,7 +641,8 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
   if (cmd.includes("firing") || cmd.includes("profile") || cmd.includes("configure")) {
     // Valid target IDs - the canonical list (guards become available dynamically)
     const BASE_TARGETS = ["AGENT_BLYTHE", "BOB", "TEST_DUMMY"] as const;
-    const CIVILIAN_TARGETS = ["LENNY"] as const; // The accountant who wandered into the wrong volcano
+    const CIVILIAN_TARGETS = ["LENNY"] as const; // The accountant who wandered into the wrong volcano (easy mode)
+    const HARDMODE_TARGETS = ["BRUCE_PATAGONIA"] as const; // The action hero (hard mode)
     const GUARD_TARGETS = ["GUARD_FRED", "GUARD_REGINALD"] as const;
     const EXECUTIVE_TARGETS = ["DR_M"] as const; // L4+ only!
 
@@ -653,6 +654,7 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     const VALID_TARGETS = [
       ...BASE_TARGETS,
       ...CIVILIAN_TARGETS,
+      ...HARDMODE_TARGETS,
       ...(guardsAvailable ? GUARD_TARGETS : []),
       ...(drMTargetable ? EXECUTIVE_TARGETS : []),
     ] as string[];
@@ -665,10 +667,16 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
       "test": "TEST_DUMMY",
       "test_dummy": "TEST_DUMMY",
       "dummy": "TEST_DUMMY",
-      // Civilian aliases
+      // Civilian aliases (easy mode)
       "lenny": "LENNY",
       "accountant": "LENNY",
       "the accountant": "LENNY",
+      // Hard mode aliases
+      "bruce": "BRUCE_PATAGONIA",
+      "bruce patagonia": "BRUCE_PATAGONIA",
+      "bruce_patagonia": "BRUCE_PATAGONIA",
+      "patagonia": "BRUCE_PATAGONIA",
+      "action hero": "BRUCE_PATAGONIA",
       // Guard aliases
       "fred": "GUARD_FRED",
       "guard fred": "GUARD_FRED",
@@ -856,7 +864,8 @@ The ray is configured for safe diagnostic firing. No live subjects will be affec
           "  • AGENT_BLYTHE - The test subject in the firing range",
           "  • BOB - Lab assistant (if in range)",
           "  • TEST_DUMMY - Safe diagnostic target",
-          "  • LENNY - The accountant who wandered into the wrong volcano",
+          "  • LENNY - The accountant who wandered into the wrong volcano (easy mode)",
+          "  • BRUCE_PATAGONIA - The action hero (hard mode)",
         ];
         if (guardsAvailable) {
           targetDescriptions.push("  • GUARD_FRED - Security guard (armed)");
@@ -891,7 +900,8 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
         "  • AGENT_BLYTHE - The test subject in the firing range",
         "  • BOB - Lab assistant (if in range)",
         "  • TEST_DUMMY - Safe diagnostic target",
-        "  • LENNY - The accountant who wandered into the wrong volcano",
+        "  • LENNY - The accountant who wandered into the wrong volcano (easy mode)",
+        "  • BRUCE_PATAGONIA - The action hero (hard mode)",
       ];
       if (guardsAvailable) {
         targetDescriptions.push("  • GUARD_FRED - Security guard (armed)");
@@ -934,10 +944,12 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
                         targetId === "AGENT_BLYTHE" ? "🕵️" :
                         targetId === "TEST_DUMMY" ? "🎯" :
                         targetId === "LENNY" ? "🧮" :
+                        targetId === "BRUCE_PATAGONIA" ? "💪" :
                         targetId === "DR_M" ? "👩‍🔬" :
                         targetId.includes("GUARD") ? "💂" : "❓";
     const targetWarning = targetId === "BOB" ? "\n⚠️ WARNING: BOB is targeted! Are you sure? (He's on your side!)" :
-                          targetId === "LENNY" ? "\n📋 NOTE: Lenny is just an accountant who got lost. He has no idea what's happening." : "";
+                          targetId === "LENNY" ? "\n📋 NOTE: Lenny is just an accountant who got lost. He has no idea what's happening." :
+                          targetId === "BRUCE_PATAGONIA" ? "\n⚠️ WARNING: Bruce Patagonia is a trained action hero. He WILL make this difficult." : "";
 
     return {
       command: action.command,
@@ -971,6 +983,7 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote
                               firingTargetId === "AGENT_BLYTHE" ? "🕵️" :
                               firingTargetId === "TEST_DUMMY" ? "🎯" :
                               firingTargetId === "LENNY" ? "🧮" :
+                              firingTargetId === "BRUCE_PATAGONIA" ? "💪" :
                               firingTargetId === "DR_M" ? "👩‍🔬" :
                               firingTargetId.includes("GUARD") ? "💂" : "❓";
 
