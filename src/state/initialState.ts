@@ -228,6 +228,16 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       },
     },
 
+    // ═══════════════════════════════════════════════════════════
+    // DISCOVERABLE DOCUMENTS (Patch 15)
+    // Memos and files that can be found by exploring systems.
+    // ═══════════════════════════════════════════════════════════
+    documents: {
+      discoveredDocuments: [],
+      keypadAttempts: 0,
+      keypadLockedOut: false,
+    },
+
     npcs: {
       drM: {
         suspicionScore: 1,

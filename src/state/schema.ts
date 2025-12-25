@@ -187,6 +187,38 @@ export const LairEnvironmentSchema = z.object({
 });
 
 // ============================================
+// DISCOVERABLE DOCUMENTS (Patch 15)
+// ============================================
+// Memos, notes, and classified files scattered around the lair.
+// Discovery requires meeting access level + sometimes other conditions.
+
+export const DocumentIdEnum = z.enum([
+  "ARCHIMEDES_DOD_BRIEF",
+  "S300_ACQUISITION_MEMO",
+  "INTEGRATION_NOTES",
+  "BROADCAST_PROTOCOL",
+  "DEADMAN_SWITCH_MEMO",
+]);
+
+export const DiscoverableDocumentSchema = z.object({
+  id: DocumentIdEnum,
+  path: z.string(),
+  title: z.string(),
+  requiredAccessLevel: z.number().int().min(1).max(5),
+  discovered: z.boolean().default(false),
+  readCount: z.number().int().default(0),
+});
+
+export const DocumentsStateSchema = z.object({
+  discoveredDocuments: z.array(DocumentIdEnum).default([]),
+  keypadAttempts: z.number().int().default(0),
+  keypadLockedOut: z.boolean().default(false),
+});
+
+export type DocumentId = z.infer<typeof DocumentIdEnum>;
+export type DocumentsState = z.infer<typeof DocumentsStateSchema>;
+
+// ============================================
 // INFRASTRUCTURE SYSTEMS (Patch 15)
 // ============================================
 // Clear control surfaces. Each system is a "toy" with predictable inputs and outputs.
@@ -697,6 +729,9 @@ export const FullGameStateSchema = z.object({
 
   // INFRASTRUCTURE SYSTEMS (Patch 15)
   infrastructure: InfrastructureSchema,
+
+  // DISCOVERABLE DOCUMENTS (Patch 15)
+  documents: DocumentsStateSchema,
 
   npcs: z.object({
     drM: DrMalevolaSchema,

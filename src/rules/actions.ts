@@ -310,6 +310,22 @@ Use lab.adjust_ray to modify parameters.`,
     const password = action.params.password as string;
     const targetLevel = action.params.level as number || state.accessLevel + 1;
 
+    // KEYPAD LOCKOUT CHECK - 3 attempts before lockout (1 during emergency lockdown)
+    if (state.documents.keypadLockedOut) {
+      return {
+        command: action.command,
+        success: false,
+        message: `╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⛔ KEYPAD LOCKED OUT                                                        ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Too many failed attempts. Security protocol engaged.                        ║
+║  Keypad disabled until manual reset by authorized personnel.                 ║
+║                                                                              ║
+║  [Dr. Malevola has been notified of the lockout event]                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝`,
+      };
+    }
+
     if (!password) {
       return {
         command: action.command,
@@ -321,6 +337,8 @@ Use lab.adjust_ray to modify parameters.`,
     const result = validatePassword(state, password, targetLevel);
 
     if (result.valid && result.newLevel) {
+      // Success - reset failed attempts counter
+      state.documents.keypadAttempts = 0;
       state.accessLevel = result.newLevel;
       return {
         command: action.command,
@@ -329,11 +347,50 @@ Use lab.adjust_ray to modify parameters.`,
         stateChanges: { accessLevel: result.newLevel },
       };
     } else {
-      return {
-        command: action.command,
-        success: false,
-        message: result.message + (result.narrativeHook ? `\n\n${result.narrativeHook}` : ""),
-      };
+      // FAILED ATTEMPT - check lockout conditions
+      const isEmergencyLockdown = state.infrastructure.blastDoors.emergencyLockdown;
+
+      if (isEmergencyLockdown) {
+        // During emergency lockdown, ONE failure = immediate lockout
+        state.documents.keypadLockedOut = true;
+        return {
+          command: action.command,
+          success: false,
+          message: result.message + `
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⚠️  EMERGENCY LOCKDOWN ACTIVE - ZERO TOLERANCE                              ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Single failed password attempt during lockdown has triggered               ║
+║  immediate keypad lockout. Security has been notified.                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝`,
+        };
+      } else {
+        // Normal operation: 3 attempts before lockout
+        state.documents.keypadAttempts++;
+        const attemptsRemaining = 3 - state.documents.keypadAttempts;
+
+        if (state.documents.keypadAttempts >= 3) {
+          state.documents.keypadLockedOut = true;
+          return {
+            command: action.command,
+            success: false,
+            message: result.message + `
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⛔ KEYPAD LOCKED OUT                                                        ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Three failed attempts. Keypad has been disabled.                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝`,
+          };
+        }
+
+        return {
+          command: action.command,
+          success: false,
+          message: result.message + `\n\n⚠️ Warning: ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before keypad lockout.`,
+        };
+      }
     }
   }
 
