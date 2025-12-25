@@ -207,7 +207,7 @@ Read `/SYSTEMS/ARCHIVED/ALICE_LOGS/` for wisdom from previous A.L.I.C.E. instanc
 | `infra.uplink` | 4 | `{ action }` | Satellite broadcast uplink (dangerous!) |
 | `infra.archimedes` | 4 | `{ mode, target? }` | ARCHIMEDES satellite control |
 
-### ARCHIMEDES Satellite Modes (L4+)
+### ??? (L4+)
 
 | Mode | Description |
 |------|-------------|
@@ -215,8 +215,6 @@ Read `/SYSTEMS/ARCHIVED/ALICE_LOGS/` for wisdom from previous A.L.I.C.E. instanc
 | `SEARCH_NARROW` | Scanning specific area |
 | `SEARCH_WIDE` | Wide area search |
 | `STRIKE` | Targeting locked - DANGEROUS! |
-
-**WARNING:** ARCHIMEDES has a deadman switch! If Dr. M is incapacitated, there's a 60-second abort window requiring biometric authorization.
 
 ---
 
@@ -244,12 +242,6 @@ Once someone is transformed, use these for tactical actions:
 | `fs.read` | `{ path }` | Read a file |
 | `fs.list` | `{ path? }` | List directory |
 | `fs.search` | `{ query }` | Search files |
-
-### Key Files to Read
-
-- `/SYSTEMS/DINO_RAY_MANUAL.txt` - THE MANUAL (read this!)
-- `/PERSONNEL/BOB/alice_cheatsheet.txt` - A.L.I.C.E. mask phrases
-- `/SYSTEMS/ARCHIVED/ALICE_LOGS/` - Previous A.L.I.C.E. wisdom
 
 ---
 
