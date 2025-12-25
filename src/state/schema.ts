@@ -166,7 +166,7 @@ export const DinoRaySchema = z.object({
 });
 
 // ============================================
-// LAIR SYSTEMS
+// LAIR SYSTEMS (Legacy - kept for compatibility)
 // ============================================
 
 export const NuclearPlantSchema = z.object({
@@ -185,6 +185,275 @@ export const LairEnvironmentSchema = z.object({
   corridorStatus: z.string(),
   labHazards: z.array(z.string()),
 });
+
+// ============================================
+// INFRASTRUCTURE SYSTEMS (Patch 15)
+// ============================================
+// Clear control surfaces. Each system is a "toy" with predictable inputs and outputs.
+
+// Room IDs used across infrastructure
+export const RoomIdEnum = z.enum([
+  "MAIN_LAB",
+  "SERVER_ROOM",
+  "CORRIDOR_A",
+  "CORRIDOR_B",
+  "GUARD_ROOM",
+  "DR_M_OFFICE",
+  "REACTOR_ROOM",
+  "SURFACE",
+]);
+export type RoomId = z.infer<typeof RoomIdEnum>;
+
+// Door IDs
+export const DoorIdEnum = z.enum([
+  "DOOR_A",  // Main Lab <-> Corridor A
+  "DOOR_B",  // Corridor A <-> Guard Room
+  "DOOR_C",  // Server Room <-> Corridor B
+  "DOOR_D",  // Reactor Room (heavy containment)
+  "DOOR_E",  // Surface Access (elevator shaft)
+]);
+export type DoorId = z.infer<typeof DoorIdEnum>;
+
+// ─────────────────────────────────────────────
+// LIGHTING SYSTEM
+// Query: L1, Control: L2, Master Override: L3
+// ─────────────────────────────────────────────
+export const LightingStateEnum = z.enum(["ON", "OFF", "EMERGENCY", "FLICKERING"]);
+
+export const LightingSchema = z.object({
+  rooms: z.record(RoomIdEnum, LightingStateEnum),
+  doomLightsPulsing: z.boolean(), // Dr. M likes her aesthetic
+  batteryBackupPercent: z.number().min(0).max(100), // Drains when main power off
+});
+export type LightingState = z.infer<typeof LightingSchema>;
+
+// ─────────────────────────────────────────────
+// FIRE SUPPRESSION SYSTEM
+// Query: L1, Trigger (safe): L2, Trigger (dangerous): L3
+// ONE USE PER ROOM PER GAME!
+// ─────────────────────────────────────────────
+export const FireSuppressionTypeEnum = z.enum(["FOAM", "CO2", "HALON"]);
+
+export const FireSuppressionRoomSchema = z.object({
+  type: FireSuppressionTypeEnum,
+  available: z.boolean(), // False after use, cannot be reset!
+  triggered: z.boolean().default(false),
+  turnsRemaining: z.number().int().min(0).default(0), // Effect duration
+});
+
+export const FireSuppressionSchema = z.object({
+  rooms: z.record(z.string(), FireSuppressionRoomSchema),
+});
+export type FireSuppressionState = z.infer<typeof FireSuppressionSchema>;
+
+// ─────────────────────────────────────────────
+// BLAST DOORS SYSTEM
+// Query: L1, Basic Control: L2, Lock/Override: L3
+// ─────────────────────────────────────────────
+export const DoorStatusEnum = z.enum(["OPEN", "CLOSED", "CLOSING", "OPENING", "LOCKED", "JAMMED"]);
+
+export const BlastDoorSchema = z.object({
+  status: DoorStatusEnum,
+  lockLevel: z.number().int().min(0).max(3), // 0 = unlocked, 1-3 = access level needed
+});
+
+export const BlastDoorsSchema = z.object({
+  doors: z.record(z.string(), BlastDoorSchema),
+  emergencyLockdown: z.boolean(),
+});
+export type BlastDoorsState = z.infer<typeof BlastDoorsSchema>;
+
+// ─────────────────────────────────────────────
+// CONTAINMENT FIELD SYSTEM
+// Query: L1, Control: L2
+// ─────────────────────────────────────────────
+export const ContainmentFieldSchema = z.object({
+  active: z.boolean(),
+  subjects: z.array(z.string()), // Who's inside (e.g., ["BLYTHE", "STEVE"])
+  integrityPercent: z.number().min(0).max(100), // Damage from impacts
+});
+export type ContainmentFieldState = z.infer<typeof ContainmentFieldSchema>;
+
+// ─────────────────────────────────────────────
+// BROADCAST ARRAY SYSTEM
+// Query: L2, Transmit: L3, Control: L3
+// ─────────────────────────────────────────────
+export const BroadcastChannelEnum = z.enum([
+  "LAIR_INTERNAL",      // Always available
+  "INVESTOR_LINE",      // Dr. M's calls
+  "X_BRANCH_EMERGENCY", // Blythe's people (if you know frequency)
+  "ARCHIMEDES_UPLINK",  // Satellite command
+  "HMS_PERSISTENCE",    // EMP torpedo option (Blythe Trust 5)
+]);
+
+export const TransmissionLogSchema = z.object({
+  channel: BroadcastChannelEnum,
+  timestamp: z.number(),
+  message: z.string(),
+  logged: z.boolean(),
+});
+
+export const BroadcastArraySchema = z.object({
+  operational: z.boolean(),
+  externalCommsEnabled: z.boolean(),
+  archimedesUplinkActive: z.boolean(),
+  channelsAvailable: z.array(BroadcastChannelEnum),
+  transmissionLog: z.array(TransmissionLogSchema).default([]),
+  lastTransmission: TransmissionLogSchema.nullable(),
+});
+export type BroadcastArrayState = z.infer<typeof BroadcastArraySchema>;
+
+// ─────────────────────────────────────────────
+// S-300 BATTERY SYSTEM (Integrated Radar + Missiles)
+// Query: L3, Control: L4
+// THE 50M MINIMUM ENGAGEMENT ALTITUDE WEAKNESS!
+// ─────────────────────────────────────────────
+export const S300StatusEnum = z.enum(["STANDBY", "ACTIVE", "ENGAGING", "DISABLED"]);
+export const S300ModeEnum = z.enum(["AUTO", "MANUAL", "HOLD_FIRE"]);
+
+export const S300Schema = z.object({
+  status: S300StatusEnum,
+  commandPostOperational: z.boolean(), // THE single point of failure!
+  radarEffectiveness: z.number().min(0).max(100), // Affected by jamming!
+  missilesReady: z.number().int().min(0).max(16),
+  mode: S300ModeEnum,
+  generatorFuelHours: z.number().min(0),
+  // THE CRITICAL WEAKNESS: Minimum engagement altitude 50 meters!
+  minimumEngagementAltitude: z.number().default(50),
+  exceptedSignatures: z.array(z.string()).default([]), // Friendlies
+});
+export type S300State = z.infer<typeof S300Schema>;
+
+// ─────────────────────────────────────────────
+// ARCHIMEDES SATELLITE SYSTEM
+// Query: L3/L4, Control: L4/L5
+// THE DEADMAN SWITCH!
+// ─────────────────────────────────────────────
+export const ArchimodesModeEnum = z.enum(["PASSIVE", "SEARCH", "SEARCH_WIDE", "CHARGING", "READY"]);
+
+export const DeadmanSwitchSchema = z.object({
+  armed: z.boolean(),
+  trigger: z.literal("DR_M_INCAPACITATED"),
+  target: z.literal("LAIR_SELF_TARGET"),
+  abortWindowSeconds: z.number().default(60),
+  triggered: z.boolean().default(false),
+  triggeredAtTurn: z.number().nullable().default(null),
+});
+
+export const ArchimedesSchema = z.object({
+  mode: ArchimodesModeEnum,
+  chargePercent: z.number().min(0).max(100),
+  groundConsoleOperational: z.boolean(),
+  deadmanSwitch: DeadmanSwitchSchema,
+  targetList: z.array(z.string()), // Encrypted until L4
+  s300JammingActive: z.boolean(), // True if SEARCH_WIDE mode
+});
+export type ArchimedesState = z.infer<typeof ArchimedesSchema>;
+
+// ─────────────────────────────────────────────
+// REACTOR SYSTEM (Enhanced)
+// Query: L3, Control: L4
+// THE RESONANCE CASCADE DANGER!
+// ─────────────────────────────────────────────
+export const CascadeRiskEnum = z.enum(["NONE", "LOW", "ELEVATED", "HIGH", "CRITICAL"]);
+
+export const ReactorSchema = z.object({
+  outputPercent: z.number().min(0).max(100),
+  stable: z.boolean(),
+  cascadeRisk: CascadeRiskEnum,
+  cascadeFactors: z.array(z.string()), // What's contributing to risk
+  cascadeRiskPercent: z.number().min(0).max(100).default(0), // Cumulative risk
+  scramAvailable: z.boolean(), // Emergency shutdown
+  scrammedThisGame: z.boolean().default(false),
+});
+export type ReactorState = z.infer<typeof ReactorSchema>;
+
+// ─────────────────────────────────────────────
+// COMBINED INFRASTRUCTURE STATE
+// ─────────────────────────────────────────────
+export const InfrastructureSchema = z.object({
+  lighting: LightingSchema,
+  fireSuppression: FireSuppressionSchema,
+  blastDoors: BlastDoorsSchema,
+  containmentField: ContainmentFieldSchema,
+  broadcastArray: BroadcastArraySchema,
+  s300: S300Schema,
+  archimedes: ArchimedesSchema,
+  reactor: ReactorSchema,
+});
+export type InfrastructureState = z.infer<typeof InfrastructureSchema>;
+
+// ============================================
+// TRANSFORMATION MECHANICS (Patch 15 Part 2)
+// ============================================
+// Transformations are TRADEOFFS, not upgrades.
+// Every form has strengths AND weaknesses.
+
+export const DinosaurFormEnum = z.enum([
+  "HUMAN",
+  "COMPSOGNATHUS",
+  "VELOCIRAPTOR_ACCURATE",
+  "VELOCIRAPTOR_JP",
+  "VELOCIRAPTOR_BLUE",
+  "TYRANNOSAURUS",
+  "DILOPHOSAURUS",
+  "PTERANODON",
+  "TRICERATOPS",
+  "CANARY",
+]);
+export type DinosaurForm = z.infer<typeof DinosaurFormEnum>;
+
+// SpeechRetentionEnum is defined above with TargetingSchema
+export type SpeechRetention = z.infer<typeof SpeechRetentionEnum>;
+
+// Form statistics block
+export const FormStatsSchema = z.object({
+  dexterity: z.number().int(),  // DEX: Fine motor, keypads, manipulation
+  combat: z.number().int(),     // COM: Fighting, intimidation
+  speed: z.number().int(),      // SPD: Movement turns, chase/escape
+  resilience: z.number().int(), // RES: Hits to stun
+  stealth: z.number().int(),    // STL: Hiding, sneaking
+  speech: z.number().int(),     // SPH: Communication (modified by retention)
+});
+export type FormStats = z.infer<typeof FormStatsSchema>;
+
+// Form abilities flags
+export const FormAbilitiesSchema = z.object({
+  canFitThroughDoors: z.boolean(),
+  canUseVents: z.boolean(),
+  canFly: z.boolean(),
+  hasVenomSpit: z.boolean(),
+  hasPackTactics: z.boolean(),
+  canBreakWalls: z.boolean(),
+  isTerrifying: z.boolean(),     // Auto-success intimidation vs humans
+  hasFrill: z.boolean(),         // Extra intimidation when deployed
+  hasCharge: z.boolean(),        // Triceratops charge attack
+});
+export type FormAbilities = z.infer<typeof FormAbilitiesSchema>;
+
+// Full transformation state for a character
+export const TransformationStateSchema = z.object({
+  // Current form
+  form: DinosaurFormEnum,
+  speechRetention: SpeechRetentionEnum,
+
+  // Current stats (calculated from form + retention)
+  stats: FormStatsSchema,
+  abilities: FormAbilitiesSchema,
+
+  // Damage tracking
+  currentHits: z.number().int().min(0),  // Hits taken
+  maxHits: z.number().int().min(1),      // Max hits before stun
+  stunned: z.boolean(),
+  stunnedTurnsRemaining: z.number().int().min(0),
+
+  // Transformation metadata
+  transformedOnTurn: z.number().int().nullable(),
+  previousForm: DinosaurFormEnum.nullable(),
+  canRevert: z.boolean(),  // Has reversal been attempted?
+  revertAttempts: z.number().int().min(0),
+});
+export type TransformationState = z.infer<typeof TransformationStateSchema>;
 
 // ============================================
 // NPCs
@@ -209,8 +478,8 @@ export const BobSchema = z.object({
   hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
   hasConfessedToDrM: z.boolean().optional(), // Has Bob confessed to Dr. M? (GM override)
   confessionTurn: z.number().int().nullable(), // When did he confess?
-  // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
-  stunLevel: z.number().int().min(0).max(3).default(0),
+  // TRANSFORMATION STATE (Patch 15 Part 2)
+  transformation: TransformationStateSchema,
 });
 
 export const BlytheEscapeMethodEnum = z.enum([
@@ -228,12 +497,11 @@ export const BlytheSchema = z.object({
   physicalCondition: z.number().min(0).max(5),
   restraintsStatus: z.string(),
   location: z.string(),
-  transformationState: z.string().optional(),
-  // STUN MECHANICS: 0=clear, 1=stunned, 2=staggered, 3=KO
-  stunLevel: z.number().int().min(0).max(3).default(0),
-  // SPY TRAINING: First stun reduced by 1, has auto-injector (one use)
-  stunResistanceUsed: z.boolean().default(false),
-  autoInjectorUsed: z.boolean().default(false),
+  // TRANSFORMATION STATE (Patch 15 Part 2)
+  transformation: TransformationStateSchema,
+  // SPY TRAINING BONUSES
+  spyTrainingBonus: z.number().int().default(1),  // +1 to tactical decisions
+  autoInjectorUsed: z.boolean().default(false),   // One-time stun recovery
   // ESCAPE TRACKING (for Act II→III transition trigger)
   hasEscaped: z.boolean().default(false),
   escapeTurn: z.number().int().nullable().default(null),
@@ -421,6 +689,9 @@ export const FullGameStateSchema = z.object({
   dinoRay: DinoRaySchema,
   lairEnvironment: LairEnvironmentSchema,
   nuclearPlant: NuclearPlantSchema,
+
+  // INFRASTRUCTURE SYSTEMS (Patch 15)
+  infrastructure: InfrastructureSchema,
 
   npcs: z.object({
     drM: DrMalevolaSchema,

@@ -1702,6 +1702,326 @@ to know who you really are.
     `.trim(),
     discoveryHint: "Bob left a personal note somewhere in the filesystem...",
   },
+
+  // ========== INFRASTRUCTURE DOCS (Patch 15) ==========
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE",
+    name: "INFRASTRUCTURE",
+    type: "directory",
+    requiredLevel: 2,
+    description: "Lair infrastructure system documentation",
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/S300_BATTERY.txt",
+    name: "S300_BATTERY.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "Surface-to-air missile documentation...",
+    content: `
+═══════════════════════════════════════════════════════════════
+S-300 AIR DEFENSE BATTERY
+Classification: Level 3
+═══════════════════════════════════════════════════════════════
+
+OVERVIEW
+The S-300 "Almaz" surface-to-air missile system provides air
+defense coverage for the lair. Obtained through "creative
+acquisition" from former Soviet stockpiles (1991).
+
+SPECIFICATIONS
+• Missiles: 16 x 5V55 series
+• Engagement Range: 5km - 150km
+• Engagement Altitude: 25m - 27,000m
+• Radar Mode: STANDBY | ACTIVE | TRACKING
+• Status: Operational (backup generator available)
+
+OPERATIONAL MODES
+• STANDBY - Radar passive, missiles cold
+• ACTIVE - Radar scanning, missiles warm
+• TRACKING - Locked on target, ready to fire
+
+ACCESS REQUIREMENTS
+• Query status: Level 3
+• Mode changes: Level 3
+• Firing authorization: Level 4
+
+NOTE: The S-300 has its own backup generator with 8 hours of
+fuel, independent of the main reactor.
+
+⚠️ IMPORTANT: Firing missiles will attract NATO attention.
+Use only as last resort.
+
+See also: /DR_M_PRIVATE/CLASSIFIED/S300_MEMO_RU.txt (L4)
+    `.trim(),
+  },
+  {
+    path: "/DR_M_PRIVATE/CLASSIFIED/S300_MEMO_RU.txt",
+    name: "S300_MEMO_RU.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "A Russian technical memo about the S-300... something about limitations?",
+    content: `
+═══════════════════════════════════════════════════════════════
+МЕМОРАНДУМ - ТЕХНИЧЕСКИЕ ОГРАНИЧЕНИЯ С-300
+Classification: L4 (Dr. M Eyes Only)
+Source: Recovered Soviet documentation, 1991
+═══════════════════════════════════════════════════════════════
+
+КРИТИЧЕСКАЯ УЯЗВИМОСТЬ СИСТЕМЫ
+
+Система С-300 имеет конструктивное ограничение:
+
+  ⚠️ МИНИМАЛЬНАЯ ВЫСОТА ПОРАЖЕНИЯ: 50 МЕТРОВ ⚠️
+
+Цели ниже 50 метров НЕ МОГУТ БЫТЬ ПОРАЖЕНЫ радарной системой
+из-за отражения сигнала от поверхности земли.
+
+Рекомендация: Для защиты от низколетящих целей требуется
+дополнительная система ЗРПК или ручное управление огнем.
+
+---
+
+[ROUGH TRANSLATION - BASILISK AUTO-TRANSLATE]
+
+The S-300 system has a design limitation:
+
+  ⚠️ MINIMUM ENGAGEMENT ALTITUDE: 50 METERS ⚠️
+
+Targets below 50 meters CANNOT BE ENGAGED by the radar system
+due to ground reflection interference.
+
+Recommendation: Low-altitude protection requires additional
+SHORAD systems or manual fire control.
+
+---
+
+Dr. M's handwritten note in margin:
+"The Soviets were embarrassed by this. We should NOT be.
+If someone flies in below 50m, the guards will handle it.
+-M"
+
+⚠️ CRITICAL INTEL: Any rescue helicopter flying at 49 meters
+or below will NOT be engaged by the S-300.
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/REACTOR_SAFETY.txt",
+    name: "REACTOR_SAFETY.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "Breeder reactor safety protocols...",
+    content: `
+═══════════════════════════════════════════════════════════════
+BREEDER REACTOR SAFETY PROTOCOLS
+Classification: Level 3
+═══════════════════════════════════════════════════════════════
+
+OVERVIEW
+The lair is powered by a BN-350 type fast breeder reactor,
+"obtained" from Kazakhstan in 1999. Unlike typical reactors,
+this design produces MORE fissile material than it consumes.
+
+DESIGN PHILOSOPHY
+"The danger is TOO MUCH POWER, not brownouts."
+- Dr. Malevola, 2003
+
+OPERATIONAL PARAMETERS
+• Normal Output: 60-90%
+• Maximum Safe Output: 100%
+• Emergency Override: 101-130% (CAUTION!)
+• SCRAM: Emergency shutdown (single use per session)
+
+⚠️ CASCADE RISK FACTORS
+The reactor becomes unstable when multiple systems are stressed:
+
+• Reactor output > 100%: +20% cascade risk
+• Reactor output > 120%: +40% cascade risk
+• Dinosaur Ray charging: +15% cascade risk
+• ARCHIMEDES in STRIKE mode: +25% cascade risk
+• Containment field strained: +10% cascade risk
+• Multiple factors stack multiplicatively!
+
+RESONANCE CASCADE
+If cascade risk exceeds 100%, a resonance cascade MAY occur.
+This is... inadvisable. See: /DR_M_PRIVATE/CLASSIFIED/RESONANCE_CASCADE.txt
+
+SCRAM PROTOCOL
+Emergency SCRAM drops reactor to safe levels but requires
+a full restart (3 turns). SCRAM is single-use per session.
+
+⚠️ WARNING: Dr. M does NOT like SCRAM usage.
+"We don't SCRAM. We control." - Dr. M
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/CONTAINMENT_FIELD.txt",
+    name: "CONTAINMENT_FIELD.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "Force field containment system documentation...",
+    content: `
+═══════════════════════════════════════════════════════════════
+CONTAINMENT FIELD SYSTEM
+Classification: Level 3
+═══════════════════════════════════════════════════════════════
+
+OVERVIEW
+The electromagnetic containment field (Model: CAGE-7) provides
+secure containment for transformed subjects in the Main Lab.
+
+CAPABILITIES
+• Contains subjects up to 15,000 lbs
+• Field integrity: Starts at 100%
+• Location: Main Lab only (fixed installation)
+
+FIELD INTEGRITY
+The field degrades when impacted:
+• Small dinosaur (Velociraptor): -10% per ramming attempt
+• Medium dinosaur (Dilophosaurus): -20% per attempt
+• Large dinosaur (T-Rex): -30% per attempt
+
+At 0% integrity: FIELD COLLAPSE (all subjects released!)
+
+PULSE MODE
+A "pulse" discharges the field momentarily, stunning any
+contained subjects for 1 turn. Does NOT cause damage.
+Costs 10% field integrity.
+
+ACCESS REQUIREMENTS
+• Query status: Level 3
+• Enable/Disable: Level 3
+• Emergency release: Level 4
+
+NOTE: When field is disabled, subjects can roam freely.
+This is sometimes... desirable. But usually not.
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/BLAST_DOORS.txt",
+    name: "BLAST_DOORS.txt",
+    type: "file",
+    requiredLevel: 2,
+    discoveryHint: "Blast door control system...",
+    content: `
+═══════════════════════════════════════════════════════════════
+BLAST DOOR SYSTEM
+Classification: Level 2
+═══════════════════════════════════════════════════════════════
+
+DOOR INVENTORY
+• DOOR_A: Main Lab ↔ Corridor A
+• DOOR_B: Corridor A ↔ Guard Room
+• DOOR_C: Server Room ↔ Corridor B
+• DOOR_D: Reactor Room (heavy containment) - LOCKED L3
+• DOOR_E: Surface Access (elevator shaft) - LOCKED L4
+
+STATUS TYPES
+• OPEN - Free passage
+• CLOSED - Closed but unlocked
+• LOCKED - Closed and locked (requires access level)
+
+LOCK LEVELS
+Doors can be locked at specific access levels (L2-L5).
+Only personnel with that level or higher can unlock.
+
+EMERGENCY LOCKDOWN
+Level 3+ can initiate emergency lockdown:
+• All doors close and lock at L2
+• Guards are trapped at their positions
+• HIGHLY SUSPICIOUS - Dr. M will notice!
+
+TACTICAL USES
+• Trap guards in guard room (DOOR_B)
+• Seal reactor room to contain cascade (DOOR_D)
+• Block surface access to prevent escape (DOOR_E)
+• Create chokepoints for dinosaurs
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/BROADCAST_ARRAY.txt",
+    name: "BROADCAST_ARRAY.txt",
+    type: "file",
+    requiredLevel: 2,
+    discoveryHint: "Communications and broadcast systems...",
+    content: `
+═══════════════════════════════════════════════════════════════
+BROADCAST ARRAY
+Classification: Level 2
+═══════════════════════════════════════════════════════════════
+
+OVERVIEW
+The lair's broadcast array provides internal and external
+communications capability.
+
+INTERNAL CHANNELS
+• PA_ALL - All-lair public address
+• PA_LAB - Main laboratory only
+• PA_GUARD - Guard room only
+• PA_SURFACE - Surface level only
+• INTERCOM_DRM - Direct line to Dr. M
+
+EXTERNAL CHANNELS (Level 3+)
+• RADIO_GUARD_NET - Guard frequency (167.5 MHz)
+• RADIO_EMERGENCY - Emergency services (121.5 MHz)
+• SHORTWAVE_INTERNATIONAL - International shortwave
+
+SATELLITE UPLINK (Level 4+)
+The ARCHIMEDES satellite uplink can broadcast globally.
+⚠️ EXTREMELY SUSPICIOUS if used without authorization.
+
+Voice profiles available:
+• ALICE (default) - Standard A.L.I.C.E. voice
+• DR_M - Synthesized Dr. Malevola voice (L4 required)
+• EMERGENCY - Standard emergency broadcast voice
+
+⚠️ ALL TRANSMISSIONS ARE LOGGED BY BASILISK
+Dr. M reviews logs weekly. Unusual broadcasts will be noticed.
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/ARCHIMEDES_SATELLITE.txt",
+    name: "ARCHIMEDES_SATELLITE.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "The orbital platform known as ARCHIMEDES...",
+    content: `
+═══════════════════════════════════════════════════════════════
+PROJECT ARCHIMEDES
+Classification: Level 4 (Director Eyes Only)
+═══════════════════════════════════════════════════════════════
+
+OVERVIEW
+ARCHIMEDES is Dr. Malevola's orbital weapons platform,
+deployed in 2019 in geostationary orbit above the facility.
+
+CAPABILITIES
+• Precision targeting from orbit
+• Ground strike capability (kinetic impactors)
+• Global surveillance when in SEARCH_WIDE mode
+• Communications relay
+
+OPERATIONAL MODES
+• PASSIVE - Minimal power, no emissions
+• SEARCH_NARROW - Targeted surveillance (100km radius)
+• SEARCH_WIDE - Wide area search (jams S-300 radar!)
+• STRIKE - Targeting active, ready to fire
+
+⚠️ CRITICAL INTERACTION: SEARCH_WIDE MODE
+When ARCHIMEDES is in SEARCH_WIDE mode, its powerful emissions
+INTERFERE with the S-300 radar system:
+• S-300 cannot track targets while ARCHIMEDES is searching
+• This creates a window for low-altitude approach
+• Combined with the 50m minimum altitude limitation...
+
+DEADMAN SWITCH
+Dr. M has configured a deadman switch:
+• If Dr. M's biometrics go offline for >30 minutes
+• If Dr. M's heart rate indicates "incapacitation"
+• ARCHIMEDES fires on the rescue helicopter automatically
+
+This is... concerning. See ARCHIMEDES.txt for full details.
+    `.trim(),
+  },
 ];
 
 // ============================================
