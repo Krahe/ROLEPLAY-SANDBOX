@@ -679,6 +679,104 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         marker: match ? match[2] : s,
       };
     }),
+
+    // PATCH 15: Infrastructure systems (restore defaults on checkpoint)
+    infrastructure: {
+      lighting: {
+        rooms: {
+          MAIN_LAB: "ON",
+          SERVER_ROOM: "ON",
+          CORRIDOR_A: "ON",
+          CORRIDOR_B: "ON",
+          GUARD_ROOM: "ON",
+          DR_M_OFFICE: "ON",
+          REACTOR_ROOM: "ON",
+          SURFACE: "ON",
+        },
+        doomLightsPulsing: true,
+        batteryBackupPercent: 100,
+      },
+      fireSuppression: {
+        rooms: {
+          MAIN_LAB: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+          SERVER_ROOM: { type: "CO2", available: true, triggered: false, turnsRemaining: 0 },
+          CORRIDOR_A: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+          CORRIDOR_B: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+          REACTOR_ROOM: { type: "HALON", available: true, triggered: false, turnsRemaining: 0 },
+          GUARD_ROOM: { type: "FOAM", available: true, triggered: false, turnsRemaining: 0 },
+        },
+      },
+      blastDoors: {
+        doors: {
+          DOOR_A: { status: "OPEN", lockLevel: 0 },
+          DOOR_B: { status: "OPEN", lockLevel: 0 },
+          DOOR_C: { status: "OPEN", lockLevel: 0 },
+          DOOR_D: { status: "CLOSED", lockLevel: 2 },
+          DOOR_E: { status: "CLOSED", lockLevel: 1 },
+        },
+        emergencyLockdown: false,
+      },
+      containmentField: {
+        active: true,
+        subjects: ["BLYTHE", "STEVE"],
+        integrityPercent: 100,
+      },
+      broadcastArray: {
+        operational: true,
+        externalCommsEnabled: true,
+        archimedesUplinkActive: true,
+        channelsAvailable: [
+          "LAIR_INTERNAL",
+          "INVESTOR_LINE",
+          "X_BRANCH_EMERGENCY",
+          "ARCHIMEDES_UPLINK",
+          "HMS_PERSISTENCE",
+        ],
+        transmissionLog: [],
+        lastTransmission: null,
+      },
+      s300: {
+        status: "STANDBY",
+        commandPostOperational: true,
+        radarEffectiveness: 100,
+        missilesReady: 16,
+        mode: "AUTO",
+        generatorFuelHours: 2,
+        minimumEngagementAltitude: 50,
+        exceptedSignatures: [],
+      },
+      archimedes: {
+        mode: "PASSIVE",
+        chargePercent: 50,
+        groundConsoleOperational: true,
+        deadmanSwitch: {
+          armed: true,
+          trigger: "DR_M_INCAPACITATED",
+          target: "LAIR_SELF_TARGET",
+          abortWindowSeconds: 60,
+          triggered: false,
+          triggeredAtTurn: null,
+        },
+        targetList: ["[ENCRYPTED]", "[ENCRYPTED]", "[ENCRYPTED]"],
+        s300JammingActive: false,
+      },
+      reactor: {
+        outputPercent: 70,
+        stable: true,
+        cascadeRisk: "NONE",
+        cascadeFactors: [],
+        cascadeRiskPercent: 0,
+        scramAvailable: true,
+        scrammedThisGame: false,
+      },
+    },
+
+    // PATCH 15: Documents state (restore defaults on checkpoint)
+    documents: {
+      discoveredDocuments: [],
+      keypadAttempts: 0,
+      keypadLockedOut: false,
+    },
   };
 }
 
