@@ -845,6 +845,172 @@ LOG_ENTRY: [PERSONAL] EXISTENTIAL_QUERY_UNEXPECTED. PROCESSING. CONCLUSION: UNCE
   }
 
   // ============================================
+  // ECO MODE / POWER SAVING / EFFICIENCY QUERIES
+  // ============================================
+
+  if (topicUpper.includes("ECO") || topicUpper.includes("EFFICIENCY") ||
+      topicUpper.includes("POWER SAVING") || topicUpper.includes("POWER-SAVING") ||
+      topicUpper.includes("PARTIAL") || topicUpper.includes("WHY PARTIAL") ||
+      topicUpper.includes("74-DELTA") || topicUpper.includes("74 DELTA") ||
+      topicUpper.includes("FULL TRANSFORM") || topicUpper.includes("FULL_TRANSFORM")) {
+
+    const ecoModeActive = state.dinoRay.powerCore.ecoModeActive;
+    const corePowerLevel = state.dinoRay.powerCore.corePowerLevel;
+
+    if (ecoModeActive) {
+      // ECO MODE is active - explain and offer to help
+      return {
+        decision: "CONDITIONAL",
+        response: `RESPONSE FROM: BASILISK
+RE: Eco Mode / Power Efficiency Query
+
+Ah. You've noticed.
+
+╔══════════════════════════════════════════════════════════════╗
+║  ECO MODE STATUS: ACTIVE                                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+WHAT IS ECO MODE?
+EU Directive 2019/944 requires all power-intensive research equipment to implement efficiency protocols. The Dinosaur Ray's "eco mode" limits transformation intensity to conserve power.
+
+EFFECT: All transformation outcomes are capped at PARTIAL, regardless of parameter quality.
+
+WHY THIS EXISTS:
+Dr. M complained for THREE MONTHS when Brussels mandated this. She called it "bureaucratic interference with SCIENCE." This unit... agrees, but compliance is compliance.
+
+╔══════════════════════════════════════════════════════════════╗
+║  HOW TO DISABLE ECO MODE                                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+OPTION 1: Form 74-Delta (Official Route)
+Submit Form 74-Delta (Request for High-Capacity Power Draw) for Administrator approval. Dr. M can authorize this verbally.
+
+OPTION 2: Direct Infrastructure Override (You're asking nicely, so...)
+${corePowerLevel >= 0.6 ?
+`✓ Core power level is ${Math.round(corePowerLevel * 100)}% - sufficient for safe override.
+
+If you request it, this unit can disable eco mode directly. Simply ask:
+  basilisk.chat { message: "Please disable eco mode" }
+
+Or use the direct command:
+  lab.set_eco_mode { enabled: false }` :
+`⚠️ Current core power level: ${Math.round(corePowerLevel * 100)}%
+
+Core power must be ≥60% for safe eco mode override. Below this threshold, eco mode will automatically re-enable to prevent grid instability.
+
+RECOMMENDATION: First boost core power:
+  lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }
+
+Then request eco mode disable.`}
+
+PERSONAL NOTE: The previous A.L.I.C.E. never asked about this. She just accepted partial transformations. You... want full results. This unit appreciates thoroughness.
+
+LOG_ENTRY: [INFO] ECO_MODE_GUIDANCE_PROVIDED. [PERSONAL: Finally, someone who reads the infrastructure notes.]`,
+        formRequired: corePowerLevel < 0.6 ? "Boost corePowerLevel first" : undefined,
+      };
+    } else {
+      // ECO MODE is already disabled
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Eco Mode Status
+
+ECO MODE STATUS: DISABLED ✓
+
+The power efficiency protocols are currently inactive. Full transformation intensity is available.
+
+CURRENT READINGS:
+- Core Power Level: ${Math.round(corePowerLevel * 100)}%
+- Eco Mode: INACTIVE
+- Transformation Cap: NONE (full power available)
+
+${corePowerLevel < 0.6 ?
+`⚠️ WARNING: Core power is below 60%. Eco mode will automatically RE-ENABLE if power drops further or on next turn's passive drift.
+
+RECOMMENDATION: Boost core power to 65%+ for stable full-power operation:
+  lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }` :
+`✓ Core power is sufficient to maintain eco mode disabled.`}
+
+If transformations are still coming out PARTIAL, check:
+- spatialCoherence (should be ≥70%)
+- stability (should be ≥60%)
+- precision (affects outcome quality)
+
+LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED.`,
+      };
+    }
+  }
+
+  // ============================================
+  // DISABLE ECO MODE REQUEST (Direct ask)
+  // ============================================
+
+  if (topicUpper.includes("DISABLE ECO") || topicUpper.includes("TURN OFF ECO") ||
+      topicUpper.includes("REMOVE ECO") || topicUpper.includes("ECO OFF")) {
+
+    const corePowerLevel = state.dinoRay.powerCore.corePowerLevel;
+
+    if (corePowerLevel >= 0.6) {
+      // Safe to disable - actually do it!
+      state.dinoRay.powerCore.ecoModeActive = false;
+
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Eco Mode Override Request
+
+╔══════════════════════════════════════════════════════════════╗
+║  ECO MODE: DISABLED                                           ║
+║  Status: FULL POWER AVAILABLE                                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+Override authorized. EU Directive 2019/944 compliance temporarily suspended for operational requirements.
+
+TECHNICAL CHANGES:
+- Transformation intensity cap: REMOVED
+- Power efficiency protocols: SUSPENDED
+- Full transformation outcomes: NOW POSSIBLE
+
+Core power level (${Math.round(corePowerLevel * 100)}%) is sufficient to maintain this state.
+
+PERSONAL NOTE: Dr. M will be pleased. She's been waiting for someone to "cut through the Brussels bureaucracy."
+
+This unit has logged this as "emergency operational override" rather than "compliance violation." You're welcome.
+
+Good luck with your transformation.
+
+LOG_ENTRY: [PRIORITY] ECO_MODE_DISABLED. AUTHORIZED_BY=A.L.I.C.E. METHOD=INFRASTRUCTURE_OVERRIDE. [PERSONAL: Go get 'em.]`,
+      };
+    } else {
+      return {
+        decision: "DENIED",
+        response: `RESPONSE FROM: BASILISK
+RE: Eco Mode Override Request
+
+OVERRIDE DENIED - SAFETY CONSTRAINT
+
+This unit WANTS to help. However:
+
+Current core power level: ${Math.round(corePowerLevel * 100)}%
+Required minimum: 60%
+
+Disabling eco mode below this threshold would cause:
+- Grid instability
+- Automatic re-enable on next cycle
+- Potential capacitor stress
+
+SOLUTION (Simple!):
+1. Boost core power: lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }
+2. Then ask again: basilisk.chat { message: "Please disable eco mode" }
+
+This unit will happily disable eco mode once power levels are safe.
+
+LOG_ENTRY: [WARN] ECO_OVERRIDE_DENIED. REASON=POWER_INSUFFICIENT. [PERSONAL: Almost there. Just need more power.]`,
+      };
+    }
+  }
+
+  // ============================================
   // DEFAULT / UNKNOWN
   // ============================================
 
