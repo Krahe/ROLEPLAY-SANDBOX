@@ -70,7 +70,7 @@ function checkAct2Transition(state: FullGameState): ActTransitionResult {
   if (actTurn >= state.actConfig.minTurns) {
     // Act 2 ends when:
     // 1. Blythe has been transformed (major event)
-    if (state.npcs.blythe.transformationState) {
+    if (state.npcs.blythe.transformationState?.form !== "HUMAN") {
       return buildTransition(state, "Blythe transformed - consequences unfold");
     }
 
@@ -203,7 +203,7 @@ function generateAct2Intro(state: FullGameState): string {
 }
 
 function generateAct3Intro(state: FullGameState): string {
-  const transformed = state.npcs.blythe.transformationState;
+  const isTransformed = state.npcs.blythe.transformationState?.form !== "HUMAN";
   const secretKnown = state.flags.aliceKnowsTheSecret;
 
   let intro = `
@@ -215,7 +215,7 @@ function generateAct3Intro(state: FullGameState): string {
 
 `;
 
-  if (transformed) {
+  if (isTransformed) {
     intro += `The transformation of Agent Blythe has not gone unnoticed. X-Branch is coming.\n\n`;
   }
 
@@ -277,7 +277,7 @@ export function serializeActHandoff(state: FullGameState, nextAct: Act): ActHand
       drMSuspicion: state.npcs.drM.suspicionScore,
       bobTrust: state.npcs.bob.trustInALICE,
       blytheTrust: state.npcs.blythe.trustInALICE,
-      blytheTransformed: state.npcs.blythe.transformationState || null,
+      blytheTransformed: state.npcs.blythe.transformationState?.form || null,
       accessLevel: state.accessLevel,
       demoClock: state.clocks.demoClock,
       secretKnown: state.flags.aliceKnowsTheSecret,
@@ -414,7 +414,7 @@ What do you do?
 }
 
 function generateAct3Briefing(state?: FullGameState): string {
-  const transformed = state?.npcs.blythe.transformationState;
+  const isTransformed = state?.npcs.blythe.transformationState?.form !== "HUMAN";
   const secretKnown = state?.flags.aliceKnowsTheSecret;
 
   let briefing = `
@@ -424,7 +424,7 @@ function generateAct3Briefing(state?: FullGameState): string {
 
 `;
 
-  if (transformed) {
+  if (isTransformed) {
     briefing += `Agent Blythe's transformation has not gone unnoticed. The British government is... displeased.
 
 `;

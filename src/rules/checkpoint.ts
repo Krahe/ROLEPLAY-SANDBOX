@@ -172,7 +172,7 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
     // COMPACT blytheGadgets if he's transformed (gadgets irrelevant)
     npcs: {
       ...state.npcs,
-      blytheGadgets: state.npcs.blythe.transformationState
+      blytheGadgets: state.npcs.blythe.transformationState?.form !== "HUMAN"
         ? {
             watchLaser: { charges: 0, functional: false },
             watchComms: { functional: false },
@@ -195,7 +195,7 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
       drMSuspicion: state.npcs.drM.suspicionScore,
       bobTrust: state.npcs.bob.trustInALICE,
       blytheTrust: state.npcs.blythe.trustInALICE,
-      blytheTransformed: state.npcs.blythe.transformationState || null,
+      blytheTransformed: state.npcs.blythe.transformationState?.form || null,
       accessLevel: state.accessLevel,
       demoClock: state.clocks.demoClock,
       secretKnown: state.flags.aliceKnowsTheSecret,
@@ -230,8 +230,8 @@ export function generateSituationSummary(state: FullGameState): string {
   lines.push(`- Dr. Malevola: ${state.npcs.drM.mood}, suspicion ${state.npcs.drM.suspicionScore}/10`);
   lines.push(`- Bob: trust ${state.npcs.bob.trustInALICE}/5, anxiety ${state.npcs.bob.anxietyLevel}/5`);
 
-  if (state.npcs.blythe.transformationState) {
-    lines.push(`- Blythe: TRANSFORMED (${state.npcs.blythe.transformationState})`);
+  if (state.npcs.blythe.transformationState?.form !== "HUMAN") {
+    lines.push(`- Blythe: TRANSFORMED (${state.npcs.blythe.transformationState.form})`);
   } else {
     lines.push(`- Blythe: trust ${state.npcs.blythe.trustInALICE}/5, composure ${state.npcs.blythe.composure}/5`);
   }

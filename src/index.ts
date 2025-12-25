@@ -170,7 +170,7 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
       blythe: {
         trust: state.npcs.blythe.trustInALICE,
         composure: state.npcs.blythe.composure,
-        transformed: state.npcs.blythe.transformationState || null,
+        transformed: state.npcs.blythe.transformationState?.form || null,
       },
     },
 
@@ -241,6 +241,8 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         // Stun mechanics
         stunLevel: state.npcs.blythe.stunLevel,
         stunResistanceUsed: state.npcs.blythe.stunResistanceUsed,
+        // Spy training bonuses
+        spyTrainingBonus: state.npcs.blythe.spyTrainingBonus,
         autoInjectorUsed: state.npcs.blythe.autoInjectorUsed,
         // Escape tracking (Act II→III transition)
         hasEscaped: state.npcs.blythe.hasEscaped,
@@ -920,7 +922,8 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
       }
       if (overrides.blythe_transformationState !== undefined) {
-        gameState.npcs.blythe.transformationState = overrides.blythe_transformationState;
+        // Override sets just the form name - update the form field
+        gameState.npcs.blythe.transformationState.form = overrides.blythe_transformationState as typeof gameState.npcs.blythe.transformationState.form;
       }
 
       // System state overrides
@@ -1193,7 +1196,7 @@ Turns played: ${gameState.turn}
         rayState: gameState.dinoRay.state,
         bobTrust: gameState.npcs.bob.trustInALICE,
         blytheTrust: gameState.npcs.blythe.trustInALICE,
-        blytheTransformed: !!gameState.npcs.blythe.transformationState,
+        blytheTransformed: gameState.npcs.blythe.transformationState?.form !== "HUMAN",
       },
       activeEvents,
       gmNarrativeSummary: gmResponse.narration.split(".").slice(0, 2).join(".") + ".",

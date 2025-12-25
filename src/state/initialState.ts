@@ -246,8 +246,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         theSecretKnown: true, // Bob always knows from the start
         hasConfessedToALICE: false, // Not yet revealed
         confessionTurn: null,
+        // Legacy stun tracking
+        stunLevel: 0,
         // TRANSFORMATION STATE (Patch 15 Part 2)
-        transformation: {
+        transformationState: {
           form: "HUMAN" as const,
           speechRetention: "FULL" as const,
           stats: {
@@ -285,8 +287,11 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         physicalCondition: 5,
         restraintsStatus: "secure",
         location: "test chair in ray firing line",
+        // Legacy stun tracking
+        stunLevel: 0,
+        stunResistanceUsed: false,
         // TRANSFORMATION STATE (Patch 15 Part 2)
-        transformation: {
+        transformationState: {
           form: "HUMAN" as const,
           speechRetention: "FULL" as const,
           stats: {
