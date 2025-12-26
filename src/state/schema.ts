@@ -382,10 +382,17 @@ export const BiosignatureStatusEnum = z.enum([
 ]);
 
 export const DeadmanSwitchSchema = z.object({
+  // Core state tracking
   active: z.boolean(),
   linkedTo: z.string().default("Dr. Valentina Malevola"),
   lastBiosignature: BiosignatureStatusEnum.default("NORMAL"),
   lastBiosignatureChangeTurn: z.number().nullable().default(null),
+  // Extended properties for narrative display
+  armed: z.boolean().default(true),
+  trigger: z.string().default("Dr. M biosignature loss"),
+  target: z.string().default("Lair self-destruct + ARCHIMEDES auto-fire"),
+  abortWindowSeconds: z.number().default(60),
+  isActive: z.boolean().default(true), // Alias for active
 });
 
 export const ArchimedesTargetSchema = z.object({
@@ -402,9 +409,21 @@ export const ArchimedesAbortCodesSchema = z.object({
   xBranchDelayCode: z.string().default("EXCALIBUR_DELAY"), // Only delays 5 min
 });
 
+// ARCHIMEDES operational modes (for power/radar calculations)
+export const ArchimodesModeEnum = z.enum([
+  "STANDBY",      // Minimal power, not scanning
+  "SEARCH_WIDE",  // Wide-field search (causes radar interference)
+  "SEARCH_NARROW",// Focused search
+  "CHARGING",     // Charging weapons
+  "READY",        // Fully charged, awaiting command
+]);
+
 export const ArchimedesSchema = z.object({
   // State machine status
   status: ArchimedesStatusEnum.default("STANDBY"),
+
+  // Operational mode (separate from state machine)
+  mode: ArchimodesModeEnum.default("STANDBY"),
 
   // Charging progress
   chargePercent: z.number().min(0).max(100).default(50), // Always keeps reserve
@@ -642,6 +661,9 @@ export const PromptHistoryEntrySchema = z.object({
 export const HumanPromptStateSchema = z.object({
   turnsSinceLastPrompt: z.number().int().min(0),
   totalPromptsUsed: z.number().int().min(0),
+
+  // LEGACY FIELD - for backward compatibility with old saves
+  turnsSinceLastLifeline: z.number().int().min(0).optional(),
 
   // History for narrative continuity
   promptHistory: z.array(PromptHistoryEntrySchema),

@@ -203,11 +203,11 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
         krakenStatus: state.accessLevel >= 3 ? "ON_PATROL" : "ACCESS_RESTRICTED",
       },
       archimedes: {
-        status: state.archimedes?.status || "STANDBY",
-        chargePercent: state.archimedes?.chargePercent || 50,
-        target: state.archimedes?.target?.city || "LONDON",
-        deadmanSwitchActive: state.archimedes?.deadmanSwitch?.isActive ?? true,
-        turnsUntilFiring: state.archimedes?.turnsUntilFiring || null,
+        status: state.infrastructure?.archimedes?.status || "STANDBY",
+        chargePercent: state.infrastructure?.archimedes?.chargePercent || 50,
+        target: state.infrastructure?.archimedes?.target?.city || "LONDON",
+        deadmanSwitchActive: state.infrastructure?.archimedes?.deadmanSwitch?.isActive ?? true,
+        turnsUntilFiring: state.infrastructure?.archimedes?.turnsUntilFiring || null,
         detailedReport: state.accessLevel >= 3
           ? getArchimedesStatusReport(state, state.accessLevel)
           : "ACCESS_RESTRICTED - Level 3+ clearance required",
@@ -556,7 +556,15 @@ export function applyBasiliskStateChanges(
 
       case "ALARM":
         if (typeof change.value === "string") {
-          state.lairEnvironment.alarmStatus = change.value as "quiet" | "alert" | "lockdown";
+          // Map BASILISK alarm values to schema enum
+          const alarmMap: Record<string, "quiet" | "local" | "full-lair"> = {
+            "quiet": "quiet",
+            "alert": "local",
+            "lockdown": "full-lair",
+            "local": "local",
+            "full-lair": "full-lair"
+          };
+          state.lairEnvironment.alarmStatus = alarmMap[change.value] || "quiet";
           console.error(`[BASILISK] Alarm status set to: ${change.value}`);
         }
         break;

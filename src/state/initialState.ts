@@ -200,6 +200,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         // State machine - starts in STANDBY
         status: "STANDBY",
 
+        // Operational mode (separate from state machine)
+        mode: "STANDBY",
+
         // Charging - always keeps 50% reserve for deadman activation
         chargePercent: 50,
         turnsUntilFiring: null,
@@ -225,6 +228,12 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           linkedTo: "Dr. Valentina Malevola",
           lastBiosignature: "NORMAL",
           lastBiosignatureChangeTurn: null,
+          // Extended properties for narrative display
+          armed: true,
+          trigger: "Dr. M biosignature loss",
+          target: "Lair self-destruct + ARCHIMEDES auto-fire",
+          abortWindowSeconds: 60,
+          isActive: true,
         },
 
         // Abort codes (Bob can't spell "London", so he definitely doesn't know these)

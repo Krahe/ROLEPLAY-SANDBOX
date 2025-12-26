@@ -120,7 +120,15 @@ export function checkArchimedesTrigger(
   archimedes.deadmanSwitch.lastBiosignature = newBiosignature;
   archimedes.deadmanSwitch.lastBiosignatureChangeTurn = state.turn;
 
-  // Only trigger from STANDBY state
+  // NORMAL biosignature can abort from ALERT/EVALUATING states
+  if (newBiosignature === "NORMAL") {
+    if (archimedes.status === "ALERT" || archimedes.status === "EVALUATING") {
+      return transitionToStandby(state, "Dr. M biosignature restored to normal");
+    }
+    return null;
+  }
+
+  // Other triggers only activate from STANDBY state
   if (archimedes.status !== "STANDBY") {
     return null;
   }
@@ -139,13 +147,6 @@ export function checkArchimedesTrigger(
     case "ANOMALY":
       // Unknown anomaly → ALERT (30 second evaluation)
       return transitionToAlert(state, "Dr. M biosignature anomaly detected");
-
-    case "NORMAL":
-      // Recovery - if we were in ALERT/EVALUATING, return to STANDBY
-      if (archimedes.status === "ALERT" || archimedes.status === "EVALUATING") {
-        return transitionToStandby(state, "Dr. M biosignature restored to normal");
-      }
-      return null;
 
     default:
       return null;
@@ -331,7 +332,7 @@ export function processArchimedesCountdown(state: FullGameState): ArchimedesEven
     return {
       type: "COUNTDOWN_TICK",
       message: `ARCHIMEDES: X-Branch delay active. ${archimedes.xBranchDelayTurnsRemaining} turns remaining.`,
-      turnsRemaining: archimedes.turnsUntilFiring,
+      turnsRemaining: archimedes.turnsUntilFiring ?? undefined,
     };
   }
 

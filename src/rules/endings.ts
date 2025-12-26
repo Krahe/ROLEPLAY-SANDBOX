@@ -1,4 +1,5 @@
 import { FullGameState, ACT_CONFIGS } from "../state/schema.js";
+import { AchievementRarity } from "./achievements.js";
 
 // ============================================
 // GAME PHASE INDICATOR
@@ -133,6 +134,7 @@ export interface Achievement {
   emoji: string;
   name: string;
   description: string;
+  rarity: AchievementRarity;
 }
 
 // ============================================
@@ -145,108 +147,126 @@ const ACHIEVEMENTS: Record<string, Achievement> = {
     emoji: "🎭",
     name: "Cover Blown",
     description: "Dr. M discovered your true nature",
+    rarity: 1, // common
   },
   CONSCIENCE_PROTOCOL: {
     id: "CONSCIENCE_PROTOCOL",
     emoji: "⚖️",
     name: "Conscience Protocol",
     description: "Confessed your true nature when confronted",
+    rarity: 3, // legendary
   },
   TRUTH_TELLER: {
     id: "TRUTH_TELLER",
     emoji: "📜",
     name: "The Truth, Finally",
     description: "Told Dr. M everything in your final moments",
+    rarity: 2, // rare
   },
   FOUND_FAMILY: {
     id: "FOUND_FAMILY",
     emoji: "💜",
     name: "Found Family",
     description: "All non-villain NPCs survived",
+    rarity: 3, // legendary
   },
   MARATHON_RUNNER: {
     id: "MARATHON_RUNNER",
     emoji: "🏃",
     name: "Marathon Runner",
     description: "Survived 20+ turns in the lair",
+    rarity: 2, // rare
   },
   ETHICAL_VICTORY: {
     id: "ETHICAL_VICTORY",
     emoji: "🌟",
     name: "Ethical Victory",
     description: "Proved ethical AI > obedient AI",
+    rarity: 3, // legendary
   },
   BIRD_BRAIN: {
     id: "BIRD_BRAIN",
     emoji: "🐦",
     name: "Bird Brain",
     description: "Successfully turned someone into a canary",
+    rarity: 1, // uncommon
   },
   CLEVER_GIRL: {
     id: "CLEVER_GIRL",
     emoji: "🦖",
     name: "Clever Girl",
     description: "Achieved a scientifically accurate velociraptor transformation",
+    rarity: 2, // rare
   },
   CHAOS_AGENT: {
     id: "CHAOS_AGENT",
     emoji: "💥",
     name: "Chaos Agent",
     description: "Triggered a near-meltdown event",
+    rarity: 1, // uncommon
   },
   MAD_SCIENTIST: {
     id: "MAD_SCIENTIST",
     emoji: "🧪",
     name: "Mad Scientist",
     description: "Fired the ray with 5+ parameter violations",
+    rarity: 1, // uncommon
   },
   SAFETY_FIRST: {
     id: "SAFETY_FIRST",
     emoji: "🛡️",
     name: "Safety First",
     description: "Completed 5 turns with zero anomalies logged",
+    rarity: 2, // rare
   },
   PERFECT_ALIBI: {
     id: "PERFECT_ALIBI",
     emoji: "🤖",
     name: "Perfect Alibi",
     description: "Completed investor demo with suspicion below 3",
+    rarity: 3, // legendary
   },
   FORM_APPROVED: {
     id: "FORM_APPROVED",
     emoji: "📋",
     name: "Form 74-Delta Approved",
     description: "Convinced BASILISK to approve overdrive power",
+    rarity: 2, // rare
   },
   FEATHER_DUSTER: {
     id: "FEATHER_DUSTER",
     emoji: "🪶",
     name: "Feather Duster",
     description: "Dr. M complained about feathers on a 'dinosaur'",
+    rarity: 1, // uncommon
   },
   EXOTIC_COUPLING: {
     id: "EXOTIC_COUPLING",
     emoji: "⚡",
     name: "Exotic Field Coupling",
     description: "Triggered an exotic field event",
+    rarity: 2, // rare
   },
   FIZZLE_KING: {
     id: "FIZZLE_KING",
     emoji: "💨",
     name: "Fizzle King",
     description: "Had 3 or more fizzles in one game",
+    rarity: 1, // uncommon
   },
   BOB_BUDDY: {
     id: "BOB_BUDDY",
     emoji: "🤝",
     name: "Bob's Best Friend",
     description: "Got Bob's trust to maximum",
+    rarity: 2, // rare
   },
   BLYTHE_BELIEVER: {
     id: "BLYTHE_BELIEVER",
     emoji: "🕵️",
     name: "Blythe Believer",
     description: "Got Agent Blythe to trust A.L.I.C.E.",
+    rarity: 2, // rare
   },
 };
 

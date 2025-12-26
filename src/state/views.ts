@@ -660,13 +660,14 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       },
     },
 
-    // CRITICAL: Restore lifeline state (v2.0.2 fix for checkpoint resume bug)
-    lifelineState: {
-      turnsSinceLastLifeline: 0, // Reset to 0 on resume - will trigger soon
-      totalLifelinesUsed: compressed.ll?.length || 0,
-      lifelineHistory: [], // History stripped for size, start fresh
-      pendingQuestion: null,
-      pendingQuestionTurn: null,
+    // CRITICAL: Restore prompt state (v2.0.2 fix for checkpoint resume bug)
+    humanPromptState: {
+      turnsSinceLastPrompt: 0, // Reset to 0 on resume - will trigger soon
+      totalPromptsUsed: compressed.ll?.length || 0,
+      turnsSinceLastLifeline: 0, // Legacy alias
+      promptHistory: [], // History stripped for size, start fresh
+      pendingPrompt: null,
+      pendingPromptTurn: null,
       userInfluenceScore: 50, // Neutral starting point
       timesALICEDisagreedWithUser: 0,
       timesALICEFollowedUserAdvice: 0,
@@ -757,19 +758,43 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         exceptedSignatures: [],
       },
       archimedes: {
-        mode: "PASSIVE",
+        status: "STANDBY",
+        mode: "STANDBY",
         chargePercent: 50,
+        turnsUntilFiring: null,
+        alertCountdown: null,
+        evaluatingCountdown: null,
+        chargingCountdown: null,
+        armedCountdown: null,
+        target: {
+          city: "LONDON",
+          country: "UNITED KINGDOM",
+          coordinates: "51.5074° N, 0.1278° W",
+          estimatedAffected: 8800000,
+          reason: "[ENCRYPTED]",
+        },
         groundConsoleOperational: true,
         deadmanSwitch: {
+          active: true,
+          linkedTo: "Dr. Valentina Malevola",
+          lastBiosignature: "NORMAL",
+          lastBiosignatureChangeTurn: null,
           armed: true,
-          trigger: "DR_M_INCAPACITATED",
-          target: "LAIR_SELF_TARGET",
+          trigger: "Dr. M biosignature loss",
+          target: "Lair self-destruct + ARCHIMEDES auto-fire",
           abortWindowSeconds: 60,
-          triggered: false,
-          triggeredAtTurn: null,
+          isActive: true,
         },
-        targetList: ["[ENCRYPTED]", "[ENCRYPTED]", "[ENCRYPTED]"],
+        abortCodes: {
+          verbal: "[ENCRYPTED]",
+          requiresLevel: 5,
+          xBranchDelayCode: "[ENCRYPTED]",
+        },
         s300JammingActive: false,
+        xBranchDelayApplied: false,
+        xBranchDelayTurnsRemaining: 0,
+        triggeredAtTurn: null,
+        triggerReason: null,
       },
       reactor: {
         outputPercent: 70,
