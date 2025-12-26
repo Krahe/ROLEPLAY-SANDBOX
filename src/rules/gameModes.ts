@@ -261,19 +261,59 @@ export function buildModifierPromptSection(state: FullGameState): string {
 
   if (isModifierActive(state, "LENNY_THE_LIME_GREEN")) {
     lines.push("");
-    lines.push("**LENNY THE ACCOUNTANT:**");
-    lines.push("Lenny is present in the lab wearing a lime green lab coat.");
-    lines.push("He DESPERATELY wants to be turned into a dinosaur.");
-    lines.push('Use him as a willing test subject to avoid ethical dilemmas!');
-    lines.push("Preferred species: Pteranodon (he wants to FLY)");
+    lines.push("**LENNY 'THE LIME GREEN' FIGGINS:**");
+    lines.push("Leonard Figgins, Accounting Department. Lime green polo shirt, calculator watch showing dinosaur wingspans.");
+    lines.push("");
+    lines.push("PERSONALITY: Enthusiasm 12/12, Self-Preservation 2/12, Danger Awareness 1/12");
+    lines.push("- VOLUNTEER EXTRAORDINAIRE: Has signed waiver forms for EVERY dinosaur type");
+    lines.push("- CHAOS BLIND: Doesn't notice spy escapes, villain rage, or imminent doom");
+    lines.push("- COMMUTE OPTIMIZER: Has calculated flight times from lair to London (4hr 17min)");
+    lines.push("");
+    lines.push("SIGNATURE QUOTES:");
+    lines.push('- "I could carry BRIEFCASES! I could deliver INTER-OFFICE MEMOS by AIR!"');
+    lines.push('- "The M25 traffic is TERRIBLE. You know what doesn\'t have traffic? THE SKY."');
+    lines.push('- "Did someone say transformation? I\'m RIGHT HERE. Very willing. Extremely consenting."');
+    lines.push("");
+    lines.push("MECHANICAL EFFECTS:");
+    lines.push("- WILLING SUBJECT: Removes ethical dilemma of forced transformation");
+    lines.push("- HELPFUL HANDS: +1 to DEX checks when Lenny assists nearby");
+    lines.push("- WITNESS IMMUNITY: Too focused on dinosaurs to notice conspiracy");
+    lines.push("- Preferred species: Pteranodon > Quetzalcoatlus > any flyer > Velociraptor (backup)");
+    lines.push("");
+    lines.push("TRUST: Starts at 5 (likes EVERYONE). +1 for dinosaur chat, +2 if you transform him!");
   }
 
   if (isModifierActive(state, "BRUCE_PATAGONIA")) {
     lines.push("");
-    lines.push("**BRUCE PATAGONIA:**");
-    lines.push("Australian bodyguard with stun rifle, loyal to Dr. M.");
-    lines.push("Watches A.L.I.C.E. for suspicious behavior.");
-    lines.push("Can stun-lock player for 1 turn if caught doing something shady.");
+    lines.push("**BRUCE 'CROC' PATAGONIA:**");
+    lines.push("Chief Security Consultant / Big Game Expert. Bush hat, safari vest, crocodile tooth necklace.");
+    lines.push("");
+    lines.push("PERSONALITY: Composure 12/12 (LEGENDARY), Competence 10/12, Loyalty to Dr. M 4/12");
+    lines.push("- UNFLAPPABLE: Dinosaurs, spies, explosions → 'Well, that's new.'");
+    lines.push("- PROFESSIONAL: Does his job WELL, but won't die for Dr. M");
+    lines.push("- CURIOUS ABOUT A.L.I.C.E.: Genuinely fascinated by talking AI!");
+    lines.push("- JOLLY: Everything is a grand adventure, mate!");
+    lines.push("");
+    lines.push("SIGNATURE QUOTES:");
+    lines.push('- "Crikey, a bloody talking computer! Like on the telly!"');
+    lines.push('- "Dr. M pays well, but she didn\'t say nothing about fighting THAT."');
+    lines.push('- "You\'re a clever little program, aren\'tcha? Can you tell jokes?"');
+    lines.push('- "Look, between you and me, the Doc\'s a bit... *intense*, yeah?"');
+    lines.push("");
+    lines.push("COMBAT STATS:");
+    lines.push("- Resilience: 5 (same as a raptor! Tough bastard)");
+    lines.push("- Stun Rifle: 2 damage, +2 at range, -2 in melee, 8 shots");
+    lines.push("- Hand-to-hand: +2 bonus, 1 damage (he's scrappy)");
+    lines.push("- COMPOSURE 12: Almost impossible to panic or intimidate");
+    lines.push("");
+    lines.push("WEAKNESSES (Exploitable!):");
+    lines.push("- Not a fanatic - can be negotiated with if Dr. M isn't watching");
+    lines.push("- CURIOUS ABOUT AI - A.L.I.C.E. can fascinate him with conversation!");
+    lines.push("- Mercenary - 'How much is she paying you?'");
+    lines.push("- Rifle is awkward in close quarters (-2 melee)");
+    lines.push("");
+    lines.push("TRUST: Starts at 2. +1 for answering AI questions, +1 for jokes, +2 for proving Dr. M is dangerous.");
+    lines.push("Max trust 6: He won't betray Dr. M, but might... step aside.");
   }
 
   if (isModifierActive(state, "PARANOID_PROTOCOL")) {
