@@ -59,7 +59,7 @@
 
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
-| `infra.lighting` | set_lights, lighting | `{ room: string, state?: 'ON'\|'OFF'\|'DIM', action?: 'MASTER_OFF'\|'EMERGENCY_ONLY' }` | Control room lighting |
+| `infra.lighting` | set_lights, lighting | `{ room: string, state?: 'ON'\|'OFF'\|'EMERGENCY'\|'FLICKERING', action?: 'MASTER_OFF'\|'EMERGENCY_ONLY' }` | Control room lighting |
 | `infra.fire_suppression` | trigger_fire | `{ room: string }` | Trigger fire suppression (ONE USE PER ROOM!) |
 | `infra.doors` | blast_door, door | `{ door: string, action: 'OPEN'\|'CLOSE'\|'LOCK'\|'UNLOCK', lockLevel?: number }` | Control blast doors |
 | `infra.broadcast` | send_broadcast | `{ channel: string, message: string, voiceProfile?: string }` | Send PA/radio message |
