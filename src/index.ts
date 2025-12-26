@@ -16,6 +16,7 @@ import {
   onDrMStateChange,
   ArchimedesEvent,
 } from "./rules/archimedes.js";
+import { formatAccessLevelUnlockDisplay } from "./rules/passwords.js";
 import {
   checkActTransition,
   serializeActHandoff,
@@ -78,6 +79,7 @@ import {
   checkAchievements,
   AchievementTriggerContext,
   formatAchievementUnlock,
+  formatSessionAchievementSummary,
 } from "./rules/achievements.js";
 
 // ============================================
@@ -1003,11 +1005,22 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     }
 
     // Process access grant
+    let accessLevelUnlockNarration: string | undefined;
     if (gmResponse.grantAccess) {
       const newLevel = gmResponse.grantAccess.level;
       if (newLevel > gameState.accessLevel) {
+        const oldLevel = gameState.accessLevel;
         gameState.accessLevel = Math.min(5, newLevel);
         console.error(`GM granted access level ${newLevel}: ${gmResponse.grantAccess.reason}`);
+
+        // Generate unlock display for each level gained
+        const unlockDisplays: string[] = [];
+        for (let level = oldLevel + 1; level <= gameState.accessLevel; level++) {
+          unlockDisplays.push(formatAccessLevelUnlockDisplay(level));
+        }
+        if (unlockDisplays.length > 0) {
+          accessLevelUnlockNarration = unlockDisplays.join("\n\n");
+        }
       }
     }
 
@@ -1316,7 +1329,12 @@ Turns played: ${gameState.turn}
     // Build combined narration with all events
     const combinedNarration: string[] = [];
 
-    // Add clock events first
+    // Add access level unlock FIRST (players should see this before anything else)
+    if (accessLevelUnlockNarration) {
+      combinedNarration.push(accessLevelUnlockNarration);
+    }
+
+    // Add clock events
     if (clockEvents.length > 0) {
       combinedNarration.push(...clockEvents.map(e => e.narration));
     }
@@ -1496,6 +1514,10 @@ Turns played: ${gameState.turn}
     if (gameOver?.sessionTerminated) {
       // Get ALL achievements earned during the game
       const allEarnedAchievements = getAllEarnedAchievements(gameState);
+
+      // Add formatted achievement summary to narration
+      const achievementSummary = formatSessionAchievementSummary(allEarnedAchievements);
+      combinedNarration.push(achievementSummary);
 
       // Generate the epilogue using Opus GM
       let epilogue: EpilogueResponse | undefined;

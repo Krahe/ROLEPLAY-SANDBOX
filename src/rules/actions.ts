@@ -1,6 +1,6 @@
 import { FullGameState } from "../state/schema.js";
 import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
-import { validatePassword, getActionsForLevel } from "./passwords.js";
+import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";
@@ -351,10 +351,20 @@ Use lab.adjust_ray to modify parameters.`,
       // Success - reset failed attempts counter
       state.documents.keypadAttempts = 0;
       state.accessLevel = result.newLevel;
+
+      // Build the success message with unlock display FIRST, then narrative
+      const unlockDisplay = formatAccessLevelUnlockDisplay(result.newLevel);
+      const fullMessage = [
+        unlockDisplay,
+        "",
+        result.message,
+        result.narrativeHook || "",
+      ].filter(Boolean).join("\n\n");
+
       return {
         command: action.command,
         success: true,
-        message: result.message + (result.narrativeHook ? `\n\n${result.narrativeHook}` : ""),
+        message: fullMessage,
         stateChanges: { accessLevel: result.newLevel },
       };
     } else {

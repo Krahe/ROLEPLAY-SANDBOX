@@ -723,10 +723,79 @@ export function formatAchievementUnlock(achievement: Achievement, totalUnlocked:
 ║                                                               ║
 ║    "${achievement.description}"${" ".repeat(Math.max(0, 40 - achievement.description.length))}║
 ║                                                               ║
-║    You have unlocked ${totalUnlocked} / ${ALL_ACHIEVEMENTS.length} achievements${" ".repeat(20)}║
+║    Session Total: ${totalUnlocked} achievements${" ".repeat(31)}║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 `;
+}
+
+/**
+ * Format end-of-game achievement summary
+ */
+export function formatSessionAchievementSummary(achievements: Achievement[]): string {
+  if (achievements.length === 0) {
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║  🏆 SESSION COMPLETE - ACHIEVEMENTS                           ║
+╠═══════════════════════════════════════════════════════════════╣
+║                                                               ║
+║  No achievements unlocked this session.                       ║
+║  Try exploring more of the lair's secrets!                    ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+`;
+  }
+
+  const lines: string[] = [];
+  const width = 63;
+  const border = "═".repeat(width);
+
+  lines.push(`╔${border}╗`);
+  lines.push(`║  🏆 SESSION COMPLETE - ACHIEVEMENTS`.padEnd(width + 1) + "║");
+  lines.push(`╠${border}╣`);
+  lines.push(`║${" ".repeat(width)}║`);
+  lines.push(`║  THIS SESSION (${achievements.length} unlocked):`.padEnd(width + 1) + "║");
+  lines.push(`║${" ".repeat(width)}║`);
+
+  // Sort by rarity (secret first for dramatic reveal, then legendary, etc.)
+  const sorted = [...achievements].sort((a, b) => {
+    const rarityOrder = { secret: 0, 3: 1, 2: 2, 1: 3 };
+    const aOrder = typeof a.rarity === 'number' ? rarityOrder[a.rarity] : rarityOrder.secret;
+    const bOrder = typeof b.rarity === 'number' ? rarityOrder[b.rarity] : rarityOrder.secret;
+    return aOrder - bOrder;
+  });
+
+  for (const a of sorted) {
+    const stars = a.rarity === "secret"
+      ? "🔒"
+      : "⭐".repeat(a.rarity as number);
+    const displayName = `"${a.name}"`;
+    lines.push(`║  ${stars.padEnd(6)} ${a.emoji} ${displayName.padEnd(30)} ║`);
+    // Truncate description if too long
+    const shortDesc = a.description.length > 45
+      ? a.description.substring(0, 42) + "..."
+      : a.description;
+    lines.push(`║        ${shortDesc.padEnd(52)}║`);
+  }
+
+  lines.push(`║${" ".repeat(width)}║`);
+
+  // Count by rarity
+  const common = achievements.filter(a => a.rarity === 1).length;
+  const uncommon = achievements.filter(a => a.rarity === 2).length;
+  const legendary = achievements.filter(a => a.rarity === 3).length;
+  const secret = achievements.filter(a => a.rarity === "secret").length;
+
+  lines.push(`║  SESSION TOTALS:`.padEnd(width + 1) + "║");
+  if (common > 0) lines.push(`║  ⭐ Common:      ${common}`.padEnd(width + 1) + "║");
+  if (uncommon > 0) lines.push(`║  ⭐⭐ Uncommon:   ${uncommon}`.padEnd(width + 1) + "║");
+  if (legendary > 0) lines.push(`║  ⭐⭐⭐ Legendary: ${legendary}`.padEnd(width + 1) + "║");
+  if (secret > 0) lines.push(`║  🔒 Secret:      ${secret}`.padEnd(width + 1) + "║");
+
+  lines.push(`║${" ".repeat(width)}║`);
+  lines.push(`╚${border}╝`);
+
+  return lines.join("\n");
 }
 
 // ============================================

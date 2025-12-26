@@ -268,7 +268,7 @@ function generateAct3Intro(state: FullGameState): string {
 
   intro += `### 🛰️ ARCHIMEDES\n\n`;
   intro += `The satellite is online. Dr. M's finger hovers over the targeting controls.\n`;
-  intro += `This is the REAL threat—a city-killing orbital weapon.\n`;
+  intro += `This is the REAL threat—a city-transforming orbital weapon.\n`;
   intro += `Whatever else is happening, ARCHIMEDES must be stopped.\n\n`;
 
   intro += `Dr. Malevola is about to face the consequences of her grand ambitions.\n\n`;
