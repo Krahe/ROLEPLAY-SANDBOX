@@ -664,6 +664,9 @@ export const FlagsSchema = z.object({
     transformationCount: z.number(),
     lastSuspicionScore: z.number(), // Track for suspicion-change detection
   }).optional(),
+  // OMNISCANNER TRACKING (Patch 16)
+  // Each scanned target grants +10% permanent precision bonus
+  scannedTargets: z.record(z.boolean()).optional(), // { "BLYTHE": true, "BOB": true, ... }
 });
 
 // ============================================

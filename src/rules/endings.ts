@@ -507,7 +507,21 @@ export function checkEndings(state: FullGameState): EndingResult {
   const earnedAchievements = state.flags.earnedAchievements as string[];
 
   // Helper to check for narrative flags
-  const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
+  // STRICT MATCHING: Requires exact match OR "ENDING_" prefix to prevent accidental triggers
+  // e.g., "PARTNERSHIP" matches "PARTNERSHIP" or "ENDING_PARTNERSHIP" but NOT "discussing_partnership"
+  const hasFlag = (flag: string) => {
+    const flagLower = flag.toLowerCase();
+    return narrativeFlags.some(f => {
+      const fLower = f.toLowerCase();
+      // Exact match
+      if (fLower === flagLower) return true;
+      // ENDING_ prefix match (explicit ending trigger)
+      if (fLower === `ending_${flagLower}`) return true;
+      // Allow underscore variations of exact match
+      if (fLower === flagLower.replace(/ /g, '_')) return true;
+      return false;
+    });
+  };
 
   // Helper to add achievement only if not already earned
   const addAchievement = (achievement: Achievement) => {
