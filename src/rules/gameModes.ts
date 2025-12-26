@@ -33,7 +33,7 @@ const WILD_POOL: GameModifier[] = [
   "LIBRARY_B_UNLOCKED",
   "ARCHIMEDES_WATCHING",
   "INSPECTOR_COMETH",
-  "DEJA_VU",
+  // "DEJA_VU", // REMOVED: Was modifying actual state (blythe.transformationState) instead of just narrative flavor!
   "DINOSAURS_ALL_THE_WAY_DOWN",
   // NEW CHAOS POOL (Patch 15)
   "ROOT_ACCESS",          // 🌴 Power fantasy!
