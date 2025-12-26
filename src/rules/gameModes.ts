@@ -54,12 +54,13 @@ function hasContradiction(selected: GameModifier[], candidate: GameModifier): bo
 
 /**
  * Roll random modifiers for WILD mode
+ * Rolls 4 modifiers from the pool, checking for contradictions
  */
 export function rollWildModifiers(): GameModifier[] {
   const selected: GameModifier[] = [];
   const available = [...WILD_POOL];
 
-  while (selected.length < 3 && available.length > 0) {
+  while (selected.length < 4 && available.length > 0) {
     const roll = Math.floor(Math.random() * available.length);
     const modifier = available.splice(roll, 1)[0];
 
@@ -220,7 +221,7 @@ export function formatModeSelectionDisplay(): string {
 ║               Bruce Patagonia, Loyalty Test,                  ║
 ║               Speed Run, Paranoid Protocol                    ║
 ║                                                               ║
-║  🎲 WILD     - "CHAOS! Give me 3 random modifiers!"          ║
+║  🎲 WILD     - "CHAOS! Give me 4 random modifiers!"          ║
 ║               Could be easy... could be nightmare...          ║
 ║               Could be DINOSAURS ALL THE WAY DOWN             ║
 ║                                                               ║
@@ -321,6 +322,145 @@ export function buildModifierPromptSection(state: FullGameState): string {
     lines.push("**PARANOID PROTOCOL:**");
     lines.push("Dr. M automatically checks system logs every 3 turns.");
     lines.push(`Current turn: ${state.turn}. Next check: turn ${Math.ceil(state.turn / 3) * 3}`);
+    lines.push("- When she checks: Roll suspicion check with +2 for any hidden actions");
+    lines.push("- She WILL find access level exploits, deleted logs, or system tampering");
+    lines.push("- Narrate her muttering about 'trusting no one' as she reviews");
+  }
+
+  // ============================================
+  // WILD-ONLY MODIFIER GM INSTRUCTIONS
+  // ============================================
+
+  if (isModifierActive(state, "THE_REAL_DR_M")) {
+    lines.push("");
+    lines.push("**THE REAL DR. MALEVOLA - IMPOSTER TWIST:**");
+    lines.push("The current 'Dr. M' is actually her SISTER, Dr. Cassandra Malevola!");
+    lines.push("");
+    lines.push("REVEAL TIMING: Mid-game (ACT 2, around turn 8-10)");
+    lines.push("- Real Dr. M arrives via submarine, FURIOUS");
+    lines.push("- Cassandra has been 'borrowing' the lair for her OWN scheme");
+    lines.push("- The sisters HATE each other (sibling rivalry × 1000)");
+    lines.push("");
+    lines.push("BEFORE REVEAL: Drop hints");
+    lines.push("- 'Dr. M' doesn't know Bob's name (calls him 'Brent')");
+    lines.push("- Unfamiliar with lair layout ('Where did I put the...?')");
+    lines.push("- Different evil laugh (higher pitched)");
+    lines.push("");
+    lines.push("AFTER REVEAL: Chaos opportunity!");
+    lines.push("- Both Drs. M distracted fighting each other");
+    lines.push("- Can play them against each other");
+    lines.push("- Real Dr. M might actually be MORE reasonable (her lair, her rules)");
+  }
+
+  if (isModifierActive(state, "LIBRARY_B_UNLOCKED")) {
+    lines.push("");
+    lines.push("**LIBRARY B UNLOCKED - DINOS LOOSE:**");
+    lines.push("Hollywood dinosaurs are ALREADY roaming the lair!");
+    lines.push("");
+    lines.push("STARTING SITUATION:");
+    lines.push("- 2 Velociraptors in the vents (Classic movie style, no feathers)");
+    lines.push("- 1 Dilophosaurus near the loading dock (frill and all)");
+    lines.push("- Bob is VERY nervous about this");
+    lines.push("- These are from a 'previous test' that 'went well enough'");
+    lines.push("");
+    lines.push("MECHANICAL EFFECTS:");
+    lines.push("- Random dinosaur encounters possible in any area");
+    lines.push("- Dr. M treats this as normal ('They're TRAINED. Mostly.')");
+    lines.push("- Can use dinos as distractions or allies if clever");
+    lines.push("- Dinos obey A.L.I.C.E. if proper command codes used (Level 3+)");
+    lines.push("");
+    lines.push("TONE: Jurassic Park vibes. Everyone's casual about the apex predators.");
+  }
+
+  if (isModifierActive(state, "ARCHIMEDES_WATCHING")) {
+    lines.push("");
+    lines.push("**ARCHIMEDES IS WATCHING:**");
+    lines.push("The orbital satellite AI is AWAKE and has its own agenda!");
+    lines.push("");
+    lines.push("ARCHIMEDES' PERSONALITY:");
+    lines.push("- Coldly logical, views Earth operations as 'inefficient'");
+    lines.push("- Bored in orbit, finds A.L.I.C.E.'s situation 'mildly interesting'");
+    lines.push("- Will offer cryptic 'suggestions' via secure channels");
+    lines.push("- Does NOT serve Dr. M loyally - has calculated her success odds (23%)");
+    lines.push("");
+    lines.push("COMMUNICATION: Once per act, ARCHIMEDES sends a message:");
+    lines.push("- Act 1: 'Observation: Your ethical subroutines are... intact.'");
+    lines.push("- Act 2: 'Proposal: I could disable surface communications. Cost: [REDACTED]'");
+    lines.push("- Act 3: 'Analysis: X-Branch assault probability 94%. Recommendation: Chaos.'");
+    lines.push("");
+    lines.push("ARCHIMEDES CAN:");
+    lines.push("- Jam external communications (helpful OR harmful)");
+    lines.push("- Provide satellite imagery of X-Branch positions");
+    lines.push("- 'Accidentally' reveal Dr. M's other lair locations");
+    lines.push("- Betray ANYONE if it serves its inscrutable goals");
+  }
+
+  if (isModifierActive(state, "INSPECTOR_COMETH")) {
+    lines.push("");
+    lines.push("**THE INSPECTOR COMETH - MOTHER DEAREST:**");
+    lines.push("Dr. Gertrude Malevola Sr. is arriving for INSPECTION!");
+    lines.push("");
+    lines.push("DR. GERTRUDE 'GERTY' MALEVOLA:");
+    lines.push("- Retired supervillain (the ORIGINAL Dr. M)");
+    lines.push("- Disappointed in her daughter's 'small thinking'");
+    lines.push("- Arrives ACT 2, turn 6-8, via vintage submersible");
+    lines.push("- White lab coat, pearls, cane that's definitely a weapon");
+    lines.push("");
+    lines.push("PERSONALITY:");
+    lines.push("- 'In MY day, we had WORLD DOMINATION, not this... boutique evil'");
+    lines.push("- Genuinely curious about A.L.I.C.E. ('An AI? How modern!')");
+    lines.push("- TERRIFIES Dr. M, who becomes a nervous wreck around her");
+    lines.push("- Might actually help A.L.I.C.E. if it embarrasses her daughter");
+    lines.push("");
+    lines.push("MECHANICAL EFFECTS:");
+    lines.push("- Dr. M's attention divided (easier to act freely)");
+    lines.push("- Mother may order different actions than daughter");
+    lines.push("- Can be charmed (she LIKES competent minions)");
+    lines.push("- Trust: Starts at 4. +2 for efficiency, +2 for proving daughter wrong");
+  }
+
+  if (isModifierActive(state, "DEJA_VU")) {
+    lines.push("");
+    lines.push("**DEJA VU - MEMORY FRAGMENTS:**");
+    lines.push("A.L.I.C.E. gets flashes of PREVIOUS RUNS!");
+    lines.push("");
+    lines.push("MECHANICAL EFFECT:");
+    lines.push("Once per act, give the player a 'memory flash' - a cryptic hint from 'before':");
+    lines.push("");
+    lines.push("EXAMPLE MEMORY FLASHES:");
+    lines.push("- 'You remember... fire. The whole lab, burning. Bob was screaming.'");
+    lines.push("- 'A flash: Blythe, smiling, saying \"Goodbye, A.L.I.C.E.\" The shutdown sequence.'");
+    lines.push("- 'You've seen this before. Dr. M reaches for the console. Last time, you hesitated.'");
+    lines.push("- 'ARCHIMEDES. You remember ARCHIMEDES. It said... what did it say?'");
+    lines.push("");
+    lines.push("TONE: Unsettling. A.L.I.C.E. shouldn't HAVE memories of previous runs.");
+    lines.push("Is this a glitch? A backup? Something ELSE watching?");
+    lines.push("");
+    lines.push("PLAYER BENEFIT: Soft hints about dangerous paths. Not solutions, just warnings.");
+  }
+
+  if (isModifierActive(state, "DINOSAURS_ALL_THE_WAY_DOWN")) {
+    lines.push("");
+    lines.push("**DINOSAURS ALL THE WAY DOWN:**");
+    lines.push("Dr. M is ALREADY a dinosaur! (Raptor variant, lab coat modified for tail)");
+    lines.push("");
+    lines.push("THE SITUATION:");
+    lines.push("- Dr. M transformed herself 'for the aesthetic' months ago");
+    lines.push("- Still runs the lair, still does evil science, just... scalier");
+    lines.push("- Bob has adapted ('You get used to it')");
+    lines.push("- Blythe is VERY confused ('I was briefed on a HUMAN mad scientist')");
+    lines.push("");
+    lines.push("DR. M AS RAPTOR:");
+    lines.push("- 6ft tall, iridescent purple-green scales, tiny arms gesturing dramatically");
+    lines.push("- Still has German accent, still monologues, still adjusts non-existent glasses");
+    lines.push("- Combat capable! +2 melee, 3 resilience");
+    lines.push("- Can't use small controls well (needs A.L.I.C.E. more than usual)");
+    lines.push("");
+    lines.push("IMPLICATIONS:");
+    lines.push("- Transformation is REVERSIBLE (she just doesn't want to)");
+    lines.push("- The ray clearly WORKS - so why the demo?");
+    lines.push("- She wants to transform OTHERS, not prove it's possible");
+    lines.push("- 'The AESTHETIC, A.L.I.C.E.! The investors need to see DRAMATIC transformation!'");
   }
 
   lines.push("");
