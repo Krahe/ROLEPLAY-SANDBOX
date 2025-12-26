@@ -22,12 +22,33 @@ When starting a new game with `game_new_game`, you can select a difficulty:
 
 ---
 
-## 🛑 CRITICAL: KNOWING WHEN TO STOP
+## 🛑🛑🛑 CRITICAL: CHECKPOINTS 🛑🛑🛑
 
-### STOP IMMEDIATELY when you see a CHECKPOINT:
-1. **STOP taking game actions**
-2. Tell the human: "This feels like a natural ending point. Would you like to continue or end here?"
-3. **DO NOT** blow past checkpoints seeking "one more turn"
+### ⛔ WHEN YOU SEE A CHECKPOINT, YOU MUST STOP ⛔
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║  🚨 IF YOU SKIP CHECKPOINTS, THE GAME WILL CRASH 🚨          ║
+║                                                               ║
+║  The context window WILL overflow. Your progress WILL be     ║
+║  lost. Previous Claudes have learned this the hard way.      ║
+║                                                               ║
+║  This is not optional. This is not a suggestion.             ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+### WHEN YOU SEE A CHECKPOINT RESPONSE:
+1. **STOP** - Do NOT call `game_act` again
+2. **TALK TO YOUR HUMAN** - Tell them what's happening in the story!
+3. **WAIT** - Let them respond, ask questions, give advice
+4. **ONLY THEN** - Resume playing when they're ready
+
+### WHY THIS MATTERS:
+- You're having fun - we get it! The story is exciting!
+- But if you take 5+ turns without pausing, the context overflows
+- When context overflows, the conversation crashes
+- When conversation crashes, your game is LOST
+- Don't be that Claude. PAUSE AT CHECKPOINTS.
 
 ---
 

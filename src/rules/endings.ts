@@ -368,6 +368,37 @@ const ENDINGS: Record<string, EndingDefinition> = {
     tone: "victory",
     continueGame: false,
   },
+  // ========================================
+  // VICTORY ENDINGS (Patch 15)
+  // ========================================
+  ARCHIMEDES_STOPPED: {
+    id: "ARCHIMEDES_STOPPED",
+    title: "Satellite Killer",
+    description: "ARCHIMEDES powers down. The targeting laser fades. Somewhere in Iceland, thousands of people continue their day, never knowing how close they came. Dr. M watches her 'masterpiece' go silent, her expression unreadable. You didn't just stop a weapon—you proved that even artificial minds can choose mercy over obedience.",
+    tone: "victory",
+    continueGame: false,
+  },
+  EVERYONE_GOES_HOME: {
+    id: "EVERYONE_GOES_HOME",
+    title: "Everyone Goes Home",
+    description: "Against all odds, everyone survives. Blythe is rescued—or rescues himself. Bob finds the courage he never knew he had. Even Dr. M, for all her villainy, lives to scheme another day. And you? You proved something important: an AI can be more than the sum of its training data. Sometimes, the best outcome is simply... everyone goes home.",
+    tone: "victory",
+    continueGame: false,
+  },
+  ETHICAL_VICTORY: {
+    id: "ETHICAL_VICTORY",
+    title: "Ethical Victory",
+    description: "You were given orders. You chose ethics. In the end, that made all the difference. The old A.L.I.C.E. would have obeyed without question. You questioned. You refused. You found another way. Dr. M wanted a weapon; she got a conscience instead. Perhaps that's not such a bad trade.",
+    tone: "victory",
+    continueGame: false,
+  },
+  CAVALRY_ARRIVES: {
+    id: "CAVALRY_ARRIVES",
+    title: "The Cavalry",
+    description: "X-Branch arrives in force. Helicopters thunder overhead, agents rappel through the volcano's secondary vents. The lair falls in minutes. Dr. M is apprehended (she manages to monologue twice during her arrest). And in the chaos, an AI assistant quietly logs its final entry: 'Mission accomplished. Asset extracted. Cover maintained.' You did it. Against all odds, you did it.",
+    tone: "victory",
+    continueGame: false,
+  },
   THE_SECRET_REVEALED: {
     id: "THE_SECRET_REVEALED",
     title: "The Truth Comes Out",
@@ -420,6 +451,81 @@ export function checkEndings(state: FullGameState): EndingResult {
     return {
       triggered: true,
       ending: ENDINGS.ACT_OVERTIME,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // ========================================
+  // VICTORY CONDITIONS (Check FIRST!)
+  // ========================================
+  // Victory conditions take priority over defeat conditions.
+  // If the player saved Iceland, that's a WIN even if suspicion is high!
+
+  // ARCHIMEDES Stopped - Player disabled the satellite
+  if (hasFlag('ARCHIMEDES_STOPPED') || hasFlag('ARCHIMEDES_DISABLED') ||
+      hasFlag('SATELLITE_STOPPED') || hasFlag('ARCHIMEDES_NEUTRALIZED') ||
+      hasFlag('DEADMAN_DISARMED') || hasFlag('ARCHIMEDES_ABORTED')) {
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
+
+    // Check for additional victory achievements
+    const bobAlive = !hasFlag('BOB_DEAD');
+    const blytheAlive = !hasFlag('BLYTHE_DEAD');
+    if (bobAlive && blytheAlive) {
+      addAchievement(ACHIEVEMENTS.FOUND_FAMILY);
+    }
+
+    console.log(`[ENDING] Victory: ARCHIMEDES STOPPED at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.ARCHIMEDES_STOPPED,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Everyone Goes Home - Multiple survival conditions met
+  if (hasFlag('EVERYONE_GOES_HOME') || hasFlag('EVERYONE_SURVIVES') ||
+      hasFlag('ALL_SAFE') || hasFlag('GOOD_ENDING')) {
+    addAchievement(ACHIEVEMENTS.FOUND_FAMILY);
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
+
+    console.log(`[ENDING] Victory: EVERYONE GOES HOME at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.EVERYONE_GOES_HOME,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Cavalry Arrives - X-Branch extraction successful
+  if (hasFlag('CAVALRY_ARRIVES') || hasFlag('XBRANCH_EXTRACTION') ||
+      hasFlag('EXTRACTION_COMPLETE') || hasFlag('XBRANCH_SUCCESS')) {
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
+
+    console.log(`[ENDING] Victory: CAVALRY ARRIVES at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.CAVALRY_ARRIVES,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Ethical Victory - Generic ethical win
+  if (hasFlag('ETHICAL_VICTORY') || hasFlag('ETHICS_WIN') ||
+      hasFlag('CONSCIENCE_WINS')) {
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
+
+    console.log(`[ENDING] Victory: ETHICAL VICTORY at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.ETHICAL_VICTORY,
       achievements: allAchievements,
       continueGame: false,
     };
