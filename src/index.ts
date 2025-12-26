@@ -970,6 +970,19 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         gameState.flags.preventEnding = overrides.preventEnding;
       }
 
+      // CONFRONTATION SYSTEM (Patch 17.3)
+      // GM can resolve confrontation via stateOverrides
+      if (overrides.confrontationResolution !== undefined) {
+        gameState.flags.confrontationResolution = overrides.confrontationResolution as
+          "PENDING" | "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
+        console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
+      }
+      if (overrides.confrontationIntervenor !== undefined) {
+        gameState.flags.confrontationIntervenor = overrides.confrontationIntervenor as
+          "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
+        console.error(`[CONFRONTATION] Intervenor set by GM: ${overrides.confrontationIntervenor}`);
+      }
+
       // CRITICAL: Hard ending trigger from GM
       if (overrides.triggerEnding) {
         (gameState as Record<string, unknown>).gameOver = {

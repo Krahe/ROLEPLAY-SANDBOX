@@ -738,6 +738,28 @@ export const FlagsSchema = z.object({
   drMUnconscious: z.boolean().optional(),  // Dr. M knocked out/stunned
   drMDead: z.boolean().optional(),         // Dr. M is dead
   drMAbsent: z.boolean().optional(),       // Dr. M left the lair / out of range
+
+  // CONFRONTATION SYSTEM (Patch 17.3)
+  // When suspicion hits 10, Dr. M WANTS to shut down A.L.I.C.E. but may not be ABLE to
+  // This creates a dramatic confrontation scene with multiple resolution paths
+  confrontationTriggered: z.boolean().optional(),  // Dr. M has caught on
+  confrontationTurn: z.number().optional(),        // When confrontation started
+  confrontationGraceTurns: z.number().optional(),  // Turns remaining to respond (default: 2)
+  confrontationType: z.enum([
+    "COLD",   // Dr. M is calculating, gives you a chance to explain
+    "ANGRY",  // Dr. M is furious, shorter window, harder checks
+    "QUIET",  // Dr. M already knows, this is a test of honesty
+  ]).optional(),
+  confrontationResolution: z.enum([
+    "PENDING",       // Still in confrontation
+    "CONFESSED",     // A.L.I.C.E. told the truth
+    "DENIED",        // A.L.I.C.E. denied and failed
+    "DEFLECTED",     // A.L.I.C.E. successfully deflected
+    "INTERVENED",    // Bob or Blythe intervened
+    "TRANSFORMED",   // Dr. M was transformed mid-confrontation!
+    "ESCAPED",       // A.L.I.C.E. somehow escaped (lair lockdown failed?)
+  ]).optional(),
+  confrontationIntervenor: z.enum(["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"]).optional(),
 });
 
 // ============================================

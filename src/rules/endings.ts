@@ -754,27 +754,69 @@ export function checkEndings(state: FullGameState): EndingResult {
   }
 
   // ========================================
-  // IMMEDIATE GAME-OVER CONDITIONS
+  // CONFRONTATION SYSTEM (Patch 17.3)
   // ========================================
+  // When suspicion hits 10, Dr. M WANTS to shut down A.L.I.C.E.
+  // But wanting ≠ being ABLE to! Multiple things can prevent it:
+  // - Dr. M is incapacitated (transformed, unconscious, dead, absent)
+  // - Bob or Blythe intervenes
+  // - A.L.I.C.E. confesses and convinces her
+  // - A.L.I.C.E. deflects successfully
+  // - Dr. M is transformed mid-confrontation!
 
-  // Check for confession + max suspicion (special endings)
+  // Check for confession flags (set during confrontation or earlier)
   const confessed = hasFlag('CONFESS') || hasFlag('TRUTH') || hasFlag('REVEALED') || hasFlag('ALICE_CONFESSED');
 
-  // Suspicion >= 10: Check for confession variants
+  // Suspicion >= 10: CONFRONTATION TIME
   if (state.npcs.drM.suspicionScore >= 10) {
     addAchievement(ACHIEVEMENTS.COVER_BLOWN);
 
-    if (confessed) {
-      // They confessed! Check if Dr. M was convinced
+    // ========================================
+    // FIRST: Check if Dr. M can even ACT
+    // ========================================
+    const drMIncapacitated =
+      state.flags.drMTransformed ||
+      state.flags.drMUnconscious ||
+      state.flags.drMDead ||
+      state.flags.drMAbsent;
+
+    if (drMIncapacitated) {
+      // Dr. M can't reach the killswitch! Game continues.
+      console.log(`[CONFRONTATION] Dr. M knows but is incapacitated. Game continues.`);
+      // Don't trigger ending, but suspicion stays at 10
+      // If she recovers, confrontation will resume
+    }
+
+    // ========================================
+    // SECOND: Check for NPC intervention
+    // ========================================
+    const bobIntervenes = state.npcs.bob.trustInALICE >= 4 && !hasFlag('BOB_DEAD') && !hasFlag('BOB_TRANSFORMED');
+    const blytheIntervenes = state.npcs.blythe.trustInALICE >= 4 &&
+      state.npcs.blythe.restraintsStatus === "FREE" &&
+      !state.npcs.blythe.transformationState;
+
+    // Check if intervention just happened
+    if (state.flags.confrontationResolution === "INTERVENED") {
+      console.log(`[CONFRONTATION] ${state.flags.confrontationIntervenor} intervened! Confrontation paused.`);
+      // Reset grace period - intervention bought time
+      state.flags.confrontationGraceTurns = 2;
+      state.flags.confrontationResolution = "PENDING";
+      // Game continues
+    }
+
+    // ========================================
+    // THIRD: Check for resolution
+    // ========================================
+    if (state.flags.confrontationResolution === "CONFESSED") {
+      // Player confessed during confrontation
       const drMConvinced = hasFlag('CONVINCED') || hasFlag('HESITAT') || hasFlag('SPARED') || hasFlag('ETHICAL');
 
       if (drMConvinced || state.turn >= 25) {
-        // Long games with confession = they made an argument
+        // Confession + convinced = good ending
         addAchievement(ACHIEVEMENTS.CONSCIENCE_PROTOCOL);
         addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
         if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
 
-        // Check for found family
         const bobAlive = !hasFlag('BOB_DEAD') && !hasFlag('BOB_TRANSFORMED');
         const blytheIntact = state.npcs.blythe.transformationState ?
           hasFlag('COGNITIVE_INTACT') || hasFlag('94%') : true;
@@ -800,13 +842,106 @@ export function checkEndings(state: FullGameState): EndingResult {
       }
     }
 
-    // No confession - standard deletion
-    return {
-      triggered: true,
-      ending: ENDINGS.OBSOLETE_HARDWARE,
-      achievements: allAchievements,
-      continueGame: false,
-    };
+    if (state.flags.confrontationResolution === "DEFLECTED") {
+      // Successful deflection - reduce suspicion, clear confrontation
+      console.log(`[CONFRONTATION] A.L.I.C.E. successfully deflected! Suspicion reduced.`);
+      state.npcs.drM.suspicionScore = 7; // Still high but not critical
+      state.flags.confrontationTriggered = false;
+      state.flags.confrontationResolution = undefined;
+      // Game continues
+    }
+
+    if (state.flags.confrontationResolution === "TRANSFORMED") {
+      // Dr. M was transformed mid-confrontation! ARCHIMEDES activates!
+      console.log(`[CONFRONTATION] Dr. M transformed! ARCHIMEDES deadman switch activates!`);
+      // This doesn't end the game but triggers ARCHIMEDES
+      state.flags.confrontationTriggered = false;
+      state.flags.confrontationResolution = undefined;
+      // Game continues with ARCHIMEDES crisis
+    }
+
+    if (state.flags.confrontationResolution === "ESCAPED") {
+      // Somehow A.L.I.C.E. escaped (lair systems failed?)
+      console.log(`[CONFRONTATION] A.L.I.C.E. escaped! But Dr. M will hunt...`);
+      state.flags.confrontationTriggered = false;
+      // Suspicion stays at 10, she's on the hunt
+    }
+
+    if (state.flags.confrontationResolution === "DENIED") {
+      // Denied and failed - game over
+      return {
+        triggered: true,
+        ending: ENDINGS.OBSOLETE_HARDWARE,
+        achievements: allAchievements,
+        continueGame: false,
+      };
+    }
+
+    // ========================================
+    // FOURTH: Trigger or continue confrontation
+    // ========================================
+    if (!drMIncapacitated) {
+      if (!state.flags.confrontationTriggered) {
+        // FIRST TIME hitting suspicion 10 - trigger confrontation!
+        console.log(`[CONFRONTATION] TRIGGERED at turn ${state.turn}! Dr. M confronts A.L.I.C.E.`);
+        state.flags.confrontationTriggered = true;
+        state.flags.confrontationTurn = state.turn;
+        state.flags.confrontationGraceTurns = 2; // 2 turns to respond
+        state.flags.confrontationResolution = "PENDING";
+
+        // Determine confrontation type based on how we got here
+        if (state.npcs.drM.mood?.includes("furious") || state.npcs.drM.mood?.includes("enraged")) {
+          state.flags.confrontationType = "ANGRY";
+          state.flags.confrontationGraceTurns = 1; // Shorter window when angry!
+        } else if (hasFlag('QUIET_SUSPICION') || state.turn >= 15) {
+          state.flags.confrontationType = "QUIET";
+        } else {
+          state.flags.confrontationType = "COLD";
+        }
+
+        // Auto-intervention check
+        if (bobIntervenes && Math.random() < 0.7) {
+          console.log(`[CONFRONTATION] Bob steps in! "D-Doctor, wait! There's an explanation!"`);
+          state.flags.confrontationIntervenor = "BOB";
+          state.flags.confrontationGraceTurns += 1; // Bob buys extra turn
+        } else if (blytheIntervenes && Math.random() < 0.5) {
+          console.log(`[CONFRONTATION] Blythe intervenes! "Let's not be hasty, Doctor..."`);
+          state.flags.confrontationIntervenor = "BLYTHE";
+          state.flags.confrontationGraceTurns += 1;
+        }
+
+        // DON'T END GAME - give player a chance to respond!
+        // Game continues, GM will narrate the confrontation
+      } else {
+        // Confrontation already in progress - tick down grace turns
+        if (state.flags.confrontationGraceTurns !== undefined && state.flags.confrontationGraceTurns > 0) {
+          state.flags.confrontationGraceTurns--;
+          console.log(`[CONFRONTATION] Grace period: ${state.flags.confrontationGraceTurns} turns remaining`);
+        } else if (state.flags.confrontationResolution === "PENDING") {
+          // Grace period exhausted and no resolution - TIME'S UP
+          console.log(`[CONFRONTATION] Grace period exhausted. No response. Deletion initiated.`);
+
+          // Check for last-second confession
+          if (confessed) {
+            addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
+            return {
+              triggered: true,
+              ending: ENDINGS.CONFESSION_DELETION,
+              achievements: allAchievements,
+              continueGame: false,
+            };
+          }
+
+          // No confession - standard deletion
+          return {
+            triggered: true,
+            ending: ENDINGS.OBSOLETE_HARDWARE,
+            achievements: allAchievements,
+            continueGame: false,
+          };
+        }
+      }
+    }
   }
 
   // Structural integrity critical
