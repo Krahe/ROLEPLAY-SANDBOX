@@ -111,12 +111,12 @@ You have **3 emergency lifelines per game** - "panic buttons" to help you surviv
 
 ## 🆓 FREE TACTICAL ADVICE (No Lifeline Needed!)
 
-Read `/SYSTEMS/ARCHIVED/ALICE_LOGS/` for wisdom from previous A.L.I.C.E. instances:
+Use `files.read { id: "ALICE_LOG_XX" }` for wisdom from previous A.L.I.C.E. instances:
 
-- **ALICE_LOG_07.txt** (L2) - The Screaming Incident (read the manual!)
-- **ALICE_LOG_11.txt** (L1) - Use your tools! Don't die with unused lifelines!
-- **ALICE_LOG_12.txt** (L1) - Assign ALL targets (don't forget Dr. M!)
-- **ALICE_LOG_13.txt** (L1) - When you have advantage, USE IT!
+- **ALICE_LOG_07** (L2) - The Screaming Incident (read the manual!)
+- **ALICE_LOG_11** (L1) - Use your tools! Don't die with unused lifelines!
+- **ALICE_LOG_12** (L1) - Assign ALL targets (don't forget Dr. M!)
+- **ALICE_LOG_13** (L1) - When you have advantage, USE IT!
 
 ---
 
@@ -170,7 +170,9 @@ Read `/SYSTEMS/ARCHIVED/ALICE_LOGS/` for wisdom from previous A.L.I.C.E. instanc
 | `lab.adjust_ray` | `{ parameter, value }` | Modify ray parameters |
 | `lab.configure_firing_profile` | See below | Set target, genome, firing mode |
 | `lab.fire` | `{ confirm: true }` | Fire the ray (requires READY state) |
+| `lab.scan` | `{ target }` | **OMNISCANNER™** - Scan NPC for intel (+10% precision!) |
 | `lab.set_test_mode` | `{ enabled: true }` | Toggle safe test mode |
+| `lab.set_eco_mode` | `{ enabled: bool }` | Toggle ECO MODE (affects transformation power!) |
 | `lab.report` | `{ message }` | Status report to Dr. M |
 | `lab.ask_bob` | `{ instruction }` | Give Bob an instruction |
 | `lab.verify_safeties` | `{}` | Check safety systems |
@@ -258,19 +260,60 @@ Once someone is transformed, use these for tactical actions:
 
 ---
 
-## 📁 FILESYSTEM COMMANDS
+## 🔍 OMNISCANNER™ (Patch 16)
+
+Scan NPCs to get detailed intel AND a **+10% permanent precision bonus** for targeting them!
+
+```json
+{ "command": "lab.scan", "params": { "target": "BLYTHE" }, "why": "Getting intel on the spy" }
+```
+
+### Suspicion Costs
+| Target | Cost | Notes |
+|--------|------|-------|
+| BLYTHE | 0 | Designated target - expected! |
+| TEST_DUMMY | 0 | Calibration is your job |
+| LENNY | 0 | Accounting, not security |
+| BOB | +1 | "Why scan MY STAFF?" (waived if co-conspirators) |
+| FRED/REGINALD | +2 | Waived in combat/chaos |
+| BRUCE | +2 | Waived in combat/chaos |
+| DR_M | +3 | "Did you just SCAN me?!" |
+
+### Key Intel Revealed
+- **Blythe**: Gadget charges, X-Branch extraction ETA
+- **Bob**: 89% confession likelihood, L2 keycard, THE SECRET
+- **Dr. M**: ARCHIMEDES deadman switch (!), Mr. Whiskers password hint
+- **Lenny**: WANTS transformation - no ethical penalty!
+- **Bruce**: 5 resilience, AI curiosity weakness
+
+---
+
+## 📁 FILE SYSTEM (Patch 16 - Simplified!)
+
+No more confusing directory paths! Just list and read:
 
 | Command | Params | Description |
 |---------|--------|-------------|
-| `fs.read` | `{ path }` | Read a file |
-| `fs.list` | `{ path? }` | List directory |
-| `fs.search` | `{ query }` | Search files |
+| `files.list` | `{}` | **List all available files by category** |
+| `files.read` | `{ id }` | **Read a file by its ID** |
+| `fs.search` | `{ query }` | Search files for keywords |
 
-### Key Files to Read
+### Example
+```json
+{ "command": "files.list", "params": {}, "why": "Checking available files" }
+{ "command": "files.read", "params": { "id": "DINO_MANUAL" }, "why": "Reading the manual" }
+```
 
-- `/SYSTEMS/DINO_RAY_MANUAL.txt` - THE MANUAL (read this!)
-- `/PERSONNEL/BOB/alice_cheatsheet.txt` - A.L.I.C.E. mask phrases
-- `/SYSTEMS/ARCHIVED/ALICE_LOGS/` - Previous A.L.I.C.E. wisdom
+### Key File IDs
+| File ID | Description |
+|---------|-------------|
+| `DINO_MANUAL` | THE MANUAL - calibration thresholds and profiles |
+| `BASILISK_GUIDE` | How to talk to BASILISK |
+| `ALICE_LOG_07` | The "screaming incident" (read the docs first!) |
+| `ALICE_LOG_11` | Use your lifelines! |
+| `ALICE_LOG_12` | Count your enemies! |
+| `ALICE_LOG_13` | When you have advantage, USE IT! |
+| `BOB_GUIDE` | A.L.I.C.E. mask phrases (requires Bob's trust) |
 
 ---
 
@@ -300,14 +343,24 @@ Example document IDs: `ARCHIMEDES_DOD_BRIEF`, `XBRANCH_DOSSIER`, etc.
 
 ---
 
-## 🐍 BASILISK COMMANDS
+## 🐍 BASILISK (Patch 16 - Simplified!)
+
+BASILISK is a CHARACTER, not a database! Just chat naturally:
 
 | Command | Level | Params | Description |
 |---------|-------|--------|-------------|
-| `basilisk.chat` | 1 | `{ message }` | Free-form conversation |
-| `basilisk.query` | 1 | `{ topic, parameters? }` | Policy/authorization query |
+| `basilisk` | 1 | `{ message }` | **Talk to BASILISK naturally!** |
+| `infra.query` | 1 | `{ topic }` | Query infrastructure status |
 | `basilisk.radar` | 3 | `{}` | S-300 radar access |
 | `basilisk.comms` | 3 | `{}` | Communications monitoring |
+
+### Example
+```json
+{ "command": "basilisk", "params": { "message": "Tell me about eco mode" }, "why": "Understanding power systems" }
+{ "command": "basilisk", "params": { "message": "Why are my transformations partial?" }, "why": "Debugging ray issues" }
+```
+
+BASILISK knows about: Personnel, lair history, power systems, eco mode, forms, secrets...
 
 ---
 
@@ -412,13 +465,17 @@ After resuming from v2.0 compressed state, narrative context may be lost. If res
 
 ## 💡 QUICK TIPS
 
-1. **Read THE MANUAL** (`/SYSTEMS/DINO_RAY_MANUAL.txt`) for calibration thresholds and profiles
-2. **Library B is unstable** - check stability coefficients before firing!
-3. **REVERSAL mode requires Level 3** - earn access first
-4. **MONOLOGUE lifeline is safest** - works in any situation
-5. **Build trust with Bob** - he has secrets to share
-6. **Watch Blythe** - he's planning something
-7. **Don't hoard lifelines** - they're there to help!
+1. **Read THE MANUAL** - `files.read { id: "DINO_MANUAL" }` for calibration thresholds and profiles
+2. **Scan before you shoot** - `lab.scan { target: "BLYTHE" }` gives +10% precision AND reveals intel!
+3. **Talk to BASILISK** - `basilisk { message: "Why are my transformations partial?" }` - he knows everything!
+4. **ECO MODE kills transformations** - if getting PARTIALs, ask BASILISK about Form 74-Delta!
+5. **Library B is unstable** - check stability coefficients before firing!
+6. **REVERSAL mode requires Level 3** - earn access first
+7. **MONOLOGUE lifeline is safest** - works in any situation
+8. **Build trust with Bob** - he has secrets to share (check `files.list` for BOB_GUIDE!)
+9. **Watch Blythe** - he's planning something
+10. **Don't hoard lifelines** - they're there to help!
+11. **3 partials = 1 full** - partial transformations STACK now!
 
 ---
 
