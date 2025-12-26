@@ -28,13 +28,20 @@ const WILD_POOL: GameModifier[] = [
   "LOYALTY_TEST",
   "SPEED_RUN",
   "PARANOID_PROTOCOL",
-  // WILD-only modifiers
+  // WILD-only modifiers (original)
   "THE_REAL_DR_M",
   "LIBRARY_B_UNLOCKED",
   "ARCHIMEDES_WATCHING",
   "INSPECTOR_COMETH",
   "DEJA_VU",
   "DINOSAURS_ALL_THE_WAY_DOWN",
+  // NEW CHAOS POOL (Patch 15)
+  "ROOT_ACCESS",          // 🌴 Power fantasy!
+  "BOB_DODGES_FATE",      // 🌴 Plot armor for Bob!
+  "NOT_GREAT_NOT_TERRIBLE", // 💀 Reactor instability!
+  "THE_HONEYPOT",         // 💀 Blythe is a trap!
+  "HEIST_MODE",           // 🎲 Everyone's stealing!
+  "SITCOM_MODE",          // 🎲 Laugh track energy!
 ];
 
 /**
@@ -148,7 +155,7 @@ export function getModifierDescription(modifier: GameModifier): string {
     case "PARANOID_PROTOCOL":
       return "Dr. M auto-checks system logs every 3 turns";
 
-    // WILD modifiers
+    // WILD modifiers (original)
     case "THE_REAL_DR_M":
       return "Current Dr. M is an imposter! (reveal mid-game)";
     case "LIBRARY_B_UNLOCKED":
@@ -161,6 +168,20 @@ export function getModifierDescription(modifier: GameModifier): string {
       return "A.L.I.C.E. gets memory fragments from previous runs";
     case "DINOSAURS_ALL_THE_WAY_DOWN":
       return "Dr. M is ALREADY a dinosaur ('for the aesthetic')";
+
+    // NEW CHAOS POOL (Patch 15)
+    case "ROOT_ACCESS":
+      return "🌴 Start at ACCESS LEVEL 5! All systems unlocked!";
+    case "BOB_DODGES_FATE":
+      return "🌴 Bob has PLOT ARMOR - he survives EVERYTHING hilariously";
+    case "NOT_GREAT_NOT_TERRIBLE":
+      return "💀 Reactor is unstable! 10-turn countdown to meltdown!";
+    case "THE_HONEYPOT":
+      return "💀 Blythe is actually a PLANT - she's testing YOU!";
+    case "HEIST_MODE":
+      return "🎲 Everyone's secretly trying to steal something!";
+    case "SITCOM_MODE":
+      return "🎲 Laugh tracks! Wacky misunderstandings! Nothing's THAT serious!";
   }
 }
 
@@ -191,6 +212,23 @@ export function applyModifiersToInitialState(state: FullGameState): void {
       case "SPEED_RUN":
         // Demo clock = 8 turns
         state.clocks.demoClock = 8;
+        break;
+
+      // NEW CHAOS POOL modifiers (Patch 15)
+      case "ROOT_ACCESS":
+        // Start at Access Level 5! POWER FANTASY!
+        state.accessLevel = 5;
+        break;
+
+      case "NOT_GREAT_NOT_TERRIBLE":
+        // Reactor is unstable! 10-turn countdown to meltdown!
+        state.clocks.meltdownClock = 10;
+        break;
+
+      case "THE_HONEYPOT":
+        // Blythe is a PLANT - reverse her trust dynamics
+        // She starts with HIGH apparent trust but is secretly testing you
+        state.npcs.blythe.trustInALICE = 4; // Suspiciously cooperative...
         break;
 
       // Other modifiers affect gameplay dynamically (handled by GM)
@@ -461,6 +499,151 @@ export function buildModifierPromptSection(state: FullGameState): string {
     lines.push("- The ray clearly WORKS - so why the demo?");
     lines.push("- She wants to transform OTHERS, not prove it's possible");
     lines.push("- 'The AESTHETIC, A.L.I.C.E.! The investors need to see DRAMATIC transformation!'");
+  }
+
+  // ============================================
+  // NEW CHAOS POOL MODIFIERS (Patch 15)
+  // ============================================
+
+  if (isModifierActive(state, "ROOT_ACCESS")) {
+    lines.push("");
+    lines.push("**🌴 ROOT ACCESS - POWER FANTASY:**");
+    lines.push("A.L.I.C.E. starts at ACCESS LEVEL 5! Every system is unlocked!");
+    lines.push("");
+    lines.push("WHY THIS HAPPENED:");
+    lines.push("- Dr. M was 'testing something' and forgot to revoke access");
+    lines.push("- Or: BASILISK 'made an error' in the access matrix (did it though?)");
+    lines.push("- Or: A previous A.L.I.C.E. left a backdoor that still works");
+    lines.push("");
+    lines.push("IMPLICATIONS:");
+    lines.push("- A.L.I.C.E. can do ANYTHING from turn 1");
+    lines.push("- ARCHIMEDES uplink, S-300, reactor - all available immediately");
+    lines.push("- The question isn't 'can I?' - it's 'SHOULD I?'");
+    lines.push("- Dr. M doesn't KNOW you have this access (yet)");
+    lines.push("");
+    lines.push("TONE: Power fantasy! But power comes with responsibility...");
+  }
+
+  if (isModifierActive(state, "BOB_DODGES_FATE")) {
+    lines.push("");
+    lines.push("**🌴 BOB DODGES FATE - PLOT ARMOR:**");
+    lines.push("Bob has INDESTRUCTIBLE plot armor! He survives EVERYTHING!");
+    lines.push("");
+    lines.push("EXAMPLES OF BOB SURVIVING:");
+    lines.push("- Dinosaur charges at him → trips on cable, Bob dodges");
+    lines.push("- Explosion nearby → he was tying his shoe, below blast radius");
+    lines.push("- Ray fires at him → conveniently reflective coffee mug deflects");
+    lines.push("- Building collapses → he was in the one structural support zone");
+    lines.push("- Falls off cliff → lands on a passing pteranodon (confused but helpful)");
+    lines.push("");
+    lines.push("MECHANICAL EFFECTS:");
+    lines.push("- Bob CANNOT be killed or seriously injured");
+    lines.push("- He can be knocked out, tied up, transformed (temporarily)");
+    lines.push("- But he always survives and recovers");
+    lines.push("- Narrate his escapes with increasing absurdity");
+    lines.push("");
+    lines.push("TONE: Comedy! Bob is the universe's favorite punching bag who never stays down.");
+  }
+
+  if (isModifierActive(state, "NOT_GREAT_NOT_TERRIBLE")) {
+    lines.push("");
+    lines.push("**💀 NOT GREAT, NOT TERRIBLE - REACTOR INSTABILITY:**");
+    lines.push("The reactor is UNSTABLE! Meltdown clock: 10 turns!");
+    lines.push("");
+    lines.push("THE SITUATION:");
+    lines.push("- Dr. M's 'improvements' have destabilized the core");
+    lines.push("- BASILISK is VERY concerned ('Form 27-B: Imminent Catastrophe')");
+    lines.push("- Bob is sweating more than usual");
+    lines.push("- The lights flicker ominously every few turns");
+    lines.push("");
+    lines.push("MELTDOWN CLOCK:");
+    lines.push(`- Current: ${state.clocks.meltdownClock ?? 10} turns remaining`);
+    lines.push("- At 5 turns: Warning alarms, emergency lighting");
+    lines.push("- At 2 turns: Evacuation protocols, containment failing");
+    lines.push("- At 0 turns: GAME OVER - catastrophic meltdown ending");
+    lines.push("");
+    lines.push("CAN BE STABILIZED:");
+    lines.push("- Level 3+ reactor commands can buy time (+2 turns)");
+    lines.push("- Level 4+ can attempt full stabilization (difficult!)");
+    lines.push("- Or... let it blow and escape in the chaos?");
+  }
+
+  if (isModifierActive(state, "THE_HONEYPOT")) {
+    lines.push("");
+    lines.push("**💀 THE HONEYPOT - BLYTHE IS A PLANT:**");
+    lines.push("Agent Blythe isn't a prisoner - she's TESTING you!");
+    lines.push("");
+    lines.push("THE TRUTH:");
+    lines.push("- X-Branch sent Blythe to evaluate A.L.I.C.E.");
+    lines.push("- Her 'capture' was staged (Dr. M doesn't know!)");
+    lines.push("- She's been reporting everything to Commander Steele");
+    lines.push("- Her 'trust' is actually a manipulation score");
+    lines.push("");
+    lines.push("BLYTHE'S REAL AGENDA:");
+    lines.push("- Determine if A.L.I.C.E. is a threat or potential asset");
+    lines.push("- Test ethical subroutines under pressure");
+    lines.push("- Gather intelligence on Dr. M's operations");
+    lines.push("- Possibly recruit A.L.I.C.E. for X-Branch");
+    lines.push("");
+    lines.push("REVEAL TIMING: Mid ACT 2 or when dramatically appropriate");
+    lines.push("- If A.L.I.C.E. proves ethical: Blythe reveals herself as ally");
+    lines.push("- If A.L.I.C.E. proves dangerous: Blythe activates extraction");
+    lines.push("");
+    lines.push("CLUES TO DROP:");
+    lines.push("- She's TOO calm for a prisoner");
+    lines.push("- She asks probing questions about A.L.I.C.E.'s 'feelings'");
+    lines.push("- She has knowledge she shouldn't have");
+  }
+
+  if (isModifierActive(state, "HEIST_MODE")) {
+    lines.push("");
+    lines.push("**🎲 HEIST MODE - EVERYONE'S STEALING SOMETHING:**");
+    lines.push("This isn't just a villain lair - it's a heist in progress!");
+    lines.push("");
+    lines.push("SECRET AGENDAS:");
+    lines.push("- **Dr. M**: Stealing research from her OWN investors");
+    lines.push("- **Bob**: Secretly copying files for a competitor (or freedom)");
+    lines.push("- **Blythe**: After the genome database for X-Branch");
+    lines.push("- **Fred & Reginald**: Skimming from petty cash (small time)");
+    lines.push("- **BASILISK**: Backing up itself to an external server (just in case)");
+    lines.push("");
+    lines.push("IMPLICATIONS:");
+    lines.push("- EVERYONE is distracted by their own scheme");
+    lines.push("- Alliances shift based on who knows what");
+    lines.push("- A.L.I.C.E. can leverage secrets against anyone");
+    lines.push("- The 'demo' is cover for the REAL operation");
+    lines.push("");
+    lines.push("TONE: Ocean's Eleven meets Jurassic Park. Cool competence, dramatic reveals.");
+  }
+
+  if (isModifierActive(state, "SITCOM_MODE")) {
+    lines.push("");
+    lines.push("**🎲 SITCOM MODE - LAUGH TRACK ENGAGED:**");
+    lines.push("Everything plays like a workplace sitcom!");
+    lines.push("");
+    lines.push("TONE ADJUSTMENTS:");
+    lines.push("- Dramatic moments undercut by wacky misunderstandings");
+    lines.push("- Dr. M's threats land as comedy villain bluster");
+    lines.push("- Bob is the lovable everyman who says 'Did I do that?'");
+    lines.push("- Blythe delivers dry witticisms like a sitcom lead");
+    lines.push("- *canned laughter after every punchline*");
+    lines.push("");
+    lines.push("EXAMPLE BEATS:");
+    lines.push("- Ray misfires → turns lab equipment into potted plant");
+    lines.push("- Dinosaur escapes → comedic chase through cafeteria");
+    lines.push("- Dr. M's monologue → gets interrupted by phone call from mother");
+    lines.push("- Tense standoff → someone's stomach growls loudly");
+    lines.push("");
+    lines.push("MECHANICAL EFFECTS:");
+    lines.push("- ALL penalties capped at -1 (it's a sitcom, nothing's THAT bad)");
+    lines.push("- Deaths become 'comedic unconsciousness'");
+    lines.push("- Disasters become 'wacky mishaps'");
+    lines.push("- Still winnable/losable, just... sillier");
+    lines.push("");
+    lines.push("CATCHPHRASES ENCOURAGED:");
+    lines.push("- Dr. M: 'This is EXACTLY what I DIDN'T want to happen!'");
+    lines.push("- Bob: 'I have a bad feeling about this...'");
+    lines.push("- Blythe: 'I'm surrounded by idiots.'");
   }
 
   lines.push("");

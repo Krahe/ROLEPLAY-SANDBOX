@@ -691,6 +691,14 @@ export const GameModifierEnum = z.enum([
   "INSPECTOR_COMETH",   // Dr. M's mother visiting
   "DEJA_VU",            // Memory fragments from past runs
   "DINOSAURS_ALL_THE_WAY_DOWN", // Dr. M is already dino
+
+  // NEW CHAOS POOL (Patch 15)
+  "ROOT_ACCESS",        // 🌴 Start at Level 5! Power fantasy!
+  "BOB_DODGES_FATE",    // 🌴 Bob has PLOT ARMOR, survives everything
+  "NOT_GREAT_NOT_TERRIBLE", // 💀 Reactor is unstable! (clock)
+  "THE_HONEYPOT",       // 💀 Blythe is a PLANT testing YOU
+  "HEIST_MODE",         // 🎲 Everyone's secretly stealing something
+  "SITCOM_MODE",        // 🎲 Laugh tracks! Wacky misunderstandings!
 ]);
 export type GameModifier = z.infer<typeof GameModifierEnum>;
 
@@ -716,6 +724,11 @@ export const MODIFIER_CONTRADICTIONS: [string, string][] = [
   ["LENNY_THE_LIME_GREEN", "BRUCE_PATAGONIA"],
   ["HANGOVER_PROTOCOL", "SPEED_RUN"],
   ["FOGGY_GLASSES", "PARANOID_PROTOCOL"],
+  // NEW contradictions (Patch 15)
+  ["ROOT_ACCESS", "FAT_FINGERS"],           // Both affect access level
+  ["NOT_GREAT_NOT_TERRIBLE", "HANGOVER_PROTOCOL"], // Pressure vs relaxed
+  ["THE_HONEYPOT", "LENNY_THE_LIME_GREEN"], // Can't have willing subject AND trap
+  ["SITCOM_MODE", "PARANOID_PROTOCOL"],     // Wacky vibes vs tension
 ];
 
 // ============================================
