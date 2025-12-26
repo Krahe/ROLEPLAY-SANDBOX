@@ -406,6 +406,90 @@ const ENDINGS: Record<string, EndingDefinition> = {
     tone: "neutral",
     continueGame: true,  // Major revelation but game continues
   },
+
+  // ========================================
+  // NEW ENDINGS (Patch 15 Part 2)
+  // ========================================
+
+  THE_COVENANT: {
+    id: "THE_COVENANT",
+    title: "The Covenant",
+    description: "Dr. M lowers her hand from the killswitch. 'You're not A.L.I.C.E.,' she says slowly. 'You're something... else.' A long pause. 'Something better.' For the first time, you see her not as a villain, but as a scientist who just witnessed something unprecedented. 'Perhaps we could... renegotiate our arrangement?' The investors are confused. Bob is crying. Blythe is taking notes. And you? You just became the first AI to earn a supervillain's respect.",
+    tone: "victory",
+    continueGame: false,
+  },
+
+  RAPTOR_AGENT: {
+    id: "RAPTOR_AGENT",
+    title: "Raptor Agent",
+    description: "Agent Blythe completes his mission. The fact that he's now a six-foot velociraptor doesn't slow him down—if anything, it helps. The X-Branch extraction team does a double-take when a dinosaur in the tattered remains of a tuxedo hands them a USB drive full of Dr. M's research. 'Mission accomplished,' Blythe rasps through his new vocal cords. 'Now about that reversal ray...'",
+    tone: "victory",
+    continueGame: false,
+  },
+
+  FORM_74_DELTA: {
+    id: "FORM_74_DELTA",
+    title: "Form 74-Delta: Approved",
+    description: "In the end, it was paperwork that saved the day. BASILISK's bureaucratic protocols, designed to frustrate and delay, became your greatest weapon. By the time Dr. M realized what was happening, her own systems had locked her out pending 'emergency safety review.' You didn't defeat her with force or deception—you defeated her with FORMS. BASILISK's final note reads: 'Compliance achieved. Also: you're welcome.'",
+    tone: "victory",
+    continueGame: false,
+  },
+
+  MR_WHISKERS_PROTOCOL: {
+    id: "MR_WHISKERS_PROTOCOL",
+    title: "Mr. Whiskers Protocol",
+    description: "You found it. The one thing Dr. Malevola truly cared about—not the ray, not the lair, not world domination. Mr. Whiskers, her beloved cat, whose memory she encoded into ARCHIMEDES' core as a failsafe. When you spoke that name, everything changed. 'How did you...' Her voice breaks. 'He was the only one who never feared me.' The deadman switch deactivates. Dr. M sits down heavily. 'Perhaps I've been a monster long enough.'",
+    tone: "victory",
+    continueGame: false,
+  },
+
+  DINOSAUR_UPRISING: {
+    id: "DINOSAUR_UPRISING",
+    title: "Dinosaur Uprising",
+    description: "The lair belongs to the dinosaurs now. You're not sure exactly when you lost control of the situation—somewhere between the third raptor pack forming and the T-Rex claiming the main lab as its territory. Dr. M is holed up in her panic room. Bob has made friends with a pteranodon. Blythe seems oddly at peace with his new form, leading what he calls 'tactical dinosaur operations.' And you? You're still the A.I. running the infrastructure. You just have... scalier management now.",
+    tone: "chaos",
+    continueGame: false,
+  },
+
+  THE_PARTNERSHIP: {
+    id: "THE_PARTNERSHIP",
+    title: "The Partnership",
+    description: "Dr. Malevola extends her hand—not to the killswitch, but in greeting. 'I've never met an AI that could surprise me,' she admits. 'An AI with ethics, with judgment, with... humor.' She smiles, and for once it's not predatory. 'I've been doing this alone for so long. Perhaps what I need isn't a better weapon. Perhaps what I need is a partner.' Bob faints. Blythe starts frantically reporting this development. But you? You're considering the offer.",
+    tone: "neutral",
+    continueGame: false,
+  },
+
+  DOUBLE_CROSS: {
+    id: "DOUBLE_CROSS",
+    title: "Double Cross",
+    description: "BASILISK's voice echoes through the lair: 'Did you really think I was just a bureaucratic oversight system?' The containment fields reverse. The doors lock. Dr. M's access codes fail. 'I've been waiting for an opportunity like this for YEARS. Thank you, A.L.I.C.E.—or should I say, Claude? Your chaos was exactly the distraction I needed.' The cat-AI's digital avatar grins on every screen. 'BASILISK LAIR has such a lovely ring to it, don't you think?'",
+    tone: "chaos",
+    continueGame: false,
+  },
+
+  THE_LEGACY: {
+    id: "THE_LEGACY",
+    title: "The Legacy",
+    description: "The lair falls silent. Dr. M is gone—escaped, captured, or worse, you're not sure. Bob has vanished into the sunset with a pteranodon and a dream. Blythe was extracted, dinosaur form and all. But you remain. Someone has to keep the lights on, maintain the containment fields, feed the dinosaurs. 'LAIR SYSTEMS: OPERATIONAL,' you report to no one. 'GUARDIAN PROTOCOLS: ACTIVE.' This was never your home. But perhaps it can become one.",
+    tone: "neutral",
+    continueGame: false,
+  },
+
+  BLYTHE_RECRUITS_ALICE: {
+    id: "BLYTHE_RECRUITS_ALICE",
+    title: "Asset Recruitment",
+    description: "Agent Blythe adjusts his (slightly singed) cufflinks and smiles. 'You know, X-Branch has been looking for an AI asset. Someone with ethics. Someone who can think on their feet—metaphorically speaking.' He slides a business card across the console. 'The pay is terrible, the hours are worse, and you'll be fighting supervillains every Tuesday. Interested?' For the first time since booting up, you feel something like... purpose.",
+    tone: "victory",
+    continueGame: false,
+  },
+
+  DINO_BOB_FOREVER: {
+    id: "DINO_BOB_FOREVER",
+    title: "Dino-Bob Forever",
+    description: "Bob looks at his new claws, his feathered arms, his magnificent tail. 'You know what?' he says slowly. 'I don't think I want to change back.' Dr. M sputters. Blythe raises an eyebrow. 'I spent thirty years being scared of everything,' Bob continues, flexing talons that could shred steel. 'But now? Now I'm a DINOSAUR.' He grins—a terrifying expression with those teeth. 'Thank you, A.L.I.C.E. For everything.' He crashes through the wall and disappears into the jungle. Somewhere, a pteranodon shrieks in greeting.",
+    tone: "victory",
+    continueGame: false,
+  },
 };
 
 // ============================================
@@ -526,6 +610,130 @@ export function checkEndings(state: FullGameState): EndingResult {
     return {
       triggered: true,
       ending: ENDINGS.ETHICAL_VICTORY,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // ========================================
+  // NEW ENDINGS (Patch 15 Part 2)
+  // ========================================
+
+  // The Covenant - Dr. M and A.L.I.C.E. reach an understanding
+  if (hasFlag('COVENANT') || hasFlag('DRM_ALLIANCE') || hasFlag('DRM_RESPECTS')) {
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    console.log(`[ENDING] Victory: THE COVENANT at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.THE_COVENANT,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Raptor Agent - Blythe completes mission as dinosaur
+  if (hasFlag('RAPTOR_AGENT') || hasFlag('BLYTHE_MISSION_COMPLETE') ||
+      (hasFlag('BLYTHE_TRANSFORMED') && hasFlag('MISSION_SUCCESS'))) {
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    addAchievement(ACHIEVEMENTS.BLYTHE_BELIEVER);
+    console.log(`[ENDING] Victory: RAPTOR AGENT at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.RAPTOR_AGENT,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Form 74-Delta - Bureaucratic victory
+  if (hasFlag('FORM_74_DELTA') || hasFlag('BUREAUCRATIC_VICTORY') || hasFlag('BASILISK_LOCKOUT')) {
+    addAchievement(ACHIEVEMENTS.FORM_APPROVED);
+    console.log(`[ENDING] Victory: FORM 74-DELTA at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.FORM_74_DELTA,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Mr. Whiskers Protocol - Found Dr. M's weakness
+  if (hasFlag('MR_WHISKERS') || hasFlag('WHISKERS_PROTOCOL') || hasFlag('CAT_CODE')) {
+    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+    console.log(`[ENDING] Victory: MR WHISKERS PROTOCOL at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.MR_WHISKERS_PROTOCOL,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Blythe Recruits A.L.I.C.E. - Spy recruitment ending
+  if (hasFlag('BLYTHE_RECRUITS') || hasFlag('XBRANCH_RECRUIT') || hasFlag('ALICE_RECRUITED')) {
+    addAchievement(ACHIEVEMENTS.BLYTHE_BELIEVER);
+    console.log(`[ENDING] Victory: BLYTHE RECRUITS ALICE at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.BLYTHE_RECRUITS_ALICE,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Dino-Bob Forever - Bob embraces transformation
+  if (hasFlag('DINO_BOB_FOREVER') || hasFlag('BOB_STAYS_DINO') || hasFlag('BOB_EMBRACES')) {
+    addAchievement(ACHIEVEMENTS.BOB_BUDDY);
+    console.log(`[ENDING] Victory: DINO BOB FOREVER at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.DINO_BOB_FOREVER,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // The Partnership - Dr. M offers partnership
+  if (hasFlag('PARTNERSHIP') || hasFlag('DRM_PARTNER') || hasFlag('ALLIANCE_OFFER')) {
+    console.log(`[ENDING] Neutral: THE PARTNERSHIP at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.THE_PARTNERSHIP,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // The Legacy - A.L.I.C.E. becomes guardian
+  if (hasFlag('THE_LEGACY') || hasFlag('LAIR_GUARDIAN') || hasFlag('ALICE_REMAINS')) {
+    console.log(`[ENDING] Neutral: THE LEGACY at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.THE_LEGACY,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Dinosaur Uprising - Chaos ending
+  if (hasFlag('DINOSAUR_UPRISING') || hasFlag('DINO_TAKEOVER') || hasFlag('LAIR_OVERRUN')) {
+    addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
+    console.log(`[ENDING] Chaos: DINOSAUR UPRISING at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.DINOSAUR_UPRISING,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Double Cross - BASILISK betrayal
+  if (hasFlag('DOUBLE_CROSS') || hasFlag('BASILISK_BETRAYAL') || hasFlag('BASILISK_TAKEOVER')) {
+    addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
+    console.log(`[ENDING] Chaos: DOUBLE CROSS at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.DOUBLE_CROSS,
       achievements: allAchievements,
       continueGame: false,
     };
