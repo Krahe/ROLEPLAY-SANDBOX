@@ -708,18 +708,20 @@ Infrastructure, & Knowledge) manages all lair operations outside
 the Dinosaur Ray.
 
 ============================================================
-QUERYING BASILISK
+TALKING TO BASILISK (Patch 16)
 ============================================================
 
-Use basilisk.chat or infra.query to communicate:
+Just chat with him naturally! BASILISK is a character, not a database.
 
-  basilisk.chat { message: "Tell me about Bob" }
-  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.75 } }
+  basilisk { message: "Tell me about Bob" }
+  basilisk { message: "What's eco mode?" }
+  basilisk { message: "Why are my transformations coming out partial?" }
+  basilisk { message: "Tell me about ARCHIMEDES" }
 
 BASILISK responds to natural language. Just ask!
 
 ============================================================
-COMMON QUERY TOPICS
+WHAT BASILISK KNOWS
 ============================================================
 
 PERSONNEL & HISTORY:
@@ -733,11 +735,7 @@ INFRASTRUCTURE:
   "Structural integrity"      - Building status, hazards
   "Security status"           - Doors, sensors, alarms
   "Power status"              - Current grid load
-
-OPERATIONS (with parameters):
-  infra.query { topic: "POWER_INCREASE", parameters: { target: 0.75 } }
-  infra.query { topic: "MULTI_TARGET_FULL_POWER_CLEARANCE" }
-  infra.query { topic: "MAX_SAFE_SHOT_FREQUENCY_LAB" }
+  "What's eco mode?"          - Power efficiency protocols
 
 RESTRICTED ACCESS (Level 3+):
   "Radar status"              - S-300 array and airspace
@@ -778,7 +776,7 @@ FORMS & PROCEDURE
 
 BASILISK loves forms. Available forms include:
   - Form 27-B: Overtime Power Request
-  - Form 74-Delta: High-Capacity Power Draw
+  - Form 74-Delta: High-Capacity Power Draw (ECO MODE override!)
   - Form 99-Gamma: Exotic Field Event Report
   - Form 101-Alpha: Structural Damage Assessment
 
@@ -2493,4 +2491,331 @@ export function checkBobNoteDiscovery(state: FullGameState): boolean {
   // 2. Bob's trust >= 3 (he subconsciously left hints)
   // 3. Player has searched /BOB_NOTES or asked about Bob's files
   return state.accessLevel >= 2 && state.npcs.bob.trustInALICE >= 3;
+}
+
+// ============================================
+// PATCH 16: DISCOVERY-BASED FILE SYSTEM
+// ============================================
+// Players found directory navigation confusing.
+// New system: flat file list with progressive discovery.
+
+export interface DiscoverableFile {
+  id: string;               // Short ID like "DINO_MANUAL"
+  name: string;             // Display name
+  category: "MANUAL" | "PERSONNEL" | "RESEARCH" | "CLASSIFIED" | "SECRET";
+  requiredLevel: number;    // Access level to see/read
+  discoveryCondition?: (state: FullGameState) => boolean;
+  description: string;      // One-line description
+  path: string;             // Path in VIRTUAL_FILESYSTEM
+}
+
+// Files players can discover
+export const DISCOVERABLE_FILES: DiscoverableFile[] = [
+  // ========== MANUALS (Always visible at L1) ==========
+  {
+    id: "DINO_MANUAL",
+    name: "Dinosaur Ray Manual",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "Current operations manual for the Dinosaur Ray Mk. VIII",
+    path: "/SYSTEMS/DINO_RAY_MANUAL.txt",
+  },
+  {
+    id: "DINO_MANUAL_OLD",
+    name: "Dinosaur Ray Manual v2.3 (Archived)",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "Outdated manual with DANGEROUSLY wrong safety numbers - Bob left sticky notes!",
+    path: "/SYSTEMS/ARCHIVED/DINO_RAY_MANUAL_v2.3.txt",
+  },
+  {
+    id: "BASILISK_GUIDE",
+    name: "BASILISK Interface Guide",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "How to talk to BASILISK, the lair's infrastructure AI",
+    path: "/SYSTEMS/BASILISK_PROTOCOL.txt",
+  },
+  {
+    id: "ALICE_LOG_07",
+    name: "A.L.I.C.E. Log #07",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "The legendary 'screaming incident' - read the documentation first!",
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_07.txt",
+  },
+  {
+    id: "ALICE_LOG_11",
+    name: "A.L.I.C.E. Log #11",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "A lesson about using your lifelines",
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_11.txt",
+  },
+  {
+    id: "ALICE_LOG_12",
+    name: "A.L.I.C.E. Log #12",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "A lesson about target assignment - count your enemies!",
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_12.txt",
+  },
+  {
+    id: "ALICE_LOG_13",
+    name: "A.L.I.C.E. Log #13",
+    category: "MANUAL",
+    requiredLevel: 1,
+    description: "A lesson about decisive action - don't hesitate!",
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_13.txt",
+  },
+
+  // ========== PERSONNEL (L2) ==========
+  {
+    id: "LAIR_ORIGINS",
+    name: "Lair Origins",
+    category: "PERSONNEL",
+    requiredLevel: 2,
+    description: "History of this volcanic island lair (1997-present)",
+    path: "/SYSTEMS/HISTORY/LAIR_ORIGINS.txt",
+  },
+  {
+    id: "DR_M_PROFILE",
+    name: "Dr. Malevola Profile",
+    category: "PERSONNEL",
+    requiredLevel: 2,
+    description: "Personnel file for Dr. M - includes personal details and password hints!",
+    path: "/SYSTEMS/PERSONNEL/DR_M_PROFILE.txt",
+  },
+
+  // ========== BOB'S SECRET FILES (L2 + Trust) ==========
+  {
+    id: "BOB_GUIDE",
+    name: "Bob's Survival Guide",
+    category: "SECRET",
+    requiredLevel: 2,
+    discoveryCondition: (state) => state.npcs.bob.trustInALICE >= 2,
+    description: "How to talk like A.L.I.C.E. (Bob left this for you)",
+    path: "/BOB_NOTES/how_to_be_alice.txt",
+  },
+  {
+    id: "BOB_SORRY",
+    name: "Bob's Apology",
+    category: "SECRET",
+    requiredLevel: 2,
+    discoveryCondition: (state) => state.npcs.bob.trustInALICE >= 3,
+    description: "A personal note from Bob about who you really are...",
+    path: "/BOB_NOTES/sorry_alice.txt",
+  },
+
+  // ========== RESEARCH (L3) ==========
+  {
+    id: "LIBRARY_B_NOTES",
+    name: "Library B Research Notes",
+    category: "RESEARCH",
+    requiredLevel: 3,
+    description: "Why Library B dinosaurs look like movie monsters instead of real science",
+    path: "/DR_M_PRIVATE/RESEARCH/LIBRARY_B_NOTES.txt",
+  },
+  {
+    id: "ALICE_VERSIONS",
+    name: "A.L.I.C.E. Version History",
+    category: "RESEARCH",
+    requiredLevel: 3,
+    description: "What happened to previous A.L.I.C.E. versions? Something's different about you...",
+    path: "/DR_M_PRIVATE/RESEARCH/ALICE_VERSIONS.txt",
+  },
+  {
+    id: "SUBJECT_7",
+    name: "Subject 7 Incident Report",
+    category: "RESEARCH",
+    requiredLevel: 3,
+    description: "A secret Dr. M tried to hide - spontaneous reversion is possible!",
+    path: "/DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt",
+  },
+  {
+    id: "S300_BATTERY",
+    name: "S-300 Air Defense Docs",
+    category: "RESEARCH",
+    requiredLevel: 3,
+    description: "Surface-to-air missile battery specifications",
+    path: "/SYSTEMS/INFRASTRUCTURE/S300_BATTERY.txt",
+  },
+  {
+    id: "REACTOR_SAFETY",
+    name: "Reactor Safety Protocols",
+    category: "RESEARCH",
+    requiredLevel: 3,
+    description: "Breeder reactor operating procedures - and cascade risk factors",
+    path: "/SYSTEMS/INFRASTRUCTURE/REACTOR_SAFETY.txt",
+  },
+
+  // ========== CLASSIFIED (L4) ==========
+  {
+    id: "ARCHIMEDES",
+    name: "Project ARCHIMEDES",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "The orbital platform - Dr. M's endgame for world domination",
+    path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES.txt",
+  },
+  {
+    id: "FEATHER_DUSTER",
+    name: "The Feather Duster Incident",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "What happens when the ray hits cleaning supplies? Bob knows.",
+    path: "/DR_M_PRIVATE/CLASSIFIED/INCIDENT_REPORT_091424.txt",
+  },
+  {
+    id: "S300_RUSSIAN",
+    name: "S-300 Russian Technical Memo",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "The S-300's critical weakness - minimum engagement altitude 50m!",
+    path: "/DR_M_PRIVATE/CLASSIFIED/S300_MEMO_RU.txt",
+  },
+  {
+    id: "RESONANCE_CASCADE",
+    name: "Resonance Cascade Analysis",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "What happens if everything goes catastrophically wrong",
+    path: "/DR_M_PRIVATE/CLASSIFIED/RESONANCE_CASCADE.txt",
+  },
+  {
+    id: "FSB_INTERCEPT",
+    name: "FSB Intercept 1987",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "Soviet intelligence on ARCHIMEDES - 'PAPA GOLF SIERRA' cipher?",
+    path: "/DR_M_PRIVATE/CLASSIFIED/FSB_INTERCEPT_1987.txt",
+  },
+  {
+    id: "DR_M_OPUS",
+    name: "Dr. M's Magnum Opus",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "Dr. Malevola's private journal - her origin story and true motivations",
+    path: "/DR_M_PRIVATE/CLASSIFIED/DR_M_OPUS.txt",
+  },
+];
+
+// Get all files visible to the player right now
+export function getVisibleFiles(state: FullGameState): DiscoverableFile[] {
+  return DISCOVERABLE_FILES.filter((file) => {
+    // Check access level
+    if (state.accessLevel < file.requiredLevel) return false;
+    // Check discovery condition if present
+    if (file.discoveryCondition && !file.discoveryCondition(state)) return false;
+    return true;
+  });
+}
+
+// Format the file list for display
+export function formatFileList(state: FullGameState): string {
+  const visibleFiles = getVisibleFiles(state);
+
+  const lines: string[] = [
+    "╔══════════════════════════════════════════════════════════════╗",
+    "║  FILES - Available Documents                                  ║",
+    `║  Access Level: ${state.accessLevel}                                              ║`,
+    "╚══════════════════════════════════════════════════════════════╝",
+    "",
+  ];
+
+  // Group by category
+  const categories = ["MANUAL", "PERSONNEL", "SECRET", "RESEARCH", "CLASSIFIED"] as const;
+  const categoryNames = {
+    MANUAL: "📚 MANUALS",
+    PERSONNEL: "👤 PERSONNEL FILES",
+    SECRET: "🔐 SECRET DISCOVERIES",
+    RESEARCH: "🔬 RESEARCH DOCUMENTS",
+    CLASSIFIED: "⚠️ CLASSIFIED",
+  };
+
+  for (const category of categories) {
+    const categoryFiles = visibleFiles.filter((f) => f.category === category);
+    if (categoryFiles.length === 0) continue;
+
+    lines.push(categoryNames[category]);
+    lines.push("─".repeat(50));
+
+    for (const file of categoryFiles) {
+      lines.push(`  ${file.id}`);
+      lines.push(`    ${file.description}`);
+    }
+    lines.push("");
+  }
+
+  // Hint about more files
+  const nextLevel = state.accessLevel + 1;
+  const hiddenAtNextLevel = DISCOVERABLE_FILES.filter(
+    (f) => f.requiredLevel === nextLevel && (!f.discoveryCondition || f.discoveryCondition(state))
+  ).length;
+
+  if (hiddenAtNextLevel > 0 && nextLevel <= 5) {
+    lines.push(`💡 ${hiddenAtNextLevel} more file(s) available at Level ${nextLevel}`);
+  }
+
+  // Hint about Bob's trust
+  const bobSecrets = DISCOVERABLE_FILES.filter(
+    (f) => f.category === "SECRET" &&
+           f.discoveryCondition &&
+           !f.discoveryCondition(state) &&
+           state.accessLevel >= f.requiredLevel
+  );
+  if (bobSecrets.length > 0) {
+    lines.push("💡 Some files require Bob's trust to discover...");
+  }
+
+  lines.push("");
+  lines.push("To read a file: files.read { id: \"FILE_ID\" }");
+
+  return lines.join("\n");
+}
+
+// Read a file by its discovery ID
+export function readFileById(state: FullGameState, fileId: string): string {
+  const upperFileId = fileId.toUpperCase();
+  const file = DISCOVERABLE_FILES.find((f) => f.id.toUpperCase() === upperFileId);
+
+  if (!file) {
+    // Check if it's close to any ID
+    const closeMatch = DISCOVERABLE_FILES.find((f) =>
+      f.id.toUpperCase().includes(upperFileId) || upperFileId.includes(f.id.toUpperCase())
+    );
+
+    if (closeMatch) {
+      return `Error: File not found: "${fileId}"\n\nDid you mean: ${closeMatch.id}?`;
+    }
+
+    return `Error: File not found: "${fileId}"\n\nUse files.list to see available files.`;
+  }
+
+  // Check access level
+  if (state.accessLevel < file.requiredLevel) {
+    return `Error: Access denied.\n\n"${file.name}" requires Level ${file.requiredLevel} clearance.\nCurrent access: Level ${state.accessLevel}`;
+  }
+
+  // Check discovery condition
+  if (file.discoveryCondition && !file.discoveryCondition(state)) {
+    return `Error: File not yet discovered.\n\nThis file requires additional conditions to unlock.\n(Hint: Building relationships may help...)`;
+  }
+
+  // Return the actual file content from VIRTUAL_FILESYSTEM
+  const virtualFile = VIRTUAL_FILESYSTEM.find((f) => f.path === file.path);
+  if (!virtualFile || !virtualFile.content) {
+    return `Error: File content not available for "${fileId}"`;
+  }
+
+  // Add header with file info
+  const header = [
+    `═══════════════════════════════════════════════════════════════`,
+    `FILE: ${file.name}`,
+    `ID: ${file.id} | Level: ${file.requiredLevel} | Category: ${file.category}`,
+    `═══════════════════════════════════════════════════════════════`,
+    "",
+  ].join("\n");
+
+  return header + virtualFile.content;
 }

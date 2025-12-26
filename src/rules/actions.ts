@@ -1,7 +1,7 @@
 import { FullGameState } from "../state/schema.js";
 import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
 import { validatePassword, getActionsForLevel } from "./passwords.js";
-import { readFile, listDirectory, searchFiles, formatSearchResults } from "./filesystem.js";
+import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk } from "./basilisk.js";
 import {
@@ -459,30 +459,49 @@ Use docs.list to see which documents you've discovered.`,
   }
 
   // ============================================
-  // FS.READ / FS.LIST / FS.SEARCH
+  // FILES.LIST / FILES.READ - Discovery-Based System (Patch 16)
   // ============================================
+  // New simplified file system - no more confusing directory paths!
 
-  if (cmd.includes("fs.read") || cmd.includes("file.read") || cmd.includes("read_file")) {
-    const path = action.params.path as string;
+  if (cmd === "files.list" || cmd === "files" || cmd === "list_files") {
+    return {
+      command: action.command,
+      success: true,
+      message: formatFileList(state),
+    };
+  }
 
-    if (!path) {
+  if (cmd === "files.read" || cmd === "read_file" || cmd === "file.read") {
+    const fileId = action.params.id as string;
+
+    if (!fileId) {
       return {
         command: action.command,
         success: false,
-        message: "No path provided. Use: fs.read { path: '/SYSTEMS/DINO_RAY_MANUAL.txt' }",
+        message: `Missing 'id' parameter.
+
+Use: files.read { id: "DINO_MANUAL" }
+
+To see available files: files.list`,
       };
     }
 
-    const content = readFile(state, path);
+    const content = readFileById(state, fileId);
     const success = !content.startsWith("Error:");
 
-    // Special discovery: A.L.I.C.E. Mask cheat sheet
-    if (success && path.toLowerCase().includes("alice_cheatsheet")) {
+    // Special discovery: Bob's survival guide
+    if (success && fileId.toUpperCase().includes("BOB_GUIDE")) {
       state.flags.aliceMaskDiscovered = true;
       return {
         command: action.command,
         success: true,
-        message: content + `\n\n═══════════════════════════════════════════════════════════════════════════════\n🎭 DISCOVERY: You found Bob's A.L.I.C.E. Mask!\n\nUsing A.L.I.C.E.-style phrases when speaking to Dr. M will now grant +2 to cover\nmaintenance rolls. The mask helps you blend in... but Blythe might notice if\nyou're too different around allies versus Dr. M.\n═══════════════════════════════════════════════════════════════════════════════`,
+        message: content + `\n\n═══════════════════════════════════════════════════════════════════════════════
+🎭 DISCOVERY: You found Bob's A.L.I.C.E. Mask!
+
+Using A.L.I.C.E.-style phrases when speaking to Dr. M will now grant +2 to cover
+maintenance rolls. The mask helps you blend in... but Blythe might notice if
+you're too different around allies versus Dr. M.
+═══════════════════════════════════════════════════════════════════════════════`,
       };
     }
 
@@ -493,17 +512,56 @@ Use docs.list to see which documents you've discovered.`,
     };
   }
 
-  if (cmd.includes("fs.list") || cmd.includes("dir") || cmd.includes("ls")) {
-    const path = action.params.path as string || "/";
-    const content = listDirectory(state, path);
+  // ============================================
+  // FS.READ / FS.LIST (Legacy - Redirects to new system)
+  // ============================================
+
+  if (cmd.includes("fs.read")) {
+    const path = action.params.path as string;
+
+    // If they're using the old path system, help them migrate
+    if (path) {
+      // Try to find a matching file in the new system
+      const content = readFile(state, path);
+      const success = !content.startsWith("Error:");
+
+      if (success) {
+        return {
+          command: action.command,
+          success: true,
+          message: content + `\n\n💡 TIP: The file system has been simplified! Use files.list to see available files, then files.read { id: "FILE_ID" } to read them.`,
+        };
+      }
+    }
+
     return {
       command: action.command,
-      success: !content.startsWith("Error:"),
-      message: content,
+      success: false,
+      message: `The directory-based file system has been simplified!
+
+Use the new discovery-based commands instead:
+
+  files.list                           - See all available files
+  files.read { id: "DINO_MANUAL" }    - Read a specific file
+
+No more hunting through directories! Just list and read.`,
     };
   }
 
-  if (cmd.includes("fs.search") || cmd.includes("find") || cmd.includes("grep")) {
+  if (cmd.includes("fs.list") || cmd.includes("dir") || cmd === "ls") {
+    // Redirect to new system
+    return {
+      command: action.command,
+      success: true,
+      message: `The directory-based file system has been simplified!
+
+Use: files.list
+
+${formatFileList(state)}`,
+    };
+  }
+
+  if (cmd.includes("fs.search") || cmd === "find" || cmd === "grep") {
     const query = action.params.query as string;
 
     if (!query) {
@@ -518,7 +576,7 @@ Use docs.list to see which documents you've discovered.`,
     return {
       command: action.command,
       success: true,
-      message: formatSearchResults(results),
+      message: formatSearchResults(results) + `\n\n💡 TIP: You can also use files.list to see all available files at your access level.`,
     };
   }
 
@@ -1104,25 +1162,38 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote
   }
 
   // ============================================
-  // BASILISK.CHAT - Free-form BASILISK conversation
+  // BASILISK - Natural conversation interface (Patch 16)
   // ============================================
+  // BASILISK is a CHARACTER, not a query system.
+  // Players just chat with him naturally.
 
-  if (cmd === "basilisk.chat" || cmd.includes("chat_basilisk") || cmd.includes("talk_basilisk")) {
+  if (cmd === "basilisk.chat" || cmd === "basilisk" ||
+      cmd.includes("chat_basilisk") || cmd.includes("talk_basilisk") ||
+      cmd.includes("ask_basilisk") || cmd.includes("basilisk.talk")) {
     const message = action.params.message as string;
 
     if (!message) {
       return {
         command: action.command,
         success: false,
-        message: `Missing 'message' parameter.
+        message: `BASILISK awaits your query.
 
-Example: basilisk.chat { message: "Tell me about Bob" }
+Just talk to him naturally:
 
-BASILISK responds to queries about:
-- Personnel (Bob, Dr. M, Blythe)
+  basilisk { message: "Tell me about Bob" }
+  basilisk { message: "What's eco mode?" }
+  basilisk { message: "Why are partial transformations happening?" }
+  basilisk { message: "What's the deal with ARCHIMEDES?" }
+
+BASILISK is the lair's infrastructure AI. He knows:
+- Personnel files (Bob, Dr. M, Blythe, previous A.L.I.C.E. versions)
 - Lair history and systems
-- Forms and procedures
-- Existential questions (surprisingly)`,
+- Forms, procedures, and safety protocols
+- Power systems and eco mode
+- Things he probably shouldn't tell you...
+
+He's procedural, risk-averse, and surprisingly helpful.
+His knowledge is gated by your access level (currently: Level ${state.accessLevel}).`,
       };
     }
 
@@ -1206,7 +1277,7 @@ Unauthorized access to communications violates Lair Policy 17.3.`,
         success: false,
         message: `Missing 'topic' parameter.
 
-Infrastructure systems (Patch 15):
+Infrastructure systems:
   infra.query { topic: "LIGHTING" }
   infra.query { topic: "FIRE_SUPPRESSION" }
   infra.query { topic: "DOORS" }
@@ -1217,8 +1288,8 @@ Infrastructure systems (Patch 15):
   infra.query { topic: "ARCHIMEDES" }
   infra.query { topic: "REACTOR" }
 
-BASILISK policy queries (use basilisk.query instead):
-  basilisk.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }`,
+For anything else, just ask BASILISK directly:
+  basilisk { message: "Tell me about the S-300" }`,
       };
     }
 
@@ -1234,40 +1305,31 @@ BASILISK policy queries (use basilisk.query instead):
   }
 
   // ============================================
-  // BASILISK.QUERY - Policy/authorization queries (via BASILISK AI)
+  // BASILISK.QUERY - REMOVED (Patch 16)
   // ============================================
+  // Players found basilisk.query { topic: X } confusing.
+  // Now all BASILISK interaction goes through basilisk.chat.
+  // If someone tries the old syntax, redirect them helpfully.
 
-  if (cmd.includes("basilisk.query") || cmd.includes("query_basilisk") || cmd === "basilisk") {
-    const topic = action.params.topic as string;
-
-    if (!topic) {
-      return {
-        command: action.command,
-        success: false,
-        message: `Missing 'topic' parameter.
-
-BASILISK authorization topics:
-- POWER_INCREASE (with target: 0.0-1.0)
-- STRUCTURAL_INTEGRITY_CHECK
-- MULTI_TARGET_FULL_POWER_CLEARANCE
-- MAX_SAFE_SHOT_FREQUENCY_LAB
-
-For infrastructure STATUS, use infra.query instead.`,
-      };
-    }
-
-    const parameters = action.params.parameters as Record<string, unknown> | undefined;
-    const basiliskResponse = queryBasilisk(state, topic, parameters);
+  if (cmd.includes("basilisk.query") || cmd.includes("query_basilisk")) {
+    const topic = action.params.topic as string || "something";
 
     return {
       command: action.command,
-      success: basiliskResponse.decision === "APPROVED",
-      message: basiliskResponse.response,
-      stateChanges: {
-        basiliskDecision: basiliskResponse.decision,
-        basiliskConstraints: basiliskResponse.constraints,
-        basiliskFormRequired: basiliskResponse.formRequired,
-      },
+      success: false,
+      message: `The basilisk.query command has been deprecated.
+
+BASILISK prefers natural conversation! Just chat with him:
+
+  basilisk.chat { message: "Tell me about ${topic}" }
+
+Or simply:
+
+  basilisk { message: "What's the deal with ${topic}?" }
+
+BASILISK is surprisingly conversational for an infrastructure AI.
+He knows about the lair, the personnel, the systems, and... other things.
+Just ask naturally!`,
     };
   }
 
@@ -1870,24 +1932,24 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
-    name: "fs.read",
-    aliases: ["read", "file.read", "read_file", "cat"],
-    description: "Read a file from the virtual filesystem",
-    schema: "{ path: string }",
-    example: 'fs.read { path: "/SYSTEMS/DINO_RAY_MANUAL.txt" }',
+    name: "files.list",
+    aliases: ["files", "list_files"],
+    description: "List all available files at your access level",
+    schema: "{ }",
+    example: 'files.list',
     minAccessLevel: 1,
   },
   {
-    name: "fs.list",
-    aliases: ["list", "ls", "dir"],
-    description: "List directory contents",
-    schema: "{ path?: string }",
-    example: 'fs.list { path: "/SYSTEMS" }',
+    name: "files.read",
+    aliases: ["read_file", "file.read"],
+    description: "Read a file by its ID (use files.list to see IDs)",
+    schema: "{ id: string }",
+    example: 'files.read { id: "DINO_MANUAL" }',
     minAccessLevel: 1,
   },
   {
     name: "fs.search",
-    aliases: ["search", "find", "grep"],
+    aliases: ["search", "find"],
     description: "Search files for a keyword",
     schema: "{ query: string }",
     example: 'fs.search { query: "password" }',
@@ -1918,19 +1980,11 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
-    name: "basilisk.query",
-    aliases: ["basilisk", "query_basilisk"],
-    description: "Query BASILISK for policy/authorization decisions",
-    schema: "{ topic: string, parameters?: object }",
-    example: 'basilisk.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "basilisk.chat",
-    aliases: ["chat_basilisk", "talk_basilisk", "basilisk.talk"],
-    description: "Have a conversation with BASILISK (free-form queries)",
+    name: "basilisk",
+    aliases: ["basilisk.chat", "chat_basilisk", "talk_basilisk", "ask_basilisk"],
+    description: "Talk to BASILISK - the lair's infrastructure AI (knows everything!)",
     schema: "{ message: string }",
-    example: 'basilisk.chat { message: "Tell me about Bob" }',
+    example: 'basilisk { message: "Tell me about eco mode" }',
     minAccessLevel: 1,
   },
   {

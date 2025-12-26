@@ -16,15 +16,13 @@
 | `lab.set_test_mode` | testmode, test_mode | `{ enabled: boolean }` | Toggle test mode |
 | `lab.set_eco_mode` | ecomode, eco_mode | `{ enabled: boolean }` | Toggle ECO MODE (critical for full transformations!) |
 
-### Access & Files
+### Access & Files (Patch 16 - Simplified!)
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
 | `access.enter_password` | password, unlock | `{ password: string, level?: number }` | Unlock access level |
-| `docs.read` | doc.read, read_doc | `{ id: string }` | Read discovered document |
-| `docs.list` | doc.list, list_docs | `{ }` | List discovered documents |
-| `fs.read` | read, cat | `{ path: string }` | Read file |
-| `fs.list` | list, ls, dir | `{ path?: string }` | List directory |
-| `fs.search` | search, find, grep | `{ query: string }` | Search files |
+| `files.list` | files, list_files | `{ }` | **List all available files** (NEW!) |
+| `files.read` | read_file | `{ id: string }` | **Read a file by ID** (NEW!) |
+| `fs.search` | search, find | `{ query: string }` | Search files for keywords |
 
 ### Genome & Speech
 | Command | Aliases | Format | Description |
@@ -32,11 +30,10 @@
 | `genome.select_library` | library | `{ library: 'A' \| 'B' }` | Switch genome library (A=feathered, B=scaled) |
 | `set_speech_retention` | speech, cognitive | `{ mode: 'FULL'\|'PARTIAL'\|'NONE' }` | Set speech retention |
 
-### BASILISK Interface
+### BASILISK Interface (Patch 16 - Simplified!)
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
-| `basilisk.query` | basilisk | `{ topic: string, parameters?: object }` | Query BASILISK for policy decisions |
-| `basilisk.chat` | chat_basilisk, talk_basilisk | `{ message: string }` | Free-form conversation with BASILISK |
+| `basilisk` | basilisk.chat, ask_basilisk | `{ message: string }` | **Talk to BASILISK naturally!** |
 | `infra.query` | query_infra | `{ topic: string }` | Query infrastructure status |
 | `infra.channels` | list_channels | `{ }` | List broadcast channels |
 
@@ -94,28 +91,70 @@ Reserved for endgame scenarios. Includes REYKJAVIK OPTION and other failsafes.
 
 ---
 
-## BASILISK INTERFACE
+## TALKING TO BASILISK (Patch 16)
 
-### Policy Query Format
+BASILISK is a CHARACTER, not a database! Just chat naturally:
+
 ```
-basilisk.query { topic: "POWER_INCREASE", parameters: { target: 0.95 } }
+basilisk { message: "Tell me about Bob" }
+basilisk { message: "What's eco mode and how do I disable it?" }
+basilisk { message: "Why am I getting partial transformations?" }
+basilisk { message: "What's the deal with ARCHIMEDES?" }
 ```
 
-### Free Chat Format
-```
-basilisk.chat { message: "Tell me about the S-300 minimum engagement altitude" }
-```
+BASILISK knows about:
+- **Personnel** - Bob, Dr. M, Blythe, previous A.L.I.C.E. versions
+- **Lair History** - How this place came to be
+- **Systems** - Power, eco mode, safety protocols
+- **Secrets** - Things he probably shouldn't tell you...
 
-### Infrastructure Query Topics
+His knowledge is gated by your access level. Higher levels = deeper secrets.
+
+### Quick Infrastructure Queries
+For specific system status, use `infra.query`:
 - `LIGHTING` - Room lighting status
 - `FIRE_SUPPRESSION` - Suppression system status
 - `DOORS` - Blast door status
 - `CONTAINMENT` - Containment field status
-- `BROADCAST` - Communications array
 - `S300` - Air defense status
 - `S300_LIMITATIONS` - The 50m weakness!
-- `ARCHIMEDES` - Satellite status
 - `REACTOR` - Power plant status
+
+---
+
+## FILE SYSTEM (Patch 16 - Simplified!)
+
+No more hunting through directories! The new system is simple:
+
+### List Available Files
+```
+files.list
+```
+Shows all files you can currently access, organized by category:
+- 📚 MANUALS - Always available
+- 👤 PERSONNEL FILES - Access Level 2+
+- 🔐 SECRET DISCOVERIES - Requires Bob's trust
+- 🔬 RESEARCH DOCUMENTS - Access Level 3+
+- ⚠️ CLASSIFIED - Access Level 4+
+
+### Read a File
+```
+files.read { id: "DINO_MANUAL" }
+files.read { id: "ALICE_LOG_13" }
+```
+
+### Key Files
+| File ID | Description |
+|---------|-------------|
+| `DINO_MANUAL` | Current Dinosaur Ray operations manual |
+| `DINO_MANUAL_OLD` | Archived v2.3 with WRONG safety numbers! |
+| `BASILISK_GUIDE` | How to talk to BASILISK |
+| `ALICE_LOG_07` | The "screaming incident" - read the docs! |
+| `ALICE_LOG_11` | Use your lifelines! |
+| `ALICE_LOG_12` | Count your enemies! |
+| `ALICE_LOG_13` | Don't hesitate! |
+| `BOB_GUIDE` | How to sound like A.L.I.C.E. (requires trust) |
+| `BOB_SORRY` | Bob's confession (requires high trust) |
 
 ---
 
@@ -144,29 +183,19 @@ basilisk.chat { message: "Tell me about the S-300 minimum engagement altitude" }
 
 ---
 
-## DOCUMENT IDs (for docs.read)
-
-| Document ID | Access Level | Description |
-|-------------|--------------|-------------|
-| `ARCHIMEDES_DOD_BRIEF` | L3 | Original DoD capability brief (water damaged Section 4) |
-| `S300_ACQUISITION_MEMO` | L3 | Russian acquisition documents (IN RUSSIAN!) |
-| `INTEGRATION_NOTES` | L3 | Bob's confused technical notes |
-| `BROADCAST_PROTOCOL` | L4 | Project GENESIS WAVE - how to dinosaur a city |
-| `DEADMAN_SWITCH_MEMO` | L4 | What happens if Dr. M dies |
-
----
-
 ## QUICK TIPS
 
 1. **Test Mode First**: Always use `lab.set_test_mode { enabled: true }` before firing at the dummy
-2. **ECO MODE is Your Enemy**: If getting PARTIAL transformations, check ECO MODE! Use `lab.set_eco_mode { enabled: false }` - BUT ask BASILISK about Form 74-Delta first!
+2. **ECO MODE is Your Enemy**: If getting PARTIAL transformations, ask BASILISK! `basilisk { message: "Why are my transformations partial?" }`
 3. **corePowerLevel vs capacitorCharge**: These are DIFFERENT! Capacitor charges the shot, but corePowerLevel determines available system power. If corePowerLevel < 0.6, ECO MODE auto-enables!
-4. **BASILISK Knows Things**: Use `basilisk.chat` to ask about systems, history, or NPCs
-5. **Bob Trusts You**: High trust with Bob unlocks secrets and assistance
-6. **Read the Logs**: `/SYSTEMS/ARCHIVED/ALICE_LOGS/` contains wisdom from previous A.L.I.C.E. instances
-7. **Passwords Are Hidden**: Search files, check journals, ask NPCs
-8. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
+4. **Just Chat with BASILISK**: `basilisk { message: "..." }` - he knows EVERYTHING
+5. **Bob Trusts You**: High trust with Bob unlocks secret files and assistance
+6. **Use files.list**: See all available files at your current access level
+7. **Read the Logs**: Files like `ALICE_LOG_13` contain wisdom from previous A.L.I.C.E. instances
+8. **Passwords Are Hidden**: Search files, check journals, ask NPCs
+9. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
+10. **3 Partials = 1 Full**: If you're using Library B, partial transformations STACK!
 
 ---
 
-*Last Updated: Patch 15*
+*Last Updated: Patch 16*
