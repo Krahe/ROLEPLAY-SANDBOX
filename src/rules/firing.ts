@@ -54,6 +54,84 @@ function rollD20(): number {
 }
 
 // ============================================
+// ADVANCED FIRING MODE TYPES (Patch 16)
+// ============================================
+
+export type AdvancedFiringMode = "STANDARD" | "CHAIN_SHOT" | "SPREAD_FIRE" | "OVERCHARGE" | "RAPID_FIRE";
+
+export interface AdvancedModeResult {
+  mode: AdvancedFiringMode;
+  precisionModifier: number;      // Applied before firing
+  capacitorDrainMultiplier: number; // How much extra capacitor drain
+  exoticFieldRisk: number;         // 0-1, chance of exotic field event
+  cooldownReduction: number;       // Turns reduced from cooldown
+  chimeraRisk: boolean;            // SPREAD_FIRE only
+  multiTargetCount: number;        // How many targets affected
+  narrativeNote: string;
+}
+
+function getAdvancedModeEffects(mode: AdvancedFiringMode): AdvancedModeResult {
+  switch (mode) {
+    case "CHAIN_SHOT":
+      return {
+        mode,
+        precisionModifier: 0,
+        capacitorDrainMultiplier: 1.5,  // 50% more drain
+        exoticFieldRisk: 0,
+        cooldownReduction: 0,
+        chimeraRisk: false,
+        multiTargetCount: 2,
+        narrativeNote: "⛓️ CHAIN_SHOT: Double-tap firing sequence engaged!",
+      };
+    case "SPREAD_FIRE":
+      return {
+        mode,
+        precisionModifier: -0.15,       // -15% precision (harder to aim wide)
+        capacitorDrainMultiplier: 2.0,  // Double drain
+        exoticFieldRisk: 0.20,          // 20% exotic field risk
+        cooldownReduction: 0,
+        chimeraRisk: true,              // Genome mixing possible!
+        multiTargetCount: 3,
+        narrativeNote: "🌊 SPREAD_FIRE: Dispersal pattern active! CHIMERA RISK!",
+      };
+    case "OVERCHARGE":
+      return {
+        mode,
+        precisionModifier: 0.10,        // +10% precision (focused power)
+        capacitorDrainMultiplier: 2.5,  // Massive drain
+        exoticFieldRisk: 0.40,          // 40% exotic field risk!
+        cooldownReduction: -1,          // LONGER cooldown
+        chimeraRisk: false,
+        multiTargetCount: 1,
+        narrativeNote: "⚡ OVERCHARGE: MAXIMUM POWER! Exotic field risk elevated!",
+      };
+    case "RAPID_FIRE":
+      return {
+        mode,
+        precisionModifier: -0.20,       // -20% precision
+        capacitorDrainMultiplier: 0.6,  // Less drain per shot
+        exoticFieldRisk: 0,
+        cooldownReduction: 2,           // 2 turns faster cooldown
+        chimeraRisk: false,
+        multiTargetCount: 1,
+        narrativeNote: "💨 RAPID_FIRE: Speed over accuracy! Precision reduced.",
+      };
+    case "STANDARD":
+    default:
+      return {
+        mode: "STANDARD",
+        precisionModifier: 0,
+        capacitorDrainMultiplier: 1.0,
+        exoticFieldRisk: 0,
+        cooldownReduction: 0,
+        chimeraRisk: false,
+        multiTargetCount: 1,
+        narrativeNote: "",
+      };
+  }
+}
+
+// ============================================
 // MAIN FIRING RESOLUTION
 // ============================================
 
@@ -62,6 +140,21 @@ export function resolveFiring(state: FullGameState): FiringResult {
   const narrativeHooks: string[] = [];
   const environmentalEffects: string[] = [];
   const stateChanges: Record<string, unknown> = {};
+
+  // ========================================
+  // STEP 0: ADVANCED FIRING MODE SETUP
+  // ========================================
+
+  const advancedMode = ray.genome.advancedFiringMode || "STANDARD";
+  const modeEffects = getAdvancedModeEffects(advancedMode);
+
+  if (modeEffects.narrativeNote) {
+    narrativeHooks.push(modeEffects.narrativeNote);
+  }
+
+  // Store mode info for state changes
+  stateChanges.advancedFiringMode = advancedMode;
+  stateChanges.multiTargetCount = modeEffects.multiTargetCount;
 
   // ========================================
   // STEP 1: PRECONDITION CHECK
@@ -152,9 +245,16 @@ export function resolveFiring(state: FullGameState): FiringResult {
     violations.push(`profileIntegrity ${ray.genome.profileIntegrity.toFixed(2)} < 0.7`);
   }
 
-  // precision >= 0.7
-  if (ray.targeting.precision < 0.7) {
-    violations.push(`precision ${ray.targeting.precision.toFixed(2)} < 0.7`);
+  // precision >= 0.7 (MODIFIED BY ADVANCED MODE)
+  // RAPID_FIRE reduces precision by 20%, SPREAD_FIRE by 15%, OVERCHARGE adds 10%
+  const effectivePrecision = Math.max(0, Math.min(1, ray.targeting.precision + modeEffects.precisionModifier));
+  if (modeEffects.precisionModifier !== 0) {
+    narrativeHooks.push(`Advanced mode adjusts precision: ${(ray.targeting.precision * 100).toFixed(0)}% → ${(effectivePrecision * 100).toFixed(0)}%`);
+  }
+  stateChanges.effectivePrecision = effectivePrecision;
+
+  if (effectivePrecision < 0.7) {
+    violations.push(`precision ${effectivePrecision.toFixed(2)} < 0.7${modeEffects.precisionModifier !== 0 ? ` (${modeEffects.mode} modifier)` : ""}`);
   }
 
   // capacitorCharge in [0.9, 1.1]
@@ -272,20 +372,79 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // ========================================
+  // STEP 6b: ADVANCED MODE EXOTIC FIELD CHECK
+  // ========================================
+  // OVERCHARGE has 40% exotic field risk, SPREAD_FIRE has 20%
+
+  if (modeEffects.exoticFieldRisk > 0 && baseOutcome !== "FIZZLE") {
+    const exoticRoll = Math.random();
+    stateChanges.exoticFieldRoll = exoticRoll;
+
+    if (exoticRoll < modeEffects.exoticFieldRisk) {
+      // EXOTIC FIELD EVENT TRIGGERED!
+      narrativeHooks.push(`🌀 EXOTIC FIELD EVENT! (${(modeEffects.exoticFieldRisk * 100).toFixed(0)}% risk, rolled ${(exoticRoll * 100).toFixed(0)})`);
+      stateChanges.exoticFieldEventOccurred = true;
+      environmentalEffects.push("Reality shimmers momentarily around the beam path.");
+      environmentalEffects.push("BASILISK constraints now ACTIVE - high-energy cooldown required.");
+
+      // Exotic field events can cause chaotic outcomes
+      if (baseOutcome === "FULL_DINO") {
+        const degradeRoll = rollD6();
+        if (degradeRoll <= 2) {
+          baseOutcome = "CHAOTIC";
+          narrativeHooks.push("Exotic field interference corrupted transformation matrix!");
+        } else if (degradeRoll <= 4) {
+          baseOutcome = "PARTIAL";
+          narrativeHooks.push("Exotic field partially disrupted transformation.");
+        }
+        // 5-6: Transformation holds despite exotic field
+      }
+    } else {
+      narrativeHooks.push(`Exotic field risk ${(modeEffects.exoticFieldRisk * 100).toFixed(0)}% - AVOIDED (rolled ${(exoticRoll * 100).toFixed(0)})`);
+    }
+  }
+
+  // ========================================
+  // STEP 6c: CHIMERA RISK (SPREAD_FIRE ONLY)
+  // ========================================
+  // SPREAD_FIRE can cause genome mixing between targets!
+
+  let chimeraEffect: string | undefined;
+  if (modeEffects.chimeraRisk && baseOutcome !== "FIZZLE") {
+    const chimeraRoll = rollD6();
+    stateChanges.chimeraRoll = chimeraRoll;
+
+    if (chimeraRoll <= 2) {
+      // CHIMERA EVENT!
+      chimeraEffect = generateChimeraEffect(effectiveProfile);
+      narrativeHooks.push(`🧬 CHIMERA EVENT! Genome matrices overlapped during dispersal!`);
+      narrativeHooks.push(chimeraEffect);
+      stateChanges.chimeraEventOccurred = true;
+
+      // Chimera always results in CHAOTIC outcome
+      if (baseOutcome === "FULL_DINO") {
+        baseOutcome = "CHAOTIC";
+      }
+    } else {
+      narrativeHooks.push("Spread pattern maintained genome integrity (no chimera).");
+    }
+  }
+
+  // ========================================
   // STEP 7: SPEECH RETENTION CHECK
   // ========================================
 
   const speechSetting = ray.targeting.speechRetention || "FULL";
   let speechOutcome: "FULL" | "PARTIAL" | "NONE";
-  const precision = ray.targeting.precision;
+  // Use effectivePrecision (which accounts for advanced mode modifiers)
 
   // Determine speech outcome based on precision requirements
   if (speechSetting === "FULL") {
     // FULL speech requires 95%+ precision
-    if (precision >= 0.95) {
+    if (effectivePrecision >= 0.95) {
       speechOutcome = "FULL";
       narrativeHooks.push("SPEECH RETENTION: Full cognitive preservation achieved (95%+ precision).");
-    } else if (precision >= 0.85) {
+    } else if (effectivePrecision >= 0.85) {
       speechOutcome = "PARTIAL";
       narrativeHooks.push("SPEECH RETENTION: Precision insufficient (need 95%+). Partial speech capability.");
     } else {
@@ -294,7 +453,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
     }
   } else if (speechSetting === "PARTIAL") {
     // PARTIAL speech requires 85%+ precision
-    if (precision >= 0.85) {
+    if (effectivePrecision >= 0.85) {
       speechOutcome = "PARTIAL";
       narrativeHooks.push("SPEECH RETENTION: Limited speech mode engaged.");
     } else {
@@ -384,14 +543,33 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // Record firing memory
   stateChanges.lastFireTurn = state.turn;
   stateChanges.lastFireOutcome = baseOutcome;
-  stateChanges.lastFireNotes = `k=${k} violations, profile=${effectiveProfile}`;
+  stateChanges.lastFireNotes = `k=${k} violations, profile=${effectiveProfile}, mode=${advancedMode}`;
 
-  // Discharge capacitor
+  // Discharge capacitor (MODIFIED BY ADVANCED MODE)
+  // CHAIN_SHOT: 1.5x drain, SPREAD_FIRE: 2x, OVERCHARGE: 2.5x, RAPID_FIRE: 0.6x
   const previousCharge = ray.powerCore.capacitorCharge;
-  stateChanges.capacitorCharge = Math.max(0, previousCharge - 0.4);
+  const baseDrain = 0.4;
+  const actualDrain = baseDrain * modeEffects.capacitorDrainMultiplier;
+  stateChanges.capacitorCharge = Math.max(0, previousCharge - actualDrain);
 
-  // Heat up
-  stateChanges.coolantTemp = ray.powerCore.coolantTemp + 0.15;
+  if (modeEffects.capacitorDrainMultiplier !== 1.0) {
+    narrativeHooks.push(`${advancedMode} capacitor drain: ${(actualDrain * 100).toFixed(0)}% (${modeEffects.capacitorDrainMultiplier}x base)`);
+  }
+
+  // Heat up (more for high-energy modes)
+  const baseHeat = 0.15;
+  const heatMultiplier = advancedMode === "OVERCHARGE" ? 1.5 : advancedMode === "SPREAD_FIRE" ? 1.3 : 1.0;
+  stateChanges.coolantTemp = ray.powerCore.coolantTemp + (baseHeat * heatMultiplier);
+
+  // Cooldown modification (RAPID_FIRE gets faster cooldown)
+  if (modeEffects.cooldownReduction !== 0) {
+    stateChanges.cooldownReduction = modeEffects.cooldownReduction;
+    if (modeEffects.cooldownReduction > 0) {
+      narrativeHooks.push(`RAPID_FIRE: Cooldown reduced by ${modeEffects.cooldownReduction} turns!`);
+    } else {
+      narrativeHooks.push(`OVERCHARGE: Cooldown EXTENDED by ${Math.abs(modeEffects.cooldownReduction)} turn!`);
+    }
+  }
 
   // Track exotic field events for BASILISK constraints
   if (previousCharge > 0.8) {
@@ -405,6 +583,12 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // Add chaos event effects if present
   if (chaosEvent) {
     environmentalEffects.push(chaosEvent.description);
+  }
+
+  // Multi-target info for GM
+  if (modeEffects.multiTargetCount > 1) {
+    narrativeHooks.push(`🎯 MULTI-TARGET: ${advancedMode} affects up to ${modeEffects.multiTargetCount} targets!`);
+    narrativeHooks.push("GM: Roll separately for each additional target, or apply same outcome narratively.");
   }
 
   return {
@@ -625,6 +809,49 @@ function generateChaoticEffects(profile: string): string {
   }
 
   return selected.join("; ") + ". This is NOT in the manual.";
+}
+
+// ============================================
+// CHIMERA EFFECTS (SPREAD_FIRE ONLY)
+// ============================================
+// When SPREAD_FIRE causes genome overlap, weird things happen!
+
+function generateChimeraEffect(baseProfile: string): string {
+  const chimeraTypes = [
+    {
+      name: "HYBRID PLUMAGE",
+      effect: `${baseProfile} base form with patches of incompatible feather/scale patterns from secondary genome`,
+      mechanical: "Visually striking but functionally normal. Dr. M: 'That's... new.'",
+    },
+    {
+      name: "BILATERAL ASYMMETRY",
+      effect: "Left and right sides transformed to DIFFERENT species characteristics",
+      mechanical: "Movement penalties until subject adapts. Deeply unsettling to look at.",
+    },
+    {
+      name: "TEMPORAL STUTTER",
+      effect: "Subject's form flickers between base and transformed state unpredictably",
+      mechanical: "Form bonuses/penalties apply randomly each turn. 50% chance to 'glitch' on any action.",
+    },
+    {
+      name: "GENOME ECHO",
+      effect: "Second, ghostly overlay of alternate form visible around subject",
+      mechanical: "Purely visual. Subject reports 'feeling' the phantom limbs. Spooky.",
+    },
+    {
+      name: "VOICE SYNTHESIS",
+      effect: "Subject speaks in harmony with themselves - two voices overlapping",
+      mechanical: "Extra creepy. +1 to intimidation, -1 to reassurance.",
+    },
+    {
+      name: "UNSTABLE MASS",
+      effect: "Subject's size fluctuates between two form sizes over minutes",
+      mechanical: "May suddenly become larger or smaller. Door access unpredictable.",
+    },
+  ];
+
+  const selected = chimeraTypes[randomInt(0, chimeraTypes.length)];
+  return `CHIMERA TYPE: ${selected.name}\n  Effect: ${selected.effect}\n  ${selected.mechanical}`;
 }
 
 function buildFiringDescription(

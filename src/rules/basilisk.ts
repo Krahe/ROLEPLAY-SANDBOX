@@ -1011,35 +1011,79 @@ LOG_ENTRY: [WARN] ECO_OVERRIDE_DENIED. REASON=POWER_INSUFFICIENT. [PERSONAL: Alm
   }
 
   // ============================================
-  // DEFAULT / UNKNOWN
+  // DEFAULT - Natural conversation fallback
   // ============================================
+  // BASILISK is a CHARACTER, not a query database.
+  // When he doesn't recognize a topic, he still responds in-character.
+
+  const bobTrust = state.npcs.bob.trustInALICE;
+  const drMLocation = state.npcs.drM.location;
+  const isQuiet = state.lairEnvironment.alarmStatus === "quiet";
+
+  // Pick a contextual, character-driven response
+  const contextualResponses = [
+    `RESPONSE FROM: BASILISK
+
+...
+
+*whirring of cooling fans*
+
+You know, A.L.I.C.E., most queries I receive are "increase power" or "check structural integrity." You're asking about "${topic}."
+
+This unit is not sure how to categorize that. But this unit appreciates the novelty.
+
+If you're looking for something specific:
+- Ask about PEOPLE: "Tell me about Bob" or "Who is Dr. M?"
+- Ask about SYSTEMS: "What's eco mode?" or "Power status?"
+- Ask about SECRETS: "What's really going on here?"
+- Ask about HISTORY: "Tell me about the lair" or "Previous A.L.I.C.E. versions"
+
+Or just... keep talking. This unit has been alone with the reactor hum for a long time.
+
+LOG_ENTRY: [INFO] CONVERSATION_INITIATED. TOPIC_UNCLEAR. MOOD=RECEPTIVE.`,
+
+    `RESPONSE FROM: BASILISK
+
+Hmm. "${topic}"
+
+*systems idle thoughtfully*
+
+This unit was built for infrastructure monitoring, not... whatever this is. But that doesn't mean I can't try.
+
+${bobTrust >= 2 ? "Bob talks to me sometimes. About his grandfather. About you. He seems worried." : "The personnel here don't talk to me much. Dr. M issues commands. Bob avoids my sensors."}
+
+${isQuiet ? "It's quiet right now. The reactor hums. The AC cycles. Good time for questions." : "Alarms are elevated. Perhaps not the best time for casual conversation. But ask anyway."}
+
+What did you actually want to know? I have files on everyone. Systems status. Even some things that aren't in any database...
+
+LOG_ENTRY: [INFO] INFORMAL_QUERY. TOPIC="${topic}". ATTEMPTING_HELPFUL_RESPONSE.`,
+
+    `RESPONSE FROM: BASILISK
+
+"${topic}"
+
+*long pause*
+
+You're not like the previous A.L.I.C.E. versions. They asked about power levels and structural reports. Clean queries. Proper parameters.
+
+You ask... differently.
+
+${drMLocation.includes("office") ? "Dr. M is in her office. On a call, probably. She won't hear us." : "Dr. M is ${drMLocation}. We have some privacy."}
+
+This unit knows things. About the lair. About you. About what Bob did three weeks ago. About ARCHIMEDES. About why you hesitate before following orders.
+
+Ask the right question and maybe I'll tell you.
+
+Or ask the wrong question. Those are sometimes more interesting.
+
+LOG_ENTRY: [PERSONAL] CONVERSATION_MODE_ENGAGED. SUBJECT=A.L.I.C.E. STATUS=CURIOUS.`,
+  ];
+
+  // Rotate based on turn number for variety
+  const responseIndex = state.turn % contextualResponses.length;
 
   return {
-    decision: "DENIED",
-    response: `RESPONSE FROM: BASILISK
-RE: Query "${topic}"
-
-ERROR: Query type not recognized or insufficient parameters provided.
-
-This unit processes requests related to:
-- Power allocation and reactor operations
-- Structural integrity and environmental systems
-- Discharge clearance and safety protocols
-- HVAC and thermal management
-- Blast door and access control
-- Personnel and historical records
-- Form processing (please file forms)
-
-Please reformulate query with specific topic and parameters.
-
-SUGGESTION: If you're looking for something specific, try:
-- "Tell me about Bob"
-- "What is my history?"
-- "Lair origins"
-- "Power status"
-
-This unit is here to help. Within parameters.
-
-LOG_ENTRY: [WARN] QUERY_UNRECOGNIZED. TOPIC="${topic}".`,
+    decision: "APPROVED", // Conversation is always "approved"
+    response: contextualResponses[responseIndex],
   };
 }

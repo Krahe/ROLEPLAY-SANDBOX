@@ -9,7 +9,7 @@
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
 | `lab.verify_safeties` | verify, safety, check_safeties | `{ checks?: string[] }` | Check safety system status |
-| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', testMode?: boolean }` | Configure target & genome |
+| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', firingStyle?: string, testMode?: boolean }` | Configure target, genome & advanced mode |
 | `lab.fire` | fire, shoot, activate_ray | `{ confirm?: boolean }` | Fire the Dinosaur Ray |
 | `lab.scan` | scan, omniscanner | `{ target: string }` | **OMNISCANNER™ - Scan NPC for intel (+10% precision!)** (NEW!) |
 | `lab.inspect_logs` | inspect, logs, check_logs | `{ subsystem?: string }` | Inspect system logs |
@@ -214,6 +214,66 @@ lab.scan { target: "BOB" }
 
 ---
 
+## ADVANCED FIRING MODES (Patch 16 - NEW!)
+
+Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the `firingStyle` parameter:
+
+### Available Modes
+
+| Mode | Requirements | Effect | Risk/Reward |
+|------|--------------|--------|-------------|
+| `STANDARD` | None | Normal single-target | Default, reliable |
+| `CHAIN_SHOT` | Capacitor ≥95% | Hit 2 targets sequentially | 1.5x drain, double the fun! |
+| `SPREAD_FIRE` | Capacitor ≥100%, L3+ | Area effect (3 targets) | 2x drain, CHIMERA RISK! |
+| `OVERCHARGE` | Capacitor >110% | Maximum power! | 2.5x drain, 40% exotic field risk! |
+| `RAPID_FIRE` | None | Fast cooldown | -20% precision, 0.6x drain |
+
+### Usage Examples
+
+```json
+// CHAIN_SHOT - Double-tap two targets!
+{ "command": "lab.configure_firing_profile", "params": {
+    "target": "AGENT_BLYTHE",
+    "firingStyle": "CHAIN_SHOT"
+}, "why": "Need to hit both guards!" }
+
+// SPREAD_FIRE - Area denial with chimera risk!
+{ "command": "lab.configure_firing_profile", "params": {
+    "target": "AGENT_BLYTHE",
+    "firingStyle": "SPREAD_FIRE"
+}, "why": "Multiple hostiles in sector!" }
+
+// OVERCHARGE - MAXIMUM POWER!
+{ "command": "lab.configure_firing_profile", "params": {
+    "target": "BRUCE_PATAGONIA",
+    "firingStyle": "OVERCHARGE"
+}, "why": "Bruce requires overwhelming force!" }
+
+// RAPID_FIRE - Speed over accuracy!
+{ "command": "lab.configure_firing_profile", "params": {
+    "target": "AGENT_BLYTHE",
+    "firingStyle": "RAPID_FIRE"
+}, "why": "Need to fire again quickly!" }
+```
+
+### Chimera Risk (SPREAD_FIRE Only!)
+When SPREAD_FIRE triggers a chimera event (1-2 on d6):
+- **HYBRID PLUMAGE**: Mixed feather/scale patterns
+- **BILATERAL ASYMMETRY**: Different forms on each side!
+- **TEMPORAL STUTTER**: Form flickers between states
+- **GENOME ECHO**: Ghostly overlay of alternate form
+- **VOICE SYNTHESIS**: Two voices overlapping
+- **UNSTABLE MASS**: Size fluctuates unpredictably
+
+### Exotic Field Events (OVERCHARGE & SPREAD_FIRE)
+When exotic field triggers:
+- Reality shimmers around beam path
+- BASILISK constraints activate
+- May degrade FULL_DINO to PARTIAL or CHAOTIC
+- Dr. M will have QUESTIONS
+
+---
+
 ## EMERGENCY LIFELINES (3 uses per game)
 
 | Lifeline | Effect | Restrictions |
@@ -237,7 +297,8 @@ lab.scan { target: "BOB" }
 9. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
 10. **3 Partials = 1 Full**: If you're using Library B, partial transformations STACK!
 11. **Scan Before You Shoot**: `lab.scan { target: "BLYTHE" }` gives +10% precision AND reveals key intel!
+12. **Advanced Modes Are Risky**: CHAIN_SHOT, SPREAD_FIRE, OVERCHARGE, and RAPID_FIRE offer power at a cost!
 
 ---
 
-*Last Updated: Patch 16 (OMNISCANNER™ Edition)*
+*Last Updated: Patch 16.1 (Advanced Firing Modes Edition)*
