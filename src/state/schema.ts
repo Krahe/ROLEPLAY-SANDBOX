@@ -484,6 +484,10 @@ export const TransformationStateSchema = z.object({
   previousForm: DinosaurFormEnum.nullable(),
   canRevert: z.boolean(),  // Has reversal been attempted?
   revertAttempts: z.number().int().min(0),
+
+  // STACKING: Multiple partial shots accumulate toward full transformation!
+  // 3 partial shots = automatic upgrade to FULL_DINO
+  partialShotsReceived: z.number().int().min(0).default(0),
 });
 export type TransformationState = z.infer<typeof TransformationStateSchema>;
 

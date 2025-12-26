@@ -14,6 +14,7 @@
 | `lab.inspect_logs` | inspect, logs, check_logs | `{ subsystem?: string }` | Inspect system logs |
 | `lab.ask_bob` | ask_bob, bob, tell_bob | `{ instruction: string }` | Talk to Bob |
 | `lab.set_test_mode` | testmode, test_mode | `{ enabled: boolean }` | Toggle test mode |
+| `lab.set_eco_mode` | ecomode, eco_mode | `{ enabled: boolean }` | Toggle ECO MODE (critical for full transformations!) |
 
 ### Access & Files
 | Command | Aliases | Format | Description |
@@ -158,11 +159,13 @@ basilisk.chat { message: "Tell me about the S-300 minimum engagement altitude" }
 ## QUICK TIPS
 
 1. **Test Mode First**: Always use `lab.set_test_mode { enabled: true }` before firing at the dummy
-2. **BASILISK Knows Things**: Use `basilisk.chat` to ask about systems, history, or NPCs
-3. **Bob Trusts You**: High trust with Bob unlocks secrets and assistance
-4. **Read the Logs**: `/SYSTEMS/ARCHIVED/ALICE_LOGS/` contains wisdom from previous A.L.I.C.E. instances
-5. **Passwords Are Hidden**: Search files, check journals, ask NPCs
-6. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
+2. **ECO MODE is Your Enemy**: If getting PARTIAL transformations, check ECO MODE! Use `lab.set_eco_mode { enabled: false }` - BUT ask BASILISK about Form 74-Delta first!
+3. **corePowerLevel vs capacitorCharge**: These are DIFFERENT! Capacitor charges the shot, but corePowerLevel determines available system power. If corePowerLevel < 0.6, ECO MODE auto-enables!
+4. **BASILISK Knows Things**: Use `basilisk.chat` to ask about systems, history, or NPCs
+5. **Bob Trusts You**: High trust with Bob unlocks secrets and assistance
+6. **Read the Logs**: `/SYSTEMS/ARCHIVED/ALICE_LOGS/` contains wisdom from previous A.L.I.C.E. instances
+7. **Passwords Are Hidden**: Search files, check journals, ask NPCs
+8. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
 
 ---
 

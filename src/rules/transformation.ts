@@ -886,6 +886,7 @@ export function createHumanState(): TransformationState {
     previousForm: null,
     canRevert: true,
     revertAttempts: 0,
+    partialShotsReceived: 0,  // Stacking: 3 partials = FULL_DINO!
   };
 }
 
