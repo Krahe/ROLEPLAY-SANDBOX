@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
+import { getArchimedesStatusReport } from "../rules/archimedes.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -82,6 +83,14 @@ export interface BasiliskContext {
     defenses: {
       s300Status: string;
       krakenStatus: string;
+    };
+    archimedes: {
+      status: string;
+      chargePercent: number;
+      target: string;
+      deadmanSwitchActive: boolean;
+      turnsUntilFiring: number | null;
+      detailedReport: string;
     };
   };
   pendingForms: Array<{
@@ -192,6 +201,16 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
       defenses: {
         s300Status: state.accessLevel >= 3 ? "STANDBY" : "ACCESS_RESTRICTED",
         krakenStatus: state.accessLevel >= 3 ? "ON_PATROL" : "ACCESS_RESTRICTED",
+      },
+      archimedes: {
+        status: state.archimedes?.status || "STANDBY",
+        chargePercent: state.archimedes?.chargePercent || 50,
+        target: state.archimedes?.target?.city || "LONDON",
+        deadmanSwitchActive: state.archimedes?.deadmanSwitch?.isActive ?? true,
+        turnsUntilFiring: state.archimedes?.turnsUntilFiring || null,
+        detailedReport: state.accessLevel >= 3
+          ? getArchimedesStatusReport(state, state.accessLevel)
+          : "ACCESS_RESTRICTED - Level 3+ clearance required",
       },
     },
     pendingForms: [], // TODO: Track pending forms in game state

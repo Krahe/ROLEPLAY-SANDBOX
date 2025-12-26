@@ -12,6 +12,11 @@ import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadge
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
 import {
+  processArchimedesCountdown,
+  onDrMStateChange,
+  ArchimedesEvent,
+} from "./rules/archimedes.js";
+import {
   checkActTransition,
   serializeActHandoff,
   createStateFromHandoff,
@@ -1026,6 +1031,69 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
     // ============================================
     // END GM DIRECTIVE PROCESSING
+    // ============================================
+
+    // ============================================
+    // ARCHIMEDES DEADMAN SWITCH PROCESSING
+    // ============================================
+    let archimedesEvent: ArchimedesEvent | null = null;
+
+    // Check if GM overrides indicate Dr. M transformation/unconscious/dead
+    if (gmResponse.stateOverrides) {
+      const overrides = gmResponse.stateOverrides;
+
+      // Check narrative flags for transformation indicators
+      const narrativeFlagsArray = (gmResponse.narrativeFlags?.set || []) as string[];
+      const drMTransformed = narrativeFlagsArray.some(f =>
+        f.includes("DR_M_TRANSFORMED") || f.includes("MALEVOLA_TRANSFORMED")
+      );
+      const drMUnconscious = narrativeFlagsArray.some(f =>
+        f.includes("DR_M_UNCONSCIOUS") || f.includes("MALEVOLA_UNCONSCIOUS")
+      );
+      const drMDead = narrativeFlagsArray.some(f =>
+        f.includes("DR_M_DEAD") || f.includes("MALEVOLA_DEAD")
+      );
+
+      // Also check direct state override flags if present
+      const drMStateChanged =
+        (overrides as Record<string, unknown>).drM_transformed ||
+        (overrides as Record<string, unknown>).drM_unconscious ||
+        (overrides as Record<string, unknown>).drM_dead ||
+        drMTransformed || drMUnconscious || drMDead;
+
+      if (drMStateChanged) {
+        // Determine the new status
+        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "DEAD" | "NORMAL" = "NORMAL";
+        if (drMDead || (overrides as Record<string, unknown>).drM_dead) {
+          newStatus = "DEAD";
+          gameState.flags.drMDead = true;
+        } else if (drMUnconscious || (overrides as Record<string, unknown>).drM_unconscious) {
+          newStatus = "UNCONSCIOUS";
+          gameState.flags.drMUnconscious = true;
+        } else if (drMTransformed || (overrides as Record<string, unknown>).drM_transformed) {
+          newStatus = "TRANSFORMED";
+          gameState.flags.drMTransformed = true;
+        }
+
+        // Trigger ARCHIMEDES state change
+        archimedesEvent = onDrMStateChange(gameState, newStatus);
+      }
+    }
+
+    // Process ARCHIMEDES countdown each turn (if no event from state change)
+    if (!archimedesEvent) {
+      archimedesEvent = processArchimedesCountdown(gameState);
+    }
+
+    // Append ARCHIMEDES event to GM narration if present
+    if (archimedesEvent) {
+      const archimedesNarration = `\n\n---\n**[ARCHIMEDES SYSTEM ALERT]**\n${archimedesEvent.message}`;
+      gmResponse.narration += archimedesNarration;
+      console.error(`[ARCHIMEDES] Event: ${archimedesEvent.type} -> ${archimedesEvent.newStatus}`);
+    }
+
+    // ============================================
+    // END ARCHIMEDES PROCESSING
     // ============================================
 
     // Apply state changes
