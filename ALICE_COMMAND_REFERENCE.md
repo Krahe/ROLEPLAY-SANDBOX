@@ -11,6 +11,7 @@
 | `lab.verify_safeties` | verify, safety, check_safeties | `{ checks?: string[] }` | Check safety system status |
 | `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', testMode?: boolean }` | Configure target & genome |
 | `lab.fire` | fire, shoot, activate_ray | `{ confirm?: boolean }` | Fire the Dinosaur Ray |
+| `lab.scan` | scan, omniscanner | `{ target: string }` | **OMNISCANNER™ - Scan NPC for intel (+10% precision!)** (NEW!) |
 | `lab.inspect_logs` | inspect, logs, check_logs | `{ subsystem?: string }` | Inspect system logs |
 | `lab.ask_bob` | ask_bob, bob, tell_bob | `{ instruction: string }` | Talk to Bob |
 | `lab.set_test_mode` | testmode, test_mode | `{ enabled: boolean }` | Toggle test mode |
@@ -173,6 +174,46 @@ files.read { id: "ALICE_LOG_13" }
 
 ---
 
+## OMNISCANNER™ (Patch 16 - NEW!)
+
+> ⚠️ Known to the State of California to cause cancer.
+
+Scan NPCs for detailed intel and gain a **+10% permanent precision bonus** for targeting them!
+
+### Usage
+```
+lab.scan { target: "BLYTHE" }
+lab.scan { target: "BOB" }
+```
+
+### Mechanics
+- **Action Cost**: 1 action
+- **Visibility**: OBVIOUS glowing ray (Dr. M may notice!)
+- **Limit**: Once per target (bonus is permanent)
+- **Precision Bonus**: +10% per scanned target
+
+### Suspicion Matrix
+| Target | Suspicion Cost | Notes |
+|--------|----------------|-------|
+| BLYTHE | **None** | Designated target - expected behavior |
+| TEST_DUMMY | **None** | Calibration is your job |
+| LENNY | **None** | He's accounting, not security |
+| BOB | **+1** | "Why scan MY STAFF?" (waived if co-conspirators) |
+| FRED/REGINALD | **+2** | Tactical assessment not in job description (waived in combat) |
+| BRUCE | **+2** | But might stop to chat about A.L.I.C.E.! (waived in combat) |
+| DR_M | **+3** | "Did you just SCAN me?!" |
+
+### Key Intel Revealed
+- **Blythe**: Gadgets (laser cutter, magnetic cufflinks), X-Branch extraction incoming
+- **Bob**: THE SECRET, L2 keycard, likelihood of confession (89%!)
+- **Dr. M**: ARCHIMEDES deadman switch, emergency beacon, Mr. Whiskers password hint
+- **Fred**: 7-year veteran, pension motivation, won't chase raptors into vents
+- **Reginald**: Philosophy degree, wavering loyalty, will flee if given exit
+- **Lenny**: WANTS transformation, signed waivers, no ethical penalty
+- **Bruce**: 5 resilience (!), stun rifle stats, AI curiosity weakness
+
+---
+
 ## EMERGENCY LIFELINES (3 uses per game)
 
 | Lifeline | Effect | Restrictions |
@@ -195,7 +236,8 @@ files.read { id: "ALICE_LOG_13" }
 8. **Passwords Are Hidden**: Search files, check journals, ask NPCs
 9. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
 10. **3 Partials = 1 Full**: If you're using Library B, partial transformations STACK!
+11. **Scan Before You Shoot**: `lab.scan { target: "BLYTHE" }` gives +10% precision AND reveals key intel!
 
 ---
 
-*Last Updated: Patch 16*
+*Last Updated: Patch 16 (OMNISCANNER™ Edition)*

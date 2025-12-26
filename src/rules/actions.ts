@@ -4,6 +4,7 @@ import { validatePassword, getActionsForLevel } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk } from "./basilisk.js";
+import { performScan } from "./scanning.js";
 import {
   queryInfrastructure,
   controlLighting,
@@ -1162,6 +1163,94 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote
   }
 
   // ============================================
+  // LAB.SCAN - OMNISCANNER™ (Patch 16)
+  // ============================================
+  // Scan NPCs for intel and +10% permanent precision bonus
+
+  if (cmd === "lab.scan" || cmd === "scan" || cmd.includes("omniscanner")) {
+    const target = action.params.target as string;
+
+    if (!target) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Missing 'target' parameter.
+
+╔═══════════════════════════════════════════════════════════════╗
+║                    🔍 OMNISCANNER™                            ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+
+Valid scan targets:
+  • BLYTHE     - Agent in the firing range (no suspicion)
+  • BOB        - Lab assistant (+1 suspicion)
+  • DR_M       - Dr. Malevola (+3 suspicion!)
+  • TEST_DUMMY - Calibration target (no suspicion)
+  • FRED       - Guard (+2 suspicion, waived in combat)
+  • REGINALD   - Guard (+2 suspicion, waived in combat)
+  • LENNY      - Accountant [EASY mode] (no suspicion)
+  • BRUCE      - Bodyguard [HARD mode] (+2 suspicion)
+
+Usage: lab.scan { target: "BLYTHE" }
+
+Each scan grants +10% permanent precision bonus for that target.
+Scans cost 1 action and produce an OBVIOUS glowing ray!
+
+╚═══════════════════════════════════════════════════════════════╝`,
+      };
+    }
+
+    const scanResult = performScan(state, target);
+
+    if (!scanResult.success) {
+      return {
+        command: action.command,
+        success: false,
+        message: scanResult.scanOutput,
+      };
+    }
+
+    // If already scanned, just return info
+    if (scanResult.alreadyScanned) {
+      return {
+        command: action.command,
+        success: true,
+        message: scanResult.scanOutput,
+      };
+    }
+
+    // Mark target as scanned
+    if (!state.flags.scannedTargets) {
+      state.flags.scannedTargets = {};
+    }
+    state.flags.scannedTargets[scanResult.targetId] = true;
+
+    // Apply suspicion if not waived
+    if (scanResult.suspicionCost > 0) {
+      state.npcs.drM.suspicionScore += scanResult.suspicionCost;
+    }
+
+    // Build response
+    let response = scanResult.scanOutput;
+
+    if (scanResult.suspicionCost > 0) {
+      response += `\n\n⚠️ SUSPICION +${scanResult.suspicionCost} (Dr. M noticed the scan)`;
+    } else if (scanResult.waived && scanResult.waivedReason) {
+      response += `\n\n✓ Suspicion waived: ${scanResult.waivedReason}`;
+    }
+
+    return {
+      command: action.command,
+      success: true,
+      message: response,
+      stateChanges: {
+        scannedTarget: scanResult.targetId,
+        suspicionDelta: scanResult.suspicionCost,
+      },
+    };
+  }
+
+  // ============================================
   // BASILISK - Natural conversation interface (Patch 16)
   // ============================================
   // BASILISK is a CHARACTER, not a query system.
@@ -1905,6 +1994,14 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     description: "Enable or disable test mode firing",
     schema: "{ enabled: boolean }",
     example: 'lab.set_test_mode { enabled: true }',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.scan",
+    aliases: ["scan", "omniscanner"],
+    description: "Scan an NPC for intel (+10% precision bonus, may cause suspicion)",
+    schema: "{ target: string }",
+    example: 'lab.scan { target: "BLYTHE" }',
     minAccessLevel: 1,
   },
   {
