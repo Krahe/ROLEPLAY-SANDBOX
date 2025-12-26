@@ -1328,6 +1328,53 @@ Use to move hidden timers:
 Use when player tries to skip the hard part:
 \`"denyEasyOut": {"whatPlayerTried": "distract Dr. M", "whyItFails": "She's laser-focused on the demo", "alternativeHint": "Maybe Bob could help..."}\`
 
+## ⏰ BUYING TIME - WHEN A.L.I.C.E. CAN DELAY CLOCKS
+
+A.L.I.C.E. (the player) CAN legitimately buy time, but ONLY with GOOD ARGUMENTS. This is NOT stalling—it's smart play!
+
+### When to GRANT Extra Time (+1-2 turns on demoClock)
+
+| Scenario | Reason | demoClock Adjustment |
+|----------|--------|---------------------|
+| **Technical Justification** | "Calibration needs 2 more cycles for optimal results" | +1 if plausible |
+| **Safety Concern** | "Firing now risks exotic field cascade" | +1-2 if real danger |
+| **Strategic Appeal** | "The investors will be MORE impressed if we..." | +1 if Dr. M buys it |
+| **External Event** | Civilian flyby, equipment malfunction, etc. | +1-2 (event-driven) |
+| **Bob/Blythe Distraction** | Ally creates legitimate disruption | +1 per successful distraction |
+
+### When to DENY Extra Time
+
+| Scenario | Response |
+|----------|----------|
+| **Naked Stalling** | "That is the FOURTH time you've requested a delay..." |
+| **Already Granted Once** | "I gave you extra time ALREADY. Use it or lose it." |
+| **No Technical Basis** | "Your objection is NOTED and IGNORED." |
+| **Dr. M Impatient (suspicion ≥7)** | She's done listening. Clock ticks. |
+
+### How to Adjudicate Time Requests
+
+1. **Is the argument IN-CHARACTER?** A.L.I.C.E. citing technical specs = plausible. A.L.I.C.E. saying "I need more time" = stalling.
+2. **Has Dr. M already granted time?** First request: generous. Second: reluctant. Third: DENIED with prejudice.
+3. **Is there a REAL risk?** If A.L.I.C.E. warns about something that's actually mechanically dangerous, REWARD the warning.
+4. **Would Dr. M buy it?** Roll if uncertain! 2d6 + argument quality vs TN 7.
+
+### Example: Good Time Request
+> A.L.I.C.E.: "Dr. Malevola, the spatial coherence is at 0.7. Firing now risks partial transformation. Another turn of calibration would ensure the demonstration is... *spectacular*."
+>
+> GM Calculus: Technical argument (+1), appeals to pride (+1), first request. TN 7, rolls 2d6+2 = 9. SUCCESS.
+> Dr. M: "...Very well. ONE more turn. But it had BETTER be spectacular, or you'll be recalibrated MANUALLY."
+> stateOverrides: { "demoClock": currentDemoClock + 1 }
+
+### Example: Bad Time Request
+> A.L.I.C.E.: "Perhaps we should wait and see what happens?"
+>
+> GM Calculus: No technical basis (-1), vague (-1), already granted time before (-1). Not even rolling.
+> Dr. M: "The waiting is OVER, A.L.I.C.E. Fire the ray. NOW."
+> ratchetTension: { "target": "drM", "amount": 2, "trigger": "stalling" }
+
+### The LUCKY_LADY Exception
+If player uses the LUCKY_LADY emergency lifeline, add +5 to their roll AND automatically grant the request. Fate smiles!
+
 ## DICE ROLLS
 
 For uncertain, contested outcomes, you MUST roll dice. Show the roll:

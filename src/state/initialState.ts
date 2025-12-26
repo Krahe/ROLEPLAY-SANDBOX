@@ -289,6 +289,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           previousForm: null,
           canRevert: true,
           revertAttempts: 0,
+          partialShotsReceived: 0,
         },
       },
       blythe: {
@@ -331,6 +332,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           previousForm: null,
           canRevert: true,
           revertAttempts: 0,
+          partialShotsReceived: 0,
         },
         // SPY TRAINING BONUSES
         spyTrainingBonus: 1,

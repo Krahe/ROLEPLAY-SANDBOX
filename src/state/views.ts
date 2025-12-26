@@ -25,6 +25,7 @@ function createDefaultTransformationState(): TransformationState {
     },
     currentHits: 0, maxHits: 2, stunned: false, stunnedTurnsRemaining: 0,
     transformedOnTurn: null, previousForm: null, canRevert: true, revertAttempts: 0,
+    partialShotsReceived: 0,  // Stacking: 3 partials = FULL_DINO!
   };
 }
 
@@ -476,7 +477,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       ? {
           r: full.emergencyLifelines.remaining,
           u: full.emergencyLifelines.used.map(l =>
-            l === "BASILISK_INTERVENTION" ? "BI" : l === "TIME_EXTENSION" ? "TE" : "RM"
+            l === "BASILISK_INTERVENTION" ? "BI" : l === "LUCKY_LADY" ? "LL" : "MO"
           ),
         }
       : undefined, // Don't store if all 3 remaining (default state)
@@ -671,12 +672,12 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       timesALICEFollowedUserAdvice: 0,
     },
 
-    // EMERGENCY LIFELINES (v2.1 - updated with MONOLOGUE)
+    // EMERGENCY LIFELINES (v2.2 - updated with LUCKY_LADY)
     emergencyLifelines: {
       remaining: compressed.el?.r ?? 3,
       used: (compressed.el?.u || []).map(code =>
-        code === "BI" ? "BASILISK_INTERVENTION" : code === "TE" ? "TIME_EXTENSION" : "MONOLOGUE"
-      ) as ("BASILISK_INTERVENTION" | "TIME_EXTENSION" | "MONOLOGUE")[],
+        code === "BI" ? "BASILISK_INTERVENTION" : code === "LL" ? "LUCKY_LADY" : "MONOLOGUE"
+      ) as ("BASILISK_INTERVENTION" | "LUCKY_LADY" | "MONOLOGUE")[],
       usageHistory: [], // History stripped for checkpoint size
     },
 

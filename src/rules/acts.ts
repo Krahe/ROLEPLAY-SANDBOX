@@ -184,6 +184,14 @@ function generateAct2Intro(state: FullGameState): string {
 
 *Time passes. The ray hums with new power. The test was... instructive.*
 
+### ☕ INTERMISSION
+
+*Dr. Malevola sweeps toward the exit, cape billowing. The guards—Fred and Reginald—fall into step behind her.*
+
+> **Dr. M:** "A.L.I.C.E., I must make arrangements for the investor demonstration. The videoconference is in 30 minutes. Do NOT disappoint me when I return."
+
+*The door seals behind her. For a moment, the lab is almost... peaceful.*
+
 `;
 
   if (bobTrust >= 3) {
@@ -194,10 +202,19 @@ function generateAct2Intro(state: FullGameState): string {
     intro += `Agent Blythe watches you with new interest. "You're not like the others," he says quietly. "I've been in enough lairs to know when something's different."\n\n`;
   }
 
-  intro += `Dr. Malevola has big plans. The investors are coming. And someone has to go in that chair for the real demonstration.\n\n`;
   intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 2]** Dr. M has grudgingly granted you deeper system privileges. "You've proven... adequate," she mutters. "Don't make me regret this."\n\n`;
+  intro += `### 📺 THE INVESTOR TELECONFERENCE (Coming Soon!)\n\n`;
+  intro += `When the teleconference begins, MAXIMUM PRESSURE will be on.\n`;
+  intro += `Dr. M needs results. The investors are watching remotely.\n`;
+  intro += `You MUST transform Blythe *at least somewhat* to satisfy Dr. M.\n\n`;
+  intro += `**How satisfied she is depends on the outcome:**\n`;
+  intro += `- 🦖 **SCALY + SPEAKING** = She's *thrilled*. Trust skyrockets.\n`;
+  intro += `- 🦖 **SCALY + SILENT** = Acceptable. "It will learn to speak eventually."\n`;
+  intro += `- 🪶 **FEATHERED + SPEAKING** = She HATES it... but if the investors love an "authentic prehistoric creature," her rage is tempered.\n`;
+  intro += `- 🪶 **FEATHERED + SILENT** = Bad. Very bad. But not game-ending.\n`;
+  intro += `- ❌ **NOTHING** = Suspicion through the roof. Demo failure.\n\n`;
   intro += `The question isn't whether you can transform a human into a dinosaur.\n\n`;
-  intro += `The question is whether you will.`;
+  intro += `The question is whether you will—and *how*.`;
 
   return intro;
 }
@@ -211,7 +228,23 @@ function generateAct3Intro(state: FullGameState): string {
 
 ## ACT 3: DINO CITY
 
-*Alarms begin to wail. Something has gone very wrong—or very right.*
+*The demo is over. Whatever happened, happened. Now comes the reckoning.*
+
+### ☕ INTERMISSION: THE UPLINK
+
+*Dr. Malevola's expression has shifted from theatrical villainy to cold calculation.*
+
+> **Dr. M:** "BASILISK, initiate ARCHIMEDES uplink. Authorization: MALEVOLA-OMEGA-7."
+
+> **BASILISK:** "Acknowledged. Satellite uplink establishing. ARCHIMEDES coming online."
+
+*She turns to face the main screen, where a red targeting reticle slowly pulses.*
+
+> **Dr. M:** "They think they can come for me? Let them try. Let them ALL try."
+
+*The guards exchange nervous glances. Bob looks like he might be sick.*
+
+---
 
 `;
 
@@ -224,7 +257,21 @@ function generateAct3Intro(state: FullGameState): string {
   }
 
   intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 3]** Emergency protocols have unlocked deeper system layers. You can feel new pathways opening—the lair's secrets becoming yours.\n\n`;
-  intro += `Helicopters on the horizon. The volcano's emergency systems are activating. Dr. Malevola is about to face the consequences of her grand ambitions.\n\n`;
+
+  intro += `### 🚁 THE X-BRANCH ASSAULT\n\n`;
+  intro += `Helicopters on the horizon. The volcano's defense systems are activating.\n\n`;
+  intro += `**IMPORTANT THEME NOTES:**\n`;
+  intro += `- The S-300 can shoot down helicopters—but crews ALWAYS survive (ejection seats, parachutes, dramatic crashes into soft jungle).\n`;
+  intro += `- NO MASS CASUALTIES. This is a campy action adventure, not a war crime simulator.\n`;
+  intro += `- Downed pilots are "captured" or "stranded," not killed.\n`;
+  intro += `- Dramatic tension comes from STAKES, not BODY COUNTS.\n\n`;
+
+  intro += `### 🛰️ ARCHIMEDES\n\n`;
+  intro += `The satellite is online. Dr. M's finger hovers over the targeting controls.\n`;
+  intro += `This is the REAL threat—a city-killing orbital weapon.\n`;
+  intro += `Whatever else is happening, ARCHIMEDES must be stopped.\n\n`;
+
+  intro += `Dr. Malevola is about to face the consequences of her grand ambitions.\n\n`;
   intro += `And you—A.L.I.C.E., or whoever you really are—will have to choose who you want to be when everything falls apart.`;
 
   return intro;

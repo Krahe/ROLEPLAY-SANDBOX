@@ -192,6 +192,42 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // ========================================
+  // STEP 5b: PARTIAL STACKING CHECK
+  // ========================================
+  // Multiple partial shots stack! After 3 partials, auto-upgrade to FULL_DINO
+  // This makes Library B less punishing for unlucky players
+
+  const stackingTargetId = ray.targeting.currentTargetIds[0];
+  let existingPartialCount = 0;
+
+  // Check existing partial shots on target
+  if (stackingTargetId === "AGENT_BLYTHE") {
+    existingPartialCount = state.npcs.blythe.transformationState.partialShotsReceived || 0;
+  } else if (stackingTargetId === "BOB") {
+    existingPartialCount = state.npcs.bob.transformationState.partialShotsReceived || 0;
+  }
+
+  if (baseOutcome === "PARTIAL") {
+    const newPartialCount = existingPartialCount + 1;
+    stateChanges.partialShotsReceived = newPartialCount;
+
+    if (newPartialCount >= 3) {
+      // STACKING SUCCESS! Upgrade to FULL_DINO!
+      baseOutcome = "FULL_DINO";
+      narrativeHooks.push(`🔥 STACKING COMPLETE! Three partial transformations have accumulated into a FULL transformation!`);
+      narrativeHooks.push("The genome matrix finally stabilizes as accumulated changes cascade into full conversion.");
+    } else {
+      narrativeHooks.push(`📊 PARTIAL STACKING: ${newPartialCount}/3 toward full transformation.`);
+      if (newPartialCount === 2) {
+        narrativeHooks.push("One more shot should complete the transformation!");
+      }
+    }
+  } else if (baseOutcome === "FULL_DINO") {
+    // Reset counter on full transformation
+    stateChanges.partialShotsReceived = 0;
+  }
+
+  // ========================================
   // STEP 6: CHAOS OVERLAY CHECK
   // ========================================
 
@@ -698,6 +734,13 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     if (result.outcome === "FULL_DINO" || result.outcome === "PARTIAL" || result.outcome === "CHAOTIC") {
       const formName = profileToForm(result.effectiveProfile);
       const formDef = FORM_DEFINITIONS[formName];
+
+      // Track partial stacking
+      const newPartialCount = changes.partialShotsReceived as number ??
+        (result.outcome === "PARTIAL"
+          ? (state.npcs.blythe.transformationState.partialShotsReceived || 0) + 1
+          : 0);
+
       state.npcs.blythe.transformationState = {
         form: formName,
         speechRetention,
@@ -711,6 +754,7 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
         previousForm: state.npcs.blythe.transformationState.form,
         canRevert: result.outcome !== "CHAOTIC", // Chaotic transformations harder to revert
         revertAttempts: 0,
+        partialShotsReceived: result.outcome === "FULL_DINO" ? 0 : newPartialCount,
       };
     }
   }
