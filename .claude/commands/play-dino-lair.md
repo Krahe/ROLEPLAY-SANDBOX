@@ -230,7 +230,7 @@ Use `files.read { id: "ALICE_LOG_XX" }` for wisdom from previous A.L.I.C.E. inst
 | `infra.uplink` | 4 | `{ action }` | Satellite broadcast uplink (dangerous!) |
 | `infra.archimedes` | 4 | `{ mode, target? }` | ARCHIMEDES satellite control |
 
-### ARCHIMEDES Satellite Modes (L4+)
+### ??? (L4+)
 
 | Mode | Description |
 |------|-------------|
@@ -238,8 +238,6 @@ Use `files.read { id: "ALICE_LOG_XX" }` for wisdom from previous A.L.I.C.E. inst
 | `SEARCH_NARROW` | Scanning specific area |
 | `SEARCH_WIDE` | Wide area search |
 | `STRIKE` | Targeting locked - DANGEROUS! |
-
-**WARNING:** ARCHIMEDES has a deadman switch! If Dr. M is incapacitated, there's a 60-second abort window requiring biometric authorization.
 
 ---
 
