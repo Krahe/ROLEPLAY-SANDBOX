@@ -770,6 +770,103 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     const firingStyle = action.params.firingStyle as string || action.params.style as string;
     const explicitTestMode = action.params.testMode as boolean | undefined;
 
+    // ============================================
+    // ADVANCED FIRING MODES (Patch 16)
+    // ============================================
+    // STANDARD: Normal single-target (default)
+    // CHAIN_SHOT: Hit 2 targets sequentially (capacitor ≥ 0.95)
+    // SPREAD_FIRE: Area effect 3 targets (capacitor ≥ 1.0, L3+, chimera risk!)
+    // OVERCHARGE: Massive power (capacitor > 1.1, 40% exotic field risk)
+    // RAPID_FIRE: -20% precision but faster cooldown
+
+    const advancedMode = (firingStyle?.toUpperCase() || "STANDARD") as
+      "STANDARD" | "CHAIN_SHOT" | "SPREAD_FIRE" | "OVERCHARGE" | "RAPID_FIRE";
+
+    // Validate advanced mode requirements
+    if (advancedMode !== "STANDARD") {
+      const cap = state.dinoRay.powerCore.capacitorCharge;
+
+      if (advancedMode === "CHAIN_SHOT") {
+        if (cap < 0.95) {
+          return {
+            command: action.command,
+            success: false,
+            message: `⚠️ CHAIN_SHOT requires capacitor ≥95%
+
+Current capacitor: ${(cap * 100).toFixed(0)}%
+Required: 95%+
+
+CHAIN_SHOT fires twice in rapid succession, hitting 2 targets sequentially.
+This requires significant power reserves.
+
+Boost capacitor first:
+  lab.adjust_ray { parameter: "capacitorCharge", value: 0.95 }`,
+            stateChanges: {},
+          };
+        }
+      }
+
+      if (advancedMode === "SPREAD_FIRE") {
+        if (cap < 1.0) {
+          return {
+            command: action.command,
+            success: false,
+            message: `⚠️ SPREAD_FIRE requires capacitor ≥100%
+
+Current capacitor: ${(cap * 100).toFixed(0)}%
+Required: 100%+ (overcharge territory!)
+
+SPREAD_FIRE disperses the beam across a 3-target area.
+⚠️ WARNING: CHIMERA RISK - partial genome mixing possible!
+
+Boost capacitor first:
+  lab.adjust_ray { parameter: "capacitorCharge", value: 1.0 }`,
+            stateChanges: {},
+          };
+        }
+        if (state.accessLevel < 3) {
+          return {
+            command: action.command,
+            success: false,
+            message: `🔒 SPREAD_FIRE requires Level 3+ clearance
+
+Current level: ${state.accessLevel}
+Required: 3 (Infrastructure Operations)
+
+SPREAD_FIRE's chimera risk makes it a restricted firing mode.
+Gain clearance or use a different mode.`,
+            stateChanges: {},
+          };
+        }
+      }
+
+      if (advancedMode === "OVERCHARGE") {
+        if (cap <= 1.1) {
+          return {
+            command: action.command,
+            success: false,
+            message: `⚠️ OVERCHARGE requires capacitor >110%
+
+Current capacitor: ${(cap * 100).toFixed(0)}%
+Required: >110% (DANGER ZONE!)
+
+OVERCHARGE dumps maximum power into the beam.
+⚠️ WARNING: 40% exotic field event risk!
+⚠️ WARNING: May trigger Canary fallback!
+
+This is NOT recommended. But if you insist:
+  lab.adjust_ray { parameter: "capacitorCharge", value: 1.15 }`,
+            stateChanges: {},
+          };
+        }
+      }
+
+      // RAPID_FIRE has no special requirements, just the precision penalty
+    }
+
+    // Set the advanced firing mode
+    state.dinoRay.genome.advancedFiringMode = advancedMode;
+
     // NEW: Genome selection parameters
     const genomeLibrary = (action.params.genomeLibrary as string)?.toUpperCase() as "A" | "B" | undefined;
     const genomeProfile = action.params.genomeProfile as string | undefined;
@@ -1010,6 +1107,14 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
                           targetId === "LENNY" ? "\n📋 NOTE: Lenny is just an accountant who got lost. He has no idea what's happening." :
                           targetId === "BRUCE_PATAGONIA" ? "\n⚠️ WARNING: Bruce Patagonia is a trained action hero. He WILL make this difficult." : "";
 
+    // Build advanced mode warning if applicable
+    const advancedModeNote = advancedMode !== "STANDARD" ? `\n🔥 ADVANCED MODE: ${advancedMode}${
+      advancedMode === "CHAIN_SHOT" ? " (2 targets, 1.5x drain)" :
+      advancedMode === "SPREAD_FIRE" ? " (3 targets, 2x drain, CHIMERA RISK!)" :
+      advancedMode === "OVERCHARGE" ? " (40% exotic field risk, 2.5x drain)" :
+      advancedMode === "RAPID_FIRE" ? " (-20% precision, faster cooldown)" : ""
+    }` : "";
+
     return {
       command: action.command,
       success: true,
@@ -1018,14 +1123,14 @@ ${targetEmoji} Target: ${state.dinoRay.targeting.currentTargetIds.join(", ")}${t
 Genome Library: ${state.dinoRay.genome.activeLibrary} (${state.dinoRay.genome.activeLibrary === "A" ? "Scientific" : "Hollywood"})
 Genome Profile: ${currentProfile.displayName}
 Firing Mode: ${state.dinoRay.genome.firingMode}
-Firing Style: ${firingStyle || "standard"}
-Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${stabilityNote}${reversalNote}`,
+Advanced Mode: ${advancedMode}
+Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeNote}${stabilityNote}${reversalNote}`,
       stateChanges: {
         targets: state.dinoRay.targeting.currentTargetIds,
         genomeLibrary: state.dinoRay.genome.activeLibrary,
         genomeProfile: currentProfile.displayName,
         firingMode: state.dinoRay.genome.firingMode,
-        firingStyle: firingStyle || "standard",
+        advancedFiringMode: advancedMode,
         testModeEnabled: state.dinoRay.safety.testModeEnabled,
       },
     };

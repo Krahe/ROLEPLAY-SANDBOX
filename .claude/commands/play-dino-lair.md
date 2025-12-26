@@ -211,6 +211,25 @@ Use `files.read { id: "ALICE_LOG_XX" }` for wisdom from previous A.L.I.C.E. inst
 | `genomeProfile` | Profile ID | See DINO_RAY_MANUAL.txt |
 | `mode` | `"TRANSFORM"` or `"REVERSAL"` | REVERSAL requires Level 3! |
 | `speechRetention` | `"FULL"`, `"PARTIAL"`, `"NONE"` | FULL=hardest, NONE=easiest |
+| `firingStyle` | See Advanced Modes | STANDARD, CHAIN_SHOT, SPREAD_FIRE, OVERCHARGE, RAPID_FIRE |
+
+### Advanced Firing Modes (Patch 16.1)
+
+| Mode | Requirements | Effect | Risk |
+|------|--------------|--------|------|
+| `STANDARD` | None | Normal single-target | Default, reliable |
+| `CHAIN_SHOT` | Cap ≥95% | Hit 2 targets! | 1.5x drain |
+| `SPREAD_FIRE` | Cap ≥100%, L3+ | 3 targets, area effect | 2x drain, **CHIMERA RISK!** |
+| `OVERCHARGE` | Cap >110% | MAXIMUM POWER | 2.5x drain, **40% exotic field!** |
+| `RAPID_FIRE` | None | Faster cooldown | -20% precision, 0.6x drain |
+
+**Example:**
+```json
+{ "command": "lab.configure_firing_profile", "params": {
+    "target": "AGENT_BLYTHE",
+    "firingStyle": "CHAIN_SHOT"
+}, "why": "Double-tap both guards!" }
+```
 
 ---
 
@@ -474,6 +493,7 @@ After resuming from v2.0 compressed state, narrative context may be lost. If res
 9. **Watch Blythe** - he's planning something
 10. **Don't hoard lifelines** - they're there to help!
 11. **3 partials = 1 full** - partial transformations STACK now!
+12. **Advanced modes = risk/reward** - CHAIN_SHOT, SPREAD_FIRE, OVERCHARGE offer power at a cost!
 
 ---
 
