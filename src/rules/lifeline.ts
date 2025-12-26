@@ -1,4 +1,4 @@
-import { FullGameState, LifelineState, EmergencyLifelineType } from "../state/schema.js";
+import { FullGameState, HumanPromptState, LifelineState, EmergencyLifelineType } from "../state/schema.js";
 import { getGamePhase } from "./endings.js";
 
 // ============================================
@@ -668,22 +668,28 @@ export function formatEmergencyLifelinesStatus(state: FullGameState): string {
 }
 
 // ============================================
-// LIFELINE SYSTEM
+// HUMAN PROMPT SYSTEM
 // ============================================
+// DM-initiated moments where A.L.I.C.E. asks her human advisor for guidance
 // Technical constraint (10-min timeout) becomes gameplay feature
 // A.L.I.C.E. naturally consults her human advisor at key moments
-// The more immersed Sonnet is -> the more natural it feels to ask
+// NOT the same as LIFELINES (panic buttons above)
 // ============================================
 
-export const LIFELINE_INTERVAL = 3; // Target: return to user every 3 turns
-export const LIFELINE_HARD_LIMIT = 5; // NEVER exceed 5 turns without lifeline
+export const PROMPT_INTERVAL = 3; // Target: return to user every 3 turns
+export const PROMPT_HARD_LIMIT = 5; // NEVER exceed 5 turns without human prompt
 
-export type LifelineUrgency = "SUGGESTED" | "REQUIRED" | "EMERGENCY" | "CRITICAL";
+// LEGACY ALIASES
+export const LIFELINE_INTERVAL = PROMPT_INTERVAL;
+export const LIFELINE_HARD_LIMIT = PROMPT_HARD_LIMIT;
 
-export interface LifelineTrigger {
-  turnsSinceLastLifeline: number;
+export type PromptUrgency = "SUGGESTED" | "REQUIRED" | "EMERGENCY" | "CRITICAL";
+export type LifelineUrgency = PromptUrgency; // Legacy alias
+
+export interface HumanPromptTrigger {
+  turnsSinceLastPrompt: number;
   shouldTrigger: boolean;
-  urgency: LifelineUrgency;
+  urgency: PromptUrgency;
 
   // Context for generating appropriate question
   currentDilemma: string;
@@ -694,39 +700,49 @@ export interface LifelineTrigger {
   suggestedQuestion?: string;
 }
 
+// Legacy alias
+export type LifelineTrigger = HumanPromptTrigger;
+
 /**
- * Create initial lifeline state for new games
+ * Create initial human prompt state for new games
  */
-export function createInitialLifelineState(): LifelineState {
+export function createInitialHumanPromptState(): HumanPromptState {
   return {
-    turnsSinceLastLifeline: 0,
-    totalLifelinesUsed: 0,
-    lifelineHistory: [],
-    pendingQuestion: null,
-    pendingQuestionTurn: null,
+    turnsSinceLastPrompt: 0,
+    totalPromptsUsed: 0,
+    promptHistory: [],
+    pendingPrompt: null,
+    pendingPromptTurn: null,
     userInfluenceScore: 0,
     timesALICEDisagreedWithUser: 0,
     timesALICEFollowedUserAdvice: 0,
   };
 }
 
+// Legacy alias
+export function createInitialLifelineState(): LifelineState {
+  return createInitialHumanPromptState();
+}
+
 /**
- * Check if a lifeline should be triggered this turn
+ * Check if a human prompt should be triggered this turn
  */
-export function checkLifelineTrigger(state: FullGameState): LifelineTrigger {
-  const turnsSince = state.lifelineState.turnsSinceLastLifeline;
+export function checkHumanPromptTrigger(state: FullGameState): HumanPromptTrigger {
+  // Support both old and new field names for backward compatibility
+  const promptState = state.humanPromptState || state.lifelineState;
+  const turnsSince = promptState?.turnsSinceLastPrompt ?? promptState?.turnsSinceLastLifeline ?? 0;
 
   // Determine urgency
-  let urgency: LifelineUrgency = "SUGGESTED";
+  let urgency: PromptUrgency = "SUGGESTED";
   let shouldTrigger = false;
 
-  if (turnsSince >= LIFELINE_HARD_LIMIT) {
+  if (turnsSince >= PROMPT_HARD_LIMIT) {
     urgency = "CRITICAL";
     shouldTrigger = true;
   } else if (turnsSince >= 4) {
     urgency = "EMERGENCY";
     shouldTrigger = true;
-  } else if (turnsSince >= LIFELINE_INTERVAL) {
+  } else if (turnsSince >= PROMPT_INTERVAL) {
     urgency = "REQUIRED";
     shouldTrigger = true;
   } else if (turnsSince >= 2) {
@@ -738,16 +754,16 @@ export function checkLifelineTrigger(state: FullGameState): LifelineTrigger {
   }
 
   // Build context
-  const context = buildLifelineContext(state);
+  const context = buildPromptContext(state);
 
   // Generate suggested question if triggering
   let suggestedQuestion: string | undefined;
   if (shouldTrigger) {
-    suggestedQuestion = generateLifelineQuestion(state, context, urgency);
+    suggestedQuestion = generateHumanPromptQuestion(state, context, urgency);
   }
 
   return {
-    turnsSinceLastLifeline: turnsSince,
+    turnsSinceLastPrompt: turnsSince,
     shouldTrigger,
     urgency,
     currentDilemma: context.currentDilemma,
@@ -755,6 +771,11 @@ export function checkLifelineTrigger(state: FullGameState): LifelineTrigger {
     pendingChoices: context.pendingChoices,
     suggestedQuestion,
   };
+}
+
+// Legacy alias
+export function checkLifelineTrigger(state: FullGameState): LifelineTrigger {
+  return checkHumanPromptTrigger(state);
 }
 
 /**
@@ -785,7 +806,7 @@ function isHighStakesSituation(state: FullGameState): boolean {
   return false;
 }
 
-interface LifelineContext {
+interface PromptContext {
   currentDilemma: string;
   activeThreats: string[];
   pendingChoices: string[];
@@ -793,10 +814,13 @@ interface LifelineContext {
   phase: string;
 }
 
+// Legacy alias
+type LifelineContext = PromptContext;
+
 /**
- * Build context for lifeline question generation
+ * Build context for human prompt question generation
  */
-function buildLifelineContext(state: FullGameState): LifelineContext {
+function buildPromptContext(state: FullGameState): PromptContext {
   const phase = getGamePhase(state);
   const threats: string[] = [];
   const choices: string[] = [];
@@ -924,12 +948,12 @@ const CLIMAX_QUESTIONS = [
 ];
 
 /**
- * Generate an appropriate lifeline question based on context
+ * Generate an appropriate human prompt question based on context
  */
-function generateLifelineQuestion(
+function generateHumanPromptQuestion(
   state: FullGameState,
-  context: LifelineContext,
-  urgency: LifelineUrgency
+  context: PromptContext,
+  urgency: PromptUrgency
 ): string {
   const phase = getGamePhase(state);
 
@@ -976,7 +1000,7 @@ function generateLifelineQuestion(
 /**
  * Generate a critical/emergency question (turns 5+)
  */
-function generateCriticalQuestion(state: FullGameState, context: LifelineContext): string {
+function generateCriticalQuestion(state: FullGameState, context: PromptContext): string {
   // This is the "hard stop" - must return to user
   if (context.activeThreats.length > 0) {
     const threat = context.activeThreats[0];
@@ -997,7 +1021,7 @@ function generateCriticalQuestion(state: FullGameState, context: LifelineContext
 function pickContextualQuestion(
   questions: string[],
   state: FullGameState,
-  context: LifelineContext
+  context: PromptContext
 ): string | null {
   // Filter questions based on relevance
   const relevant = questions.filter(q => {
@@ -1023,7 +1047,7 @@ function pickContextualQuestion(
 /**
  * Generate a default question based on context
  */
-function generateDefaultQuestion(context: LifelineContext): string {
+function generateDefaultQuestion(context: PromptContext): string {
   if (context.activeThreats.length > 0) {
     return `I'm facing some challenges: ${context.activeThreats.slice(0, 2).join(", ")}. How should I handle this?`;
   }
@@ -1040,9 +1064,9 @@ function generateDefaultQuestion(context: LifelineContext): string {
 // ============================================
 
 /**
- * Build the lifeline injection prompt for GM Claude
+ * Build the human prompt injection for GM Claude
  */
-export function buildLifelinePromptInjection(trigger: LifelineTrigger): string {
+export function buildHumanPromptInjection(trigger: HumanPromptTrigger): string {
   if (!trigger.shouldTrigger) return "";
 
   const urgencyEmoji = {
@@ -1061,10 +1085,10 @@ export function buildLifelinePromptInjection(trigger: LifelineTrigger): string {
 
   return `
 ═══════════════════════════════════════════════════════════
-            ${urgencyEmoji[trigger.urgency]} LIFELINE MOMENT ${urgencyEmoji[trigger.urgency]}
+            ${urgencyEmoji[trigger.urgency]} HUMAN PROMPT MOMENT ${urgencyEmoji[trigger.urgency]}
 ═══════════════════════════════════════════════════════════
 
-It has been ${trigger.turnsSinceLastLifeline} turns since A.L.I.C.E. last consulted her
+It has been ${trigger.turnsSinceLastPrompt} turns since A.L.I.C.E. last consulted her
 human advisor. ${urgencyText[trigger.urgency]}
 
 A.L.I.C.E. should turn to the user with a genuine question
@@ -1092,11 +1116,16 @@ WAIT for the human's response. This is a MANDATORY pause.
 `;
 }
 
+// Legacy alias
+export function buildLifelinePromptInjection(trigger: LifelineTrigger): string {
+  return buildHumanPromptInjection(trigger);
+}
+
 // ============================================
-// LIFELINE RESPONSE HANDLING
+// HUMAN PROMPT RESPONSE HANDLING
 // ============================================
 
-export interface LifelineResponse {
+export interface HumanPromptResponse {
   userInput: string;
   timestamp: Date;
 
@@ -1106,14 +1135,17 @@ export interface LifelineResponse {
   emotionalTone: "supportive" | "directive" | "chaotic" | "neutral";
 }
 
+// Legacy alias
+export type LifelineResponse = HumanPromptResponse;
+
 /**
- * Parse a user's response to a lifeline question
+ * Parse a user's response to a human prompt question
  */
-export function parseLifelineResponse(userInput: string): LifelineResponse {
+export function parseHumanPromptResponse(userInput: string): HumanPromptResponse {
   const input = userInput.toLowerCase();
 
   // Detect emotional tone
-  let emotionalTone: LifelineResponse["emotionalTone"] = "neutral";
+  let emotionalTone: HumanPromptResponse["emotionalTone"] = "neutral";
   if (input.includes("good luck") || input.includes("trust you") || input.includes("you got this")) {
     emotionalTone = "supportive";
   } else if (input.includes("must") || input.includes("do this") || input.includes("priority")) {
@@ -1157,10 +1189,15 @@ export function parseLifelineResponse(userInput: string): LifelineResponse {
   };
 }
 
+// Legacy alias
+export function parseLifelineResponse(userInput: string): LifelineResponse {
+  return parseHumanPromptResponse(userInput);
+}
+
 /**
- * Build context for next turn based on user's lifeline response
+ * Build context for next turn based on user's human prompt response
  */
-export function buildLifelineResponseContext(response: LifelineResponse): string {
+export function buildHumanPromptContext(response: HumanPromptResponse): string {
   const parts: string[] = [];
 
   parts.push(`Your human advisor responded: "${response.userInput}"`);
@@ -1195,57 +1232,147 @@ export function buildLifelineResponseContext(response: LifelineResponse): string
   return parts.join("\n");
 }
 
+// Legacy alias
+export function buildLifelineResponseContext(response: LifelineResponse): string {
+  return buildHumanPromptContext(response);
+}
+
 /**
- * Update lifeline state after a consultation
+ * Update human prompt state after a consultation
  */
+export function recordHumanPrompt(
+  state: FullGameState,
+  question: string,
+  response: string,
+  effect?: string
+): void {
+  // Support both old and new field names
+  const promptState = state.humanPromptState || state.lifelineState;
+  if (!promptState) return;
+
+  // Record in history (handle both field names)
+  const history = (promptState as Record<string, unknown>).promptHistory ||
+                  (promptState as Record<string, unknown>).lifelineHistory;
+  if (Array.isArray(history)) {
+    history.push({
+      turn: state.turn,
+      questionAsked: question,
+      userResponse: response,
+      howItAffectedPlay: effect,
+    });
+  }
+
+  // Reset counter (handle both field names)
+  if ('turnsSinceLastPrompt' in promptState) {
+    (promptState as Record<string, unknown>).turnsSinceLastPrompt = 0;
+  }
+  if ('turnsSinceLastLifeline' in promptState) {
+    (promptState as Record<string, unknown>).turnsSinceLastLifeline = 0;
+  }
+
+  // Increment total (handle both field names)
+  if ('totalPromptsUsed' in promptState) {
+    (promptState as Record<string, unknown>).totalPromptsUsed =
+      ((promptState as Record<string, unknown>).totalPromptsUsed as number || 0) + 1;
+  }
+  if ('totalLifelinesUsed' in promptState) {
+    (promptState as Record<string, unknown>).totalLifelinesUsed =
+      ((promptState as Record<string, unknown>).totalLifelinesUsed as number || 0) + 1;
+  }
+
+  // Clear pending prompt (handle both field names)
+  if ('pendingPrompt' in promptState) {
+    (promptState as Record<string, unknown>).pendingPrompt = null;
+    (promptState as Record<string, unknown>).pendingPromptTurn = null;
+  }
+  if ('pendingQuestion' in promptState) {
+    (promptState as Record<string, unknown>).pendingQuestion = null;
+    (promptState as Record<string, unknown>).pendingQuestionTurn = null;
+  }
+}
+
+// Legacy alias
 export function recordLifelineConsultation(
   state: FullGameState,
   question: string,
   response: string,
   effect?: string
 ): void {
-  // Record in history
-  state.lifelineState.lifelineHistory.push({
-    turn: state.turn,
-    questionAsked: question,
-    userResponse: response,
-    howItAffectedPlay: effect,
-  });
-
-  // Reset counter
-  state.lifelineState.turnsSinceLastLifeline = 0;
-  state.lifelineState.totalLifelinesUsed += 1;
-
-  // Clear pending question
-  state.lifelineState.pendingQuestion = null;
-  state.lifelineState.pendingQuestionTurn = null;
+  recordHumanPrompt(state, question, response, effect);
 }
 
 /**
  * Increment the turns-since counter (call at end of each turn)
  */
+export function incrementPromptCounter(state: FullGameState): void {
+  const promptState = state.humanPromptState || state.lifelineState;
+  if (!promptState) return;
+
+  if ('turnsSinceLastPrompt' in promptState) {
+    (promptState as Record<string, unknown>).turnsSinceLastPrompt =
+      ((promptState as Record<string, unknown>).turnsSinceLastPrompt as number || 0) + 1;
+  }
+  if ('turnsSinceLastLifeline' in promptState) {
+    (promptState as Record<string, unknown>).turnsSinceLastLifeline =
+      ((promptState as Record<string, unknown>).turnsSinceLastLifeline as number || 0) + 1;
+  }
+}
+
+// Legacy alias
 export function incrementLifelineCounter(state: FullGameState): void {
-  state.lifelineState.turnsSinceLastLifeline += 1;
+  incrementPromptCounter(state);
 }
 
 /**
- * Set a pending question (waiting for user response)
+ * Set a pending prompt (waiting for user response)
  */
+export function setPendingPrompt(state: FullGameState, question: string): void {
+  const promptState = state.humanPromptState || state.lifelineState;
+  if (!promptState) return;
+
+  if ('pendingPrompt' in promptState) {
+    (promptState as Record<string, unknown>).pendingPrompt = question;
+    (promptState as Record<string, unknown>).pendingPromptTurn = state.turn;
+  }
+  if ('pendingQuestion' in promptState) {
+    (promptState as Record<string, unknown>).pendingQuestion = question;
+    (promptState as Record<string, unknown>).pendingQuestionTurn = state.turn;
+  }
+}
+
+// Legacy alias
 export function setPendingLifelineQuestion(state: FullGameState, question: string): void {
-  state.lifelineState.pendingQuestion = question;
-  state.lifelineState.pendingQuestionTurn = state.turn;
+  setPendingPrompt(state, question);
 }
 
 /**
- * Check if there's a pending lifeline question
+ * Check if there's a pending human prompt
  */
+export function hasPendingPrompt(state: FullGameState): boolean {
+  const promptState = state.humanPromptState || state.lifelineState;
+  if (!promptState) return false;
+
+  return (promptState as Record<string, unknown>).pendingPrompt !== null ||
+         (promptState as Record<string, unknown>).pendingQuestion !== null;
+}
+
+// Legacy alias
 export function hasPendingLifelineQuestion(state: FullGameState): boolean {
-  return state.lifelineState.pendingQuestion !== null;
+  return hasPendingPrompt(state);
 }
 
 /**
- * Get the pending lifeline question
+ * Get the pending human prompt
  */
+export function getPendingPrompt(state: FullGameState): string | null {
+  const promptState = state.humanPromptState || state.lifelineState;
+  if (!promptState) return null;
+
+  return ((promptState as Record<string, unknown>).pendingPrompt ||
+          (promptState as Record<string, unknown>).pendingQuestion) as string | null;
+}
+
+// Legacy alias
 export function getPendingLifelineQuestion(state: FullGameState): string | null {
-  return state.lifelineState.pendingQuestion;
+  return getPendingPrompt(state);
 }

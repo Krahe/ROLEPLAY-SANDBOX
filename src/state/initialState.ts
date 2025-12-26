@@ -1,6 +1,6 @@
 import { FullGameState, Act, ACT_CONFIGS } from "./schema.js";
 import { randomUUID } from "crypto";
-import { createInitialLifelineState } from "../rules/lifeline.js";
+import { createInitialHumanPromptState } from "../rules/lifeline.js";
 
 export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
   const actConfig = ACT_CONFIGS[startAct];
@@ -419,8 +419,8 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       },
     },
 
-    // LIFELINE SYSTEM (Human Advisor Consultations)
-    lifelineState: createInitialLifelineState(),
+    // HUMAN PROMPT SYSTEM (Advisor Consultations)
+    humanPromptState: createInitialHumanPromptState(),
 
     // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
     emergencyLifelines: {

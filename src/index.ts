@@ -35,16 +35,18 @@ import {
   CHECKPOINT_INTERVAL,
 } from "./rules/checkpoint.js";
 import {
-  checkLifelineTrigger,
-  buildLifelinePromptInjection,
-  buildLifelineResponseContext,
-  parseLifelineResponse,
-  recordLifelineConsultation,
-  incrementLifelineCounter,
-  setPendingLifelineQuestion,
-  hasPendingLifelineQuestion,
-  getPendingLifelineQuestion,
-  LIFELINE_INTERVAL,
+  // Human Prompt System (DM-initiated advisor consultations)
+  checkHumanPromptTrigger,
+  buildHumanPromptInjection,
+  buildHumanPromptContext,
+  parseHumanPromptResponse,
+  recordHumanPrompt,
+  incrementPromptCounter,
+  setPendingPrompt,
+  hasPendingPrompt,
+  getPendingPrompt,
+  PROMPT_INTERVAL,
+  // Emergency Lifelines (panic buttons)
   useEmergencyLifeline,
   isValidEmergencyLifeline,
 } from "./rules/lifeline.js";
@@ -632,8 +634,8 @@ const GameActInputSchema = z.object({
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
     .describe("Optional emergency lifeline (3 total uses per game): BASILISK_INTERVENTION (2-turn distraction), TIME_EXTENSION (+2 turns), or MONOLOGUE (suspicion -3, always works!)"),
-  humanAdvisorResponse: z.string().optional()
-    .describe("Response to a previous lifeline question from the human advisor"),
+  humanPromptResponse: z.string().optional()
+    .describe("Response to a previous human prompt question from the human advisor"),
 }).strict();
 
 server.registerTool(
@@ -817,25 +819,25 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     const gadgetStatus = getGadgetStatusForGM(gameState);
 
     // ============================================
-    // LIFELINE SYSTEM - Check for trigger
+    // HUMAN PROMPT SYSTEM - Check for trigger
     // ============================================
-    const lifelineTrigger = checkLifelineTrigger(gameState);
-    const lifelinePromptInjection = lifelineTrigger.shouldTrigger
-      ? buildLifelinePromptInjection(lifelineTrigger)
+    const humanPromptTrigger = checkHumanPromptTrigger(gameState);
+    const humanPromptInjection = humanPromptTrigger.shouldTrigger
+      ? buildHumanPromptInjection(humanPromptTrigger)
       : undefined;
 
-    // Process human advisor response if provided
-    let userLifelineResponse: string | undefined;
-    if (params.humanAdvisorResponse && hasPendingLifelineQuestion(gameState)) {
-      const pendingQuestion = getPendingLifelineQuestion(gameState);
-      const parsedResponse = parseLifelineResponse(params.humanAdvisorResponse);
-      userLifelineResponse = buildLifelineResponseContext(parsedResponse);
+    // Process human prompt response if provided
+    let userPromptResponse: string | undefined;
+    if (params.humanPromptResponse && hasPendingPrompt(gameState)) {
+      const pendingQuestion = getPendingPrompt(gameState);
+      const parsedResponse = parseHumanPromptResponse(params.humanPromptResponse);
+      userPromptResponse = buildHumanPromptContext(parsedResponse);
 
       // Record the consultation
-      recordLifelineConsultation(
+      recordHumanPrompt(
         gameState,
         pendingQuestion || "Unknown question",
-        params.humanAdvisorResponse,
+        params.humanPromptResponse,
         parsedResponse.suggestedAction || undefined
       );
     }
@@ -867,9 +869,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       bobTransformationNarration,
       trustContext,
       gadgetStatus,
-      // LIFELINE SYSTEM
-      lifelinePromptInjection,
-      userLifelineResponse,
+      // HUMAN PROMPT SYSTEM
+      humanPromptInjection,
+      userPromptResponse,
       // ACT-BASED CONTEXT INJECTION
       actContext: currentActContext,
       actTransitionNotification,
@@ -1101,8 +1103,8 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     advanceActTurn(gameState); // Advance act-specific turn counter
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
 
-    // LIFELINE SYSTEM: Increment counter
-    incrementLifelineCounter(gameState);
+    // HUMAN PROMPT SYSTEM: Increment counter
+    incrementPromptCounter(gameState);
 
     // Process emergency lifeline use
     let lifelineResult: ReturnType<typeof useEmergencyLifeline> | undefined;
@@ -1586,9 +1588,9 @@ Turns played: ${gameState.turn}
     }
 
     // ============================================
-    // LIFELINE SYSTEM - Handle triggered lifeline
+    // HUMAN PROMPT SYSTEM - Handle triggered prompt
     // ============================================
-    let lifelineInfo: {
+    let humanPromptInfo: {
       triggered: boolean;
       urgency?: string;
       turnsSinceLastConsultation?: number;
@@ -1596,23 +1598,23 @@ Turns played: ${gameState.turn}
       instruction?: string;
     } | undefined;
 
-    if (lifelineTrigger.shouldTrigger && !gameOver?.sessionTerminated) {
+    if (humanPromptTrigger.shouldTrigger && !gameOver?.sessionTerminated) {
       // Set the pending question for next turn
-      if (lifelineTrigger.suggestedQuestion) {
-        setPendingLifelineQuestion(gameState, lifelineTrigger.suggestedQuestion);
+      if (humanPromptTrigger.suggestedQuestion) {
+        setPendingPrompt(gameState, humanPromptTrigger.suggestedQuestion);
       }
 
-      lifelineInfo = {
+      humanPromptInfo = {
         triggered: true,
-        urgency: lifelineTrigger.urgency,
-        turnsSinceLastConsultation: lifelineTrigger.turnsSinceLastLifeline,
-        suggestedQuestion: lifelineTrigger.suggestedQuestion,
+        urgency: humanPromptTrigger.urgency,
+        turnsSinceLastConsultation: humanPromptTrigger.turnsSinceLastPrompt,
+        suggestedQuestion: humanPromptTrigger.suggestedQuestion,
         instruction: `
-💡 HUMAN ADVISOR MOMENT
+💡 HUMAN PROMPT MOMENT
 
 A.L.I.C.E. is seeking your guidance. In your next game_act call, include:
 
-  humanAdvisorResponse: "Your advice or thoughts here"
+  humanPromptResponse: "Your advice or thoughts here"
 
 Your input will influence how A.L.I.C.E. approaches the next turn.
 You can:
@@ -1661,8 +1663,8 @@ You can:
       newAchievements: allNewAchievements.length > 0
         ? allNewAchievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
         : undefined,
-      // LIFELINE SYSTEM - Human advisor consultation
-      humanAdvisorMoment: lifelineInfo,
+      // HUMAN PROMPT SYSTEM - Human advisor consultation
+      humanPrompt: humanPromptInfo,
     };
 
     return {

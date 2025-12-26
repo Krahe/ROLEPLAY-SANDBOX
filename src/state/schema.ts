@@ -627,27 +627,28 @@ export const ClocksSchema = z.object({
 });
 
 // ============================================
-// LIFELINE SYSTEM (Human Advisor Consultations)
+// HUMAN PROMPT SYSTEM (Advisor Consultations)
 // ============================================
-// Replaces checkpoint system with narrative-integrated breaks
+// DM-initiated moments where A.L.I.C.E. asks her human advisor for guidance
+// NOT the same as LIFELINES (panic buttons) - see EmergencyLifelineSystem below
 
-export const LifelineHistoryEntrySchema = z.object({
+export const PromptHistoryEntrySchema = z.object({
   turn: z.number().int(),
   questionAsked: z.string(),
   userResponse: z.string(),
   howItAffectedPlay: z.string().optional(),
 });
 
-export const LifelineStateSchema = z.object({
-  turnsSinceLastLifeline: z.number().int().min(0),
-  totalLifelinesUsed: z.number().int().min(0),
+export const HumanPromptStateSchema = z.object({
+  turnsSinceLastPrompt: z.number().int().min(0),
+  totalPromptsUsed: z.number().int().min(0),
 
   // History for narrative continuity
-  lifelineHistory: z.array(LifelineHistoryEntrySchema),
+  promptHistory: z.array(PromptHistoryEntrySchema),
 
-  // Pending question (waiting for user response)
-  pendingQuestion: z.string().nullable(),
-  pendingQuestionTurn: z.number().int().nullable(),
+  // Pending prompt (waiting for user response)
+  pendingPrompt: z.string().nullable(),
+  pendingPromptTurn: z.number().int().nullable(),
 
   // For achievements/endings
   userInfluenceScore: z.number().int().min(0).max(100), // How much did human input affect outcomes?
@@ -655,8 +656,14 @@ export const LifelineStateSchema = z.object({
   timesALICEFollowedUserAdvice: z.number().int().min(0),
 });
 
-export type LifelineState = z.infer<typeof LifelineStateSchema>;
-export type LifelineHistoryEntry = z.infer<typeof LifelineHistoryEntrySchema>;
+export type HumanPromptState = z.infer<typeof HumanPromptStateSchema>;
+export type PromptHistoryEntry = z.infer<typeof PromptHistoryEntrySchema>;
+
+// LEGACY ALIASES for backward compatibility with saves
+export const LifelineStateSchema = HumanPromptStateSchema;
+export const LifelineHistoryEntrySchema = PromptHistoryEntrySchema;
+export type LifelineState = HumanPromptState;
+export type LifelineHistoryEntry = PromptHistoryEntry;
 
 // ============================================
 // EMERGENCY LIFELINE SYSTEM
@@ -837,8 +844,10 @@ export const FullGameStateSchema = z.object({
   clocks: ClocksSchema,
   flags: FlagsSchema,
 
-  // LIFELINE SYSTEM (Human Advisor Consultations)
-  lifelineState: LifelineStateSchema,
+  // HUMAN PROMPT SYSTEM (DM-initiated advisor consultations)
+  humanPromptState: HumanPromptStateSchema,
+  // LEGACY ALIAS - old saves may have this field
+  lifelineState: LifelineStateSchema.optional(),
 
   // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
   emergencyLifelines: EmergencyLifelineStateSchema,

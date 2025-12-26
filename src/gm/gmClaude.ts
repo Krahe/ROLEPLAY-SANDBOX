@@ -769,9 +769,9 @@ export interface GMContext {
   bobTransformationNarration?: string;
   trustContext?: string;
   gadgetStatus?: string;
-  // LIFELINE SYSTEM
-  lifelinePromptInjection?: string; // Injected when lifeline is triggered
-  userLifelineResponse?: string;    // User's response to previous lifeline
+  // HUMAN PROMPT SYSTEM
+  humanPromptInjection?: string; // Injected when human prompt is triggered
+  userPromptResponse?: string;    // User's response to previous human prompt
   // ACT-BASED CONTEXT INJECTION
   actContext?: string;              // Act-specific content (X-Branch, ARCHIMEDES, etc.)
   actTransitionNotification?: string; // Notification when act changes
@@ -2184,7 +2184,7 @@ function formatGMPrompt(context: GMContext): string {
   const { state, aliceThought, aliceDialogue, aliceActions, actionResults,
           clockEventNarrations, activeEvents, blytheGadgetNarration,
           bobTransformationNarration, trustContext, gadgetStatus,
-          lifelinePromptInjection, userLifelineResponse,
+          humanPromptInjection, userPromptResponse,
           actContext, actTransitionNotification } = context;
 
   // Check for firing results
@@ -2303,13 +2303,13 @@ A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
 - BUT: If A.L.I.C.E. acts too differently around allies vs Dr. M, Blythe might notice the "mask switching"
 ` : ""}
 ${trustSection}${firingContext}${gadgetSection}${bobSection}
-${userLifelineResponse ? `
-## 💬 HUMAN ADVISOR RESPONSE
-${userLifelineResponse}
+${userPromptResponse ? `
+## 💬 HUMAN PROMPT RESPONSE
+${userPromptResponse}
 
 A.L.I.C.E. should consider this input from her human advisor when making decisions.
 ` : ""}
-${lifelinePromptInjection || ""}
+${humanPromptInjection || ""}
 ## A.L.I.C.E.'s Turn
 
 ### Internal Thought (A.L.I.C.E. thinking, NPCs don't hear this)
