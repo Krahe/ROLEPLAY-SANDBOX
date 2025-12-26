@@ -138,7 +138,7 @@ basilisk.chat { message: "Tell me about the S-300 minimum engagement altitude" }
 | Lifeline | Effect | Restrictions |
 |----------|--------|--------------|
 | `BASILISK_INTERVENTION` | BASILISK files urgent paperwork, Dr. M leaves for 2 turns | Fails during combat/alarms/escapes |
-| `TIME_EXTENSION` | Minor reactor alert adds 2 turns to demo clock | Can't delay military/orbital/physics |
+| `LUCKY_LADY` | +5 bonus to any ONE action this turn - fate smiles! | ALWAYS works! Sometimes you just get lucky! |
 | `MONOLOGUE` | Ask Dr. M about her genius, suspicion -3 | ALWAYS works! Villains love to monologue! |
 
 ---

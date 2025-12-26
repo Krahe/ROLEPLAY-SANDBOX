@@ -91,7 +91,7 @@ You have **3 emergency lifelines per game** - "panic buttons" to help you surviv
 | Lifeline | Effect | Restrictions |
 |----------|--------|--------------|
 | `BASILISK_INTERVENTION` | 2-turn distraction, Dr. M leaves | ❌ Fails during: combat, alarms, escapes, reactor critical |
-| `TIME_EXTENSION` | Demo clock +2 turns | ❌ Can't delay: military assault, orbital weapons, physics |
+| `LUCKY_LADY` | +5 bonus to next action! | ✅ Always works - fate smiles on you! |
 | `MONOLOGUE` | Suspicion -3, always works! | ✅ No restrictions - villains LOVE to monologue! |
 
 ### Correct Lifeline Syntax

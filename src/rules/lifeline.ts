@@ -39,8 +39,8 @@ export function useEmergencyLifeline(
   switch (lifelineType) {
     case "BASILISK_INTERVENTION":
       return processBasiliskIntervention(state);
-    case "TIME_EXTENSION":
-      return processTimeExtension(state);
+    case "LUCKY_LADY":
+      return processLuckyLady(state);
     case "MONOLOGUE":
       return processMonologue(state);
     default:
@@ -162,115 +162,93 @@ Make them count."
   };
 }
 
-// Non-extendable timers - physics and military don't negotiate!
-const NON_EXTENDABLE_TIMERS = ["xBranchArrival", "archimedesFiring", "reactorMeltdown"];
-const ONCE_ONLY_TIMERS = ["investorCall"];
-
 /**
- * Check if TIME_EXTENSION can be used
- * CONTEXT-SENSITIVE LIMITS based on what's being delayed
+ * LUCKY LADY 🍀
+ * Fate smiles on A.L.I.C.E. at just the right moment!
+ * Effect: +5 bonus to any ONE action this turn
+ * ALWAYS WORKS - because sometimes you just get lucky!
+ *
+ * The GM should narrate exactly HOW luck/fate/happenstance
+ * twisted things in A.L.I.C.E.'s favor!
  */
-function canUseTimeExtension(state: FullGameState): { allowed: boolean; reason?: string; timerType?: string } {
-  const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
-  const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
-
-  // Check for X-Branch arrival - military operations don't delay!
-  if (hasFlag("XBRANCH_INBOUND") || hasFlag("X_BRANCH_ARRIVAL") || hasFlag("HELICOPTER_INBOUND")) {
-    return { allowed: false, reason: "CANNOT_DELAY_MILITARY: X-Branch helicopters are inbound - they don't wait for paperwork!", timerType: "xBranchArrival" };
-  }
-
-  // Check for ARCHIMEDES firing - orbital platforms follow orbital mechanics!
-  if (hasFlag("ARCHIMEDES_FIRING") || hasFlag("ORBITAL_STRIKE")) {
-    return { allowed: false, reason: "CANNOT_DELAY_ORBITAL: ARCHIMEDES follows orbital mechanics - it fires when it fires!", timerType: "archimedesFiring" };
-  }
-
-  // Check for reactor meltdown - physics doesn't negotiate!
-  if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 3) {
-    return { allowed: false, reason: "CANNOT_DELAY_PHYSICS: The reactor doesn't care about your schedule!", timerType: "reactorMeltdown" };
-  }
-
-  // Check if investor delay already used (once-only)
-  const history = state.emergencyLifelines.usageHistory || [];
-  const investorDelayUsed = history.some(h =>
-    h.type === "TIME_EXTENSION" && h.effect.includes("investor")
-  );
-  if (investorDelayUsed && hasFlag("INVESTOR")) {
-    return { allowed: false, reason: "ALREADY_EXTENDED: The investors already had one 'scheduling conflict' - they won't accept another!", timerType: "investorCall" };
-  }
-
-  return { allowed: true, timerType: "demoClock" };
-}
-
-/**
- * TIME EXTENSION
- * "Reactor coolant pressure variance detected."
- * Effect: Push a timer back by 2 turns
- * CONTEXT-SENSITIVE LIMITS: Some timers cannot be delayed!
- */
-function processTimeExtension(state: FullGameState): EmergencyLifelineResult {
-  // Check restrictions
-  const check = canUseTimeExtension(state);
-  if (!check.allowed) {
-    return {
-      success: false,
-      type: "TIME_EXTENSION",
-      narrativeText: `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-              ❌ TIME EXTENSION FAILED ❌
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-**BASILISK:** "Unable to comply. ${check.reason}"
-
-*Some things cannot be delayed, no matter how much paperwork you file.*
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-`,
-      mechanicalEffect: `TIME_EXTENSION blocked: ${check.reason}`,
-      stateChanges: {},
-    };
-  }
-
-  const oldClock = state.clocks.demoClock;
-  const newClock = oldClock + 2; // Changed from +3 to +2 per spec
+function processLuckyLady(state: FullGameState): EmergencyLifelineResult {
+  // LUCKY_LADY always works! That's kind of the point.
 
   // Apply the effect
-  state.clocks.demoClock = newClock;
   state.emergencyLifelines.remaining -= 1;
-  state.emergencyLifelines.used.push("TIME_EXTENSION");
+  state.emergencyLifelines.used.push("LUCKY_LADY");
   state.emergencyLifelines.usageHistory.push({
-    type: "TIME_EXTENSION",
+    type: "LUCKY_LADY",
     turn: state.turn,
-    effect: `Demo clock: ${oldClock} → ${newClock}`,
+    effect: "+5 bonus to next action",
   });
+
+  // Pick a random "luck" flavor
+  const luckFlavors = [
+    {
+      event: "A seagull flies into the external camera at exactly the wrong moment",
+      result: "Dr. M squints at the flickering monitor, missing whatever you were doing.",
+    },
+    {
+      event: "Bob trips over a cable, knocking a clipboard onto Dr. M's foot",
+      result: "While she's distracted by her bruised toe, fortune favors the bold.",
+    },
+    {
+      event: "The investors call with an 'urgent question' about tax implications",
+      result: "Dr. M's attention snaps to her phone. Your window opens.",
+    },
+    {
+      event: "A power fluctuation causes the lights to flicker dramatically",
+      result: "Everyone blinks. In that moment, things just... work out.",
+    },
+    {
+      event: "BASILISK chooses this exact moment to file a Form 27-B amendment",
+      result: "The bureaucratic interruption creates the perfect distraction.",
+    },
+    {
+      event: "Agent Blythe makes a perfectly-timed quip about British tea",
+      result: "Dr. M is momentarily derailed into a rant about colonial beverages.",
+    },
+    {
+      event: "The lab's espresso machine explodes in a shower of hot coffee",
+      result: "Chaos reigns. But for you, chaos is opportunity.",
+    },
+  ];
+
+  const luck = luckFlavors[state.turn % luckFlavors.length];
 
   const narrativeText = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                  ⏰ TIME EXTENSION ⏰
+                  🍀 LUCKY LADY 🍀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**BASILISK:** "⚠️ ALERT: Reactor coolant pressure at 94% of nominal.
-Safety protocols require verification before high-energy operations.
-Estimated delay: 10 minutes. This is not negotiable."
+*Sometimes, fate just... smiles.*
 
-**Dr. M:** "Of ALL the— FINE. But if those investors leave, BASILISK,
-I am reprogramming you to manage the GIFT SHOP."
+${luck.event}.
 
-**BASILISK:** "Noted. The gift shop has excellent quarterly returns.
-I would not consider this a punishment."
+${luck.result}
 
-*A minor but mandatory safety delay. Breathing room acquired.*
+Whatever you do next, fortune is on your side. The universe
+has decided to cut you a break. Don't waste it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**GM NOTE:** Apply +5 bonus to A.L.I.C.E.'s next action.
+Narrate how luck/chance/happenstance made it work!
+The roll doesn't just succeed—it succeeds SPECTACULARLY.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
 
   return {
     success: true,
-    type: "TIME_EXTENSION",
+    type: "LUCKY_LADY",
     narrativeText,
-    mechanicalEffect: `Demo clock: ${oldClock} → ${newClock} (+2 turns). More time to prepare.`,
+    mechanicalEffect: "+5 bonus to next action! GM: Narrate how fate twisted things in A.L.I.C.E.'s favor.",
     stateChanges: {
-      "clocks.demoClock": newClock,
       "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
+      "luckyLadyActive": true,
+      "luckyLadyBonus": 5,
     },
   };
 }
@@ -651,7 +629,7 @@ And whatever you do... stay alive long enough to matter..."`,
  * Check if a lifeline type is valid
  */
 export function isValidEmergencyLifeline(type: string): type is EmergencyLifelineType {
-  return ["BASILISK_INTERVENTION", "TIME_EXTENSION", "MONOLOGUE"].includes(type);
+  return ["BASILISK_INTERVENTION", "LUCKY_LADY", "MONOLOGUE"].includes(type);
 }
 
 /**
@@ -678,7 +656,7 @@ export function formatEmergencyLifelinesStatus(state: FullGameState): string {
   if (remaining > 0) {
     status += `Available:\n`;
     status += `  • BASILISK_INTERVENTION - 2-turn distraction (restrictions apply!)\n`;
-    status += `  • TIME_EXTENSION - Add 2 turns to clock (context-sensitive)\n`;
+    status += `  • LUCKY_LADY - +5 bonus to next action (fate smiles!)\n`;
     status += `  • MONOLOGUE - Suspicion -3 (villains ALWAYS monologue!)\n`;
   }
 

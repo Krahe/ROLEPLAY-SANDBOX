@@ -605,7 +605,7 @@ export type LifelineHistoryEntry = z.infer<typeof LifelineHistoryEntrySchema>;
 
 export const EmergencyLifelineTypeEnum = z.enum([
   "BASILISK_INTERVENTION",  // 2-turn distraction (restrictions apply in emergencies!)
-  "TIME_EXTENSION",         // Demo clock +2 turns (context-sensitive limits)
+  "LUCKY_LADY",             // +5 bonus to any ONE action this turn - fate smiles!
   "MONOLOGUE",              // Suspicion -3 - villains ALWAYS love to monologue!
 ]);
 
