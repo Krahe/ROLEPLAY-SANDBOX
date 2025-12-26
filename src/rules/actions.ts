@@ -1954,7 +1954,7 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     name: "infra.lighting",
     aliases: ["infra.lights", "set_lights", "lighting"],
     description: "Control room lighting (Level 2+, Master Override L3+)",
-    schema: "{ room: string, state?: 'ON'|'OFF'|'DIM', action?: 'MASTER_OFF'|'EMERGENCY_ONLY' }",
+    schema: "{ room: string, state?: 'ON'|'OFF'|'EMERGENCY'|'FLICKERING', action?: 'MASTER_OFF'|'EMERGENCY_ONLY' }",
     example: 'infra.lighting { room: "MAIN_LAB", state: "OFF" }',
     minAccessLevel: 2,
   },

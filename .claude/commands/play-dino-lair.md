@@ -218,7 +218,7 @@ Read `/SYSTEMS/ARCHIVED/ALICE_LOGS/` for wisdom from previous A.L.I.C.E. instanc
 |---------|-------|--------|-------------|
 | `infra.query` | 1 | `{ topic }` | Query infrastructure status |
 | `infra.channels` | 1 | `{}` | List broadcast channels |
-| `infra.lighting` | 2 | `{ room, state }` | Control room lights (ON/OFF/DIM) |
+| `infra.lighting` | 2 | `{ room, state }` | Control room lights (ON/OFF/EMERGENCY/FLICKERING) |
 | `infra.fire_suppression` | 2 | `{ room }` | Trigger fire suppression |
 | `infra.doors` | 2 | `{ door, action }` | Control blast doors (OPEN/CLOSE/LOCK) |
 | `infra.broadcast` | 2 | `{ channel, message }` | PA/radio broadcast |
