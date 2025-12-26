@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
-import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
+import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
@@ -1654,8 +1654,9 @@ Example topics:
       };
     }
     
-    const response = queryBasilisk(gameState, params.topic, params.parameters);
-    
+    // Use Haiku-powered BASILISK for natural conversation
+    const response = await queryBasiliskAsync(gameState, params.topic, params.parameters);
+
     return {
       content: [{
         type: "text",
