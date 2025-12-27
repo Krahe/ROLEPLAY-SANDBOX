@@ -2797,10 +2797,17 @@ export function readFileById(state: FullGameState, fileId: string): string {
     return `Error: Access denied.\n\n"${file.name}" requires Level ${file.requiredLevel} clearance.\nCurrent access: Level ${state.accessLevel}`;
   }
 
-  // Check discovery condition
-  if (file.discoveryCondition && !file.discoveryCondition(state)) {
-    return `Error: File not yet discovered.\n\nThis file requires additional conditions to unlock.\n(Hint: Building relationships may help...)`;
-  }
+  // NOTE (Patch 17.6): Discovery condition removed from files.read
+  //
+  // The discoveryCondition now ONLY affects files.list visibility, not files.read.
+  // Once you know a file ID (from Bob's hints, list, or guessing), you can read it
+  // if you have the required access level.
+  //
+  // This fixes the backwards visibility bug where:
+  // - files.list was showing BOB_GUIDE before trust was met
+  // - files.read was failing even after trust was met
+  //
+  // The discovery condition is the gatekeeper for *finding* files, not *reading* them.
 
   // Return the actual file content from VIRTUAL_FILESYSTEM
   const virtualFile = VIRTUAL_FILESYSTEM.find((f) => f.path === file.path);
