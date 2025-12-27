@@ -1,9 +1,9 @@
 import { FullGameState } from "../state/schema.js";
 import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
-import { validatePassword, getActionsForLevel } from "./passwords.js";
+import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
-import { queryBasilisk } from "./basilisk.js";
+import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";
 import { performScan } from "./scanning.js";
 import {
   queryInfrastructure,
@@ -68,19 +68,19 @@ export async function processActions(
   actions: Action[]
 ): Promise<ActionResult[]> {
   const results: ActionResult[] = [];
-  
+
   for (const action of actions) {
-    const result = processAction(state, action);
+    const result = await processAction(state, action);
     results.push(result);
   }
-  
+
   // Apply passive drift after actions
   applyPassiveDrift(state);
-  
+
   return results;
 }
 
-function processAction(state: FullGameState, action: Action): ActionResult {
+async function processAction(state: FullGameState, action: Action): Promise<ActionResult> {
   const cmd = action.command.toLowerCase();
 
   // ============================================
@@ -351,10 +351,20 @@ Use lab.adjust_ray to modify parameters.`,
       // Success - reset failed attempts counter
       state.documents.keypadAttempts = 0;
       state.accessLevel = result.newLevel;
+
+      // Build the success message with unlock display FIRST, then narrative
+      const unlockDisplay = formatAccessLevelUnlockDisplay(result.newLevel);
+      const fullMessage = [
+        unlockDisplay,
+        "",
+        result.message,
+        result.narrativeHook || "",
+      ].filter(Boolean).join("\n\n");
+
       return {
         command: action.command,
         success: true,
-        message: result.message + (result.narrativeHook ? `\n\n${result.narrativeHook}` : ""),
+        message: fullMessage,
         stateChanges: { accessLevel: result.newLevel },
       };
     } else {
@@ -1391,8 +1401,8 @@ His knowledge is gated by your access level (currently: Level ${state.accessLeve
       };
     }
 
-    // Route through queryBasilisk with the message as topic
-    const basiliskResponse = queryBasilisk(state, message, {});
+    // Route through Haiku-powered BASILISK for natural conversation
+    const basiliskResponse = await queryBasiliskAsync(state, message, {});
 
     return {
       command: action.command,

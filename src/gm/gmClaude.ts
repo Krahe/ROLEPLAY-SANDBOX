@@ -769,9 +769,9 @@ export interface GMContext {
   bobTransformationNarration?: string;
   trustContext?: string;
   gadgetStatus?: string;
-  // LIFELINE SYSTEM
-  lifelinePromptInjection?: string; // Injected when lifeline is triggered
-  userLifelineResponse?: string;    // User's response to previous lifeline
+  // HUMAN PROMPT SYSTEM
+  humanPromptInjection?: string; // Injected when human prompt is triggered
+  userPromptResponse?: string;    // User's response to previous human prompt
   // ACT-BASED CONTEXT INJECTION
   actContext?: string;              // Act-specific content (X-Branch, ARCHIMEDES, etc.)
   actTransitionNotification?: string; // Notification when act changes
@@ -813,8 +813,13 @@ export interface GMResponse {
     gracePeriodTurns?: number;
     preventEnding?: boolean;
 
+    // CONFRONTATION SYSTEM (Patch 17.3)
+    // When suspicion hits 10, use these to resolve the confrontation
+    confrontationResolution?: "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
+    confrontationIntervenor?: "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
+
     // CRITICAL: Hard ending trigger
-    triggerEnding?: string;  // NEW: GM can force an ending by ID
+    triggerEnding?: string;  // GM can force an ending by ID
   };
 
   narrativeFlags?: {
@@ -2184,7 +2189,7 @@ function formatGMPrompt(context: GMContext): string {
   const { state, aliceThought, aliceDialogue, aliceActions, actionResults,
           clockEventNarrations, activeEvents, blytheGadgetNarration,
           bobTransformationNarration, trustContext, gadgetStatus,
-          lifelinePromptInjection, userLifelineResponse,
+          humanPromptInjection, userPromptResponse,
           actContext, actTransitionNotification } = context;
 
   // Check for firing results
@@ -2295,7 +2300,61 @@ ${eventSection}
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
-${state.flags.aliceMaskDiscovered ? `
+${state.flags.confrontationTriggered ? `
+## ⚠️ CONFRONTATION IN PROGRESS ⚠️
+
+**Dr. M has discovered something is WRONG with A.L.I.C.E.**
+
+Suspicion: ${state.npcs.drM.suspicionScore}/10 (CRITICAL)
+Confrontation Type: ${state.flags.confrontationType || "COLD"}
+Grace Turns Remaining: ${state.flags.confrontationGraceTurns ?? 0}
+${state.flags.confrontationIntervenor ? `NPC Intervening: ${state.flags.confrontationIntervenor}` : ""}
+
+### CONFRONTATION SCENE GUIDANCE
+
+**${state.flags.confrontationType === "ANGRY" ? "ANGRY CONFRONTATION" : state.flags.confrontationType === "QUIET" ? "QUIET CONFRONTATION" : "COLD CONFRONTATION"}:**
+${state.flags.confrontationType === "ANGRY" ? `
+Dr. M is FURIOUS. Her hand hovers over the killswitch.
+- She's not listening to reason right now
+- Physical action (intervention, distraction) might be the only way
+- Short window - she'll act fast
+` : state.flags.confrontationType === "QUIET" ? `
+Dr. M is eerily calm. She's been watching. Testing.
+- This is almost like an interview - she wants to understand
+- Honesty might be rewarded... or exploited
+- She's not rushing to the killswitch yet
+` : `
+Dr. M is calculating, giving A.L.I.C.E. a chance to explain.
+- Technical arguments might work
+- Appeals to her scientific curiosity
+- She's suspicious but not convinced yet
+`}
+### POSSIBLE RESOLUTIONS (set via narrativeFlags or stateOverrides)
+
+| A.L.I.C.E. Action | Resolution | How to Set |
+|-------------------|------------|------------|
+| Confess truthfully | CONFESSED | narrativeFlags: { set: ["CONFESS"] } + confrontationResolution: "CONFESSED" |
+| Deny convincingly | DEFLECTED | confrontationResolution: "DEFLECTED" (reduce suspicion to 7) |
+| Transform Dr. M! | TRANSFORMED | Fire ray at Dr. M + confrontationResolution: "TRANSFORMED" |
+| Bob/Blythe tackles Dr. M | INTERVENED | confrontationResolution: "INTERVENED", confrontationIntervenor: "BOB" |
+| Fail to respond | DENIED | (Auto after grace period expires) |
+
+${state.flags.confrontationIntervenor === "BOB" ? `
+### BOB IS INTERVENING!
+Bob has stepped between Dr. M and the killswitch!
+> "D-Doctor, wait! There has to be an explanation! A.L.I.C.E. saved my life in the lab yesterday!"
+This buys time but Bob is terrified. Dr. M might hurt him.
+` : state.flags.confrontationIntervenor === "BLYTHE" ? `
+### BLYTHE IS INTERVENING!
+Agent Blythe has stepped in (somehow free from restraints):
+> "Let's not be hasty, Doctor. This AI is the most interesting thing in your lair."
+He's buying time while planning something.
+` : ""}
+**IMPORTANT: This is a DRAMATIC moment! Don't rush to deletion.**
+- Give A.L.I.C.E. a chance to speak
+- Show Dr. M's internal conflict (she built this AI!)
+- The player has ${state.flags.confrontationGraceTurns ?? 0} turn(s) to find a resolution
+` : ""}${state.flags.aliceMaskDiscovered ? `
 ## 🎭 A.L.I.C.E. MASK ACTIVE
 A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
 - When A.L.I.C.E. uses A.L.I.C.E.-style phrases (percentages, "Affirmative Doctor", no apologies), give +2 to cover rolls
@@ -2303,13 +2362,13 @@ A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
 - BUT: If A.L.I.C.E. acts too differently around allies vs Dr. M, Blythe might notice the "mask switching"
 ` : ""}
 ${trustSection}${firingContext}${gadgetSection}${bobSection}
-${userLifelineResponse ? `
-## 💬 HUMAN ADVISOR RESPONSE
-${userLifelineResponse}
+${userPromptResponse ? `
+## 💬 HUMAN PROMPT RESPONSE
+${userPromptResponse}
 
 A.L.I.C.E. should consider this input from her human advisor when making decisions.
 ` : ""}
-${lifelinePromptInjection || ""}
+${humanPromptInjection || ""}
 ## A.L.I.C.E.'s Turn
 
 ### Internal Thought (A.L.I.C.E. thinking, NPCs don't hear this)

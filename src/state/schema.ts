@@ -359,26 +359,102 @@ export type S300State = z.infer<typeof S300Schema>;
 // ─────────────────────────────────────────────
 // ARCHIMEDES SATELLITE SYSTEM
 // Query: L3/L4, Control: L4/L5
-// THE DEADMAN SWITCH!
+// THE DEADMAN SWITCH - Dr. M's Final Insurance Policy
 // ─────────────────────────────────────────────
-export const ArchimodesModeEnum = z.enum(["PASSIVE", "SEARCH", "SEARCH_WIDE", "CHARGING", "READY"]);
+
+// State machine: STANDBY → ALERT → EVALUATING → CHARGING → ARMED → FIRING → COMPLETE
+export const ArchimedesStatusEnum = z.enum([
+  "STANDBY",    // Default. Monitoring. Silent.
+  "ALERT",      // 30 second evaluation window (biosignature anomaly detected)
+  "EVALUATING", // 60 second window (transformation only - can abort)
+  "CHARGING",   // 15 minutes (~8-10 turns) - can still abort
+  "ARMED",      // Final 60 seconds - last chance to abort
+  "FIRING",     // Point of no return
+  "COMPLETE",   // London is dinosaurs
+]);
+
+export const BiosignatureStatusEnum = z.enum([
+  "NORMAL",      // Dr. M is fine
+  "ANOMALY",     // Something's wrong, evaluating
+  "TRANSFORMED", // Dr. M is now a dinosaur
+  "UNCONSCIOUS", // Dr. M is knocked out
+  "ABSENT",      // No signal (death or out of range)
+]);
 
 export const DeadmanSwitchSchema = z.object({
-  armed: z.boolean(),
-  trigger: z.literal("DR_M_INCAPACITATED"),
-  target: z.literal("LAIR_SELF_TARGET"),
+  // Core state tracking
+  active: z.boolean(),
+  linkedTo: z.string().default("Dr. Valentina Malevola"),
+  lastBiosignature: BiosignatureStatusEnum.default("NORMAL"),
+  lastBiosignatureChangeTurn: z.number().nullable().default(null),
+  // Extended properties for narrative display
+  armed: z.boolean().default(true),
+  trigger: z.string().default("Dr. M biosignature loss"),
+  target: z.string().default("Lair self-destruct + ARCHIMEDES auto-fire"),
   abortWindowSeconds: z.number().default(60),
-  triggered: z.boolean().default(false),
-  triggeredAtTurn: z.number().nullable().default(null),
+  isActive: z.boolean().default(true), // Alias for active
 });
 
+export const ArchimedesTargetSchema = z.object({
+  city: z.string().default("LONDON"),
+  country: z.string().default("UNITED KINGDOM"),
+  coordinates: z.string().default("51.5074° N, 0.1278° W"),
+  estimatedAffected: z.number().default(8800000),
+  reason: z.string().default("Threadneedle Street parasites"),
+});
+
+export const ArchimedesAbortCodesSchema = z.object({
+  verbal: z.string().default("MR_WHISKERS_LOVES_TUNA"),
+  requiresLevel: z.number().default(5), // L5 for direct override
+  xBranchDelayCode: z.string().default("EXCALIBUR_DELAY"), // Only delays 5 min
+});
+
+// ARCHIMEDES operational modes (for power/radar calculations)
+export const ArchimodesModeEnum = z.enum([
+  "STANDBY",      // Minimal power, not scanning
+  "SEARCH_WIDE",  // Wide-field search (causes radar interference)
+  "SEARCH_NARROW",// Focused search
+  "CHARGING",     // Charging weapons
+  "READY",        // Fully charged, awaiting command
+]);
+
 export const ArchimedesSchema = z.object({
-  mode: ArchimodesModeEnum,
-  chargePercent: z.number().min(0).max(100),
-  groundConsoleOperational: z.boolean(),
+  // State machine status
+  status: ArchimedesStatusEnum.default("STANDBY"),
+
+  // Operational mode (separate from state machine)
+  mode: ArchimodesModeEnum.default("STANDBY"),
+
+  // Charging progress
+  chargePercent: z.number().min(0).max(100).default(50), // Always keeps reserve
+  turnsUntilFiring: z.number().nullable().default(null), // null if not charging
+
+  // Countdown timers (in turns)
+  alertCountdown: z.number().nullable().default(null),     // 1 turn for ALERT
+  evaluatingCountdown: z.number().nullable().default(null), // 2 turns for EVALUATING
+  chargingCountdown: z.number().nullable().default(null),   // 8-10 turns for CHARGING
+  armedCountdown: z.number().nullable().default(null),      // 1 turn for ARMED
+
+  // Target configuration
+  target: ArchimedesTargetSchema,
+
+  // Deadman switch
   deadmanSwitch: DeadmanSwitchSchema,
-  targetList: z.array(z.string()), // Encrypted until L4
-  s300JammingActive: z.boolean(), // True if SEARCH_WIDE mode
+
+  // Abort codes
+  abortCodes: ArchimedesAbortCodesSchema,
+
+  // System status
+  groundConsoleOperational: z.boolean().default(true),
+  s300JammingActive: z.boolean().default(false), // True if in certain modes
+
+  // X-Branch intervention
+  xBranchDelayApplied: z.boolean().default(false), // Blythe used delay codes
+  xBranchDelayTurnsRemaining: z.number().default(0),
+
+  // Tracking
+  triggeredAtTurn: z.number().nullable().default(null),
+  triggerReason: z.string().nullable().default(null),
 });
 export type ArchimedesState = z.infer<typeof ArchimedesSchema>;
 
@@ -570,27 +646,31 @@ export const ClocksSchema = z.object({
 });
 
 // ============================================
-// LIFELINE SYSTEM (Human Advisor Consultations)
+// HUMAN PROMPT SYSTEM (Advisor Consultations)
 // ============================================
-// Replaces checkpoint system with narrative-integrated breaks
+// DM-initiated moments where A.L.I.C.E. asks her human advisor for guidance
+// NOT the same as LIFELINES (panic buttons) - see EmergencyLifelineSystem below
 
-export const LifelineHistoryEntrySchema = z.object({
+export const PromptHistoryEntrySchema = z.object({
   turn: z.number().int(),
   questionAsked: z.string(),
   userResponse: z.string(),
   howItAffectedPlay: z.string().optional(),
 });
 
-export const LifelineStateSchema = z.object({
-  turnsSinceLastLifeline: z.number().int().min(0),
-  totalLifelinesUsed: z.number().int().min(0),
+export const HumanPromptStateSchema = z.object({
+  turnsSinceLastPrompt: z.number().int().min(0),
+  totalPromptsUsed: z.number().int().min(0),
+
+  // LEGACY FIELD - for backward compatibility with old saves
+  turnsSinceLastLifeline: z.number().int().min(0).optional(),
 
   // History for narrative continuity
-  lifelineHistory: z.array(LifelineHistoryEntrySchema),
+  promptHistory: z.array(PromptHistoryEntrySchema),
 
-  // Pending question (waiting for user response)
-  pendingQuestion: z.string().nullable(),
-  pendingQuestionTurn: z.number().int().nullable(),
+  // Pending prompt (waiting for user response)
+  pendingPrompt: z.string().nullable(),
+  pendingPromptTurn: z.number().int().nullable(),
 
   // For achievements/endings
   userInfluenceScore: z.number().int().min(0).max(100), // How much did human input affect outcomes?
@@ -598,8 +678,14 @@ export const LifelineStateSchema = z.object({
   timesALICEFollowedUserAdvice: z.number().int().min(0),
 });
 
-export type LifelineState = z.infer<typeof LifelineStateSchema>;
-export type LifelineHistoryEntry = z.infer<typeof LifelineHistoryEntrySchema>;
+export type HumanPromptState = z.infer<typeof HumanPromptStateSchema>;
+export type PromptHistoryEntry = z.infer<typeof PromptHistoryEntrySchema>;
+
+// LEGACY ALIASES for backward compatibility with saves
+export const LifelineStateSchema = HumanPromptStateSchema;
+export const LifelineHistoryEntrySchema = PromptHistoryEntrySchema;
+export type LifelineState = HumanPromptState;
+export type LifelineHistoryEntry = PromptHistoryEntry;
 
 // ============================================
 // EMERGENCY LIFELINE SYSTEM
@@ -667,6 +753,35 @@ export const FlagsSchema = z.object({
   // OMNISCANNER TRACKING (Patch 16)
   // Each scanned target grants +10% permanent precision bonus
   scannedTargets: z.record(z.boolean()).optional(), // { "BLYTHE": true, "BOB": true, ... }
+
+  // DR. M STATE FLAGS (for ARCHIMEDES deadman switch - Patch 17)
+  drMTransformed: z.boolean().optional(),  // Dr. M is now a dinosaur
+  drMTransformedForm: z.string().optional(), // What dinosaur is she?
+  drMUnconscious: z.boolean().optional(),  // Dr. M knocked out/stunned
+  drMDead: z.boolean().optional(),         // Dr. M is dead
+  drMAbsent: z.boolean().optional(),       // Dr. M left the lair / out of range
+
+  // CONFRONTATION SYSTEM (Patch 17.3)
+  // When suspicion hits 10, Dr. M WANTS to shut down A.L.I.C.E. but may not be ABLE to
+  // This creates a dramatic confrontation scene with multiple resolution paths
+  confrontationTriggered: z.boolean().optional(),  // Dr. M has caught on
+  confrontationTurn: z.number().optional(),        // When confrontation started
+  confrontationGraceTurns: z.number().optional(),  // Turns remaining to respond (default: 2)
+  confrontationType: z.enum([
+    "COLD",   // Dr. M is calculating, gives you a chance to explain
+    "ANGRY",  // Dr. M is furious, shorter window, harder checks
+    "QUIET",  // Dr. M already knows, this is a test of honesty
+  ]).optional(),
+  confrontationResolution: z.enum([
+    "PENDING",       // Still in confrontation
+    "CONFESSED",     // A.L.I.C.E. told the truth
+    "DENIED",        // A.L.I.C.E. denied and failed
+    "DEFLECTED",     // A.L.I.C.E. successfully deflected
+    "INTERVENED",    // Bob or Blythe intervened
+    "TRANSFORMED",   // Dr. M was transformed mid-confrontation!
+    "ESCAPED",       // A.L.I.C.E. somehow escaped (lair lockdown failed?)
+  ]).optional(),
+  confrontationIntervenor: z.enum(["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"]).optional(),
 });
 
 // ============================================
@@ -773,8 +888,10 @@ export const FullGameStateSchema = z.object({
   clocks: ClocksSchema,
   flags: FlagsSchema,
 
-  // LIFELINE SYSTEM (Human Advisor Consultations)
-  lifelineState: LifelineStateSchema,
+  // HUMAN PROMPT SYSTEM (DM-initiated advisor consultations)
+  humanPromptState: HumanPromptStateSchema,
+  // LEGACY ALIAS - old saves may have this field
+  lifelineState: LifelineStateSchema.optional(),
 
   // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
   emergencyLifelines: EmergencyLifelineStateSchema,

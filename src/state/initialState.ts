@@ -1,6 +1,6 @@
 import { FullGameState, Act, ACT_CONFIGS } from "./schema.js";
 import { randomUUID } from "crypto";
-import { createInitialLifelineState } from "../rules/lifeline.js";
+import { createInitialHumanPromptState } from "../rules/lifeline.js";
 
 export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
   const actConfig = ACT_CONFIGS[startAct];
@@ -197,19 +197,63 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       // THE DEADMAN SWITCH!
       // ─────────────────────────────────────────────
       archimedes: {
-        mode: "PASSIVE",
-        chargePercent: 50, // Always keeps reserve for deadman
-        groundConsoleOperational: true,
-        deadmanSwitch: {
-          armed: true,
-          trigger: "DR_M_INCAPACITATED",
-          target: "LAIR_SELF_TARGET",
-          abortWindowSeconds: 60,
-          triggered: false,
-          triggeredAtTurn: null,
+        // State machine - starts in STANDBY
+        status: "STANDBY",
+
+        // Operational mode (separate from state machine)
+        mode: "STANDBY",
+
+        // Charging - always keeps 50% reserve for deadman activation
+        chargePercent: 50,
+        turnsUntilFiring: null,
+
+        // Countdown timers (all null in STANDBY)
+        alertCountdown: null,
+        evaluatingCountdown: null,
+        chargingCountdown: null,
+        armedCountdown: null,
+
+        // Target: LONDON (Dr. M's grudge against City investors)
+        target: {
+          city: "LONDON",
+          country: "UNITED KINGDOM",
+          coordinates: "51.5074° N, 0.1278° W",
+          estimatedAffected: 8800000,
+          reason: "Threadneedle Street pulled funding after 'ethical concerns'",
         },
-        targetList: ["[ENCRYPTED]", "[ENCRYPTED]", "[ENCRYPTED]"],
+
+        // Deadman switch - always armed, linked to Dr. M
+        deadmanSwitch: {
+          active: true,
+          linkedTo: "Dr. Valentina Malevola",
+          lastBiosignature: "NORMAL",
+          lastBiosignatureChangeTurn: null,
+          // Extended properties for narrative display
+          armed: true,
+          trigger: "Dr. M biosignature loss",
+          target: "Lair self-destruct + ARCHIMEDES auto-fire",
+          abortWindowSeconds: 60,
+          isActive: true,
+        },
+
+        // Abort codes (Bob can't spell "London", so he definitely doesn't know these)
+        abortCodes: {
+          verbal: "MR_WHISKERS_LOVES_TUNA",
+          requiresLevel: 5,
+          xBranchDelayCode: "EXCALIBUR_DELAY",
+        },
+
+        // System status
+        groundConsoleOperational: true,
         s300JammingActive: false,
+
+        // X-Branch intervention tracking
+        xBranchDelayApplied: false,
+        xBranchDelayTurnsRemaining: 0,
+
+        // Event tracking
+        triggeredAtTurn: null,
+        triggerReason: null,
       },
 
       // ─────────────────────────────────────────────
@@ -384,8 +428,8 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       },
     },
 
-    // LIFELINE SYSTEM (Human Advisor Consultations)
-    lifelineState: createInitialLifelineState(),
+    // HUMAN PROMPT SYSTEM (Advisor Consultations)
+    humanPromptState: createInitialHumanPromptState(),
 
     // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
     emergencyLifelines: {

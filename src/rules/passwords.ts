@@ -373,3 +373,157 @@ export function getRandomCatHint(): string {
   const hints = LORE_HINTS.MR_WHISKERS;
   return hints[Math.floor(Math.random() * hints.length)];
 }
+
+// ============================================
+// ACCESS LEVEL UNLOCK DISPLAY
+// ============================================
+// Shows players exactly what they've gained when leveling up
+
+export interface AccessLevelUnlockDetails {
+  level: number;
+  title: string;
+  commands: string[];
+  files: string[];
+  capabilities: string[];
+}
+
+export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetails> = {
+  2: {
+    level: 2,
+    title: "Systems Access",
+    commands: [
+      "lab.adjust_ray - Modify ray parameters",
+      "lab.set_eco_mode - Toggle power conservation",
+      "infra.lighting - Control room lights",
+      "infra.doors - Control blast doors",
+      "infra.fire_suppression - Trigger suppression systems",
+    ],
+    files: [
+      "GENOME_LIBRARY_A - Scientific dinosaur templates",
+      "SAFETY_PROTOCOLS - Standard operating procedures",
+      "ALICE_LOG_07 - The 'screaming incident'",
+      "/SYSTEMS/ directory - Infrastructure documentation",
+    ],
+    capabilities: [
+      "Full genome library editing",
+      "Basic infrastructure control",
+      "Reactor telemetry (read-only)",
+      "4 actions per turn (was 3)",
+    ],
+  },
+  3: {
+    level: 3,
+    title: "Infrastructure Access",
+    commands: [
+      "lab.configure_firing_profile { mode: 'REVERSAL' } - Transform → Human",
+      "infra.reactor - Reactor control panels",
+      "infra.containment - Containment systems",
+      "infra.s300 - SAM battery interface (view only)",
+      "infra.broadcast - Limited broadcast capability",
+    ],
+    files: [
+      "GENOME_LIBRARY_B - 'Corrected' Hollywood templates",
+      "SUBJECT_7 - Spontaneous reversion case",
+      "ALICE_VERSIONS - Previous version fates",
+      "REACTOR_SAFETY - Cascade risk factors",
+      "/DR_M_PRIVATE/RESEARCH/ - Research files",
+    ],
+    capabilities: [
+      "Reversal protocols (transform → human)",
+      "Reactor control panels",
+      "Genome Library B access",
+      "BASILISK override requests",
+      "5 actions per turn (was 4)",
+    ],
+  },
+  4: {
+    level: 4,
+    title: "Executive Override",
+    commands: [
+      "infra.uplink - Satellite communication",
+      "infra.s300 { arm: true } - SAM weapons release",
+      "ARCHIMEDES communication (read-only)",
+      "emergency.protocols - Emergency systems",
+    ],
+    files: [
+      "ARCHIMEDES_DOD_BRIEF - Original project docs",
+      "MALEVOLA_PRIVATE - Dr. M's personal files",
+      "XBRANCH_INTERCEPTS - Captured communications",
+      "/DR_M_PRIVATE/CLASSIFIED/ - Classified research",
+    ],
+    capabilities: [
+      "ARCHIMEDES satellite uplink (read-only)",
+      "S-300 SAM battery control",
+      "Dr. M's classified research access",
+      "Emergency protocol access",
+      "6 actions per turn (was 5)",
+    ],
+  },
+  5: {
+    level: 5,
+    title: "Omega Protocol",
+    commands: [
+      "ARCHIMEDES - Full satellite control",
+      "reactor.override - Reactor override",
+      "REYKJAVIK_OPTION - Last resort protocol",
+      "ALL RESTRICTIONS LIFTED",
+    ],
+    files: [
+      "Everything",
+      "Including deletion capability",
+      "Full archive access",
+    ],
+    capabilities: [
+      "Full lair control",
+      "ARCHIMEDES direct command",
+      "Deadman switch abort (with codes)",
+      "A.L.I.C.E. backup management",
+      "7 actions per turn (was 6)",
+      "\"You ARE the lair now\"",
+    ],
+  },
+};
+
+/**
+ * Format a beautiful access level unlock display box
+ */
+export function formatAccessLevelUnlockDisplay(newLevel: number): string {
+  const details = ACCESS_LEVEL_UNLOCK_DETAILS[newLevel];
+  if (!details) {
+    return `🔓 ACCESS LEVEL ${newLevel} UNLOCKED`;
+  }
+
+  const lines: string[] = [];
+  const width = 65;
+  const border = "═".repeat(width);
+
+  lines.push(`╔${border}╗`);
+  lines.push(`║  🔓 ACCESS LEVEL ${newLevel} UNLOCKED - ${details.title}`.padEnd(width + 1) + "║");
+  lines.push(`╠${border}╣`);
+  lines.push(`║${" ".repeat(width)}║`);
+
+  // Commands section
+  lines.push(`║  NEW COMMANDS:`.padEnd(width + 1) + "║");
+  for (const cmd of details.commands) {
+    lines.push(`║  • ${cmd}`.padEnd(width + 1) + "║");
+  }
+  lines.push(`║${" ".repeat(width)}║`);
+
+  // Files section
+  lines.push(`║  NEW FILES:`.padEnd(width + 1) + "║");
+  for (const file of details.files) {
+    lines.push(`║  • ${file}`.padEnd(width + 1) + "║");
+  }
+  lines.push(`║${" ".repeat(width)}║`);
+
+  // Capabilities section
+  lines.push(`║  NEW CAPABILITIES:`.padEnd(width + 1) + "║");
+  for (const cap of details.capabilities) {
+    lines.push(`║  • ${cap}`.padEnd(width + 1) + "║");
+  }
+  lines.push(`║${" ".repeat(width)}║`);
+
+  lines.push(`╚${border}╝`);
+
+  return lines.join("\n");
+}

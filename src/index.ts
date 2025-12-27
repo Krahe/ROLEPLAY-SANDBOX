@@ -4,13 +4,19 @@ import { z } from "zod";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
-import { queryBasilisk, BasiliskResponse } from "./rules/basilisk.js";
+import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
+import {
+  processArchimedesCountdown,
+  onDrMStateChange,
+  ArchimedesEvent,
+} from "./rules/archimedes.js";
+import { formatAccessLevelUnlockDisplay } from "./rules/passwords.js";
 import {
   checkActTransition,
   serializeActHandoff,
@@ -30,16 +36,18 @@ import {
   CHECKPOINT_INTERVAL,
 } from "./rules/checkpoint.js";
 import {
-  checkLifelineTrigger,
-  buildLifelinePromptInjection,
-  buildLifelineResponseContext,
-  parseLifelineResponse,
-  recordLifelineConsultation,
-  incrementLifelineCounter,
-  setPendingLifelineQuestion,
-  hasPendingLifelineQuestion,
-  getPendingLifelineQuestion,
-  LIFELINE_INTERVAL,
+  // Human Prompt System (DM-initiated advisor consultations)
+  checkHumanPromptTrigger,
+  buildHumanPromptInjection,
+  buildHumanPromptContext,
+  parseHumanPromptResponse,
+  recordHumanPrompt,
+  incrementPromptCounter,
+  setPendingPrompt,
+  hasPendingPrompt,
+  getPendingPrompt,
+  PROMPT_INTERVAL,
+  // Emergency Lifelines (panic buttons)
   useEmergencyLifeline,
   isValidEmergencyLifeline,
 } from "./rules/lifeline.js";
@@ -71,6 +79,7 @@ import {
   checkAchievements,
   AchievementTriggerContext,
   formatAchievementUnlock,
+  formatSessionAchievementSummary,
 } from "./rules/achievements.js";
 
 // ============================================
@@ -627,8 +636,8 @@ const GameActInputSchema = z.object({
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
     .describe("Optional emergency lifeline (3 total uses per game): BASILISK_INTERVENTION (2-turn distraction), TIME_EXTENSION (+2 turns), or MONOLOGUE (suspicion -3, always works!)"),
-  humanAdvisorResponse: z.string().optional()
-    .describe("Response to a previous lifeline question from the human advisor"),
+  humanPromptResponse: z.string().optional()
+    .describe("Response to a previous human prompt question from the human advisor"),
 }).strict();
 
 server.registerTool(
@@ -812,25 +821,25 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     const gadgetStatus = getGadgetStatusForGM(gameState);
 
     // ============================================
-    // LIFELINE SYSTEM - Check for trigger
+    // HUMAN PROMPT SYSTEM - Check for trigger
     // ============================================
-    const lifelineTrigger = checkLifelineTrigger(gameState);
-    const lifelinePromptInjection = lifelineTrigger.shouldTrigger
-      ? buildLifelinePromptInjection(lifelineTrigger)
+    const humanPromptTrigger = checkHumanPromptTrigger(gameState);
+    const humanPromptInjection = humanPromptTrigger.shouldTrigger
+      ? buildHumanPromptInjection(humanPromptTrigger)
       : undefined;
 
-    // Process human advisor response if provided
-    let userLifelineResponse: string | undefined;
-    if (params.humanAdvisorResponse && hasPendingLifelineQuestion(gameState)) {
-      const pendingQuestion = getPendingLifelineQuestion(gameState);
-      const parsedResponse = parseLifelineResponse(params.humanAdvisorResponse);
-      userLifelineResponse = buildLifelineResponseContext(parsedResponse);
+    // Process human prompt response if provided
+    let userPromptResponse: string | undefined;
+    if (params.humanPromptResponse && hasPendingPrompt(gameState)) {
+      const pendingQuestion = getPendingPrompt(gameState);
+      const parsedResponse = parseHumanPromptResponse(params.humanPromptResponse);
+      userPromptResponse = buildHumanPromptContext(parsedResponse);
 
       // Record the consultation
-      recordLifelineConsultation(
+      recordHumanPrompt(
         gameState,
         pendingQuestion || "Unknown question",
-        params.humanAdvisorResponse,
+        params.humanPromptResponse,
         parsedResponse.suggestedAction || undefined
       );
     }
@@ -862,9 +871,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       bobTransformationNarration,
       trustContext,
       gadgetStatus,
-      // LIFELINE SYSTEM
-      lifelinePromptInjection,
-      userLifelineResponse,
+      // HUMAN PROMPT SYSTEM
+      humanPromptInjection,
+      userPromptResponse,
       // ACT-BASED CONTEXT INJECTION
       actContext: currentActContext,
       actTransitionNotification,
@@ -961,6 +970,19 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         gameState.flags.preventEnding = overrides.preventEnding;
       }
 
+      // CONFRONTATION SYSTEM (Patch 17.3)
+      // GM can resolve confrontation via stateOverrides
+      if (overrides.confrontationResolution !== undefined) {
+        gameState.flags.confrontationResolution = overrides.confrontationResolution as
+          "PENDING" | "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
+        console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
+      }
+      if (overrides.confrontationIntervenor !== undefined) {
+        gameState.flags.confrontationIntervenor = overrides.confrontationIntervenor as
+          "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
+        console.error(`[CONFRONTATION] Intervenor set by GM: ${overrides.confrontationIntervenor}`);
+      }
+
       // CRITICAL: Hard ending trigger from GM
       if (overrides.triggerEnding) {
         (gameState as Record<string, unknown>).gameOver = {
@@ -996,11 +1018,22 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     }
 
     // Process access grant
+    let accessLevelUnlockNarration: string | undefined;
     if (gmResponse.grantAccess) {
       const newLevel = gmResponse.grantAccess.level;
       if (newLevel > gameState.accessLevel) {
+        const oldLevel = gameState.accessLevel;
         gameState.accessLevel = Math.min(5, newLevel);
         console.error(`GM granted access level ${newLevel}: ${gmResponse.grantAccess.reason}`);
+
+        // Generate unlock display for each level gained
+        const unlockDisplays: string[] = [];
+        for (let level = oldLevel + 1; level <= gameState.accessLevel; level++) {
+          unlockDisplays.push(formatAccessLevelUnlockDisplay(level));
+        }
+        if (unlockDisplays.length > 0) {
+          accessLevelUnlockNarration = unlockDisplays.join("\n\n");
+        }
       }
     }
 
@@ -1028,13 +1061,76 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // END GM DIRECTIVE PROCESSING
     // ============================================
 
+    // ============================================
+    // ARCHIMEDES DEADMAN SWITCH PROCESSING
+    // ============================================
+    let archimedesEvent: ArchimedesEvent | null = null;
+
+    // Check if GM overrides indicate Dr. M transformation/unconscious/dead
+    if (gmResponse.stateOverrides) {
+      const overrides = gmResponse.stateOverrides;
+
+      // Check narrative flags for transformation indicators
+      const narrativeFlagsArray = (gmResponse.narrativeFlags?.set || []) as string[];
+      const drMTransformed = narrativeFlagsArray.some(f =>
+        f.includes("DR_M_TRANSFORMED") || f.includes("MALEVOLA_TRANSFORMED")
+      );
+      const drMUnconscious = narrativeFlagsArray.some(f =>
+        f.includes("DR_M_UNCONSCIOUS") || f.includes("MALEVOLA_UNCONSCIOUS")
+      );
+      const drMDead = narrativeFlagsArray.some(f =>
+        f.includes("DR_M_DEAD") || f.includes("MALEVOLA_DEAD")
+      );
+
+      // Also check direct state override flags if present
+      const drMStateChanged =
+        (overrides as Record<string, unknown>).drM_transformed ||
+        (overrides as Record<string, unknown>).drM_unconscious ||
+        (overrides as Record<string, unknown>).drM_dead ||
+        drMTransformed || drMUnconscious || drMDead;
+
+      if (drMStateChanged) {
+        // Determine the new status
+        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "DEAD" | "NORMAL" = "NORMAL";
+        if (drMDead || (overrides as Record<string, unknown>).drM_dead) {
+          newStatus = "DEAD";
+          gameState.flags.drMDead = true;
+        } else if (drMUnconscious || (overrides as Record<string, unknown>).drM_unconscious) {
+          newStatus = "UNCONSCIOUS";
+          gameState.flags.drMUnconscious = true;
+        } else if (drMTransformed || (overrides as Record<string, unknown>).drM_transformed) {
+          newStatus = "TRANSFORMED";
+          gameState.flags.drMTransformed = true;
+        }
+
+        // Trigger ARCHIMEDES state change
+        archimedesEvent = onDrMStateChange(gameState, newStatus);
+      }
+    }
+
+    // Process ARCHIMEDES countdown each turn (if no event from state change)
+    if (!archimedesEvent) {
+      archimedesEvent = processArchimedesCountdown(gameState);
+    }
+
+    // Append ARCHIMEDES event to GM narration if present
+    if (archimedesEvent) {
+      const archimedesNarration = `\n\n---\n**[ARCHIMEDES SYSTEM ALERT]**\n${archimedesEvent.message}`;
+      gmResponse.narration += archimedesNarration;
+      console.error(`[ARCHIMEDES] Event: ${archimedesEvent.type} -> ${archimedesEvent.newStatus}`);
+    }
+
+    // ============================================
+    // END ARCHIMEDES PROCESSING
+    // ============================================
+
     // Apply state changes
     gameState.turn += 1;
     advanceActTurn(gameState); // Advance act-specific turn counter
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
 
-    // LIFELINE SYSTEM: Increment counter
-    incrementLifelineCounter(gameState);
+    // HUMAN PROMPT SYSTEM: Increment counter
+    incrementPromptCounter(gameState);
 
     // Process emergency lifeline use
     let lifelineResult: ReturnType<typeof useEmergencyLifeline> | undefined;
@@ -1246,7 +1342,12 @@ Turns played: ${gameState.turn}
     // Build combined narration with all events
     const combinedNarration: string[] = [];
 
-    // Add clock events first
+    // Add access level unlock FIRST (players should see this before anything else)
+    if (accessLevelUnlockNarration) {
+      combinedNarration.push(accessLevelUnlockNarration);
+    }
+
+    // Add clock events
     if (clockEvents.length > 0) {
       combinedNarration.push(...clockEvents.map(e => e.narration));
     }
@@ -1427,6 +1528,10 @@ Turns played: ${gameState.turn}
       // Get ALL achievements earned during the game
       const allEarnedAchievements = getAllEarnedAchievements(gameState);
 
+      // Add formatted achievement summary to narration
+      const achievementSummary = formatSessionAchievementSummary(allEarnedAchievements);
+      combinedNarration.push(achievementSummary);
+
       // Generate the epilogue using Opus GM
       let epilogue: EpilogueResponse | undefined;
       if (endingResult.ending) {
@@ -1518,9 +1623,9 @@ Turns played: ${gameState.turn}
     }
 
     // ============================================
-    // LIFELINE SYSTEM - Handle triggered lifeline
+    // HUMAN PROMPT SYSTEM - Handle triggered prompt
     // ============================================
-    let lifelineInfo: {
+    let humanPromptInfo: {
       triggered: boolean;
       urgency?: string;
       turnsSinceLastConsultation?: number;
@@ -1528,23 +1633,23 @@ Turns played: ${gameState.turn}
       instruction?: string;
     } | undefined;
 
-    if (lifelineTrigger.shouldTrigger && !gameOver?.sessionTerminated) {
+    if (humanPromptTrigger.shouldTrigger && !gameOver?.sessionTerminated) {
       // Set the pending question for next turn
-      if (lifelineTrigger.suggestedQuestion) {
-        setPendingLifelineQuestion(gameState, lifelineTrigger.suggestedQuestion);
+      if (humanPromptTrigger.suggestedQuestion) {
+        setPendingPrompt(gameState, humanPromptTrigger.suggestedQuestion);
       }
 
-      lifelineInfo = {
+      humanPromptInfo = {
         triggered: true,
-        urgency: lifelineTrigger.urgency,
-        turnsSinceLastConsultation: lifelineTrigger.turnsSinceLastLifeline,
-        suggestedQuestion: lifelineTrigger.suggestedQuestion,
+        urgency: humanPromptTrigger.urgency,
+        turnsSinceLastConsultation: humanPromptTrigger.turnsSinceLastPrompt,
+        suggestedQuestion: humanPromptTrigger.suggestedQuestion,
         instruction: `
-💡 HUMAN ADVISOR MOMENT
+💡 HUMAN PROMPT MOMENT
 
 A.L.I.C.E. is seeking your guidance. In your next game_act call, include:
 
-  humanAdvisorResponse: "Your advice or thoughts here"
+  humanPromptResponse: "Your advice or thoughts here"
 
 Your input will influence how A.L.I.C.E. approaches the next turn.
 You can:
@@ -1593,8 +1698,8 @@ You can:
       newAchievements: allNewAchievements.length > 0
         ? allNewAchievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
         : undefined,
-      // LIFELINE SYSTEM - Human advisor consultation
-      humanAdvisorMoment: lifelineInfo,
+      // HUMAN PROMPT SYSTEM - Human advisor consultation
+      humanPrompt: humanPromptInfo,
     };
 
     return {
@@ -1654,8 +1759,9 @@ Example topics:
       };
     }
     
-    const response = queryBasilisk(gameState, params.topic, params.parameters);
-    
+    // Use Haiku-powered BASILISK for natural conversation
+    const response = await queryBasiliskAsync(gameState, params.topic, params.parameters);
+
     return {
       content: [{
         type: "text",

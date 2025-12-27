@@ -230,7 +230,7 @@ Dr. M has pre-programmed targets. If ARCHIMEDES activates, these are the options
 2. **Geneva** - "CERN rejected my unified field theory"
 3. **Stockholm** - "They'll give me a Nobel posthumously"
 4. **Washington D.C.** - "They know what they did"
-5. **Reykjavik** - "Smallest capital. Minimal casualties. If I MUST choose."
+5. **Reykjavik** - "Smallest capital. Minimal transformations. If I MUST choose."
 
 ### Dr. M's Deadman Switch
 If Dr. Malevola is incapacitated (transformed, killed, knocked out):
@@ -255,9 +255,9 @@ Any TWO of:
 The cascade creates a TROLLEY PROBLEM. The energy WILL discharge. A.L.I.C.E. must choose:
 
 1. **Do Nothing**: Uncontrolled discharge. Random city-level effect.
-2. **Select Target**: Choose from Dr. M's target list. Kill thousands, save millions.
+2. **Select Target**: Choose from Dr. M's target list. Transform thousands, save millions.
 3. **Coordinate with ARCHIMEDES**: Precise control, but activates the satellite.
-4. **Ocean Dump**: Fire into the Pacific. Creates "Dino Island." Minimal casualties but creates permanent dinosaur territory.
+4. **Ocean Dump**: Fire into the Pacific. Creates "Dino Island." Minimal human impact but creates permanent dinosaur territory.
 
 ### The Reykjavik Option
 If forced to choose a city, Reykjavik is the "least bad" option:
