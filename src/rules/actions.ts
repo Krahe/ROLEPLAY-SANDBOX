@@ -1093,6 +1093,28 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
       };
     }
 
+    // ============================================
+    // TEST MODE HANDLING (Bug fix Patch 17.5)
+    // ============================================
+    // When targeting a real subject (not TEST_DUMMY), we need to:
+    // 1. Respect explicit testMode: false parameter
+    // 2. Auto-disable test mode when targeting live subjects (unless explicitly enabled)
+    //
+    // The bug was: testMode: false was being ignored because the code only checked
+    // for testMode === true, never explicitly setting testModeEnabled = false.
+
+    if (explicitTestMode === false) {
+      // User explicitly requested test mode OFF
+      state.dinoRay.safety.testModeEnabled = false;
+    } else if (explicitTestMode === undefined) {
+      // No explicit preference - auto-disable test mode when targeting real subjects
+      const currentTarget = state.dinoRay.targeting.currentTargetIds[0];
+      if (currentTarget && currentTarget !== "TEST_DUMMY") {
+        state.dinoRay.safety.testModeEnabled = false;
+      }
+    }
+    // Note: explicitTestMode === true is handled above in isTestModeRequested block
+
     // Run self-test as part of configuration
     state.dinoRay.safety.lastSelfTestPassed = true;
 
