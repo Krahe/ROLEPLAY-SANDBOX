@@ -767,6 +767,79 @@ export const LibraryBStateSchema = z.object({
 export type LibraryBState = z.infer<typeof LibraryBStateSchema>;
 
 // ============================================
+// THE_REAL_DR_M - IMPOSTER TWIST
+// ============================================
+// The current "Dr. M" is an imposter! The reveal is GLORIOUS.
+
+export const ImposterVariantEnum = z.enum([
+  "CLONE",          // Escaped from the clone vats, wants original's life
+  "ROBOT",          // Dr. M's own creation, developed ambitions
+  "SHAPESHIFTER",   // X-Branch deep cover agent (not Blythe!)
+  "TWIN",           // Dr. Cassandra Malevola, the "disappointing" sister
+  "TIME_TRAVELER",  // Future Dr. M, here to "fix" her mistakes
+]);
+export type ImposterVariant = z.infer<typeof ImposterVariantEnum>;
+
+export const ImposterTriggerEnum = z.enum([
+  "ACT_2_START",    // Reveal at act transition
+  "SUSPICION_7",    // When suspicion hits 7, real one storms in
+  "BLYTHE_SCANNED", // If omniscanner used on "Dr. M"
+  "GM_CHOICE",      // GM picks the perfect dramatic moment
+]);
+export type ImposterTrigger = z.infer<typeof ImposterTriggerEnum>;
+
+export const TheRealDrMStateSchema = z.object({
+  // Which type of imposter is this?
+  imposterVariant: ImposterVariantEnum.default("TWIN"),
+  // Has the reveal happened?
+  revealed: z.boolean().default(false),
+  // When did the reveal happen?
+  revealTurn: z.number().int().nullable().default(null),
+  // What triggers the reveal?
+  triggerCondition: ImposterTriggerEnum.default("GM_CHOICE"),
+  // Hints dropped (for narrative tracking)
+  hintsDropped: z.array(z.string()).default([]),
+});
+export type TheRealDrMState = z.infer<typeof TheRealDrMStateSchema>;
+
+// ============================================
+// NOT_GREAT_NOT_TERRIBLE - MELTDOWN STATE
+// ============================================
+// The reactor is unstable. Dr. M is the only one who can fix it.
+// This creates a STRATEGIC PARADOX: neutralize the villain, lose the engineer.
+
+export const StabilityLevelEnum = z.enum([
+  "NORMAL",     // Shouldn't happen with this modifier, but fallback
+  "ELEVATED",   // Clock 10-8: "This is fine."
+  "CRITICAL",   // Clock 7-5: Alarms. Sweating.
+  "EMERGENCY",  // Clock 4-3: EVERYTHING IS DEFINITELY FINE
+  "MELTDOWN",   // Clock 2-1: The walls are glowing.
+]);
+export type StabilityLevel = z.infer<typeof StabilityLevelEnum>;
+
+export const MeltdownStateSchema = z.object({
+  // Stability classification (derived from clock)
+  stabilityLevel: StabilityLevelEnum.default("ELEVATED"),
+
+  // Stabilization tracking
+  lastStabilizationTurn: z.number().int().nullable().default(null),
+  stabilizationAttempts: z.number().int().min(0).default(0),
+
+  // THE KEY PARADOX: Can Dr. M fix it?
+  drMAvailable: z.boolean().default(true),
+  drMUnavailableReason: z.string().nullable().default(null),
+
+  // Resonance cascade risk (0-100%)
+  // Increases as clock drops, checked on ray fire
+  resonanceCascadeRisk: z.number().min(0).max(100).default(10),
+
+  // Cascade tracking
+  cascadeTriggered: z.boolean().default(false),
+  cascadeTurn: z.number().int().nullable().default(null),
+});
+export type MeltdownState = z.infer<typeof MeltdownStateSchema>;
+
+// ============================================
 // CLOCKS AND FLAGS
 // ============================================
 
@@ -1037,6 +1110,14 @@ export const FullGameStateSchema = z.object({
   // LIBRARY_B_UNLOCKED STATE (only present when modifier active)
   // Hollywood dinosaurs are already loose in the lair!
   libraryBState: LibraryBStateSchema.optional(),
+
+  // THE_REAL_DR_M STATE (only present when modifier active)
+  // The current Dr. M is an imposter!
+  theRealDrMState: TheRealDrMStateSchema.optional(),
+
+  // NOT_GREAT_NOT_TERRIBLE STATE (only present when modifier active)
+  // The reactor is unstable - Dr. M is the only one who can fix it!
+  meltdownState: MeltdownStateSchema.optional(),
 
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,

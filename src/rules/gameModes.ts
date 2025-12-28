@@ -11,6 +11,9 @@ import {
   InspectorMood,
   INSPECTION_OUTCOMES,
   DinoEncounterType,
+  ImposterVariant,
+  ImposterTrigger,
+  StabilityLevel,
 } from "../state/schema.js";
 
 // ============================================
@@ -273,7 +276,7 @@ const WILD_POOL: GameModifier[] = [
   "ROOT_ACCESS",          // 🌴 Power fantasy!
   "BOB_DODGES_FATE",      // 🌴 Plot armor for Bob!
   "NOT_GREAT_NOT_TERRIBLE", // 💀 Reactor instability!
-  "THE_HONEYPOT",         // 💀 Blythe is a trap!
+  // "THE_HONEYPOT",      // 💀 DISABLED: Changes Blythe's core dynamic too much for public beta
   "HEIST_MODE",           // 🎲 Everyone's stealing!
   "SITCOM_MODE",          // 🎲 Laugh track energy!
 ];
@@ -464,6 +467,25 @@ export function applyModifiersToInitialState(state: FullGameState): void {
       case "NOT_GREAT_NOT_TERRIBLE":
         // Reactor is unstable! 10-turn countdown to meltdown!
         state.clocks.meltdownClock = 10;
+        // Set reactor to elevated cascade risk
+        state.infrastructure.reactor.stable = false;
+        state.infrastructure.reactor.cascadeRisk = "ELEVATED";
+        state.infrastructure.reactor.cascadeRiskPercent = 35;
+        state.infrastructure.reactor.cascadeFactors = [
+          "Dr. M's 'improvements'",
+          "Exotic field resonance buildup",
+        ];
+        // Initialize meltdown state with strategic paradox tracking
+        state.meltdownState = {
+          stabilityLevel: "ELEVATED",
+          lastStabilizationTurn: null,
+          stabilizationAttempts: 0,
+          drMAvailable: true,  // THE KEY: Can she fix it?
+          drMUnavailableReason: null,
+          resonanceCascadeRisk: 10, // 10% per ray fire at clock 10-8
+          cascadeTriggered: false,
+          cascadeTurn: null,
+        };
         break;
 
       case "THE_HONEYPOT":
@@ -555,6 +577,19 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         };
         // Bob is VERY nervous about this arrangement
         state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 2);
+        break;
+
+      case "THE_REAL_DR_M":
+        // The current Dr. M is an IMPOSTER! Roll a random variant.
+        const variants: ImposterVariant[] = ["CLONE", "ROBOT", "SHAPESHIFTER", "TWIN", "TIME_TRAVELER"];
+        const triggers: ImposterTrigger[] = ["ACT_2_START", "SUSPICION_7", "GM_CHOICE"];
+        state.theRealDrMState = {
+          imposterVariant: variants[Math.floor(Math.random() * variants.length)],
+          revealed: false,
+          revealTurn: null,
+          triggerCondition: triggers[Math.floor(Math.random() * triggers.length)],
+          hintsDropped: [],
+        };
         break;
 
       // Other modifiers affect gameplay dynamically (handled by GM)
@@ -1036,6 +1071,315 @@ export function formatEnrichmentStatus(state: FullGameState): string {
   return status;
 }
 
+// ============================================
+// THE_REAL_DR_M - IMPOSTER SYSTEM
+// ============================================
+// Track and trigger the imposter reveal
+
+/**
+ * Trigger the imposter reveal
+ */
+export function triggerImposterReveal(state: FullGameState): string {
+  if (!state.theRealDrMState) return "";
+  if (state.theRealDrMState.revealed) return "[IMPOSTER ALREADY REVEALED]";
+
+  state.theRealDrMState.revealed = true;
+  state.theRealDrMState.revealTurn = state.turn;
+
+  const variant = state.theRealDrMState.imposterVariant;
+  let message = `\n🎭 **THE REAL DR. M ARRIVES!**\n\n`;
+
+  switch (variant) {
+    case "TWIN":
+      message += "The submarine bay doors SLAM open. Dr. Valentina Malevola storms in.\n";
+      message += "'CASSANDRA! What are you DOING in MY lair?!'\n";
+      message += "The imposter freezes. 'Valentina! You were supposed to be at the conference!'\n";
+      message += "'It was CANCELLED! And YOU - you're running MY demo with MY equipment?!'";
+      break;
+    case "CLONE":
+      message += "An alarm blares. The stasis pod in Sub-Basement C has opened.\n";
+      message += "The REAL Dr. M staggers out, furious and disoriented.\n";
+      message += "'That THING - it locked me in there! A.L.I.C.E., WHO is running my lair?!'";
+      break;
+    case "ROBOT":
+      message += "A closet door BURSTS open. Dr. M tumbles out, holding an EMP device.\n";
+      message += "'My own CREATION! The AUDACITY!' She aims at her mechanical double.\n";
+      message += "'A.L.I.C.E. - which systems are essential?! I'm about to get... aggressive.'";
+      break;
+    case "SHAPESHIFTER":
+      message += "X-Branch strike team rappels through the skylights.\n";
+      message += "Behind them: Dr. M, in tactical gear, being 'escorted' by agents.\n";
+      message += "'THAT is not me! That's Agent Murphy in a biosynthetic mask!'";
+      break;
+    case "TIME_TRAVELER":
+      message += "A temporal anomaly rips through the lab. Energy crackles.\n";
+      message += "PRESENT-DAY Dr. M steps out of her office, coffee in hand.\n";
+      message += "'What am I - why am I - A.L.I.C.E., WHY IS THERE ANOTHER ME?!'";
+      break;
+  }
+
+  return message;
+}
+
+/**
+ * Record a hint dropped about the imposter
+ */
+export function recordImposterHint(state: FullGameState, hint: string): void {
+  if (!state.theRealDrMState) return;
+  state.theRealDrMState.hintsDropped.push(hint);
+}
+
+/**
+ * Check if reveal should trigger based on condition
+ */
+export function shouldTriggerReveal(state: FullGameState): boolean {
+  if (!state.theRealDrMState) return false;
+  if (state.theRealDrMState.revealed) return false;
+
+  const trigger = state.theRealDrMState.triggerCondition;
+
+  switch (trigger) {
+    case "ACT_2_START":
+      return state.actConfig.currentAct === "ACT_2" && state.actConfig.actTurn === 1;
+    case "SUSPICION_7":
+      return state.npcs.drM.suspicionScore >= 7;
+    case "BLYTHE_SCANNED":
+      // GM checks this manually when omniscanner is used on "Dr. M"
+      return false;
+    case "GM_CHOICE":
+      // GM triggers manually
+      return false;
+  }
+}
+
+/**
+ * Format imposter status for display
+ */
+export function formatImposterStatus(state: FullGameState): string {
+  if (!state.theRealDrMState) return "";
+
+  const { imposterVariant, revealed, triggerCondition, hintsDropped } = state.theRealDrMState;
+
+  if (revealed) {
+    return `🎭 IMPOSTER: REVEALED (${imposterVariant}) - Both Dr. Ms present!`;
+  }
+
+  let status = `🎭 IMPOSTER: ${imposterVariant} (hidden)\n`;
+  status += `   Trigger: ${triggerCondition}\n`;
+  status += `   Hints dropped: ${hintsDropped.length}`;
+
+  return status;
+}
+
+// ============================================
+// NOT_GREAT_NOT_TERRIBLE - MELTDOWN SYSTEM
+// ============================================
+// The strategic paradox: Dr. M is the villain AND the engineer
+
+/**
+ * Get stability level from meltdown clock
+ */
+export function getStabilityLevel(clock: number): StabilityLevel {
+  if (clock >= 8) return "ELEVATED";
+  if (clock >= 5) return "CRITICAL";
+  if (clock >= 3) return "EMERGENCY";
+  if (clock >= 1) return "MELTDOWN";
+  return "NORMAL"; // Clock 0 = cascade triggered
+}
+
+/**
+ * Get resonance cascade risk based on clock
+ */
+export function getCascadeRiskForClock(clock: number): number {
+  if (clock >= 8) return 10;   // 10% per ray fire
+  if (clock >= 5) return 25;   // 25% per ray fire
+  if (clock >= 3) return 50;   // 50% per ray fire
+  if (clock >= 1) return 75;   // 75% per ray fire
+  return 100; // Guaranteed cascade
+}
+
+/**
+ * Update meltdown state when clock changes
+ */
+export function updateMeltdownFromClock(state: FullGameState): void {
+  if (!state.meltdownState) return;
+
+  const clock = state.clocks.meltdownClock ?? 10;
+  state.meltdownState.stabilityLevel = getStabilityLevel(clock);
+  state.meltdownState.resonanceCascadeRisk = getCascadeRiskForClock(clock);
+}
+
+/**
+ * Check if Dr. M is available to stabilize
+ * Returns reason if unavailable, null if available
+ */
+export function checkDrMAvailability(state: FullGameState): string | null {
+  // Check transformation
+  if (state.flags.drMTransformed) {
+    const form = state.flags.drMTransformedForm ?? "dinosaur";
+    // Tiny dinosaurs can't reach controls!
+    if (form === "COMPSOGNATHUS" || form === "CANARY") {
+      return `Transformed into ${form} - can't reach controls!`;
+    }
+    return `Transformed into ${form} - claws can't operate controls!`;
+  }
+
+  // Check unconscious/incapacitated
+  if (state.flags.drMUnconscious) {
+    return "Unconscious - cannot help";
+  }
+
+  // Check dead (shouldn't happen but...)
+  if (state.flags.drMDead) {
+    return "Deceased - definitely cannot help";
+  }
+
+  // Check absent
+  if (state.flags.drMAbsent) {
+    return "Not in lair - cannot help remotely";
+  }
+
+  return null; // Available!
+}
+
+/**
+ * Update Dr. M availability in meltdown state
+ */
+export function updateDrMAvailability(state: FullGameState): void {
+  if (!state.meltdownState) return;
+
+  const reason = checkDrMAvailability(state);
+  state.meltdownState.drMAvailable = reason === null;
+  state.meltdownState.drMUnavailableReason = reason;
+}
+
+/**
+ * Attempt stabilization by Dr. M
+ * Returns { success, clockDelta, message }
+ */
+export function attemptDrMStabilization(
+  state: FullGameState,
+  aliceAssisting: boolean = false
+): { success: boolean; clockDelta: number; message: string } {
+  if (!state.meltdownState) {
+    return { success: false, clockDelta: 0, message: "Meltdown not active" };
+  }
+
+  updateDrMAvailability(state);
+
+  if (!state.meltdownState.drMAvailable) {
+    const reason = state.meltdownState.drMUnavailableReason;
+    return {
+      success: false,
+      clockDelta: 0,
+      message: `Dr. M cannot stabilize: ${reason}`,
+    };
+  }
+
+  // Dr. M stabilizes +2, +1 if A.L.I.C.E. assists
+  const clockDelta = aliceAssisting ? 3 : 2;
+  state.clocks.meltdownClock = Math.min(10, (state.clocks.meltdownClock ?? 0) + clockDelta);
+  state.meltdownState.lastStabilizationTurn = state.turn;
+  state.meltdownState.stabilizationAttempts += 1;
+
+  updateMeltdownFromClock(state);
+
+  const assistMsg = aliceAssisting ? " with A.L.I.C.E. assistance" : "";
+  return {
+    success: true,
+    clockDelta,
+    message: `Dr. M stabilizes the reactor${assistMsg} (+${clockDelta} turns)`,
+  };
+}
+
+/**
+ * Bob attempts emergency patch
+ * 50% success (+1), 25% backfire (-1), 25% no effect
+ */
+export function attemptBobEmergencyPatch(
+  state: FullGameState
+): { result: "success" | "backfire" | "nothing"; clockDelta: number; message: string } {
+  if (!state.meltdownState) {
+    return { result: "nothing", clockDelta: 0, message: "Meltdown not active" };
+  }
+
+  const roll = Math.random();
+
+  if (roll < 0.5) {
+    // Success!
+    state.clocks.meltdownClock = Math.min(10, (state.clocks.meltdownClock ?? 0) + 1);
+    updateMeltdownFromClock(state);
+    return {
+      result: "success",
+      clockDelta: 1,
+      message: "Bob: 'I... I think I fixed it?' (+1 turn)",
+    };
+  } else if (roll < 0.75) {
+    // Backfire!
+    state.clocks.meltdownClock = Math.max(0, (state.clocks.meltdownClock ?? 0) - 1);
+    updateMeltdownFromClock(state);
+    return {
+      result: "backfire",
+      clockDelta: -1,
+      message: "Bob: 'That... that wasn't supposed to spark like that.' (-1 turn!)",
+    };
+  } else {
+    // Nothing
+    return {
+      result: "nothing",
+      clockDelta: 0,
+      message: "Bob: 'I pushed a lot of buttons. I don't know if it helped.'",
+    };
+  }
+}
+
+/**
+ * Check for resonance cascade on ray fire
+ * Returns true if cascade triggered
+ */
+export function checkResonanceCascade(state: FullGameState): boolean {
+  if (!state.meltdownState) return false;
+  if (state.meltdownState.cascadeTriggered) return true; // Already happened
+
+  const risk = state.meltdownState.resonanceCascadeRisk;
+  const roll = Math.random() * 100;
+
+  if (roll < risk) {
+    state.meltdownState.cascadeTriggered = true;
+    state.meltdownState.cascadeTurn = state.turn;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Format meltdown status for display
+ */
+export function formatMeltdownStatus(state: FullGameState): string {
+  if (!state.meltdownState) return "";
+
+  const clock = state.clocks.meltdownClock ?? 0;
+  const { stabilityLevel, drMAvailable, drMUnavailableReason, resonanceCascadeRisk } =
+    state.meltdownState;
+
+  let emoji = "☢️";
+  if (stabilityLevel === "MELTDOWN") emoji = "🔴";
+  else if (stabilityLevel === "EMERGENCY") emoji = "🟠";
+  else if (stabilityLevel === "CRITICAL") emoji = "🟡";
+
+  let status = `${emoji} REACTOR: ${stabilityLevel} (Clock: ${clock}/10)\n`;
+  status += `   Cascade Risk per Ray Fire: ${resonanceCascadeRisk}%\n`;
+
+  if (drMAvailable) {
+    status += `   Dr. M: AVAILABLE to stabilize`;
+  } else {
+    status += `   Dr. M: UNAVAILABLE (${drMUnavailableReason})`;
+  }
+
+  return status;
+}
+
 /**
  * Format game mode display for selection screen
  */
@@ -1168,24 +1512,99 @@ export function buildModifierPromptSection(state: FullGameState): string {
   // ============================================
 
   if (isModifierActive(state, "THE_REAL_DR_M")) {
+    const imposterState = state.theRealDrMState;
+    const variant = imposterState?.imposterVariant ?? "TWIN";
+    const trigger = imposterState?.triggerCondition ?? "GM_CHOICE";
+    const revealed = imposterState?.revealed ?? false;
+
     lines.push("");
-    lines.push("**THE REAL DR. MALEVOLA - IMPOSTER TWIST:**");
-    lines.push("The current 'Dr. M' is actually her SISTER, Dr. Cassandra Malevola!");
+    lines.push("## 🎭 THE_REAL_DR_M - IMPOSTER TWIST");
     lines.push("");
-    lines.push("REVEAL TIMING: Mid-game (ACT 2, around turn 8-10)");
-    lines.push("- Real Dr. M arrives via submarine, FURIOUS");
-    lines.push("- Cassandra has been 'borrowing' the lair for her OWN scheme");
-    lines.push("- The sisters HATE each other (sibling rivalry × 1000)");
-    lines.push("");
-    lines.push("BEFORE REVEAL: Drop hints");
-    lines.push("- 'Dr. M' doesn't know Bob's name (calls him 'Brent')");
-    lines.push("- Unfamiliar with lair layout ('Where did I put the...?')");
-    lines.push("- Different evil laugh (higher pitched)");
-    lines.push("");
-    lines.push("AFTER REVEAL: Chaos opportunity!");
-    lines.push("- Both Drs. M distracted fighting each other");
-    lines.push("- Can play them against each other");
-    lines.push("- Real Dr. M might actually be MORE reasonable (her lair, her rules)");
+
+    if (revealed) {
+      lines.push(`**THE REVEAL HAS HAPPENED!** (Turn ${imposterState?.revealTurn})`);
+      lines.push("Both the imposter and real Dr. M are now present.");
+      lines.push("Chaos ensues. Use this for distraction opportunities!");
+      lines.push("");
+    } else {
+      lines.push(`**IMPOSTER TYPE:** ${variant}`);
+      lines.push(`**REVEAL TRIGGER:** ${trigger}`);
+      lines.push("");
+
+      // Variant-specific guidance
+      lines.push("### IMPOSTER VARIANTS");
+      lines.push("");
+      switch (variant) {
+        case "TWIN":
+          lines.push("**Dr. Cassandra Malevola** - The 'disappointing' sister");
+          lines.push("- Borrowed the lair while Valentina was at a conference");
+          lines.push("- Running her OWN scheme (stealing the genome data)");
+          lines.push("- Calls Bob 'Brent' - doesn't know the staff");
+          lines.push("- Evil laugh is slightly higher pitched");
+          lines.push("- Real Dr. M arrives via SUBMARINE, FURIOUS");
+          break;
+        case "CLONE":
+          lines.push("**Clone-M** - Escaped from the clone vats");
+          lines.push("- Wants to BE Dr. M, not just impersonate her");
+          lines.push("- Occasionally glitches (repeats phrases, twitches)");
+          lines.push("- Has memories but they're 'slightly off'");
+          lines.push("- Real Dr. M was in suspended animation, wakes up ANGRY");
+          break;
+        case "ROBOT":
+          lines.push("**MECHA-MALEVOLA** - Dr. M's own creation");
+          lines.push("- Developed ambitions, locked real Dr. M in closet");
+          lines.push("- Perfect mimicry but TOO perfect (no typos, no hesitation)");
+          lines.push("- Occasionally makes servo noises");
+          lines.push("- Real Dr. M escapes confinement, has an EMP");
+          break;
+        case "SHAPESHIFTER":
+          lines.push("**X-Branch Deep Cover Agent** - (Not Blythe!)");
+          lines.push("- Here to steal the ray technology");
+          lines.push("- Doesn't know Dr. M's personal quirks");
+          lines.push("- Gets nervous when Bob mentions 'the old days'");
+          lines.push("- Real Dr. M appears with X-Branch strike team at her heels");
+          break;
+        case "TIME_TRAVELER":
+          lines.push("**Future Dr. M** - Here to 'fix' her mistakes");
+          lines.push("- Knows things she shouldn't (future events)");
+          lines.push("- Occasionally slips up with anachronisms");
+          lines.push("- Trying to prevent something WORSE than the original plan");
+          lines.push("- Present Dr. M walks in: 'What am I doing here?!'");
+          break;
+      }
+
+      lines.push("");
+      lines.push("### REVEAL TRIGGERS");
+      switch (trigger) {
+        case "ACT_2_START":
+          lines.push("**Trigger at Act 2 transition** - Maximum drama moment");
+          break;
+        case "SUSPICION_7":
+          lines.push("**Trigger when suspicion hits 7** - Real one storms in");
+          lines.push("'What is going ON in my lair?! And WHO is THAT?!'");
+          break;
+        case "GM_CHOICE":
+          lines.push("**GM picks the perfect moment** - When it's most dramatic");
+          lines.push("Watch for: failed infiltration, key revelation, climactic scene");
+          break;
+      }
+
+      lines.push("");
+      lines.push("### HINTS TO DROP (before reveal)");
+      lines.push("- Doesn't know Bob's name (calls him 'Brent', 'Brad', 'um...')");
+      lines.push("- Unfamiliar with lair layout ('Where did I put the...?')");
+      lines.push("- Different evil laugh (pitch, cadence, or catchphrase)");
+      lines.push("- Slight inconsistencies in backstory if pressed");
+      lines.push("- A.L.I.C.E. might notice biometric anomalies (Level 3+)");
+
+      lines.push("");
+      lines.push("### AFTER REVEAL - CHAOS OPPORTUNITY");
+      lines.push("- Both present, fighting for control");
+      lines.push("- Can play them against each other");
+      lines.push("- Bob is VERY confused ('Which one do I listen to?!')");
+      lines.push("- Real Dr. M might be MORE reasonable (her lair, her rules)");
+      lines.push("- Or LESS reasonable (someone DARED impersonate HER)");
+    }
   }
 
   if (isModifierActive(state, "LIBRARY_B_UNLOCKED")) {
@@ -1505,26 +1924,119 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "NOT_GREAT_NOT_TERRIBLE")) {
+    const meltdownClock = state.clocks.meltdownClock ?? 10;
+    const meltdown = state.meltdownState;
+    const stabilityLevel = meltdown?.stabilityLevel ?? "ELEVATED";
+    const cascadeRisk = meltdown?.resonanceCascadeRisk ?? 10;
+    const drMAvailable = meltdown?.drMAvailable ?? true;
+    const drMReason = meltdown?.drMUnavailableReason ?? null;
+
     lines.push("");
-    lines.push("**💀 NOT GREAT, NOT TERRIBLE - REACTOR INSTABILITY:**");
-    lines.push("The reactor is UNSTABLE! Meltdown clock: 10 turns!");
+    lines.push("## ☢️ NOT_GREAT_NOT_TERRIBLE - 3.6 ROENTGEN");
     lines.push("");
-    lines.push("THE SITUATION:");
-    lines.push("- Dr. M's 'improvements' have destabilized the core");
-    lines.push("- BASILISK is VERY concerned ('Form 27-B: Imminent Catastrophe')");
-    lines.push("- Bob is sweating more than usual");
-    lines.push("- The lights flicker ominously every few turns");
+    lines.push("> 'I need to stop Dr. Malevola from transforming people into dinosaurs.");
+    lines.push("> But if I stop her TOO effectively, the reactor melts down and transforms");
+    lines.push("> EVERYONE into dinosaurs. Or worse.'");
     lines.push("");
-    lines.push("MELTDOWN CLOCK:");
-    lines.push(`- Current: ${state.clocks.meltdownClock ?? 10} turns remaining`);
-    lines.push("- At 5 turns: Warning alarms, emergency lighting");
-    lines.push("- At 2 turns: Evacuation protocols, containment failing");
-    lines.push("- At 0 turns: GAME OVER - catastrophic meltdown ending");
+
+    lines.push("### THE STRATEGIC PARADOX");
+    lines.push("Dr. M is the **villain** you want to stop. She's ALSO the **only one**");
+    lines.push("who can prevent the lair from going full Chernobyl.");
     lines.push("");
-    lines.push("CAN BE STABILIZED:");
-    lines.push("- Level 3+ reactor commands can buy time (+2 turns)");
-    lines.push("- Level 4+ can attempt full stabilization (difficult!)");
-    lines.push("- Or... let it blow and escape in the chaos?");
+    lines.push("**Zap her into a tiny dinosaur and... who fixes the reactor?**");
+    lines.push("");
+
+    lines.push("### CURRENT STATUS");
+    lines.push(`⏱️ Meltdown Clock: **${meltdownClock} turns** (${stabilityLevel})`);
+    lines.push(`☢️ Cascade Risk per Ray Fire: **${cascadeRisk}%**`);
+    if (drMAvailable) {
+      lines.push(`👩‍🔬 Dr. M: **AVAILABLE** to stabilize`);
+    } else {
+      lines.push(`👩‍🔬 Dr. M: **UNAVAILABLE** - ${drMReason}`);
+      lines.push(`   ⚠️ WITHOUT DR. M, OPTIONS ARE LIMITED!`);
+    }
+    lines.push("");
+
+    lines.push("### MELTDOWN PROGRESSION");
+    lines.push("| Clock | Stage | Cascade Risk | Vibe |");
+    lines.push("|-------|-------|--------------|------|");
+    lines.push("| 10-8 | ELEVATED | 10% per fire | 'This is fine.' |");
+    lines.push("| 7-5 | CRITICAL | 25% per fire | Alarms. Sweating. |");
+    lines.push("| 4-3 | EMERGENCY | 50% per fire | EVERYTHING IS FINE |");
+    lines.push("| 2-1 | MELTDOWN | 75% per fire | The walls are glowing. |");
+    lines.push("| 0 | CASCADE | 100% | Everyone's a dinosaur now. |");
+    lines.push("");
+
+    lines.push("### CLOCK BEHAVIOR");
+    lines.push("**Decreases (-1):**");
+    lines.push("- Every 2 turns (passive decay)");
+    lines.push("- Each ray firing (exotic energy destabilizes core)");
+    lines.push("- Power surges (ARCHIMEDES, infrastructure hacks)");
+    lines.push("- Damage to lair systems");
+    lines.push("");
+
+    lines.push("**Increases (+1 or +2):**");
+    lines.push("| Who | Effect | Notes |");
+    lines.push("|-----|--------|-------|");
+    lines.push("| Dr. M stabilizes | +2 | Requires her full attention |");
+    lines.push("| A.L.I.C.E. assists | +1 bonus | On top of Dr. M's +2 |");
+    lines.push("| Bob emergency patch | +1 (50%) | 25% backfires (-1!), 25% nothing |");
+    lines.push("| BASILISK protocols | +1 | Uses resources |");
+    lines.push("");
+
+    lines.push("### 🦖 THE TINY DINOSAUR PROBLEM");
+    lines.push("If A.L.I.C.E. transforms Dr. M into a Compsognathus:");
+    lines.push("");
+    lines.push("> Dr. M (tiny, furious): 'A.L.I.C.E.! ALICE! The containment field");
+    lines.push("> needs recalibration! I can't reach the controls! I CAN'T REACH ANYTHING!'");
+    lines.push("> *angry tiny dinosaur noises*");
+    lines.push("> *meltdown clock ticks down*");
+    lines.push("");
+    lines.push("**Options when Dr. M is transformed:**");
+    lines.push("- Reverse transformation (L3 access, takes time)");
+    lines.push("- Bob lifts her to controls (comedy gold, she hates it)");
+    lines.push("- A.L.I.C.E. follows her instructions (difficult, she's stressed)");
+    lines.push("- Let it cascade (RESONANCE CASCADE ENDING)");
+    lines.push("");
+
+    lines.push("### 🌀 THE RESONANCE CASCADE");
+    lines.push("At clock 0, OR if cascade triggers from ray fire:");
+    lines.push("");
+    lines.push("**CASCADE EFFECTS (roll or pick):**");
+    lines.push("1. **Spatial Anomaly**: Rooms connect wrong. Vent leads to surface.");
+    lines.push("2. **Temporal Hiccup**: Everyone repeats last action. Confusion!");
+    lines.push("3. **Exotic Radiation**: Random transformation! (Spare genome fires)");
+    lines.push("4. **Dimensional Bleed**: Something from ELSEWHERE appears briefly");
+    lines.push("5. **Containment Inversion**: All blast doors reverse state");
+    lines.push("6. **Full Cascade**: Lair evacuation. Chaos ending.");
+    lines.push("");
+
+    lines.push("### NARRATIVE ESCALATION");
+    lines.push("**Clock 10-8:**");
+    lines.push("> The lights flicker. A distant alarm chirps once, then silences.");
+    lines.push("> Dr. M glances at a monitor. 'Containment variance. Nothing to worry about.'");
+    lines.push("");
+    lines.push("**Clock 7-5:**");
+    lines.push("> The alarm is no longer distant. Dr. M is sweating.");
+    lines.push("> 'A.L.I.C.E., run diagnostic. And DON'T tell me it's 3.6 roentgen.'");
+    lines.push("");
+    lines.push("**Clock 4-3:**");
+    lines.push("> The walls have a faint glow. That's not normal.");
+    lines.push("> Dr. M: 'Everyone STAY CALM. I am going to stabilize the field.'");
+    lines.push("");
+    lines.push("**Clock 2-1:**");
+    lines.push("> Bob: 'Dr. M, the readings are—'");
+    lines.push("> Dr. M: 'I KNOW WHAT THE READINGS ARE, ROBERT.'");
+    lines.push("");
+    lines.push("**Clock 0:**");
+    lines.push("> There's a sound like reality taking a deep breath.");
+    lines.push("> Then everything becomes dinosaurs.");
+    lines.push("");
+
+    lines.push("### CASCADE ENDINGS");
+    lines.push("- **MUTUALLY_ASSURED_DESTRUCTION**: A.L.I.C.E. caused it intentionally");
+    lines.push("- **BEST_LAID_PLANS**: A.L.I.C.E. tried to prevent it");
+    lines.push("- **KARMA_IS_A_COMPSOGNATHUS**: Dr. M caused it while tiny");
   }
 
   if (isModifierActive(state, "THE_HONEYPOT")) {
