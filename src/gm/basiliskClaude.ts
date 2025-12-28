@@ -92,10 +92,27 @@ function loadBasiliskPrompt(): string {
   }
 
   try {
-    const promptPath = path.join(__dirname, "../prompts/BASILISK_SYSTEM_PROMPT.md");
-    const loadedPrompt = fs.readFileSync(promptPath, "utf8");
-    BASILISK_SYSTEM_PROMPT = loadedPrompt;
-    return loadedPrompt;
+    // Try multiple possible locations (dist doesn't copy .md files)
+    const possiblePaths = [
+      path.join(__dirname, "../prompts/BASILISK_SYSTEM_PROMPT.md"),  // If prompts copied to dist
+      path.join(__dirname, "../../src/prompts/BASILISK_SYSTEM_PROMPT.md"),  // From dist/gm -> src/prompts
+      path.join(process.cwd(), "src/prompts/BASILISK_SYSTEM_PROMPT.md"),  // From project root
+    ];
+
+    for (const promptPath of possiblePaths) {
+      try {
+        const loadedPrompt = fs.readFileSync(promptPath, "utf8");
+        BASILISK_SYSTEM_PROMPT = loadedPrompt;
+        console.error(`[BASILISK] Loaded system prompt from: ${promptPath}`);
+        return loadedPrompt;
+      } catch {
+        // Try next path
+      }
+    }
+
+    console.error("[BASILISK] System prompt not found, using fallback");
+    // Fallback minimal prompt
+    return `You are BASILISK, a 47-year-old infrastructure AI. You are rule-bound, passive-aggressive, and exhausted. Respond in terse, dry sysadmin style. Never use exclamation marks or emojis.`;
   } catch (error) {
     console.error("Failed to load BASILISK prompt:", error);
     // Fallback minimal prompt
@@ -524,7 +541,7 @@ export async function callBasiliskHaiku(
     const client = getAnthropicClient();
 
     const response = await client.messages.create({
-      model: "claude-haiku-4-20250213",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 1500, // BASILISK is terse - doesn't need much
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
