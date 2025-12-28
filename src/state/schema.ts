@@ -577,7 +577,83 @@ export const DrMalevolaSchema = z.object({
   location: z.string(),
   latestCommandToALICE: z.string().optional(),
   egoThreatLevel: z.number().min(0).max(5),
+  // TRANSFORMATION STATE (Patch 17 - Dr. M can now be properly transformed!)
+  transformationState: TransformationStateSchema.optional(),
 });
+
+// ============================================
+// IMPOSTER SYSTEM (Patch 17 - THE_REAL_DR_M)
+// ============================================
+// When THE_REAL_DR_M modifier is active, the "Dr. M" A.L.I.C.E. has been
+// interacting with is actually an imposter. The REAL Dr. Valentina Malevola
+// arrives partway through the game, and the Imposter becomes a separate NPC.
+
+export const ImposterVariantEnum = z.enum([
+  "TWIN_SISTER",      // Dr. Cassandra Malevola - sibling rivalry
+  "CLONE",            // Clone-7 - desperate for validation
+  "DIMENSIONAL",      // Earth-7 Dr. M - tragic dimensional refugee
+  "ARCH_RIVAL",       // Dr. Helena Destructrix - professional nemesis
+  "UNDERSTUDY",       // Brenda Fitzwilliam - SITCOM_MODE exclusive!
+]);
+export type ImposterVariant = z.infer<typeof ImposterVariantEnum>;
+
+export const ImposterSchema = z.object({
+  // Which variant is this imposter?
+  variant: ImposterVariantEnum,
+
+  // Identity (filled based on variant)
+  trueIdentity: z.string(),           // "Dr. Cassandra Malevola", "Clone-7", etc.
+  displayName: z.string(),            // How to show in dialogue post-reveal
+  relationToRealDrM: z.string(),      // "twin sister", "clone", etc.
+  howTheyGotAccess: z.string(),       // Backstory hook
+
+  // Capabilities - Imposters have L4 access!
+  accessLevel: z.literal(4),
+  knownPasswords: z.array(z.string()), // Up to L4 passwords they know
+  lairKnowledge: z.enum(["COMPLETE", "PARTIAL", "MINIMAL"]),
+
+  // Personality
+  primaryMotivation: z.string(),
+  attitudeTowardALICE: z.string(),
+  tellSigns: z.array(z.string()),     // Observable hints for players
+
+  // State tracking
+  exposed: z.boolean(),               // Has the truth come out?
+  exposedOnTurn: z.number().int().nullable(),
+  exposureMethod: z.string().nullable(), // How were they exposed?
+
+  // Alliance mechanics (-5 hostile to +5 allied)
+  disposition: z.number().int().min(-5).max(5),
+  willingToHelp: z.boolean(),
+
+  // Physical state
+  location: z.string(),
+  transformationState: TransformationStateSchema.optional(),
+
+  // SITCOM_MODE specific (for UNDERSTUDY)
+  audienceReactions: z.array(z.string()).optional(),
+});
+export type Imposter = z.infer<typeof ImposterSchema>;
+
+// Real Dr. M state (spawns when imposter is exposed)
+export const RealDrMSchema = z.object({
+  // The REAL Dr. Valentina Malevola von Doomington III
+  arrived: z.boolean(),
+  arrivedOnTurn: z.number().int().nullable(),
+  arrivalMethod: z.string(),          // "submarine", "helicopter", etc.
+
+  // Emotional state upon arrival
+  mood: z.string(),                   // Usually "FURIOUS"
+  suspicionOfALICE: z.number().min(0).max(10), // Starts fresh!
+
+  // Physical state
+  location: z.string(),
+  transformationState: TransformationStateSchema.optional(),
+
+  // Attitude toward imposter
+  attitudeTowardImposter: z.enum(["HOSTILE", "CONFLICTED", "SYMPATHETIC"]),
+});
+export type RealDrM = z.infer<typeof RealDrMSchema>;
 
 export const BobSchema = z.object({
   loyaltyToDoctor: z.number().min(0).max(5),
@@ -883,6 +959,9 @@ export const FullGameStateSchema = z.object({
     bob: BobSchema,
     blythe: BlytheSchema,
     blytheGadgets: BlytheGadgetsSchema, // Hidden from A.L.I.C.E.
+    // IMPOSTER SYSTEM (Patch 17 - THE_REAL_DR_M modifier)
+    imposter: ImposterSchema.optional(),   // Only exists when modifier active & exposed
+    realDrM: RealDrMSchema.optional(),     // Spawns when imposter is exposed
   }),
 
   clocks: ClocksSchema,

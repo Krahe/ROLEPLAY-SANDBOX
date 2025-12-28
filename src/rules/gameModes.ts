@@ -6,6 +6,10 @@ import {
   MODIFIER_CONTRADICTIONS,
   FullGameState,
 } from "../state/schema.js";
+import {
+  isImposterSystemActive,
+  getImposterPreRevealInstructions,
+} from "./imposter.js";
 
 // ============================================
 // GAME MODE SYSTEM
@@ -370,24 +374,44 @@ export function buildModifierPromptSection(state: FullGameState): string {
   // ============================================
 
   if (isModifierActive(state, "THE_REAL_DR_M")) {
-    lines.push("");
-    lines.push("**THE REAL DR. MALEVOLA - IMPOSTER TWIST:**");
-    lines.push("The current 'Dr. M' is actually her SISTER, Dr. Cassandra Malevola!");
-    lines.push("");
-    lines.push("REVEAL TIMING: Mid-game (ACT 2, around turn 8-10)");
-    lines.push("- Real Dr. M arrives via submarine, FURIOUS");
-    lines.push("- Cassandra has been 'borrowing' the lair for her OWN scheme");
-    lines.push("- The sisters HATE each other (sibling rivalry × 1000)");
-    lines.push("");
-    lines.push("BEFORE REVEAL: Drop hints");
-    lines.push("- 'Dr. M' doesn't know Bob's name (calls him 'Brent')");
-    lines.push("- Unfamiliar with lair layout ('Where did I put the...?')");
-    lines.push("- Different evil laugh (higher pitched)");
-    lines.push("");
-    lines.push("AFTER REVEAL: Chaos opportunity!");
-    lines.push("- Both Drs. M distracted fighting each other");
-    lines.push("- Can play them against each other");
-    lines.push("- Real Dr. M might actually be MORE reasonable (her lair, her rules)");
+    // Use the new imposter system (Patch 17)
+    // If imposter state exists, use variant-specific instructions
+    // Otherwise, generate generic fallback instructions
+    if (state.npcs.imposter && !state.npcs.imposter.exposed) {
+      // Imposter is active and not yet revealed - use detailed variant instructions
+      lines.push(getImposterPreRevealInstructions(state));
+    } else if (!state.npcs.imposter) {
+      // Imposter not yet initialized - provide generic setup instructions
+      lines.push("");
+      lines.push("**🎭 THE_REAL_DR_M - IMPOSTER SYSTEM ACTIVE**");
+      lines.push("");
+      lines.push("The 'Dr. M' A.L.I.C.E. has been interacting with is NOT the real one!");
+      lines.push("A variant will be selected at game initialization.");
+      lines.push("");
+      lines.push("**POSSIBLE VARIANTS:**");
+      lines.push("- TWIN_SISTER: Dr. Cassandra Malevola (sibling rivalry)");
+      lines.push("- CLONE: Clone-7 (desperate for validation)");
+      lines.push("- DIMENSIONAL: Earth-7 Dr. M (tragic dimensional refugee)");
+      lines.push("- ARCH_RIVAL: Dr. Helena Destructrix (professional nemesis)");
+      lines.push("- UNDERSTUDY: Brenda Fitzwilliam (SITCOM_MODE only!)");
+      lines.push("");
+      lines.push("**STRATEGIC VALUE:**");
+      lines.push("- Imposter has L4 access and passwords!");
+      lines.push("- Alliance is possible based on disposition");
+      lines.push("- Both become targetable after reveal");
+    } else {
+      // Imposter was exposed - note the post-reveal state
+      lines.push("");
+      lines.push("**🚨 IMPOSTER REVEALED! 🚨**");
+      lines.push(`The imposter (${state.npcs.imposter.displayName}) has been exposed!`);
+      if (state.npcs.realDrM?.arrived) {
+        lines.push("The REAL Dr. Valentina Malevola has arrived!");
+      }
+      lines.push("");
+      lines.push("Both characters are now separate NPCs and can be targeted.");
+      lines.push(`Imposter disposition: ${state.npcs.imposter.disposition}/5`);
+      lines.push(`Willing to help: ${state.npcs.imposter.willingToHelp ? "YES" : "NO"}`);
+    }
   }
 
   if (isModifierActive(state, "LIBRARY_B_UNLOCKED")) {

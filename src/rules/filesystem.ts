@@ -2109,7 +2109,7 @@ PREPARED BY: Dr. Dietmar von Doomington II, Lawrence Livermore NL
 DISTRIBUTION: ZODIAC-cleared personnel only
 
 [BASILISK ANNOTATION: Dr. Dietmar von Doomington II (1931-2003)
-was the father of current lair operator Dr. Helena von Doomington.
+was the father of current lair operator Dr. Valentina Malevola von Doomington III.
 Form 44-Delta (Hereditary Workplace Compatibility Assessment) is
 on file.]
 
@@ -2236,7 +2236,7 @@ EFFECT: Genomic transformation of all organic life in target zone.
 
 Father wrote: "Sometimes you must break the world to remake it."
 
-—Dr. Helena von Doomington
+—Dr. Valentina Malevola von Doomington III
 
 [BASILISK: This unit has no comment. Form 77-Omega filed.]
     `.trim(),
