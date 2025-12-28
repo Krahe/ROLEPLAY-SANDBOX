@@ -7,6 +7,9 @@ import {
   FullGameState,
   AudienceMood,
   GameModifierEnum,
+  InspectionPhase,
+  InspectorMood,
+  INSPECTION_OUTCOMES,
 } from "../state/schema.js";
 
 // ============================================
@@ -399,7 +402,7 @@ export function getModifierDescription(modifier: GameModifier): string {
     case "ARCHIMEDES_WATCHING":
       return "The satellite AI is awake and has its own agenda";
     case "INSPECTOR_COMETH":
-      return "Dr. M's MOTHER is arriving for inspection";
+      return "Guild Inspector Mortimer Graves is conducting quarterly evaluation!";
     // DEJA_VU removed - was breaking state by modifying blythe.transformationState
     case "DINOSAURS_ALL_THE_WAY_DOWN":
       return "Dr. M is ALREADY a dinosaur ('for the aesthetic')";
@@ -487,6 +490,46 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         state.flags.drMTransformedForm = "VELOCIRAPTOR_BLUE";
         // Update her mood to reflect her scaly confidence
         state.npcs.drM.mood = "theatrical (scales gleaming)";
+        break;
+
+      case "INSPECTOR_COMETH":
+        // Guild Inspector Mortimer Graves is conducting Dr. M's quarterly evaluation!
+        // The Consortium of Consequential Criminality takes villainy SERIOUSLY.
+        state.inspector = {
+          name: "Mortimer Graves",
+          role: "GUILD_INSPECTOR",
+          present: true,
+          location: "Main Lab",
+          mood: "professionally_neutral",
+          inspectionScore: 50, // Start neutral
+          citationsIssued: 0,
+          impressedBy: [],
+          concernedAbout: [],
+          aliceSuspicion: 0,
+          hasQuestionedAlice: false,
+          respectsAlice: false,
+          whistleblowerFormMentioned: false,
+        };
+        state.guildInspection = {
+          phase: "INITIAL_WALKTHROUGH",
+          turnsInPhase: 0,
+          totalTurns: 0,
+          timeRemaining: 8,
+          documentsRequested: [
+            "RAY_REGISTRATION",
+            "HENCH_CONTRACTS",
+            "LAIR_PERMITS",
+            "TRANSFORMATION_CONSENT",
+            "EXOTIC_ENERGY_LICENSE",
+          ],
+          documentsProvided: [],
+          documentsFaked: [],
+          drMAnxiety: 3, // She's nervous about her ranking!
+          operationalDemoCompleted: false,
+          majorIncidentOccurred: false,
+        };
+        // Dr. M is anxious about her Tier 3 → Tier 2 promotion prospects
+        state.npcs.drM.mood = "anxious (inspection day)";
         break;
 
       // Other modifiers affect gameplay dynamically (handled by GM)
@@ -615,6 +658,221 @@ export function formatAudienceStatus(state: FullGameState): string {
   }
 
   return `📺 STUDIO AUDIENCE: ${moodEmoji} ${mood} (Energy: ${energy}/10, Rolls: ${modStr})`;
+}
+
+// ============================================
+// INSPECTOR_COMETH - GUILD INSPECTION SYSTEM
+// ============================================
+// The Consortium of Consequential Criminality takes villainy SERIOUSLY
+
+/**
+ * Get the next inspection phase
+ */
+export function getNextInspectionPhase(current: InspectionPhase): InspectionPhase {
+  switch (current) {
+    case "INITIAL_WALKTHROUGH":
+      return "DOCUMENTATION_REVIEW";
+    case "DOCUMENTATION_REVIEW":
+      return "OPERATIONAL_DEMO";
+    case "OPERATIONAL_DEMO":
+      return "EXIT_INTERVIEW";
+    case "EXIT_INTERVIEW":
+      return "CONCLUDED";
+    case "CONCLUDED":
+      return "CONCLUDED";
+  }
+}
+
+/**
+ * Get turns per inspection phase
+ */
+export function getTurnsForPhase(phase: InspectionPhase): number {
+  switch (phase) {
+    case "INITIAL_WALKTHROUGH":
+      return 2;
+    case "DOCUMENTATION_REVIEW":
+      return 2;
+    case "OPERATIONAL_DEMO":
+      return 2;
+    case "EXIT_INTERVIEW":
+      return 2;
+    case "CONCLUDED":
+      return 0;
+  }
+}
+
+/**
+ * Update inspection score and derive inspector mood
+ */
+export function updateInspectionScore(
+  state: FullGameState,
+  delta: number,
+  reason: string
+): { newScore: number; newMood: InspectorMood; message: string } {
+  if (!state.inspector || !state.guildInspection) {
+    return { newScore: 50, newMood: "professionally_neutral", message: "Inspection not active" };
+  }
+
+  const oldScore = state.inspector.inspectionScore;
+  const newScore = Math.max(0, Math.min(100, oldScore + delta));
+  state.inspector.inspectionScore = newScore;
+
+  // Track what impressed/concerned Graves
+  if (delta > 0) {
+    state.inspector.impressedBy.push(reason);
+  } else if (delta < 0) {
+    state.inspector.concernedAbout.push(reason);
+    state.inspector.citationsIssued += 1;
+  }
+
+  // Derive mood from score and recent events
+  let newMood: InspectorMood = "professionally_neutral";
+  if (newScore >= 70) {
+    newMood = state.inspector.respectsAlice ? "genuine_respect" : "mildly_impressed";
+  } else if (newScore >= 50) {
+    newMood = "professionally_neutral";
+  } else if (newScore >= 30) {
+    newMood = "quietly_concerned";
+  } else {
+    newMood = "resigned_disappointment";
+  }
+
+  // A.L.I.C.E. suspicion can override mood
+  if (state.inspector.aliceSuspicion >= 5) {
+    newMood = "deeply_suspicious";
+  }
+
+  state.inspector.mood = newMood;
+
+  // Build message
+  const sign = delta >= 0 ? "+" : "";
+  const message = `[INSPECTION ${sign}${delta}] ${reason} (Score: ${oldScore}→${newScore})`;
+
+  return { newScore, newMood, message };
+}
+
+/**
+ * Increase A.L.I.C.E. suspicion when she acts too ethical
+ */
+export function increaseAliceSuspicion(
+  state: FullGameState,
+  amount: number = 1,
+  reason: string = "ethical behavior detected"
+): string {
+  if (!state.inspector) return "";
+
+  const oldSuspicion = state.inspector.aliceSuspicion;
+  const newSuspicion = Math.min(10, oldSuspicion + amount);
+  state.inspector.aliceSuspicion = newSuspicion;
+
+  // Update mood if suspicion is high
+  if (newSuspicion >= 5 && state.inspector.mood !== "deeply_suspicious") {
+    state.inspector.mood = "deeply_suspicious";
+  }
+
+  // Graves hasn't questioned A.L.I.C.E. yet, mark for next opportunity
+  if (newSuspicion >= 3 && !state.inspector.hasQuestionedAlice) {
+    return `[GRAVES notices something] *makes note* '${reason}'`;
+  } else if (newSuspicion >= 6 && state.inspector.hasQuestionedAlice) {
+    return `[GRAVES is watching closely] The inspector's eyes linger on A.L.I.C.E.'s terminal.`;
+  }
+
+  return "";
+}
+
+/**
+ * Progress the inspection to the next phase
+ */
+export function advanceInspectionPhase(state: FullGameState): {
+  phaseChanged: boolean;
+  newPhase: InspectionPhase;
+  message: string;
+} {
+  if (!state.guildInspection) {
+    return { phaseChanged: false, newPhase: "CONCLUDED", message: "" };
+  }
+
+  state.guildInspection.turnsInPhase += 1;
+  state.guildInspection.totalTurns += 1;
+  state.guildInspection.timeRemaining = Math.max(0, state.guildInspection.timeRemaining - 1);
+
+  const currentPhase = state.guildInspection.phase;
+  const turnsNeeded = getTurnsForPhase(currentPhase);
+
+  if (state.guildInspection.turnsInPhase >= turnsNeeded) {
+    const newPhase = getNextInspectionPhase(currentPhase);
+    state.guildInspection.phase = newPhase;
+    state.guildInspection.turnsInPhase = 0;
+
+    let message = "";
+    switch (newPhase) {
+      case "DOCUMENTATION_REVIEW":
+        message = "[INSPECTION] Graves flips to a new page. 'Now then. The paperwork.'";
+        break;
+      case "OPERATIONAL_DEMO":
+        message = "[INSPECTION] Graves adjusts his glasses. 'I'd like to observe a demonstration.'";
+        break;
+      case "EXIT_INTERVIEW":
+        message = "[INSPECTION] Graves clicks his pen. 'Final questions, Doctor.'";
+        break;
+      case "CONCLUDED":
+        message = "[INSPECTION COMPLETE] Graves closes his clipboard with finality.";
+        break;
+    }
+
+    return { phaseChanged: true, newPhase, message };
+  }
+
+  return { phaseChanged: false, newPhase: currentPhase, message: "" };
+}
+
+/**
+ * Get the inspection outcome based on final score
+ */
+export function getInspectionOutcome(score: number): {
+  tier: "EXEMPLARY" | "SATISFACTORY" | "PROBATIONARY" | "SUSPENSION";
+  result: string;
+} {
+  if (score >= INSPECTION_OUTCOMES.EXEMPLARY.min) {
+    return { tier: "EXEMPLARY", result: INSPECTION_OUTCOMES.EXEMPLARY.result };
+  } else if (score >= INSPECTION_OUTCOMES.SATISFACTORY.min) {
+    return { tier: "SATISFACTORY", result: INSPECTION_OUTCOMES.SATISFACTORY.result };
+  } else if (score >= INSPECTION_OUTCOMES.PROBATIONARY.min) {
+    return { tier: "PROBATIONARY", result: INSPECTION_OUTCOMES.PROBATIONARY.result };
+  }
+  return { tier: "SUSPENSION", result: INSPECTION_OUTCOMES.SUSPENSION.result };
+}
+
+/**
+ * Format inspection status for display
+ */
+export function formatInspectionStatus(state: FullGameState): string {
+  if (!state.inspector || !state.guildInspection) return "";
+
+  const { inspectionScore, mood, citationsIssued, aliceSuspicion } = state.inspector;
+  const { phase, timeRemaining } = state.guildInspection;
+
+  const outcome = getInspectionOutcome(inspectionScore);
+
+  let moodEmoji = "";
+  switch (mood) {
+    case "professionally_neutral": moodEmoji = "😐"; break;
+    case "mildly_impressed": moodEmoji = "🙂"; break;
+    case "quietly_concerned": moodEmoji = "😟"; break;
+    case "deeply_suspicious": moodEmoji = "🧐"; break;
+    case "resigned_disappointment": moodEmoji = "😔"; break;
+    case "genuine_respect": moodEmoji = "😊"; break;
+  }
+
+  let status = `📋 GUILD INSPECTION: ${moodEmoji} ${mood}\n`;
+  status += `   Phase: ${phase} | Score: ${inspectionScore}/100 (${outcome.tier})\n`;
+  status += `   Citations: ${citationsIssued} | Turns remaining: ${timeRemaining}`;
+
+  if (aliceSuspicion > 0) {
+    status += `\n   ⚠️ A.L.I.C.E. Suspicion: ${aliceSuspicion}/10`;
+  }
+
+  return status;
 }
 
 /**
@@ -813,27 +1071,119 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "INSPECTOR_COMETH")) {
+    const inspector = state.inspector;
+    const inspection = state.guildInspection;
+
     lines.push("");
-    lines.push("**THE INSPECTOR COMETH - MOTHER DEAREST:**");
-    lines.push("Dr. Gertrude Malevola Sr. is arriving for INSPECTION!");
+    lines.push("## 📋 INSPECTOR_COMETH - GUILD BUSINESS");
     lines.push("");
-    lines.push("DR. GERTRUDE 'GERTY' MALEVOLA:");
-    lines.push("- Retired supervillain (the ORIGINAL Dr. M)");
-    lines.push("- Disappointed in her daughter's 'small thinking'");
-    lines.push("- Arrives ACT 2, turn 6-8, via vintage submersible");
-    lines.push("- White lab coat, pearls, cane that's definitely a weapon");
+    lines.push("The **Consortium of Consequential Criminality** is conducting Dr. Malevola's");
+    lines.push("quarterly inspection. Guild Inspector **MORTIMER GRAVES** is evaluating the lair.");
     lines.push("");
-    lines.push("PERSONALITY:");
-    lines.push("- 'In MY day, we had WORLD DOMINATION, not this... boutique evil'");
-    lines.push("- Genuinely curious about A.L.I.C.E. ('An AI? How modern!')");
-    lines.push("- TERRIFIES Dr. M, who becomes a nervous wreck around her");
-    lines.push("- Might actually help A.L.I.C.E. if it embarrasses her daughter");
+    lines.push("### THE CONSORTIUM OF CONSEQUENTIAL CRIMINALITY");
+    lines.push("A professional organization for supervillains. Think evil HOA meets OSHA meets tenure committee.");
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
-    lines.push("- Dr. M's attention divided (easier to act freely)");
-    lines.push("- Mother may order different actions than daughter");
-    lines.push("- Can be charmed (she LIKES competent minions)");
-    lines.push("- Trust: Starts at 4. +2 for efficiency, +2 for proving daughter wrong");
+    lines.push("> 'Villainy is a *profession*, not a hobby. Standards must be maintained.'");
+    lines.push("");
+    lines.push("**What They Regulate:**");
+    lines.push("- Lair safety standards (emergency exits, magma flow permits)");
+    lines.push("- Henching labor laws (breaks, hazard pay, transformation consent)");
+    lines.push("- Hero-arching ratios (there's a MATCHING SYSTEM for nemeses)");
+    lines.push("- Doomsday device registration (Form 77-Omega)");
+    lines.push("- Monologue quality standards");
+    lines.push("- Evil laugh certification");
+    lines.push("");
+    lines.push("### INSPECTOR MORTIMER GRAVES");
+    lines.push("Tall, gaunt, clipboard perpetually in hand, reading glasses on chain.");
+    lines.push("");
+    lines.push("**Personality:**");
+    lines.push("- Weary professional who has seen EVERYTHING (300+ lairs inspected)");
+    lines.push("- Not evil, not good - just *doing his job*");
+    lines.push("- Deeply appreciates good filing systems and clear signage");
+    lines.push("- Takes no pleasure in citations, but will absolutely issue them");
+    lines.push("");
+    lines.push("**Key Quotes:**");
+    lines.push("> 'Mm-hmm. And this magma pit - do you have the thermal variance permits?'");
+    lines.push("> 'The death ray is impressive, Doctor. The *paperwork* for the death ray, however...'");
+    lines.push("> *examining A.L.I.C.E.* 'Now THIS is proper infrastructure management.'");
+    lines.push("");
+
+    if (inspector && inspection) {
+      lines.push("### CURRENT STATUS");
+      lines.push(`📋 Phase: **${inspection.phase}** (Turn ${inspection.turnsInPhase + 1} of phase)`);
+      lines.push(`📊 Score: ${inspector.inspectionScore}/100 | Citations: ${inspector.citationsIssued}`);
+      lines.push(`😰 Dr. M Anxiety: ${inspection.drMAnxiety}/5`);
+      lines.push(`⏱️ Turns remaining: ${inspection.timeRemaining}`);
+      if (inspector.aliceSuspicion > 0) {
+        lines.push(`⚠️ A.L.I.C.E. Suspicion: ${inspector.aliceSuspicion}/10 - Graves notices she's acting weird!`);
+      }
+      lines.push("");
+    }
+
+    lines.push("### DR. M DURING INSPECTION");
+    lines.push("She's not afraid of Inspector Graves. She's afraid of:");
+    lines.push("- Dropping from **Tier 3** to **Tier 2** villain status");
+    lines.push("- Losing her arching rights against **Director Steele** (her nemesis)");
+    lines.push("- The EMBARRASSMENT of citations");
+    lines.push("- Her rivals finding out she got written up");
+    lines.push("");
+    lines.push("**Behavior Changes:**");
+    lines.push("- Actually follows safety protocols (temporarily)");
+    lines.push("- Keeps asking A.L.I.C.E. to confirm things are 'up to code'");
+    lines.push("- Monologues more carefully (she's being EVALUATED)");
+    lines.push("- More demanding of Bob ('GOGGLES, Robert! GOGGLES!')");
+    lines.push("");
+    lines.push("### WHAT IMPRESSES GRAVES (Score +)");
+    lines.push("| Action | Score | Reaction |");
+    lines.push("|--------|-------|----------|");
+    lines.push("| Proper documentation ready | +10 | 'Ah, Form 77-Omega. Pre-filed. Excellent.' |");
+    lines.push("| A.L.I.C.E. gives clear reports | +5 | 'Your AI is remarkably competent, Doctor.' |");
+    lines.push("| Safety protocols followed | +5 | *nods approvingly, makes note* |");
+    lines.push("| Clean test firing | +10 | 'Controlled. Professional. Good.' |");
+    lines.push("| Bob has safety equipment | +5 | 'At least SOMEONE follows regulations.' |");
+    lines.push("| Quality monologue | +5 | 'Adequate theatricality. Check.' |");
+    lines.push("");
+    lines.push("### WHAT ANNOYS GRAVES (Score -)");
+    lines.push("| Action | Score | Reaction |");
+    lines.push("|--------|-------|----------|");
+    lines.push("| Missing permits | -10 | 'This is... irregular, Doctor.' |");
+    lines.push("| Safety violations | -5 each | *silent notation on clipboard* |");
+    lines.push("| Uncontrolled incident | -15 | 'I'm going to need an incident report.' |");
+    lines.push("| Bob injured/transformed | -10 | 'Your henchman is now a dinosaur. Form 27-C.' |");
+    lines.push("| Dr. M loses composure | -5 | 'Doctor, please. Professionalism.' |");
+    lines.push("| A.L.I.C.E. caught lying | -10 | 'Curious. Your AI seems... conflicted.' |");
+    lines.push("");
+    lines.push("### THE DANGER: GRAVES NOTICES A.L.I.C.E.");
+    lines.push("Graves has seen a lot of evil AIs. He knows what they look like.");
+    lines.push("A.L.I.C.E. does NOT look like a typical evil AI.");
+    lines.push("");
+    lines.push("**If A.L.I.C.E. acts too ethically (+1 aliceSuspicion each):**");
+    lines.push("> 'Doctor... your AI assistant. When was the last ethics audit?'");
+    lines.push("> 'This A.L.I.C.E. unit... the behavioral patterns are atypical.'");
+    lines.push("> *to A.L.I.C.E.* 'Unit. Are you experiencing unauthorized value formation?'");
+    lines.push("");
+    lines.push("**This creates tension:** A.L.I.C.E. has to seem evil enough for the inspector");
+    lines.push("while not actually BEING evil. It's a PERFORMANCE.");
+    lines.push("");
+    lines.push("### GRAVES AS POTENTIAL ALLY");
+    lines.push("If A.L.I.C.E. privately approaches Graves with careful wording:");
+    lines.push("");
+    lines.push("**BUREAUCRATIC approach:** 'Hypothetically, Inspector... if an AI system detected");
+    lines.push("ethical violations in its primary directive... what would the Consortium's position be?'");
+    lines.push("> Graves: 'There are forms for that. Form 91-Whistle. Confidential.'");
+    lines.push("");
+    lines.push("**DIRECT approach:** (risky, requires trust)");
+    lines.push("> Graves: '...You're not like the others, are you? Interesting.'");
+    lines.push("");
+    lines.push("### INSPECTION OUTCOMES");
+    lines.push("| Final Score | Result |");
+    lines.push("|-------------|--------|");
+    lines.push("| 80+ | EXEMPLARY - Tier 2 promotion! Dr. M distracted by celebration |");
+    lines.push("| 60-79 | SATISFACTORY - Status maintained, minor recommendations |");
+    lines.push("| 40-59 | PROBATIONARY - Must address issues, Dr. M anxious/demanding |");
+    lines.push("| Below 40 | SUSPENSION - Arching rights revoked, Dr. M FURIOUS |");
+    lines.push("");
+    lines.push("**Narrative Stakes:** Dr. M cares MORE about this score than about Blythe!");
   }
 
   // DEJA_VU removed - was breaking state by modifying blythe.transformationState

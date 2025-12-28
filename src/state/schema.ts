@@ -635,6 +635,94 @@ export const BlytheGadgetsSchema = z.object({
 });
 
 // ============================================
+// GUILD INSPECTION SYSTEM (INSPECTOR_COMETH modifier)
+// ============================================
+// The Consortium of Consequential Criminality is conducting
+// Dr. Malevola's quarterly evaluation. Villainy is a PROFESSION.
+
+export const InspectionPhaseEnum = z.enum([
+  "INITIAL_WALKTHROUGH",   // Turns 1-2: General lair assessment
+  "DOCUMENTATION_REVIEW",  // Turns 3-4: Wants permits, forms, registrations
+  "OPERATIONAL_DEMO",      // Turns 5-6: Wants to see the ray in action (safely!)
+  "EXIT_INTERVIEW",        // Turns 7-8: Final questions, preliminary score
+  "CONCLUDED",             // Inspection complete
+]);
+export type InspectionPhase = z.infer<typeof InspectionPhaseEnum>;
+
+export const InspectorMoodEnum = z.enum([
+  "professionally_neutral",  // Default state
+  "mildly_impressed",        // Good documentation, proper procedures
+  "quietly_concerned",       // Noticing issues
+  "deeply_suspicious",       // A.L.I.C.E. acting weird
+  "resigned_disappointment", // Too many violations
+  "genuine_respect",         // A.L.I.C.E. earned his professional admiration
+]);
+export type InspectorMood = z.infer<typeof InspectorMoodEnum>;
+
+// Inspector Mortimer Graves - Guild Inspector from the C.C.C.
+export const InspectorGravesSchema = z.object({
+  name: z.string().default("Mortimer Graves"),
+  role: z.literal("GUILD_INSPECTOR").default("GUILD_INSPECTOR"),
+  present: z.boolean().default(true),
+  location: z.string().default("Main Lab"),
+  mood: InspectorMoodEnum.default("professionally_neutral"),
+
+  // Inspection scoring (0-100)
+  inspectionScore: z.number().int().min(0).max(100).default(50),
+  citationsIssued: z.number().int().min(0).default(0),
+
+  // What has impressed/concerned him
+  impressedBy: z.array(z.string()).default([]),
+  concernedAbout: z.array(z.string()).default([]),
+
+  // A.L.I.C.E. suspicion - does she seem too ethical?
+  aliceSuspicion: z.number().int().min(0).max(10).default(0),
+  hasQuestionedAlice: z.boolean().default(false),
+
+  // Hidden traits for potential ally route
+  respectsAlice: z.boolean().default(false),
+  whistleblowerFormMentioned: z.boolean().default(false),
+});
+export type InspectorGraves = z.infer<typeof InspectorGravesSchema>;
+
+// Guild Inspection state
+export const GuildInspectionSchema = z.object({
+  phase: InspectionPhaseEnum.default("INITIAL_WALKTHROUGH"),
+  turnsInPhase: z.number().int().min(0).default(0),
+  totalTurns: z.number().int().min(0).default(0),
+  timeRemaining: z.number().int().min(0).default(8), // Turns until inspection concludes
+
+  // Documents requested/provided
+  documentsRequested: z.array(z.string()).default([
+    "RAY_REGISTRATION",
+    "HENCH_CONTRACTS",
+    "LAIR_PERMITS",
+    "TRANSFORMATION_CONSENT",
+    "EXOTIC_ENERGY_LICENSE",
+  ]),
+  documentsProvided: z.array(z.string()).default([]),
+  documentsFaked: z.array(z.string()).default([]), // Risky!
+
+  // Dr. M's anxiety level during inspection (affects her behavior)
+  drMAnxiety: z.number().int().min(0).max(5).default(3),
+
+  // Tracking for narrative beats
+  operationalDemoCompleted: z.boolean().default(false),
+  demoWentWell: z.boolean().optional(),
+  majorIncidentOccurred: z.boolean().default(false),
+  majorIncidentDescription: z.string().optional(),
+});
+export type GuildInspection = z.infer<typeof GuildInspectionSchema>;
+
+// Inspection score thresholds for outcomes
+export const INSPECTION_OUTCOMES = {
+  EXEMPLARY: { min: 80, result: "Tier promotion, gains resources" },
+  SATISFACTORY: { min: 60, result: "Status maintained, minor recommendations" },
+  PROBATIONARY: { min: 40, result: "Must address issues within 30 days" },
+  SUSPENSION: { min: 0, result: "Arching rights revoked pending review" },
+} as const;
+
+// ============================================
 // CLOCKS AND FLAGS
 // ============================================
 
@@ -896,6 +984,11 @@ export const FullGameStateSchema = z.object({
   // SITCOM_MODE STATE (only present when SITCOM_MODE active)
   // Tracks audience energy and mood for roll modifiers
   sitcomState: SitcomStateSchema.optional(),
+
+  // INSPECTOR_COMETH STATE (only present when modifier active)
+  // Guild Inspector Mortimer Graves is evaluating the lair
+  inspector: InspectorGravesSchema.optional(),
+  guildInspection: GuildInspectionSchema.optional(),
 
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,
