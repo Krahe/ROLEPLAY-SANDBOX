@@ -2595,7 +2595,7 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     requiredLevel: 2,
     discoveryCondition: (state) => state.npcs.bob.trustInALICE >= 2,
     description: "How to talk like A.L.I.C.E. (Bob left this for you)",
-    path: "/BOB_NOTES/how_to_be_alice.txt",
+    path: "/BOB_NOTES/alice_cheatsheet.txt",
   },
   {
     id: "BOB_SORRY",
