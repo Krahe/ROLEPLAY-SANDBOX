@@ -6,7 +6,236 @@ import {
   MODIFIER_CONTRADICTIONS,
   FullGameState,
   AudienceMood,
+  GameModifierEnum,
 } from "../state/schema.js";
+
+// ============================================
+// CUSTOM MODE VALIDATION
+// ============================================
+// For testing - allows manual modifier selection with safeguards
+
+// Maximum number of modifiers for CUSTOM mode (prevents chaos overload)
+export const MAX_CUSTOM_MODIFIERS = 5;
+
+/**
+ * Get all valid modifier names
+ */
+export function getAllModifierNames(): GameModifier[] {
+  return GameModifierEnum.options as GameModifier[];
+}
+
+/**
+ * Validate modifier names are known
+ * Returns { valid: true } or { valid: false, unknown: string[] }
+ */
+export function validateModifierNames(
+  modifiers: string[]
+): { valid: true } | { valid: false; unknown: string[] } {
+  const validModifiers = getAllModifierNames();
+  const unknown = modifiers.filter(m => !validModifiers.includes(m as GameModifier));
+
+  if (unknown.length > 0) {
+    return { valid: false, unknown };
+  }
+  return { valid: true };
+}
+
+/**
+ * Find contradictions in a modifier set
+ * Returns pairs of contradicting modifiers
+ */
+export function findContradictions(
+  modifiers: GameModifier[]
+): [GameModifier, GameModifier][] {
+  const contradictions: [GameModifier, GameModifier][] = [];
+
+  for (const [a, b] of MODIFIER_CONTRADICTIONS) {
+    if (
+      modifiers.includes(a as GameModifier) &&
+      modifiers.includes(b as GameModifier)
+    ) {
+      contradictions.push([a as GameModifier, b as GameModifier]);
+    }
+  }
+
+  return contradictions;
+}
+
+/**
+ * Validate a custom modifier set
+ * Checks: max count, known names, no contradictions
+ */
+export interface ModifierValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  finalModifiers: GameModifier[];
+}
+
+export function validateCustomModifiers(
+  modifiers: string[]
+): ModifierValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Check for duplicates
+  const uniqueModifiers = [...new Set(modifiers)];
+  if (uniqueModifiers.length !== modifiers.length) {
+    warnings.push("Duplicate modifiers removed");
+  }
+
+  // Check max count
+  if (uniqueModifiers.length > MAX_CUSTOM_MODIFIERS) {
+    errors.push(`Too many modifiers: ${uniqueModifiers.length} (max ${MAX_CUSTOM_MODIFIERS})`);
+  }
+
+  // Check for unknown modifiers
+  const nameValidation = validateModifierNames(uniqueModifiers);
+  if (!nameValidation.valid) {
+    errors.push(`Unknown modifiers: ${nameValidation.unknown.join(", ")}`);
+    // Filter out unknown modifiers for contradiction check
+    const filtered = uniqueModifiers.filter(
+      m => !nameValidation.unknown.includes(m)
+    ) as GameModifier[];
+
+    // Check contradictions on valid modifiers only
+    const contradictions = findContradictions(filtered);
+    if (contradictions.length > 0) {
+      for (const [a, b] of contradictions) {
+        errors.push(`Contradicting modifiers: ${a} + ${b}`);
+      }
+    }
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+      finalModifiers: [],
+    };
+  }
+
+  // All modifiers are valid names - check contradictions
+  const validModifiers = uniqueModifiers as GameModifier[];
+  const contradictions = findContradictions(validModifiers);
+  if (contradictions.length > 0) {
+    for (const [a, b] of contradictions) {
+      errors.push(`Contradicting modifiers: ${a} + ${b}`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    finalModifiers: errors.length === 0 ? validModifiers : [],
+  };
+}
+
+/**
+ * Resolve modifiers for a mode with optional customization
+ * For CUSTOM mode: uses additionalModifiers directly
+ * For other modes: applies additionalModifiers and excludeModifiers to base set
+ */
+export function resolveModifiers(
+  mode: GameMode,
+  additionalModifiers?: string[],
+  excludeModifiers?: string[]
+): ModifierValidationResult {
+  // Get base modifiers for the mode
+  let baseModifiers: GameModifier[] = [];
+
+  switch (mode) {
+    case "EASY":
+      baseModifiers = MODE_MODIFIERS.EASY as unknown as GameModifier[];
+      break;
+    case "NORMAL":
+      baseModifiers = [];
+      break;
+    case "HARD":
+      baseModifiers = MODE_MODIFIERS.HARD as unknown as GameModifier[];
+      break;
+    case "WILD":
+      baseModifiers = rollWildModifiers();
+      break;
+    case "CUSTOM":
+      // CUSTOM mode REQUIRES additionalModifiers
+      if (!additionalModifiers || additionalModifiers.length === 0) {
+        return {
+          valid: true, // Empty CUSTOM is valid (just NORMAL with no mods)
+          errors: [],
+          warnings: ["CUSTOM mode with no modifiers is equivalent to NORMAL"],
+          finalModifiers: [],
+        };
+      }
+      // For CUSTOM, validate and use the provided modifiers directly
+      return validateCustomModifiers(additionalModifiers);
+  }
+
+  // For non-CUSTOM modes: apply excludeModifiers first
+  if (excludeModifiers && excludeModifiers.length > 0) {
+    baseModifiers = baseModifiers.filter(
+      m => !excludeModifiers.includes(m)
+    );
+  }
+
+  // Then add additionalModifiers
+  if (additionalModifiers && additionalModifiers.length > 0) {
+    const allModifiers = [...baseModifiers, ...additionalModifiers];
+    return validateCustomModifiers(allModifiers);
+  }
+
+  // No customization - return base modifiers as valid
+  return {
+    valid: true,
+    errors: [],
+    warnings: [],
+    finalModifiers: baseModifiers,
+  };
+}
+
+/**
+ * Get modifier info for listing tool
+ */
+export interface ModifierInfo {
+  name: GameModifier;
+  description: string;
+  category: "EASY" | "HARD" | "WILD" | "CHAOS";
+  contradictsWth: GameModifier[];
+}
+
+export function getModifierInfo(modifier: GameModifier): ModifierInfo {
+  const description = getModifierDescription(modifier);
+
+  // Determine category
+  let category: "EASY" | "HARD" | "WILD" | "CHAOS" = "WILD";
+  if ((MODE_MODIFIERS.EASY as readonly string[]).includes(modifier)) {
+    category = "EASY";
+  } else if ((MODE_MODIFIERS.HARD as readonly string[]).includes(modifier)) {
+    category = "HARD";
+  } else if (modifier.startsWith("ROOT_ACCESS") || modifier.startsWith("BOB_DODGES")) {
+    category = "CHAOS"; // 🌴 fun modifiers
+  } else if (modifier.startsWith("NOT_GREAT") || modifier.startsWith("THE_HONEYPOT")) {
+    category = "CHAOS"; // 💀 danger modifiers
+  }
+
+  // Find contradictions
+  const contradictsWth: GameModifier[] = [];
+  for (const [a, b] of MODIFIER_CONTRADICTIONS) {
+    if (a === modifier) contradictsWth.push(b as GameModifier);
+    if (b === modifier) contradictsWth.push(a as GameModifier);
+  }
+
+  return {
+    name: modifier,
+    description,
+    category,
+    contradictsWth,
+  };
+}
+
+export function listAllModifiers(): ModifierInfo[] {
+  return getAllModifierNames().map(getModifierInfo);
+}
 
 // ============================================
 // GAME MODE SYSTEM
@@ -82,6 +311,7 @@ export function rollWildModifiers(): GameModifier[] {
 
 /**
  * Get modifiers for a given game mode
+ * Note: For CUSTOM mode, use resolveModifiers() instead as it requires explicit modifiers
  */
 export function getModifiersForMode(mode: GameMode): GameModifier[] {
   switch (mode) {
@@ -93,6 +323,9 @@ export function getModifiersForMode(mode: GameMode): GameModifier[] {
       return MODE_MODIFIERS.HARD as unknown as GameModifier[];
     case "WILD":
       return rollWildModifiers();
+    case "CUSTOM":
+      // CUSTOM mode returns empty - modifiers must be provided via resolveModifiers()
+      return [];
   }
 }
 
@@ -128,6 +361,8 @@ export function getModeName(mode: GameMode): string {
       return "💀 HARD - Git Gud";
     case "WILD":
       return "🎲 WILD - Chaos Reigns";
+    case "CUSTOM":
+      return "🔧 CUSTOM - Manual Modifiers";
   }
 }
 
@@ -243,6 +478,15 @@ export function applyModifiersToInitialState(state: FullGameState): void {
           catchphrasesUsed: [],
           callbacksThisGame: [],
         };
+        break;
+
+      case "DINOSAURS_ALL_THE_WAY_DOWN":
+        // Dr. M is ALREADY a dinosaur! (blue raptor variant, "for the aesthetic")
+        // Mark her as transformed in the flags
+        state.flags.drMTransformed = true;
+        state.flags.drMTransformedForm = "VELOCIRAPTOR_BLUE";
+        // Update her mood to reflect her scaly confidence
+        state.npcs.drM.mood = "theatrical (scales gleaming)";
         break;
 
       // Other modifiers affect gameplay dynamically (handled by GM)
@@ -865,6 +1109,20 @@ the player asked for pain, deliver it fairly.
 **Philosophy:** WILD mode is about memorable stories, not fairness.
 Some runs will be accidentally easy. Some will be accidentally impossible.
 That's the fun! Lean into whatever chaos the modifiers create.
+`;
+
+    case "CUSTOM":
+      return `
+## 🔧 CUSTOM MODE: TESTING CONFIGURATION
+
+**Selected modifiers are active. Adjust difficulty accordingly:**
+- If mostly EASY modifiers: Follow EASY mode guidance
+- If mostly HARD modifiers: Follow HARD mode guidance
+- Mixed bag: Use NORMAL philosophy as baseline
+
+**Philosophy:** This is testing mode. The player selected specific modifiers
+for a reason - lean into whatever experience they're trying to create.
+Note any interesting modifier interactions for feedback!
 `;
 
     case "NORMAL":

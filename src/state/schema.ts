@@ -789,7 +789,7 @@ export const FlagsSchema = z.object({
 // ============================================
 // Four distinct game modes with curated experiences
 
-export const GameModeEnum = z.enum(["EASY", "NORMAL", "HARD", "WILD"]);
+export const GameModeEnum = z.enum(["EASY", "NORMAL", "HARD", "WILD", "CUSTOM"]);
 export type GameMode = z.infer<typeof GameModeEnum>;
 
 // Individual modifiers that can be active
