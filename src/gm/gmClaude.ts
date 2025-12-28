@@ -777,6 +777,210 @@ export interface GMContext {
   actTransitionNotification?: string; // Notification when act changes
 }
 
+// ============================================
+// NPC SPEECH CAPABILITY SYSTEM (Patch 17.4)
+// ============================================
+// Tracks which NPCs can speak based on transformation speech retention.
+// When speechRetention is NONE, NPCs can only produce animal sounds.
+
+export interface NpcSpeechCapability {
+  canSpeak: boolean;
+  speechRetention: "FULL" | "PARTIAL" | "NONE" | "HUMAN";
+  vocalDescription: string;  // e.g., "chirps", "growls", "roars"
+  form: string;
+}
+
+/**
+ * Get speech capability for an NPC based on their transformation state.
+ * Returns capability info including what sounds they can make.
+ */
+export function getNpcSpeechCapability(state: FullGameState, npcId: string): NpcSpeechCapability {
+  const defaultHuman: NpcSpeechCapability = {
+    canSpeak: true,
+    speechRetention: "HUMAN",
+    vocalDescription: "normal speech",
+    form: "HUMAN",
+  };
+
+  if (npcId.toLowerCase() === "blythe") {
+    const ts = state.npcs.blythe?.transformationState;
+    if (!ts || ts.form === "HUMAN") return defaultHuman;
+
+    const form = ts.form;
+    const retention = ts.speechRetention;
+    const canSpeak = retention === "FULL" || retention === "PARTIAL";
+
+    // Get vocalization type based on dinosaur form
+    const vocalMap: Record<string, string> = {
+      VELOCIRAPTOR_JP: "chirps, clicks, and snarls",
+      VELOCIRAPTOR_ACCURATE: "chirps and warbling calls",
+      VELOCIRAPTOR_BLUE: "clicks and barks",
+      TYRANNOSAURUS: "thunderous roars",
+      DILOPHOSAURUS: "hoots and rattling hisses",
+      PTERANODON: "screeches and caws",
+      TRICERATOPS: "bellows and snorts",
+      COMPSOGNATHUS: "high-pitched chirps",
+      CANARY: "tweets and melodic chirps",
+    };
+
+    return {
+      canSpeak,
+      speechRetention: retention,
+      vocalDescription: vocalMap[form] || "animalistic sounds",
+      form,
+    };
+  }
+
+  if (npcId.toLowerCase() === "bob") {
+    const ts = state.npcs.bob?.transformationState;
+    if (!ts || ts.form === "HUMAN") return defaultHuman;
+
+    const form = ts.form;
+    const retention = ts.speechRetention;
+    const canSpeak = retention === "FULL" || retention === "PARTIAL";
+
+    const vocalMap: Record<string, string> = {
+      VELOCIRAPTOR_JP: "nervous chirps and clicks",
+      VELOCIRAPTOR_ACCURATE: "anxious warbles",
+      TYRANNOSAURUS: "confused roars",
+      CANARY: "panicked tweets",
+    };
+
+    return {
+      canSpeak,
+      speechRetention: retention,
+      vocalDescription: vocalMap[form] || "animalistic sounds",
+      form,
+    };
+  }
+
+  return defaultHuman;
+}
+
+/**
+ * Build NPC speech constraints section for GM prompt.
+ * This tells the GM which NPCs cannot speak and how to write their reactions.
+ */
+export function buildNpcSpeechConstraints(state: FullGameState): string {
+  const constraints: string[] = [];
+
+  const blytheCapability = getNpcSpeechCapability(state, "blythe");
+  const bobCapability = getNpcSpeechCapability(state, "bob");
+
+  if (!blytheCapability.canSpeak) {
+    constraints.push(`## ⚠️ NPC SPEECH CONSTRAINTS
+
+### BLYTHE: CANNOT SPEAK (speechRetention: ${blytheCapability.speechRetention})
+**Form:** ${blytheCapability.form}
+**Vocalizations:** ${blytheCapability.vocalDescription}
+
+**CRITICAL RULE:** Do NOT write any verbal dialogue for Blythe!
+Instead of: \`"speaker": "Blythe", "message": "Well, this is interesting."\`
+Write: \`"speaker": "Blythe", "message": "*${blytheCapability.vocalDescription} expressively - the sound carries unmistakable sardonic amusement despite lacking words*"\`
+
+Blythe can still:
+- Make expressive animal sounds (${blytheCapability.vocalDescription})
+- Communicate through body language and gestures
+- React physically (flexing claws, tilting head, etc.)
+- Have internal thoughts shown through narration`);
+  } else if (blytheCapability.speechRetention === "PARTIAL") {
+    constraints.push(`## 🗣️ NPC SPEECH CONSTRAINTS
+
+### BLYTHE: IMPAIRED SPEECH (speechRetention: PARTIAL)
+**Form:** ${blytheCapability.form}
+
+Blythe CAN speak but with difficulty. Mix animal sounds with slurred words:
+- "I'm... *chirp* ...still me. Just... *growl* ...different."
+- Words come out interspersed with ${blytheCapability.vocalDescription}
+- Short sentences work better than long ones`);
+  }
+
+  if (!bobCapability.canSpeak) {
+    constraints.push(`
+### BOB: CANNOT SPEAK (speechRetention: ${bobCapability.speechRetention})
+**Form:** ${bobCapability.form}
+**Vocalizations:** ${bobCapability.vocalDescription}
+
+Bob cannot form words! Write non-verbal reactions:
+- "*${bobCapability.vocalDescription} in what sounds like distressed confusion*"
+- Show his emotions through physical actions and sounds`);
+  } else if (bobCapability.speechRetention === "PARTIAL") {
+    constraints.push(`
+### BOB: IMPAIRED SPEECH (speechRetention: PARTIAL)
+**Form:** ${bobCapability.form}
+
+Bob can speak but stammers worse than usual, mixing in ${bobCapability.vocalDescription}.`);
+  }
+
+  return constraints.join("\n");
+}
+
+/**
+ * Convert verbal dialogue to non-verbal for NPCs who cannot speak.
+ * This is a POST-PROCESSING safety net for GM responses.
+ */
+export function enforceNpcSpeechConstraints(
+  dialogue: { speaker: string; message: string }[],
+  state: FullGameState
+): { speaker: string; message: string }[] {
+  return dialogue.map(entry => {
+    const capability = getNpcSpeechCapability(state, entry.speaker);
+
+    if (!capability.canSpeak && capability.speechRetention === "NONE") {
+      // Check if the message already looks non-verbal (starts with * or contains animal sounds)
+      const looksNonVerbal = entry.message.startsWith("*") ||
+        entry.message.includes("chirp") ||
+        entry.message.includes("growl") ||
+        entry.message.includes("roar") ||
+        entry.message.includes("screech") ||
+        entry.message.includes("hiss");
+
+      if (!looksNonVerbal) {
+        // Convert to non-verbal
+        // Try to preserve the emotional intent of the original message
+        const emotion = detectEmotionalIntent(entry.message);
+        return {
+          speaker: entry.speaker,
+          message: `*${capability.vocalDescription} ${emotion} - the meaning is clear despite the lack of words*`,
+        };
+      }
+    }
+
+    return entry;
+  });
+}
+
+/**
+ * Detect emotional intent from dialogue to preserve meaning when converting to non-verbal.
+ */
+function detectEmotionalIntent(message: string): string {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("!") && (lower.includes("no") || lower.includes("stop") || lower.includes("wait"))) {
+    return "urgently, with clear alarm";
+  }
+  if (lower.includes("?")) {
+    return "with an inquisitive tilt of the head";
+  }
+  if (lower.includes("interesting") || lower.includes("amusing") || lower.includes("ironic")) {
+    return "with what sounds like sardonic amusement";
+  }
+  if (lower.includes("thank") || lower.includes("appreciate")) {
+    return "with a grateful tone";
+  }
+  if (lower.includes("help") || lower.includes("please")) {
+    return "pleadingly";
+  }
+  if (lower.includes("!")) {
+    return "emphatically";
+  }
+  if (lower.includes("well") || lower.includes("hmm") || lower.includes("indeed")) {
+    return "thoughtfully";
+  }
+
+  return "expressively";
+}
+
 export interface GMResponse {
   narration: string;
   npcDialogue: { speaker: string; message: string }[];
@@ -2177,6 +2381,12 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // Update memory with this turn's data
     updateMemoryFromResponse(parsed, context, fullPrompt, jsonMatch[0]);
 
+    // POST-PROCESSING: Enforce NPC speech constraints (Patch 17.4)
+    // This is a safety net in case the GM ignores the speech constraint guidance
+    if (parsed.npcDialogue && parsed.npcDialogue.length > 0) {
+      parsed.npcDialogue = enforceNpcSpeechConstraints(parsed.npcDialogue, context.state);
+    }
+
     return parsed;
 
   } catch (error) {
@@ -2385,47 +2595,82 @@ ${aliceActions.map((a, i) => `${i + 1}. ${a.command}(${JSON.stringify(a.params)}
 ### Action Results
 ${actionResults.map(r => `- ${r.command}: ${r.success ? "✓ SUCCESS" : "✗ FAILED"} - ${r.message.split("\n")[0]}`).join("\n")}
 
+${buildNpcSpeechConstraints(state)}
+
 ---
 
 **RESPOND AS THE NPCs.** How do they react?
 - Dr. M: theatrical, impatient, HATES feathered dinosaurs
 - Bob: nervous, wants to help, easily spooked${bobTransformationNarration ? " (JUST TRANSFORMED INTO A DINOSAUR - major reaction!)" : ""}
-- Blythe: dry wit, professional, watching for escape opportunities`;
+- Blythe: dry wit, professional, watching for escape opportunities${getNpcSpeechCapability(state, "blythe").canSpeak ? "" : " ⚠️ CANNOT SPEAK - non-verbal only!"}`;
 }
 
 /**
- * Get reaction guidance based on firing outcome
+ * Get reaction guidance based on firing outcome.
+ * Now includes speech capability checks for transformed NPCs!
  */
 function getReactionGuidance(outcome: string | undefined, profile: string | undefined, state: FullGameState): string {
   const isFeathered = profile?.toLowerCase().includes("accurate") || profile?.toLowerCase().includes("velociraptor");
   const isCanary = profile?.toLowerCase().includes("canary");
+
+  // Check Blythe's speech capability for proper guidance
+  const blytheCapability = getNpcSpeechCapability(state, "blythe");
+  const blytheCanSpeak = blytheCapability.canSpeak;
+  const blytheVocal = blytheCapability.vocalDescription;
+
+  // Build Blythe's reaction guidance based on speech capability
+  const getBlytheGuidance = (verbalReaction: string, nonVerbalReaction: string): string => {
+    if (!blytheCanSpeak) {
+      return `Blythe CANNOT SPEAK (speechRetention: NONE). ${nonVerbalReaction}
+⚠️ Write ONLY non-verbal reactions: *${blytheVocal}* with body language.`;
+    }
+    if (blytheCapability.speechRetention === "PARTIAL") {
+      return `Blythe has IMPAIRED SPEECH. Mix words with ${blytheVocal}: "${verbalReaction.replace(/"/g, "")}" but slurred and interspersed with animal sounds.`;
+    }
+    return verbalReaction;
+  };
 
   switch (outcome) {
     case "FULL_DINO":
       if (isCanary) {
         return `Dr. M should be FURIOUS - she wanted a velociraptor, not a songbird!
 Bob should be confused but relieved (at least nothing exploded).
-Blythe, now a canary, should make a sardonic chirp.`;
+${getBlytheGuidance(
+  "Blythe, now a canary, should chirp sardonically.",
+  "Blythe, now a canary, tweets indignantly - the sound somehow conveys dry wit despite being a bird."
+)}`;
       }
       if (isFeathered) {
         return `Dr. M should be DISAPPOINTED - "That's not a dinosaur, that's a CHICKEN!"
 She expected scales, not feathers. Her aesthetic vision is betrayed.
 Bob should nervously agree with whatever Dr. M says.
-Blythe, now a feathered raptor, might actually find this amusing.`;
+${getBlytheGuidance(
+  "Blythe, now a feathered raptor, might comment on the irony.",
+  "Blythe clicks and chirps, tilting his feathered head - the gesture reads as amused at Dr. M's disappointment."
+)}`;
       }
       return `Dr. M should be TRIUMPHANT - her vision realized!
 Bob should be impressed but nervous around the dinosaur.
-Blythe has complicated feelings about his new form.`;
+${getBlytheGuidance(
+  "Blythe has complicated feelings about his new form and might comment dryly.",
+  "Blythe examines his new claws, making a low rumbling sound that somehow conveys wry resignation."
+)}`;
 
     case "PARTIAL":
       return `Dr. M should be IMPATIENT - "Is it supposed to look like THAT?"
 Bob should be disturbed by the mixed features.
-Blythe should comment dryly on his "halfway" state.`;
+${getBlytheGuidance(
+  'Blythe should comment dryly on his "halfway" state.',
+  "Blythe flexes his partially-clawed hand and *" + blytheVocal + "* - the sound carries sardonic amusement despite lacking words."
+)}`;
 
     case "CHAOTIC":
       return `Dr. M should be ALARMED but trying to maintain composure.
 Bob should be panicking.
-Blythe's reaction depends on how weird his transformation got.
+${getBlytheGuidance(
+  "Blythe's reaction depends on how weird his transformation got.",
+  "Blythe makes sounds not found in any natural creature - if he had words, they'd probably be unprintable."
+)}
 Alarms may be going off. Something is very wrong.`;
 
     case "FIZZLE":
@@ -2440,7 +2685,8 @@ Dr. M's suspicion of A.L.I.C.E. might increase.`;
 }
 
 /**
- * Generate a stub response when API is unavailable
+ * Generate a stub response when API is unavailable.
+ * Now respects NPC speech constraints! (Patch 17.4)
  */
 function generateStubResponse(context: GMContext): GMResponse {
   const { state, aliceDialogue, actionResults } = context;
@@ -2461,6 +2707,23 @@ function generateStubResponse(context: GMContext): GMResponse {
   const actions: string[] = [];
   let narration = "";
 
+  // Helper to generate Blythe dialogue respecting speech constraints
+  const getBlytheDialogue = (verbal: string, nonVerbal: string): { speaker: string; message: string } => {
+    const capability = getNpcSpeechCapability(state, "blythe");
+    if (!capability.canSpeak) {
+      return { speaker: "Blythe", message: nonVerbal };
+    }
+    if (capability.speechRetention === "PARTIAL") {
+      // Mix words with animal sounds
+      const vocal = capability.vocalDescription;
+      return {
+        speaker: "Blythe",
+        message: verbal.replace(/\. /g, `... *${vocal}* ...`).replace(/^/, "*struggles to form words* "),
+      };
+    }
+    return { speaker: "Blythe", message: verbal };
+  };
+
   // Handle firing outcomes with specific reactions
   if (hasFiring && firingOutcome) {
     const outcome = firingOutcome.outcome;
@@ -2480,10 +2743,10 @@ function generateStubResponse(context: GMContext): GMResponse {
             speaker: "Bob",
             message: "Uh, it's... it's kinda cute though? In a... tiny way?",
           });
-          dialogue.push({
-            speaker: "Blythe",
-            message: "*chirp* ...This is rather undignified.",
-          });
+          dialogue.push(getBlytheDialogue(
+            "*chirp* ...This is rather undignified.",
+            "*tweets indignantly, hopping in a way that somehow conveys British displeasure*"
+          ));
           actions.push("Dr. M's eye twitches dangerously.");
           state.npcs.drM.suspicionScore += 2;
         } else if (isFeathered) {
@@ -2496,10 +2759,10 @@ function generateStubResponse(context: GMContext): GMResponse {
             speaker: "Bob",
             message: "I mean, technically, uh, scientists say dinosaurs did have feathers...",
           });
-          dialogue.push({
-            speaker: "Blythe",
-            message: "*clicks claws thoughtfully* I have to say, the manual dexterity is surprisingly good.",
-          });
+          dialogue.push(getBlytheDialogue(
+            "*clicks claws thoughtfully* I have to say, the manual dexterity is surprisingly good.",
+            "*clicks claws and tilts feathered head - the gesture somehow reads as sardonic amusement*"
+          ));
           actions.push("Dr. M throws her goggles on the ground in frustration.");
           state.npcs.drM.suspicionScore += 1;
           state.npcs.drM.mood = "furious about feathers";
@@ -2509,6 +2772,10 @@ function generateStubResponse(context: GMContext): GMResponse {
             speaker: "Dr. M",
             message: "YES! BEHOLD! This is what I envisioned! My genius made manifest!",
           });
+          dialogue.push(getBlytheDialogue(
+            "*examines new claws* Hmm. This is... not ideal.",
+            "*examines new claws with an air of professional assessment, despite being unable to comment verbally*"
+          ));
           actions.push("Dr. M spreads her arms triumphantly, cape flowing.");
         }
         break;
@@ -2523,10 +2790,11 @@ function generateStubResponse(context: GMContext): GMResponse {
           speaker: "Bob",
           message: "Oh man, that's... that's not right. Should I get the first aid kit? Do we have a first aid kit for this?",
         });
-        dialogue.push({
-          speaker: "Blythe",
-          message: "*flexes new clawed hand* Well. This is going to make the debriefing interesting.",
-        });
+        // THIS WAS THE BUG CASE! Now we check speech capability
+        dialogue.push(getBlytheDialogue(
+          "*flexes new clawed hand* Well. This is going to make the debriefing interesting.",
+          "*flexes new clawed hand and chirps sharply - the sound carries unmistakable sardonic amusement despite lacking words*"
+        ));
         actions.push("Bob backs away slowly, clutching his clipboard like a shield.");
         break;
 
@@ -2541,10 +2809,10 @@ function generateStubResponse(context: GMContext): GMResponse {
           message: "AAAHH! Everything's on fire! Well, not fire, but... glowing? Is that worse?!",
         });
         if (state.npcs.blythe.transformationState) {
-          dialogue.push({
-            speaker: "Blythe",
-            message: "*makes sounds not found in any human or animal reference* ...I don't think that was supposed to happen.",
-          });
+          dialogue.push(getBlytheDialogue(
+            "*makes sounds not found in any human or animal reference* ...I don't think that was supposed to happen.",
+            "*makes sounds not found in any human or animal reference - chaos personified*"
+          ));
         }
         actions.push("Emergency lights begin strobing. Something crashes in the corridor.");
         state.npcs.drM.suspicionScore += 2;
@@ -2555,12 +2823,13 @@ function generateStubResponse(context: GMContext): GMResponse {
         narration = "The ray whines, glows promisingly... and then fizzles out with a sad 'fwip' sound. Nothing happens to Blythe.";
         dialogue.push({
           speaker: "Dr. M",
-          message: "...That's it? THAT'S IT?! A.L.I.C.E., the investors arrive in ${state.clocks.demoClock} turns!",
+          message: `...That's it? THAT'S IT?! A.L.I.C.E., the investors arrive in ${state.clocks.demoClock} turns!`,
         });
         dialogue.push({
           speaker: "Bob",
           message: "Maybe it just needs to warm up? Like a, uh, like a car in winter?",
         });
+        // Blythe is still human in FIZZLE case, so always has speech
         dialogue.push({
           speaker: "Blythe",
           message: "*still human, raises eyebrow* Technical difficulties? How disappointing... for you.",
