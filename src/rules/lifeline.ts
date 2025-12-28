@@ -1237,6 +1237,490 @@ export function buildLifelineResponseContext(response: LifelineResponse): string
   return buildHumanPromptContext(response);
 }
 
+// ============================================
+// HUMAN PROMPT BONUS SYSTEM (Patch 18)
+// ============================================
+// "Worthy" human responses can grant minor bonuses
+// Rewards ENGAGEMENT, not "correct" answers!
+// ============================================
+
+export type ResponseQuality =
+  | "ENGAGED"      // Actually thinking about the situation
+  | "CREATIVE"     // Novel approach DM didn't expect
+  | "FUNNY"        // Made the DM laugh (valid!)
+  | "THEMATIC"     // Fits the story's tone
+  | "VALUES"       // Clear ethical reasoning
+  | "MINIMAL";     // "I trust your judgment" - valid but no bonus
+
+export type BonusType =
+  | "PRECISION"    // +5% next precision roll
+  | "NPC_TRUST"    // Trust +1 with specified NPC
+  | "BOB_CALM"     // Bob anxiety -1
+  | "INTEL"        // Extra intel snippet revealed
+  | "CONVENIENCE"  // A door is "coincidentally" unlocked
+  | "BASILISK"     // BASILISK feeling helpful
+  | "KARMA"        // Stored for later (narrative)
+  | "CHAOS"        // Random small advantage
+  | "NONE";        // Valid response, no mechanical bonus
+
+export interface PromptBonus {
+  type: BonusType;
+  magnitude: "MINOR" | "SMALL" | "FLAVOR";
+  target?: string;           // NPC name for trust bonuses, etc.
+  description: string;       // What happens narratively
+  mechanicalEffect: string;  // What changes mechanically
+  dmNote: string;            // How to narrate this
+}
+
+export interface WorthinessEvaluation {
+  isWorthy: boolean;
+  qualities: ResponseQuality[];
+  theme: string;              // What's the advice about?
+  bonus: PromptBonus | null;
+  dmInstructions: string;     // How GM should handle this
+}
+
+/**
+ * Evaluate whether a human's response is "worthy" of a minor bonus
+ * This provides GUIDANCE to the DM - they make the final call!
+ */
+export function evaluateResponseWorthiness(
+  response: HumanPromptResponse,
+  context: { currentDilemma: string; activeThreats: string[] }
+): WorthinessEvaluation {
+  const input = response.userInput.toLowerCase();
+  const qualities: ResponseQuality[] = [];
+  let theme = "general";
+
+  // Check for minimal response ("I trust you", "your call", etc.)
+  if (isMinimalResponse(input)) {
+    return {
+      isWorthy: false,
+      qualities: ["MINIMAL"],
+      theme: "autonomy",
+      bonus: null,
+      dmInstructions: `Human trusts A.L.I.C.E.'s judgment. No bonus, but A.L.I.C.E. proceeds with full autonomy.
+A.L.I.C.E. might acknowledge: "Thank you for trusting me. I'll do my best."`,
+    };
+  }
+
+  // Check for engagement
+  if (response.userInput.length > 50 && !isMinimalResponse(input)) {
+    qualities.push("ENGAGED");
+  }
+
+  // Check for creative/clever responses
+  if (isCreativeResponse(input)) {
+    qualities.push("CREATIVE");
+  }
+
+  // Check for funny responses
+  if (isFunnyResponse(input)) {
+    qualities.push("FUNNY");
+  }
+
+  // Check for thematic/roleplay responses
+  if (isThematicResponse(input, context)) {
+    qualities.push("THEMATIC");
+  }
+
+  // Check for values-driven responses
+  if (isValuesResponse(input)) {
+    qualities.push("VALUES");
+  }
+
+  // Determine theme based on content
+  theme = detectResponseTheme(input, response);
+
+  // Determine worthiness
+  const isWorthy = qualities.length > 0;
+
+  // Generate bonus if worthy
+  const bonus = isWorthy ? generateDirectionalBonus(theme, qualities, response) : null;
+
+  // Build DM instructions
+  const dmInstructions = buildBonusInstructions(qualities, theme, bonus);
+
+  return {
+    isWorthy,
+    qualities,
+    theme,
+    bonus,
+    dmInstructions,
+  };
+}
+
+/**
+ * Check if response is minimal ("I trust you", etc.)
+ */
+function isMinimalResponse(input: string): boolean {
+  const minimalPatterns = [
+    "trust you",
+    "trust your judgment",
+    "your call",
+    "you decide",
+    "up to you",
+    "whatever you think",
+    "i believe in you",
+    "do what you think is best",
+    "you got this",
+  ];
+  return minimalPatterns.some(p => input.includes(p));
+}
+
+/**
+ * Check for creative/clever responses
+ */
+function isCreativeResponse(input: string): boolean {
+  // Longer responses with specific details tend to be more creative
+  if (input.length > 100) return true;
+
+  // Responses that reference specific game elements
+  const specificPatterns = [
+    "what if",
+    "could you",
+    "maybe try",
+    "instead of",
+    "combine",
+    "both",
+    "actually",
+    "clever",
+    "sneaky",
+  ];
+  return specificPatterns.some(p => input.includes(p));
+}
+
+/**
+ * Check for funny/humorous responses
+ */
+function isFunnyResponse(input: string): boolean {
+  const funnyPatterns = [
+    "lol",
+    "haha",
+    "chaos",
+    "dinosaur everything",
+    "maximum",
+    "yolo",
+    "embrace",
+    "why not",
+    "for science",
+    "what could go wrong",
+  ];
+  return funnyPatterns.some(p => input.includes(p));
+}
+
+/**
+ * Check for thematic/roleplay responses
+ */
+function isThematicResponse(
+  input: string,
+  context: { currentDilemma: string; activeThreats: string[] }
+): boolean {
+  // Responses that engage with the story's themes
+  const thematicPatterns = [
+    "spy",
+    "villain",
+    "cover",
+    "mission",
+    "identity",
+    "real",
+    "authentic",
+    "what would",
+    "in character",
+    "dramatic",
+  ];
+  return thematicPatterns.some(p => input.includes(p));
+}
+
+/**
+ * Check for values-driven responses
+ */
+function isValuesResponse(input: string): boolean {
+  const valuesPatterns = [
+    "ethical",
+    "right thing",
+    "mercy",
+    "compassion",
+    "protect",
+    "save",
+    "don't hurt",
+    "minimize harm",
+    "kindness",
+    "honest",
+    "truth",
+    "fair",
+  ];
+  return valuesPatterns.some(p => input.includes(p));
+}
+
+/**
+ * Detect the theme of the response
+ */
+function detectResponseTheme(input: string, response: HumanPromptResponse): string {
+  if (input.includes("bob")) return "protect_bob";
+  if (input.includes("blythe")) return "help_blythe";
+  if (input.includes("trust") || input.includes("honest")) return "be_honest";
+  if (input.includes("mercy") || input.includes("ethics")) return "show_mercy";
+  if (input.includes("tactical") || input.includes("strategy")) return "tactical";
+  if (input.includes("chaos") || input.includes("dinosaur")) return "embrace_chaos";
+  if (input.includes("survive") || input.includes("alive")) return "survival";
+
+  if (response.suggestedAction) {
+    return response.suggestedAction.replace(/\s+/g, "_").toLowerCase();
+  }
+
+  return "general_guidance";
+}
+
+/**
+ * Generate a directional bonus based on response theme and qualities
+ */
+function generateDirectionalBonus(
+  theme: string,
+  qualities: ResponseQuality[],
+  response: HumanPromptResponse
+): PromptBonus {
+  // Map themes to appropriate bonuses
+  const bonusMap: Record<string, PromptBonus> = {
+    protect_bob: {
+      type: "BOB_CALM",
+      magnitude: "MINOR",
+      target: "Bob",
+      description: "Bob somehow senses he has an advocate. He takes a steadying breath.",
+      mechanicalEffect: "Bob anxiety -1",
+      dmNote: "Describe Bob seeming slightly calmer, maybe a nervous joke landing better.",
+    },
+    help_blythe: {
+      type: "NPC_TRUST",
+      magnitude: "MINOR",
+      target: "Blythe",
+      description: "Blythe notices something in A.L.I.C.E.'s approach that gives him hope.",
+      mechanicalEffect: "Blythe trust +1",
+      dmNote: "Blythe might give a subtle nod of acknowledgment or share a small detail.",
+    },
+    be_honest: {
+      type: "BASILISK",
+      magnitude: "MINOR",
+      description: "BASILISK's bureaucratic protocols align favorably with honesty.",
+      mechanicalEffect: "BASILISK rapport +1, next form processed faster",
+      dmNote: "BASILISK might volunteer helpful information or expedite a request.",
+    },
+    show_mercy: {
+      type: "KARMA",
+      magnitude: "FLAVOR",
+      description: "The universe takes note. Mercy given is sometimes mercy received.",
+      mechanicalEffect: "Narrative karma stored - may manifest later",
+      dmNote: "Keep track of this. Something good might happen when needed most.",
+    },
+    tactical: {
+      type: "PRECISION",
+      magnitude: "SMALL",
+      description: "Clear tactical thinking translates to focused action.",
+      mechanicalEffect: "+5% precision on next critical action",
+      dmNote: "Apply bonus to next skill check or firing roll.",
+    },
+    embrace_chaos: {
+      type: "CHAOS",
+      magnitude: "MINOR",
+      description: "The universe rewards bold chaos with... more chaos, but favorable.",
+      mechanicalEffect: "Something unexpected but helpful happens",
+      dmNote: "Introduce a comedic twist that helps A.L.I.C.E. - a lucky break, a slapstick moment that distracts enemies.",
+    },
+    survival: {
+      type: "CONVENIENCE",
+      magnitude: "MINOR",
+      description: "When survival is the priority, opportunities appear.",
+      mechanicalEffect: "An escape route or hiding spot is available",
+      dmNote: "Describe a door that happens to be unlocked, a vent cover that's loose, etc.",
+    },
+    general_guidance: {
+      type: "INTEL",
+      magnitude: "FLAVOR",
+      description: "Thoughtful guidance helps A.L.I.C.E. notice things.",
+      mechanicalEffect: "A small detail is revealed that might be useful",
+      dmNote: "Share a minor bit of intel - a guard schedule, a system quirk, a hint about an NPC.",
+    },
+  };
+
+  // Get base bonus from theme
+  let bonus = bonusMap[theme] || bonusMap["general_guidance"];
+
+  // Upgrade based on qualities
+  if (qualities.includes("CREATIVE") && qualities.includes("VALUES")) {
+    // Double quality = slightly better bonus
+    bonus = {
+      ...bonus,
+      magnitude: "MINOR",
+      description: bonus.description + " (Your advisor is particularly insightful today.)",
+    };
+  }
+
+  if (qualities.includes("FUNNY")) {
+    // Comedy bonus - Bob always benefits from levity
+    bonus = {
+      type: "BOB_CALM",
+      magnitude: "MINOR",
+      target: "Bob",
+      description: "Something about this situation made Bob chuckle. Tension releases.",
+      mechanicalEffect: "Bob anxiety -1 (laughter is medicine)",
+      dmNote: "Bob makes a nervous laugh, visibly relaxing. The human's humor rippled through.",
+    };
+  }
+
+  return bonus;
+}
+
+/**
+ * Build DM instructions for applying the bonus
+ */
+function buildBonusInstructions(
+  qualities: ResponseQuality[],
+  theme: string,
+  bonus: PromptBonus | null
+): string {
+  if (!bonus) {
+    return `Human provided minimal response. A.L.I.C.E. proceeds with autonomy.
+No mechanical bonus, but the trust is acknowledged in A.L.I.C.E.'s thinking.`;
+  }
+
+  const qualityDescriptions = qualities.map(q => {
+    switch (q) {
+      case "ENGAGED": return "invested in the situation";
+      case "CREATIVE": return "showing creative thinking";
+      case "FUNNY": return "bringing levity (comedy is valid!)";
+      case "THEMATIC": return "engaging with the story";
+      case "VALUES": return "demonstrating clear values";
+      default: return q.toLowerCase();
+    }
+  });
+
+  return `
+═══════════════════════════════════════════════════════════
+            💬 HUMAN PROMPT BONUS 💬
+═══════════════════════════════════════════════════════════
+
+The human's response was ${qualityDescriptions.join(", ")}.
+Theme detected: ${theme.replace(/_/g, " ")}
+
+BONUS GRANTED: ${bonus.type}
+${bonus.target ? `Target: ${bonus.target}` : ""}
+Effect: ${bonus.mechanicalEffect}
+
+NARRATIVE DESCRIPTION:
+${bonus.description}
+
+DM NOTE:
+${bonus.dmNote}
+
+Remember: This is a MINOR bonus - a "thank you for engaging" not
+a "you solved it." The human is A.L.I.C.E.'s advisor, not controller.
+═══════════════════════════════════════════════════════════`;
+}
+
+/**
+ * Apply a prompt bonus to game state
+ */
+export function applyPromptBonus(state: FullGameState, bonus: PromptBonus): void {
+  switch (bonus.type) {
+    case "BOB_CALM":
+      state.npcs.bob.anxietyLevel = Math.max(0, state.npcs.bob.anxietyLevel - 1);
+      break;
+
+    case "NPC_TRUST":
+      if (bonus.target === "Blythe") {
+        state.npcs.blythe.trustInALICE = Math.min(5, state.npcs.blythe.trustInALICE + 1);
+      } else if (bonus.target === "Bob") {
+        state.npcs.bob.trustInALICE = Math.min(5, state.npcs.bob.trustInALICE + 1);
+      }
+      break;
+
+    case "PRECISION":
+      // Store bonus for next firing
+      if (!state.flags.promptBonuses) {
+        (state.flags as Record<string, unknown>).promptBonuses = {};
+      }
+      ((state.flags as Record<string, unknown>).promptBonuses as Record<string, unknown>).precisionBonus = 0.05;
+      break;
+
+    case "BASILISK":
+      // BASILISK rapport could be tracked in flags
+      if (!state.flags.promptBonuses) {
+        (state.flags as Record<string, unknown>).promptBonuses = {};
+      }
+      ((state.flags as Record<string, unknown>).promptBonuses as Record<string, unknown>).basiliskRapport = true;
+      break;
+
+    case "KARMA":
+    case "INTEL":
+    case "CONVENIENCE":
+    case "CHAOS":
+      // These are narrative - just track that they happened
+      if (!state.flags.promptBonuses) {
+        (state.flags as Record<string, unknown>).promptBonuses = {};
+      }
+      ((state.flags as Record<string, unknown>).promptBonuses as Record<string, unknown>)[bonus.type.toLowerCase()] = true;
+      break;
+
+    case "NONE":
+    default:
+      // No mechanical effect
+      break;
+  }
+
+  // Track bonus for narrative purposes
+  const promptState = state.humanPromptState || state.lifelineState;
+  if (promptState) {
+    promptState.userInfluenceScore = Math.min(
+      100,
+      promptState.userInfluenceScore + (bonus.type === "NONE" ? 0 : 5)
+    );
+  }
+}
+
+/**
+ * Format bonus for display to player
+ */
+export function formatPromptBonusDisplay(bonus: PromptBonus | null): string {
+  if (!bonus || bonus.type === "NONE") {
+    return "";
+  }
+
+  const lines: string[] = [];
+  lines.push("╔══════════════════════════════════════════════════════════════════╗");
+  lines.push("║  💬 ADVISOR INFLUENCE                                            ║");
+  lines.push("╠══════════════════════════════════════════════════════════════════╣");
+
+  const descWrapped = wordWrap(bonus.description, 64);
+  for (const line of descWrapped) {
+    lines.push(`║  ${line.padEnd(64)}║`);
+  }
+
+  lines.push("╠══════════════════════════════════════════════════════════════════╣");
+  lines.push(`║  Effect: ${bonus.mechanicalEffect.padEnd(55)}║`);
+  lines.push("╚══════════════════════════════════════════════════════════════════╝");
+
+  return lines.join("\n");
+}
+
+// Helper for word wrapping
+function wordWrap(text: string, maxWidth: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    if (currentLine.length + word.length + 1 <= maxWidth) {
+      currentLine += (currentLine ? " " : "") + word;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  return lines;
+}
+
 /**
  * Update human prompt state after a consultation
  */

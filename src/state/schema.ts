@@ -898,6 +898,17 @@ export const FlagsSchema = z.object({
   // Each scanned target grants +10% permanent precision bonus
   scannedTargets: z.record(z.boolean()).optional(), // { "BLYTHE": true, "BOB": true, ... }
 
+  // HUMAN PROMPT BONUS TRACKING (Patch 18)
+  // Minor bonuses granted for worthy human responses
+  promptBonuses: z.object({
+    precisionBonus: z.number().optional(),      // +5% to next precision roll
+    basiliskRapport: z.boolean().optional(),    // BASILISK feeling helpful
+    karma: z.boolean().optional(),              // Narrative karma stored
+    intel: z.boolean().optional(),              // Extra intel available
+    convenience: z.boolean().optional(),        // Door/path unlocked
+    chaos: z.boolean().optional(),              // Random helpful event
+  }).optional(),
+
   // DR. M STATE FLAGS (for ARCHIMEDES deadman switch - Patch 17)
   drMTransformed: z.boolean().optional(),  // Dr. M is now a dinosaur
   drMTransformedForm: z.string().optional(), // What dinosaur is she?
