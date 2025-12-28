@@ -335,6 +335,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           revertAttempts: 0,
           partialShotsReceived: 0,
         },
+        // BOB_DODGES_FATE (set true when modifier active)
+        hasPlotArmor: false,
+        fatesDodged: 0,
       },
       blythe: {
         composure: 4,

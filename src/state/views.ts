@@ -538,6 +538,9 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         confessionTurn: compressed.npc.bob.conf ? compressed.t - 1 : null,
         stunLevel: compressed.npc.bob.stun,
         transformationState: createDefaultTransformationState(),
+        // BOB_DODGES_FATE (restored from compressed if available)
+        hasPlotArmor: false, // Will be re-set by modifier application
+        fatesDodged: 0,
       },
       blythe: {
         composure: compressed.m.bc,

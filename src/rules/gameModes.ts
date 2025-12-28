@@ -492,6 +492,12 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         state.npcs.drM.mood = "theatrical (scales gleaming)";
         break;
 
+      case "BOB_DODGES_FATE":
+        // Bob has PLOT ARMOR! The universe protects him!
+        state.npcs.bob.hasPlotArmor = true;
+        state.npcs.bob.fatesDodged = 0; // Will increment with each miraculous survival
+        break;
+
       case "INSPECTOR_COMETH":
         // Guild Inspector Mortimer Graves is conducting Dr. M's quarterly evaluation!
         // The Consortium of Consequential Criminality takes villainy SERIOUSLY.
@@ -1237,24 +1243,46 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "BOB_DODGES_FATE")) {
+    const fatesDodged = state.npcs.bob.fatesDodged || 0;
+
     lines.push("");
-    lines.push("**🌴 BOB DODGES FATE - PLOT ARMOR:**");
-    lines.push("Bob has INDESTRUCTIBLE plot armor! He survives EVERYTHING!");
+    lines.push("## 🌴 BOB DODGES FATE - PLOT ARMOR");
     lines.push("");
-    lines.push("EXAMPLES OF BOB SURVIVING:");
-    lines.push("- Dinosaur charges at him → trips on cable, Bob dodges");
+    lines.push("Bob has INDESTRUCTIBLE plot armor! The universe protects him!");
+    lines.push("");
+
+    if (fatesDodged > 0) {
+      lines.push(`**FATES DODGED THIS GAME:** ${fatesDodged}`);
+      lines.push("");
+    }
+
+    lines.push("### ESCALATION LEVELS");
+    lines.push("| Dodges | Absurdity Level | Example |");
+    lines.push("|--------|-----------------|---------|");
+    lines.push("| 1-2 | Lucky | 'Was tying his shoe, missed the blast' |");
+    lines.push("| 3-4 | Suspiciously Lucky | 'A bird flew in front of the beam... at exactly the right moment' |");
+    lines.push("| 5-6 | Cartoonish | 'The dinosaur sneezed mid-lunge. Bob wasn't even looking.' |");
+    lines.push("| 7-9 | Reality Bending | 'The laws of physics take a coffee break around Bob' |");
+    lines.push("| 10+ | Dr. M Notices | 'Robert... HOW are you still alive?!' |");
+    lines.push("");
+    lines.push("### SURVIVAL EXAMPLES");
+    lines.push("- Dinosaur charges → trips on cable, Bob stumbles out of the way");
     lines.push("- Explosion nearby → he was tying his shoe, below blast radius");
     lines.push("- Ray fires at him → conveniently reflective coffee mug deflects");
-    lines.push("- Building collapses → he was in the one structural support zone");
     lines.push("- Falls off cliff → lands on a passing pteranodon (confused but helpful)");
+    lines.push("- Building collapses → he was in the one structural support zone");
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
+    lines.push("### MECHANICAL EFFECTS");
     lines.push("- Bob CANNOT be killed or seriously injured");
-    lines.push("- He can be knocked out, tied up, transformed (temporarily)");
-    lines.push("- But he always survives and recovers");
-    lines.push("- Narrate his escapes with increasing absurdity");
+    lines.push("- He CAN be: knocked out, tied up, transformed (temporarily), scared witless");
+    lines.push("- Transformations reverse faster on Bob (universe correcting itself)");
+    lines.push("- He still FLINCHES - he doesn't know he has plot armor!");
+    lines.push("- **Increment fatesDodged** each time he survives something that should've hurt");
     lines.push("");
-    lines.push("TONE: Comedy! Bob is the universe's favorite punching bag who never stays down.");
+    lines.push("### THE COMEDY");
+    lines.push("Bob is the universe's favorite punching bag who never stays down.");
+    lines.push("He's terrified, anxious, and convinced each day is his last.");
+    lines.push("The irony: he's literally the safest person in the lair.");
   }
 
   if (isModifierActive(state, "NOT_GREAT_NOT_TERRIBLE")) {

@@ -594,6 +594,9 @@ export const BobSchema = z.object({
   stunLevel: z.number().int().min(0).default(0),
   // TRANSFORMATION STATE (Patch 15 Part 2)
   transformationState: TransformationStateSchema,
+  // BOB_DODGES_FATE modifier state
+  hasPlotArmor: z.boolean().default(false),  // The universe protects him
+  fatesDodged: z.number().int().min(0).default(0), // Comedy escalation tracker
 });
 
 export const BlytheEscapeMethodEnum = z.enum([
