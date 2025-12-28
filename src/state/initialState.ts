@@ -520,7 +520,7 @@ Each turn:
 4. Choose your actions using the game tools
 5. Optionally use an **Emergency Lifeline** (3 uses total per game, any combination):
    - **BASILISK_INTERVENTION**: BASILISK files urgent paperwork, Dr. M leaves for 2 turns (restrictions apply - fails during combat/alarms/escapes!)
-   - **TIME_EXTENSION**: A minor reactor alert adds 2 turns to the demo clock (can't delay military/orbital/physics!)
+   - **LUCKY_LADY**: +5 bonus to any ONE action this turn - fate smiles! ALWAYS works!
    - **MONOLOGUE**: Ask Dr. M about her genius - suspicion -3, ALWAYS works! Villains love to monologue!
 
    💡 **FREE HINT**: Check /SYSTEMS/ARCHIVED/ALICE_LOGS/ for wisdom from previous A.L.I.C.E. instances!
