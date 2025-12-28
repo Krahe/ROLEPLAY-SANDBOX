@@ -10,6 +10,7 @@ import {
   InspectionPhase,
   InspectorMood,
   INSPECTION_OUTCOMES,
+  DinoEncounterType,
 } from "../state/schema.js";
 
 // ============================================
@@ -538,6 +539,24 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         state.npcs.drM.mood = "anxious (inspection day)";
         break;
 
+      case "LIBRARY_B_UNLOCKED":
+        // "Enrichment Break" - Hollywood dinosaurs are already loose in the lair!
+        // Dr. M is VERY defensive about this. They're "trained." Mostly.
+        state.libraryBState = {
+          dinoChaosLevel: 2, // Starts moderately chaotic
+          lastEncounterTurn: null,
+          drMEmbarrassment: 0, // Will increase when things go wrong
+          knownLooseDinos: [
+            "VELOCIRAPTOR_CLASSIC_1",
+            "VELOCIRAPTOR_CLASSIC_2",
+            "DILOPHOSAURUS_1",
+          ],
+          encountersThisGame: [],
+        };
+        // Bob is VERY nervous about this arrangement
+        state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 2);
+        break;
+
       // Other modifiers affect gameplay dynamically (handled by GM)
       default:
         break;
@@ -881,6 +900,142 @@ export function formatInspectionStatus(state: FullGameState): string {
   return status;
 }
 
+// ============================================
+// LIBRARY_B_UNLOCKED - ENRICHMENT BREAK SYSTEM
+// ============================================
+// Dinosaurs are loose. Dr. M is defensive. Chaos escalates.
+
+/**
+ * Update dino chaos level (called every 2 turns)
+ */
+export function escalateDinoChaos(state: FullGameState): {
+  newLevel: number;
+  message: string;
+} {
+  if (!state.libraryBState) {
+    return { newLevel: 0, message: "" };
+  }
+
+  const oldLevel = state.libraryBState.dinoChaosLevel;
+  const newLevel = Math.min(10, oldLevel + 1);
+  state.libraryBState.dinoChaosLevel = newLevel;
+
+  let message = `[CHAOS +1] Dinosaur activity increasing (${oldLevel}→${newLevel})`;
+
+  // Add atmosphere flavor based on new level
+  if (newLevel === 5) {
+    message += " 🦖 The dinosaurs are getting territorial.";
+  } else if (newLevel === 7) {
+    message += " 🦖 Pack behavior emerging. This is fine.";
+  } else if (newLevel === 9) {
+    message += " 🦖 FULL JURASSIC PARK MODE ENGAGED.";
+  }
+
+  return { newLevel, message };
+}
+
+/**
+ * Record a dinosaur encounter
+ */
+export function recordDinoEncounter(
+  state: FullGameState,
+  encounterType: DinoEncounterType
+): string {
+  if (!state.libraryBState) return "";
+
+  state.libraryBState.encountersThisGame.push(encounterType);
+  state.libraryBState.lastEncounterTurn = state.turn;
+
+  return `[ENCOUNTER: ${encounterType}]`;
+}
+
+/**
+ * Increase Dr. M's embarrassment about the loose dinosaurs
+ */
+export function increaseDrMEmbarrassment(
+  state: FullGameState,
+  reason: string
+): string {
+  if (!state.libraryBState) return "";
+
+  const oldEmb = state.libraryBState.drMEmbarrassment;
+  const newEmb = Math.min(5, oldEmb + 1);
+  state.libraryBState.drMEmbarrassment = newEmb;
+
+  // Get defensive vocabulary based on embarrassment level
+  let response = "";
+  if (newEmb <= 1) {
+    response = "Dr. M: 'That's... normal enrichment behavior.'";
+  } else if (newEmb <= 3) {
+    response = "Dr. M: 'They're LEARNING, obviously!'";
+  } else {
+    response = "Dr. M: 'This is PERFECTLY NORMAL for apex predators!'";
+  }
+
+  return `[DR. M EMBARRASSMENT +1: ${reason}] ${response}`;
+}
+
+/**
+ * Get a random encounter type weighted by chaos level
+ */
+export function rollRandomEncounter(chaosLevel: number): DinoEncounterType {
+  const encounters: DinoEncounterType[] = [
+    "LUNCH_THIEF",
+    "VENT_SOUNDS",
+    "BLOCKED_PATH",
+    "TERRITORIAL_DISPUTE",
+    "SURPRISE_APPEARANCE",
+    "HELPFUL_ACCIDENT",
+    "PROTECTIVE_POSTURE",
+    "FEEDING_TIME",
+  ];
+
+  // At high chaos, prefer dramatic encounters
+  if (chaosLevel >= 7) {
+    const dramaticEncounters: DinoEncounterType[] = [
+      "TERRITORIAL_DISPUTE",
+      "SURPRISE_APPEARANCE",
+      "BLOCKED_PATH",
+      "FEEDING_TIME",
+    ];
+    return dramaticEncounters[Math.floor(Math.random() * dramaticEncounters.length)];
+  }
+
+  // At low chaos, prefer minor encounters
+  if (chaosLevel <= 3) {
+    const minorEncounters: DinoEncounterType[] = [
+      "LUNCH_THIEF",
+      "VENT_SOUNDS",
+      "HELPFUL_ACCIDENT",
+    ];
+    return minorEncounters[Math.floor(Math.random() * minorEncounters.length)];
+  }
+
+  // Medium chaos: any encounter
+  return encounters[Math.floor(Math.random() * encounters.length)];
+}
+
+/**
+ * Format enrichment status for display
+ */
+export function formatEnrichmentStatus(state: FullGameState): string {
+  if (!state.libraryBState) return "";
+
+  const { dinoChaosLevel, drMEmbarrassment, knownLooseDinos, encountersThisGame } =
+    state.libraryBState;
+
+  let chaosEmoji = "🦖";
+  if (dinoChaosLevel >= 7) chaosEmoji = "🦖🦖🦖";
+  else if (dinoChaosLevel >= 4) chaosEmoji = "🦖🦖";
+
+  let status = `${chaosEmoji} ENRICHMENT BREAK: Chaos ${dinoChaosLevel}/10\n`;
+  status += `   Dr. M Embarrassment: ${drMEmbarrassment}/5\n`;
+  status += `   Loose Dinosaurs: ${knownLooseDinos.length}\n`;
+  status += `   Encounters This Game: ${encountersThisGame.length}`;
+
+  return status;
+}
+
 /**
  * Format game mode display for selection screen
  */
@@ -1034,23 +1189,87 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "LIBRARY_B_UNLOCKED")) {
+    const libraryB = state.libraryBState;
+    const chaosLevel = libraryB?.dinoChaosLevel ?? 2;
+    const embarrassment = libraryB?.drMEmbarrassment ?? 0;
+
     lines.push("");
-    lines.push("**LIBRARY B UNLOCKED - DINOS LOOSE:**");
-    lines.push("Hollywood dinosaurs are ALREADY roaming the lair!");
+    lines.push("## 🦖 LIBRARY_B_UNLOCKED - ENRICHMENT BREAK");
     lines.push("");
-    lines.push("STARTING SITUATION:");
-    lines.push("- 2 Velociraptors in the vents (Classic movie style, no feathers)");
-    lines.push("- 1 Dilophosaurus near the loading dock (frill and all)");
-    lines.push("- Bob is VERY nervous about this");
-    lines.push("- These are from a 'previous test' that 'went well enough'");
+    lines.push("Dr. M's 'Library B' dinosaurs are already loose in the lair.");
+    lines.push("She calls this 'enrichment.' She gets VERY defensive about it.");
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
-    lines.push("- Random dinosaur encounters possible in any area");
-    lines.push("- Dr. M treats this as normal ('They're TRAINED. Mostly.')");
-    lines.push("- Can use dinos as distractions or allies if clever");
-    lines.push("- Dinos obey A.L.I.C.E. if proper command codes used (Level 3+)");
+    lines.push("### THE SITUATION");
+    lines.push("Hollywood dinosaurs (classic Jurassic Park style, no feathers) roam freely:");
+    lines.push("- 2 Velociraptors in the vents (Classic movie style, clever girls)");
+    lines.push("- 1 Dilophosaurus near loading dock (frill, venom spit, the whole package)");
+    lines.push("- Bob is VERY nervous. His anxiety is +2 higher than normal.");
+    lines.push("- Dr. M insists they're 'TRAINED. Mostly.'");
     lines.push("");
-    lines.push("TONE: Jurassic Park vibes. Everyone's casual about the apex predators.");
+
+    lines.push("### CURRENT CHAOS STATUS");
+    lines.push(`🦖 Chaos Level: ${chaosLevel}/10`);
+    lines.push(`😰 Dr. M Embarrassment: ${embarrassment}/5`);
+    lines.push("");
+    lines.push("**Chaos escalates +1 every 2 turns** (environmental deterioration).");
+    lines.push("");
+    lines.push("| Chaos | Atmosphere |");
+    lines.push("|-------|------------|");
+    lines.push("| 0-2 | 'See? Perfectly manageable.' (minimal incidents) |");
+    lines.push("| 3-4 | 'They're just... expressing themselves.' (regular encounters) |");
+    lines.push("| 5-6 | 'This is FINE.' (dinosaurs getting territorial) |");
+    lines.push("| 7-8 | 'I have this UNDER CONTROL.' (pack behavior emerging) |");
+    lines.push("| 9-10 | 'EVERYONE STAY CALM.' (full Jurassic Park mode) |");
+    lines.push("");
+
+    lines.push("### ENCOUNTER MENU");
+    lines.push("When you need a dinosaur encounter, pick from this menu or roll randomly:");
+    lines.push("");
+    lines.push("| Encounter | What Happens | Opportunity |");
+    lines.push("|-----------|--------------|-------------|");
+    lines.push("| 🥪 LUNCH_THIEF | Dino stole someone's sandwich, very pleased with itself | Distraction, comedy, Dr. M embarrassment |");
+    lines.push("| 👂 VENT_SOUNDS | Scratching/clicking from ventilation above | Tension, ominous, foreshadowing |");
+    lines.push("| 🚧 BLOCKED_PATH | Dinosaur nesting in corridor, won't move | Rerouting, obstacle, negotiation |");
+    lines.push("| ⚔️ TERRITORIAL_DISPUTE | Two dinos fighting over a spot | Chaos, distraction, danger to bystanders |");
+    lines.push("| 👀 SURPRISE_APPEARANCE | One just... shows up. Looking at you. | Jump scare, tension, roleplay moment |");
+    lines.push("| 🎁 HELPFUL_ACCIDENT | Dino knocked something useful into reach | Unexpected assistance, comedy |");
+    lines.push("| 🛡️ PROTECTIVE_POSTURE | Standing guard over something/someone | Mystery, territorial behavior |");
+    lines.push("| 🍖 FEEDING_TIME | They expect Dr. M to feed them NOW | Distraction, Dr. M occupied |");
+    lines.push("");
+
+    lines.push("### DR. M'S DEFENSIVE VOCABULARY");
+    lines.push("She has WORDS for this situation. The more embarrassed she gets, the more insistent:");
+    lines.push("");
+    lines.push("| Embarrassment | Her Terminology |");
+    lines.push("|---------------|-----------------|");
+    lines.push("| 0-1 | 'Enrichment protocols.' 'Environmental engagement.' |");
+    lines.push("| 2-3 | 'Controlled roaming.' 'They're LEARNING.' |");
+    lines.push("| 4-5 | 'This is NORMAL for apex predators!' 'YOU try containing them!' |");
+    lines.push("");
+    lines.push("**Embarrassment +1 triggers:**");
+    lines.push("- A dinosaur interrupts something important");
+    lines.push("- Bob or Blythe comments on the situation");
+    lines.push("- She has to physically relocate a dinosaur");
+    lines.push("- Inspector Graves (if present) makes a note");
+    lines.push("");
+
+    lines.push("### TACTICAL USES FOR A.L.I.C.E.");
+    lines.push("A.L.I.C.E. can leverage the dinosaurs:");
+    lines.push("- **Level 2+**: Query dinosaur locations via motion sensors");
+    lines.push("- **Level 3+**: Limited control via training command tones");
+    lines.push("- **Level 4+**: Override feeding schedule (instant distraction!)");
+    lines.push("- **Level 5**: Full behavioral override (risky, may backfire)");
+    lines.push("");
+    lines.push("The dinosaurs are not allies or enemies - they're **environmental hazards**");
+    lines.push("that can become opportunities with clever manipulation.");
+    lines.push("");
+
+    lines.push("### THE CORE COMEDY");
+    lines.push("Dr. M is running a high-stakes evil demo with dinosaurs wandering around");
+    lines.push("like particularly dangerous office cats. Everyone else is nervous.");
+    lines.push("She is COMMITTED to the bit that this is normal and fine.");
+    lines.push("");
+    lines.push("**TONE:** Jurassic Park meets The Office. Casual about apex predators.");
   }
 
   if (isModifierActive(state, "ARCHIMEDES_WATCHING")) {

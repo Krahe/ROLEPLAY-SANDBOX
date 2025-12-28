@@ -726,6 +726,47 @@ export const INSPECTION_OUTCOMES = {
 } as const;
 
 // ============================================
+// LIBRARY_B_UNLOCKED - ENRICHMENT BREAK
+// ============================================
+// Dr. M's "Library B" dinosaurs are already loose in the lair.
+// She calls them "enrichment" and gets defensive about it.
+// This is an ENVIRONMENTAL HAZARD, not an NPC roster.
+
+export const DinoEncounterTypeEnum = z.enum([
+  "LUNCH_THIEF",           // Dinosaur stole someone's sandwich
+  "VENT_SOUNDS",           // Scratching/clicking from ventilation
+  "BLOCKED_PATH",          // Dinosaur nesting in corridor
+  "TERRITORIAL_DISPUTE",   // Two dinos fighting over a spot
+  "SURPRISE_APPEARANCE",   // One just... shows up. Looking at you.
+  "HELPFUL_ACCIDENT",      // Dino knocked something useful into reach
+  "PROTECTIVE_POSTURE",    // Standing guard over something/someone
+  "FEEDING_TIME",          // They expect Dr. M to feed them NOW
+]);
+export type DinoEncounterType = z.infer<typeof DinoEncounterTypeEnum>;
+
+export const LibraryBStateSchema = z.object({
+  // Chaos escalation (0-10), increases +1 every 2 turns
+  dinoChaosLevel: z.number().int().min(0).max(10).default(2),
+
+  // Track last encounter turn to space them out
+  lastEncounterTurn: z.number().int().nullable().default(null),
+
+  // Dr. M embarrassment level (affects her defensiveness)
+  drMEmbarrassment: z.number().int().min(0).max(5).default(0),
+
+  // Which dinosaurs have been spotted (for narrative continuity)
+  knownLooseDinos: z.array(z.string()).default([
+    "VELOCIRAPTOR_CLASSIC_1",
+    "VELOCIRAPTOR_CLASSIC_2",
+    "DILOPHOSAURUS_1",
+  ]),
+
+  // Track encounters for variety
+  encountersThisGame: z.array(DinoEncounterTypeEnum).default([]),
+});
+export type LibraryBState = z.infer<typeof LibraryBStateSchema>;
+
+// ============================================
 // CLOCKS AND FLAGS
 // ============================================
 
@@ -992,6 +1033,10 @@ export const FullGameStateSchema = z.object({
   // Guild Inspector Mortimer Graves is evaluating the lair
   inspector: InspectorGravesSchema.optional(),
   guildInspection: GuildInspectionSchema.optional(),
+
+  // LIBRARY_B_UNLOCKED STATE (only present when modifier active)
+  // Hollywood dinosaurs are already loose in the lair!
+  libraryBState: LibraryBStateSchema.optional(),
 
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,
