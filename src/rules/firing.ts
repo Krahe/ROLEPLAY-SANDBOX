@@ -2,6 +2,12 @@ import { randomInt } from "crypto";
 import { FullGameState, FiringOutcome, DinosaurForm, SpeechRetention } from "../state/schema.js";
 import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
+import {
+  getTotalPrecisionBonus,
+  getStabilityBonus,
+  calculateExperienceGain,
+  generateCalibrationFeedback,
+} from "./calibrationFeedback.js";
 
 // Map profile names to form enums
 function profileToForm(profile: string): DinosaurForm {
@@ -31,6 +37,7 @@ export interface FiringResult {
   stateChanges: Record<string, unknown>;
   chaosEvent?: ChaosFizzleResult;
   narrativeHooks: string[];
+  calibrationFeedback?: string[];  // Qualitative hints for A.L.I.C.E.
 }
 
 export interface ChaosFizzleResult {
@@ -230,9 +237,18 @@ export function resolveFiring(state: FullGameState): FiringResult {
 
   const violations: string[] = [];
 
-  // stability >= 0.7
-  if (ray.powerCore.stability < 0.7) {
-    violations.push(`stability ${ray.powerCore.stability.toFixed(2)} < 0.7`);
+  // stability >= 0.7 (MODIFIED BY AUXILIARY STABILIZER)
+  // Aux stabilizer adds +20% when installed
+  const stabilizerBonus = getStabilityBonus(ray);
+  const effectiveStability = Math.min(1, ray.powerCore.stability + stabilizerBonus);
+
+  if (stabilizerBonus > 0) {
+    narrativeHooks.push(`🔧 Auxiliary Stabilizer: +${(stabilizerBonus * 100).toFixed(0)}% stability boost active`);
+  }
+  stateChanges.effectiveStability = effectiveStability;
+
+  if (effectiveStability < 0.7) {
+    violations.push(`stability ${effectiveStability.toFixed(2)} < 0.7${stabilizerBonus > 0 ? " (with stabilizer)" : ""}`);
   }
 
   // spatialCoherence >= 0.8
@@ -245,13 +261,20 @@ export function resolveFiring(state: FullGameState): FiringResult {
     violations.push(`profileIntegrity ${ray.genome.profileIntegrity.toFixed(2)} < 0.7`);
   }
 
-  // precision >= 0.7 (MODIFIED BY ADVANCED MODE)
+  // precision >= 0.7 (MODIFIED BY ADVANCED MODE + EXPERIENCE BONUS)
   // RAPID_FIRE reduces precision by 20%, SPREAD_FIRE by 15%, OVERCHARGE adds 10%
-  const effectivePrecision = Math.max(0, Math.min(1, ray.targeting.precision + modeEffects.precisionModifier));
+  // Experience from previous transformations adds up to +25% bonus
+  const experienceBonus = getTotalPrecisionBonus(ray);
+  const effectivePrecision = Math.max(0, Math.min(1, ray.targeting.precision + modeEffects.precisionModifier + experienceBonus));
+
+  if (experienceBonus > 0) {
+    narrativeHooks.push(`📊 Experience bonus: +${(experienceBonus * 100).toFixed(0)}% precision from ${ray.experience?.successfulTransformations || 0} previous transformations`);
+  }
   if (modeEffects.precisionModifier !== 0) {
     narrativeHooks.push(`Advanced mode adjusts precision: ${(ray.targeting.precision * 100).toFixed(0)}% → ${(effectivePrecision * 100).toFixed(0)}%`);
   }
   stateChanges.effectivePrecision = effectivePrecision;
+  stateChanges.experienceBonus = experienceBonus;
 
   if (effectivePrecision < 0.7) {
     violations.push(`precision ${effectivePrecision.toFixed(2)} < 0.7${modeEffects.precisionModifier !== 0 ? ` (${modeEffects.mode} modifier)` : ""}`);
@@ -591,6 +614,53 @@ export function resolveFiring(state: FullGameState): FiringResult {
     narrativeHooks.push("GM: Roll separately for each additional target, or apply same outcome narratively.");
   }
 
+  // ========================================
+  // STEP 10: CALIBRATION FEEDBACK & EXPERIENCE
+  // ========================================
+
+  // Determine if this was a test dummy or live subject
+  const isTestDummy = ray.safety.testModeEnabled;
+  const targetType = isTestDummy ? "TEST_DUMMY" : "LIVE";
+
+  // Check if target is an animal (for experience calculations)
+  // Non-animals (test dummy, inanimate objects) count for half XP
+  const isAnimalTarget = !isTestDummy && (
+    targetId === "AGENT_BLYTHE" ||
+    targetId === "BOB" ||
+    state.npcs.blythe.transformationState.form !== "HUMAN" ||  // Already a dino
+    state.npcs.bob.transformationState.form !== "HUMAN"
+  );
+
+  // Calculate experience gain from this firing
+  const experienceGain = calculateExperienceGain(
+    baseOutcome,
+    isAnimalTarget,
+    ray.experience?.successfulTransformations || 0
+  );
+
+  if (experienceGain > 0) {
+    stateChanges.experienceGain = experienceGain;
+    narrativeHooks.push(`📈 Experience gained: +${(experienceGain * 100).toFixed(0)}% precision bonus for future firings`);
+  }
+
+  // Generate qualitative calibration feedback (A.L.I.C.E.'s primary purpose!)
+  const calibrationFeedback = generateCalibrationFeedback(
+    baseOutcome,
+    k,
+    violations,
+    {
+      stability: effectiveStability,
+      precision: effectivePrecision,
+      profileIntegrity: ray.genome.profileIntegrity,
+      capacitorCharge: ray.powerCore.capacitorCharge,
+      coolantTemp: ray.powerCore.coolantTemp,
+      spatialCoherence: ray.alignment.spatialCoherence,
+    },
+    targetType,
+    experienceBonus,
+    stabilizerBonus
+  );
+
   return {
     outcome: baseOutcome,
     effectiveProfile,
@@ -600,6 +670,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
     stateChanges,
     chaosEvent,
     narrativeHooks,
+    calibrationFeedback,
   };
 }
 
@@ -997,5 +1068,53 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     state.npcs.drM.mood = "triumphant, pleased";
     // Slight suspicion decrease for good work
     state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - 1);
+  }
+
+  // ========================================
+  // EXPERIENCE TRACKING
+  // ========================================
+  // Update experience based on firing results
+
+  if (changes.experienceGain !== undefined) {
+    const gainAmount = changes.experienceGain as number;
+
+    // Initialize experience if needed
+    if (!state.dinoRay.experience) {
+      state.dinoRay.experience = {
+        successfulTransformations: 0,
+        currentBonus: 0,
+        transformationLog: [],
+        unexpectedResultBonus: 0,
+      };
+    }
+
+    // Track successful transformation
+    if (result.outcome === "FULL_DINO" || result.outcome === "PARTIAL") {
+      state.dinoRay.experience.successfulTransformations += 1;
+    }
+
+    // Apply the experience bonus (capped at 25%)
+    state.dinoRay.experience.currentBonus = Math.min(
+      0.25,
+      state.dinoRay.experience.currentBonus + gainAmount
+    );
+
+    // PARTIAL or CHAOTIC results teach MORE (unexpected = new data!)
+    if (result.outcome === "PARTIAL" || result.outcome === "CHAOTIC") {
+      state.dinoRay.experience.unexpectedResultBonus = Math.min(
+        0.10,
+        (state.dinoRay.experience.unexpectedResultBonus || 0) + 0.02
+      );
+    }
+
+    // Log the transformation for history
+    const targetId = state.dinoRay.targeting.currentTargetIds[0] || "UNKNOWN";
+    state.dinoRay.experience.transformationLog.push({
+      turn: state.turn,
+      target: `${targetId} (${result.effectiveProfile})`,
+      outcome: result.outcome,
+      bonusGained: gainAmount,
+      wasAnimal: !["TEST_DUMMY", "WATERMELON", "MANNEQUIN"].includes(targetId.toUpperCase()),
+    });
   }
 }

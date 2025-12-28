@@ -71,6 +71,24 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         firstFiringTarget: null,
         firstFiringMode: null,
       },
+      // RAY EXPERIENCE SYSTEM (Patch 17)
+      // Tracks transformation learning for precision bonuses
+      experience: {
+        successfulTransformations: 0,
+        currentBonus: 0,
+        transformationLog: [],
+        unexpectedResultBonus: 0,
+      },
+      // AUXILIARY STABILIZER (Patch 17)
+      // Bob can install for +20% stability bonus
+      auxiliaryStabilizer: {
+        installed: false,
+        installationInProgress: false,
+        installationTurnsRemaining: 0,
+        installedByRaptorBob: false,
+        stabilityBonus: 0.20,
+        installedOnTurn: null,
+      },
     },
     
     lairEnvironment: {

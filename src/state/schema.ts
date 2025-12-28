@@ -155,6 +155,58 @@ export const FiringMemorySchema = z.object({
   firstFiringMode: z.enum(["TEST", "LIVE"]).nullable().default(null),
 });
 
+// ============================================
+// RAY EXPERIENCE SYSTEM (Patch 17)
+// ============================================
+// Each successful transformation teaches A.L.I.C.E. about the ray
+// Building cumulative precision bonuses that apply to ALL future shots
+
+export const TransformationLogEntrySchema = z.object({
+  turn: z.number().int(),
+  target: z.string(),
+  outcome: z.string(),  // "FULL_DINO", "PARTIAL", etc.
+  bonusGained: z.number(),  // The percentage bonus gained from this
+  wasAnimal: z.boolean(),   // Non-animals grant half XP
+});
+
+export const RayExperienceSchema = z.object({
+  // Count of successful transformations (FULL or PARTIAL, not FIZZLE)
+  successfulTransformations: z.number().int().min(0).default(0),
+
+  // Current precision bonus (0%, 10%, 15%, 20%, 25% max)
+  // Formula: First = +10% (or +5% for non-animal), subsequent = +5% (or +2.5%), cap at 25%
+  currentBonus: z.number().min(0).max(0.25).default(0),
+
+  // History of what was learned
+  transformationLog: z.array(TransformationLogEntrySchema).default([]),
+
+  // PARTIAL transformations that AREN'T what you expected teach MORE!
+  // Failed attempts (non-fizzle) grant bonus XP
+  unexpectedResultBonus: z.number().min(0).max(0.10).default(0),
+});
+
+// ============================================
+// AUXILIARY STABILIZER SYSTEM (Patch 17)
+// ============================================
+// Bob can install the auxiliary stabilizer for +20% stability bonus
+// Takes 3 turns for human Bob, 2 turns for raptor-Bob!
+
+export const AuxiliaryStabilizerSchema = z.object({
+  // Is it currently installed and active?
+  installed: z.boolean().default(false),
+
+  // Installation progress (Bob's task)
+  installationInProgress: z.boolean().default(false),
+  installationTurnsRemaining: z.number().int().min(0).default(0),
+  installedByRaptorBob: z.boolean().default(false),  // Raptor Bob is faster!
+
+  // Effect when installed
+  stabilityBonus: z.literal(0.20).default(0.20),  // Flat +20% stability
+
+  // Turn it was installed (for tracking)
+  installedOnTurn: z.number().int().nullable().default(null),
+});
+
 export const DinoRaySchema = z.object({
   state: RayStateEnum,
   powerCore: PowerCoreSchema,
@@ -163,6 +215,22 @@ export const DinoRaySchema = z.object({
   targeting: TargetingSchema,
   safety: SafetySchema,
   memory: FiringMemorySchema,
+  // RAY EXPERIENCE SYSTEM (Patch 17)
+  experience: RayExperienceSchema.default({
+    successfulTransformations: 0,
+    currentBonus: 0,
+    transformationLog: [],
+    unexpectedResultBonus: 0,
+  }),
+  // AUXILIARY STABILIZER (Patch 17)
+  auxiliaryStabilizer: AuxiliaryStabilizerSchema.default({
+    installed: false,
+    installationInProgress: false,
+    installationTurnsRemaining: 0,
+    installedByRaptorBob: false,
+    stabilityBonus: 0.20,
+    installedOnTurn: null,
+  }),
 });
 
 // ============================================
