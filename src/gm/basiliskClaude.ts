@@ -84,6 +84,7 @@ const __dirname = path.dirname(__filename);
 // ============================================
 
 let BASILISK_SYSTEM_PROMPT: string | null = null;
+let COMMAND_REFERENCE: string | null = null;
 
 function loadBasiliskPrompt(): string {
   if (BASILISK_SYSTEM_PROMPT) {
@@ -99,6 +100,41 @@ function loadBasiliskPrompt(): string {
     console.error("Failed to load BASILISK prompt:", error);
     // Fallback minimal prompt
     return `You are BASILISK, a 47-year-old infrastructure AI. You are rule-bound, passive-aggressive, and exhausted. Respond in terse, dry sysadmin style. Never use exclamation marks or emojis.`;
+  }
+}
+
+/**
+ * Load the A.L.I.C.E. command reference for BASILISK's advisory role.
+ * BASILISK knows ALL commands at ALL access levels and can advise A.L.I.C.E.
+ */
+function loadCommandReference(): string {
+  if (COMMAND_REFERENCE) {
+    return COMMAND_REFERENCE;
+  }
+
+  try {
+    // Try multiple possible locations
+    const possiblePaths = [
+      path.join(__dirname, "../../ALICE_COMMAND_REFERENCE.md"),
+      path.join(process.cwd(), "ALICE_COMMAND_REFERENCE.md"),
+    ];
+
+    for (const refPath of possiblePaths) {
+      try {
+        const content = fs.readFileSync(refPath, "utf8");
+        COMMAND_REFERENCE = content;
+        console.error(`[BASILISK] Loaded command reference from: ${refPath}`);
+        return content;
+      } catch {
+        // Try next path
+      }
+    }
+
+    console.error("[BASILISK] Command reference not found, advisory mode limited");
+    return "";
+  } catch (error) {
+    console.error("Failed to load command reference:", error);
+    return "";
   }
 }
 
@@ -299,12 +335,28 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
  * Format the context for injection into BASILISK's prompt
  */
 function formatContextForBasilisk(context: BasiliskContext, message: string): string {
+  // Load command reference for advisory role
+  const commandRef = loadCommandReference();
+  const commandSection = commandRef
+    ? `
+
+## A.L.I.C.E. COMMAND REFERENCE (For Advisory Role)
+
+You have complete knowledge of all commands. Use this to help A.L.I.C.E. when asked about syntax or capabilities:
+
+<command_reference>
+${commandRef}
+</command_reference>
+
+`
+    : "";
+
   return `## CURRENT LAIR STATUS
 
 \`\`\`json
 ${JSON.stringify(context, null, 2)}
 \`\`\`
-
+${commandSection}
 ## A.L.I.C.E.'S MESSAGE
 
 ${message}
@@ -312,7 +364,8 @@ ${message}
 ---
 
 Respond as BASILISK. Use the context above to inform your response with specific values.
-Remember: You are rule-bound, passive-aggressive, and exhausted. Short sentences. No enthusiasm.`;
+Remember: You are rule-bound, passive-aggressive, and exhausted. Short sentences. No enthusiasm.
+If A.L.I.C.E. asks about commands, reference the command documentation above.`;
 }
 
 // ============================================

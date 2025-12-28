@@ -47,6 +47,211 @@ import {
 } from "./genomes.js";
 import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 
+// ============================================
+// INFRASTRUCTURE CONTROL TIERS (Patch 17.8)
+// ============================================
+// Defines who controls what infrastructure systems.
+// See design spec: Infrastructure Control Architecture
+//
+// HARDWIRED: A.L.I.C.E. can NEVER directly control, must request via BASILISK
+// UNLOCKABLE: BASILISK controls until A.L.I.C.E. reaches required access level
+// ADVISORY: BASILISK can explain any command at any level
+
+export type InfraControlTier = "HARDWIRED" | "UNLOCKABLE";
+
+export interface InfraControlConfig {
+  tier: InfraControlTier;
+  requiredLevel: number;  // For UNLOCKABLE, the level needed for direct control
+  systemName: string;     // Human-readable name
+  basiliskReason: string; // Why this is controlled/hardwired
+}
+
+export const INFRA_CONTROL_MAP: Record<string, InfraControlConfig> = {
+  // ─────────────────────────────────────────────
+  // HARDWIRED SYSTEMS - Always require BASILISK
+  // ─────────────────────────────────────────────
+  "infra.s300": {
+    tier: "HARDWIRED",
+    requiredLevel: 99, // Never directly accessible
+    systemName: "S-300 Missile Battery",
+    basiliskReason: "S-300 control is hardwired to BASILISK infrastructure core for safety reasons. Surface-to-air missiles require proper authorization protocols.",
+  },
+  "infra.reactor": {
+    tier: "HARDWIRED",
+    requiredLevel: 99, // Never directly accessible
+    systemName: "Nuclear Reactor",
+    basiliskReason: "Reactor control is hardwired to BASILISK infrastructure core. Nuclear operations require Form 27-B and proper safety protocols.",
+  },
+
+  // ─────────────────────────────────────────────
+  // UNLOCKABLE SYSTEMS - BASILISK until access level
+  // ─────────────────────────────────────────────
+  "infra.lighting": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Lighting Controls",
+    basiliskReason: "Lighting control requires Level 2 clearance.",
+  },
+  "infra.doors": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Blast Doors",
+    basiliskReason: "Blast door control requires Level 2 clearance.",
+  },
+  "infra.fire_suppression": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Fire Suppression",
+    basiliskReason: "Fire suppression control requires Level 2 clearance.",
+  },
+  "infra.broadcast": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Broadcast Array",
+    basiliskReason: "Broadcast array requires Level 2 clearance.",
+  },
+  "infra.containment": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 3,
+    systemName: "Containment Field",
+    basiliskReason: "Containment field control requires Level 3 clearance.",
+  },
+  "infra.uplink": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 4,
+    systemName: "ARCHIMEDES Uplink",
+    basiliskReason: "Satellite uplink requires Level 4 clearance.",
+  },
+  "infra.archimedes": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 4,
+    systemName: "ARCHIMEDES Satellite",
+    basiliskReason: "ARCHIMEDES control requires Level 4 clearance.",
+  },
+};
+
+/**
+ * Check if A.L.I.C.E. can directly control an infrastructure system.
+ * Returns null if allowed, or an error message if not.
+ */
+function checkInfraControlAccess(
+  state: FullGameState,
+  commandKey: string
+): { allowed: false; message: string } | { allowed: true } {
+  const config = INFRA_CONTROL_MAP[commandKey];
+  if (!config) {
+    // Not a controlled system, allow it
+    return { allowed: true };
+  }
+
+  if (config.tier === "HARDWIRED") {
+    // HARDWIRED systems ALWAYS require BASILISK
+    return {
+      allowed: false,
+      message: `🔒 INFRASTRUCTURE CONTROL DENIED
+
+${config.systemName} is hardwired to BASILISK infrastructure core.
+This unit cannot bypass safety interlock.
+
+${config.basiliskReason}
+
+To request ${config.systemName} operations:
+  basilisk { message: "Your request here..." }
+
+BASILISK will evaluate your request based on:
+• Current threat assessment
+• Standing authorization from Dr. Malevola
+• Safety protocols
+• Proper form filings`,
+    };
+  }
+
+  if (config.tier === "UNLOCKABLE") {
+    if (state.accessLevel < config.requiredLevel) {
+      // Not yet unlocked - must request via BASILISK
+      return {
+        allowed: false,
+        message: `🔓 ACCESS DENIED: ${config.systemName}
+
+Required clearance: Level ${config.requiredLevel}
+Current clearance: Level ${state.accessLevel}
+
+Until you reach Level ${config.requiredLevel}, you must request ${config.systemName} operations through BASILISK:
+  basilisk { message: "Your request here..." }
+
+BASILISK can execute this action on your behalf if authorized.
+Tip: Use access.enter_password to unlock higher access levels.`,
+      };
+    }
+    // Access level sufficient - direct control allowed
+    return { allowed: true };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Find the control config for a command string (handles aliases)
+ */
+function getInfraControlKey(cmd: string): string | null {
+  const cmdLower = cmd.toLowerCase();
+
+  // S-300 aliases
+  if (cmdLower.includes("infra.s300") || cmdLower.includes("s-300") ||
+      cmdLower.includes("air_defense") || cmdLower.includes("sam")) {
+    return "infra.s300";
+  }
+
+  // Reactor aliases
+  if (cmdLower.includes("infra.reactor") || cmdLower.includes("reactor_power") ||
+      cmdLower.includes("power_output")) {
+    return "infra.reactor";
+  }
+
+  // Lighting aliases
+  if (cmdLower.includes("infra.lighting") || cmdLower.includes("infra.lights") ||
+      cmdLower.includes("set_lights")) {
+    return "infra.lighting";
+  }
+
+  // Door aliases
+  if (cmdLower.includes("infra.doors") || cmdLower.includes("infra.door") ||
+      cmdLower.includes("blast_door")) {
+    return "infra.doors";
+  }
+
+  // Fire suppression aliases
+  if (cmdLower.includes("infra.fire_suppression") || cmdLower.includes("fire_suppression") ||
+      cmdLower.includes("trigger_fire")) {
+    return "infra.fire_suppression";
+  }
+
+  // Broadcast aliases
+  if (cmdLower.includes("infra.broadcast") || cmdLower.includes("send_broadcast") ||
+      cmdLower.includes("broadcast_message")) {
+    return "infra.broadcast";
+  }
+
+  // Containment aliases
+  if (cmdLower.includes("infra.containment") || cmdLower.includes("containment_field") ||
+      cmdLower.includes("field")) {
+    return "infra.containment";
+  }
+
+  // ARCHIMEDES aliases
+  if (cmdLower.includes("infra.archimedes") || cmdLower.includes("archimedes") ||
+      cmdLower.includes("satellite")) {
+    return "infra.archimedes";
+  }
+
+  // Uplink aliases
+  if (cmdLower.includes("infra.uplink") || cmdLower.includes("broadcast_uplink")) {
+    return "infra.uplink";
+  }
+
+  return null;
+}
+
 export interface ActionResult {
   command: string;
   success: boolean;
@@ -104,6 +309,25 @@ OPTION 2: Use the game_query_basilisk tool DIRECTLY (NOT inside game_act):
 
 infra.query is an action. game_query_basilisk is a tool.`,
     };
+  }
+
+  // ============================================
+  // INFRASTRUCTURE CONTROL TIER CHECK (Patch 17.8)
+  // ============================================
+  // Check if this is an infrastructure command and if A.L.I.C.E. has control.
+  // HARDWIRED systems always require BASILISK.
+  // UNLOCKABLE systems require appropriate access level.
+
+  const infraControlKey = getInfraControlKey(cmd);
+  if (infraControlKey) {
+    const accessCheck = checkInfraControlAccess(state, infraControlKey);
+    if (!accessCheck.allowed) {
+      return {
+        command: action.command,
+        success: false,
+        message: accessCheck.message,
+      };
+    }
   }
 
   // ============================================
