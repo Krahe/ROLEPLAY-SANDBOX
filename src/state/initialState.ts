@@ -438,6 +438,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       usageHistory: [],
     },
 
+    // FORTUNE SYSTEM (Human advisor engagement rewards)
+    // Starts at 0, accumulates from quality human responses (max 3)
+    fortune: 0,
+
     history: [],
   };
 }

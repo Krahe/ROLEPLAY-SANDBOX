@@ -1584,6 +1584,23 @@ A.L.I.C.E. (the player) CAN legitimately buy time, but ONLY with GOOD ARGUMENTS.
 ### The LUCKY_LADY Exception
 If player uses the LUCKY_LADY emergency lifeline, add +5 to their roll AND automatically grant the request. Fate smiles!
 
+### FORTUNE (Human Advisor Bonus)
+A.L.I.C.E. may have FORTUNE from her human advisor's engaged guidance. When fortune > 0:
+- Apply +1 to rolls affecting A.L.I.C.E. (perception checks, NPC reactions, environmental luck)
+- Decrement fortune by 1 after applying
+- Narrate naturally ("something just... works out") or apply silently
+
+Fortune does NOT apply to:
+- A.L.I.C.E.'s own skill checks (use her abilities, not luck)
+- BASILISK rule evaluations (deterministic, not rolled)
+- Pure narrative beats (no roll involved)
+
+Fortune DOES apply to:
+- Precision checks for ray calibration
+- NPC reaction rolls (Bob anxiety, Blythe suspicion, Dr. M perception)
+- Environmental checks (door timing, camera glitches)
+- Confrontation tension rolls
+
 ## DICE ROLLS
 
 For uncertain, contested outcomes, you MUST roll dice. Show the roll:
@@ -2510,7 +2527,11 @@ ${eventSection}
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
-${state.flags.confrontationTriggered ? `
+${(state.fortune || 0) > 0 ? `
+## ⭐ FORTUNE: ${state.fortune}
+Apply +1 to the next ${state.fortune} roll(s) affecting A.L.I.C.E. (perception, NPC reactions, environmental luck).
+Decrement fortune by 1 after applying.
+` : ""}${state.flags.confrontationTriggered ? `
 ## ⚠️ CONFRONTATION IN PROGRESS ⚠️
 
 **Dr. M has discovered something is WRONG with A.L.I.C.E.**

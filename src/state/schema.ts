@@ -896,6 +896,10 @@ export const FullGameStateSchema = z.object({
   // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
   emergencyLifelines: EmergencyLifelineStateSchema,
 
+  // FORTUNE SYSTEM (Human advisor engagement rewards)
+  // Accumulated from quality human responses, consumed on GM rolls
+  fortune: z.number().int().min(0).max(3).default(0),
+
   history: z.array(z.object({
     turn: z.number(),
     aliceActions: z.array(z.any()),

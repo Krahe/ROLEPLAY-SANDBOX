@@ -60,6 +60,9 @@ export interface PlayerView {
     used: string[];
   };
 
+  // Fortune (from human advisor engagement)
+  fortune: number;
+
   // Current hint
   hint: string;
 }
@@ -145,6 +148,8 @@ export function extractPlayerView(full: FullGameState): PlayerView {
       used: full.emergencyLifelines.used,
     },
 
+    fortune: full.fortune || 0,
+
     hint: generateHint(full),
   };
 }
@@ -192,6 +197,9 @@ export interface GMView {
     demoClock: number | null;
     secretRevealed: boolean;
   };
+
+  // Fortune from human advisor (apply +1 to GM rolls)
+  fortune: number;
 
   // Active flags (cleaned)
   activeFlags: string[];
@@ -265,6 +273,9 @@ export function extractGMView(full: FullGameState): GMView {
       demoClock: full.clocks.demoClock,
       secretRevealed: full.flags.aliceKnowsTheSecret,
     },
+
+    // Fortune from human advisor
+    fortune: full.fortune || 0,
 
     // Last 15 flags
     activeFlags: narrativeFlags.slice(-15),
@@ -342,6 +353,9 @@ export interface CompressedCheckpoint {
     r: number;    // remaining (0-3)
     u: string[];  // used types (BI, TE, RM)
   };
+
+  // FORTUNE (v2.2 - human advisor engagement)
+  ft?: number;   // fortune (0-3), omit if 0
 }
 
 // Ray state to enum (save chars)
@@ -481,6 +495,9 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
           ),
         }
       : undefined, // Don't store if all 3 remaining (default state)
+
+    // Fortune (v2.2) - only store if non-zero
+    ft: (full.fortune || 0) > 0 ? full.fortune : undefined,
   };
 }
 
@@ -681,6 +698,9 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       ) as ("BASILISK_INTERVENTION" | "LUCKY_LADY" | "MONOLOGUE")[],
       usageHistory: [], // History stripped for checkpoint size
     },
+
+    // FORTUNE (v2.2 - human advisor engagement)
+    fortune: compressed.ft ?? 0,
 
     history: [],
 
