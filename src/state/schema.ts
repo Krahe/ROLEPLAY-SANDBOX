@@ -833,6 +833,34 @@ export const GameModeConfigSchema = z.object({
 });
 export type GameModeConfig = z.infer<typeof GameModeConfigSchema>;
 
+// ============================================
+// SITCOM_MODE STATE - Audience Energy System
+// ============================================
+// When SITCOM_MODE is active, audience approval determines success
+// The laugh track is a FORCE OF NATURE
+
+export const AudienceMoodEnum = z.enum([
+  "COLD",             // 0-2 energy: -2 to all rolls, nothing works
+  "WARM",             // 3-5 energy: +0, normal sitcom energy
+  "HOT",              // 6-8 energy: +2 to all rolls
+  "STANDING_OVATION", // 9-10 energy: +4 to all rolls, suspicion frozen
+]);
+export type AudienceMood = z.infer<typeof AudienceMoodEnum>;
+
+export const SitcomStateSchema = z.object({
+  // Main energy meter (0-10)
+  energy: z.number().int().min(0).max(10).default(4),
+  // Derived from energy thresholds
+  mood: AudienceMoodEnum.default("WARM"),
+  // Track asides used this turn (1 free per turn)
+  asidesUsedThisTurn: z.number().int().min(0).default(0),
+  // Track catchphrases for callback detection
+  catchphrasesUsed: z.array(z.string()).default([]),
+  // Track callbacks for bonus detection
+  callbacksThisGame: z.array(z.string()).default([]),
+});
+export type SitcomState = z.infer<typeof SitcomStateSchema>;
+
 // Predefined modifier sets for each mode
 export const MODE_MODIFIERS = {
   EASY: ["FOGGY_GLASSES", "HANGOVER_PROTOCOL", "LENNY_THE_LIME_GREEN", "FAT_FINGERS"],
@@ -864,6 +892,10 @@ export const FullGameStateSchema = z.object({
 
   // GAME MODE & MODIFIERS
   gameModeConfig: GameModeConfigSchema.optional(),
+
+  // SITCOM_MODE STATE (only present when SITCOM_MODE active)
+  // Tracks audience energy and mood for roll modifiers
+  sitcomState: SitcomStateSchema.optional(),
 
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,

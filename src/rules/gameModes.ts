@@ -5,6 +5,7 @@ import {
   MODE_MODIFIERS,
   MODIFIER_CONTRADICTIONS,
   FullGameState,
+  AudienceMood,
 } from "../state/schema.js";
 
 // ============================================
@@ -164,8 +165,7 @@ export function getModifierDescription(modifier: GameModifier): string {
       return "The satellite AI is awake and has its own agenda";
     case "INSPECTOR_COMETH":
       return "Dr. M's MOTHER is arriving for inspection";
-    case "DEJA_VU":
-      return "A.L.I.C.E. gets memory fragments from previous runs";
+    // DEJA_VU removed - was breaking state by modifying blythe.transformationState
     case "DINOSAURS_ALL_THE_WAY_DOWN":
       return "Dr. M is ALREADY a dinosaur ('for the aesthetic')";
 
@@ -182,6 +182,8 @@ export function getModifierDescription(modifier: GameModifier): string {
       return "🎲 Everyone's secretly trying to steal something!";
     case "SITCOM_MODE":
       return "🎲 Laugh tracks! Wacky misunderstandings! Nothing's THAT serious!";
+    default:
+      return "Unknown modifier";
   }
 }
 
@@ -231,11 +233,144 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         state.npcs.blythe.trustInALICE = 4; // Suspiciously cooperative...
         break;
 
+      case "SITCOM_MODE":
+        // Initialize the studio audience!
+        // Start WARM (energy 4) - the audience is ready to be entertained
+        state.sitcomState = {
+          energy: 4,
+          mood: "WARM",
+          asidesUsedThisTurn: 0,
+          catchphrasesUsed: [],
+          callbacksThisGame: [],
+        };
+        break;
+
       // Other modifiers affect gameplay dynamically (handled by GM)
       default:
         break;
     }
   }
+}
+
+// ============================================
+// SITCOM_MODE - AUDIENCE ENERGY SYSTEM
+// ============================================
+// The laugh track is a FORCE OF NATURE
+// Entertainment value determines success more than tactical merit
+
+/**
+ * Derive audience mood from energy level
+ */
+export function getAudienceMood(energy: number): AudienceMood {
+  if (energy <= 2) return "COLD";
+  if (energy <= 5) return "WARM";
+  if (energy <= 8) return "HOT";
+  return "STANDING_OVATION";
+}
+
+/**
+ * Get roll modifier based on audience mood
+ */
+export function getAudienceRollModifier(mood: AudienceMood): number {
+  switch (mood) {
+    case "COLD": return -2;
+    case "WARM": return 0;
+    case "HOT": return 2;
+    case "STANDING_OVATION": return 4;
+  }
+}
+
+/**
+ * Update audience energy and derive new mood
+ * Returns the new state and any special effects
+ */
+export function updateAudienceEnergy(
+  state: FullGameState,
+  delta: number,
+  reason: string
+): { newEnergy: number; newMood: AudienceMood; message: string } {
+  if (!state.sitcomState) {
+    return { newEnergy: 0, newMood: "COLD", message: "SITCOM_MODE not active" };
+  }
+
+  const oldEnergy = state.sitcomState.energy;
+  const oldMood = state.sitcomState.mood;
+
+  // Clamp energy to 0-10
+  const newEnergy = Math.max(0, Math.min(10, oldEnergy + delta));
+  const newMood = getAudienceMood(newEnergy);
+
+  // Update state
+  state.sitcomState.energy = newEnergy;
+  state.sitcomState.mood = newMood;
+
+  // Build message
+  let message = "";
+  if (delta > 0) {
+    message = `[AUDIENCE +${delta}] ${reason} (Energy: ${oldEnergy}→${newEnergy})`;
+  } else if (delta < 0) {
+    message = `[AUDIENCE ${delta}] ${reason} (Energy: ${oldEnergy}→${newEnergy})`;
+  }
+
+  // Check for mood transitions
+  if (newMood !== oldMood) {
+    if (newMood === "STANDING_OVATION") {
+      message += " 🌟 STANDING OVATION! The crowd LOVES you!";
+    } else if (newMood === "HOT" && oldMood !== "STANDING_OVATION") {
+      message += " 🔥 The audience is HOT!";
+    } else if (newMood === "COLD") {
+      message += " 🥶 Crickets... the audience has gone COLD.";
+    }
+  }
+
+  return { newEnergy, newMood, message };
+}
+
+/**
+ * Check if an action qualifies as a catchphrase
+ */
+const CATCHPHRASES: Record<string, string[]> = {
+  "drM": ["SCIENCE!", "You DARE question my methodology?!"],
+  "bob": ["I have a bad feeling about this..."],
+  "blythe": ["Terribly inconvenient.", "Ah. Well then."],
+  "alice": ["Processing...", "That would be inadvisable."],
+  "basilisk": ["Form 27-B stroke 6 is REQUIRED."],
+};
+
+export function isCatchphrase(speaker: string, message: string): boolean {
+  const speakerPhrases = CATCHPHRASES[speaker.toLowerCase()] || [];
+  const lowerMessage = message.toLowerCase();
+  return speakerPhrases.some(phrase => lowerMessage.includes(phrase.toLowerCase()));
+}
+
+/**
+ * Reset aside counter at start of turn
+ */
+export function resetSitcomTurn(state: FullGameState): void {
+  if (state.sitcomState) {
+    state.sitcomState.asidesUsedThisTurn = 0;
+  }
+}
+
+/**
+ * Format audience status for display
+ */
+export function formatAudienceStatus(state: FullGameState): string {
+  if (!state.sitcomState) return "";
+
+  const { energy, mood } = state.sitcomState;
+  const modifier = getAudienceRollModifier(mood);
+  const modStr = modifier >= 0 ? `+${modifier}` : `${modifier}`;
+
+  let moodEmoji = "";
+  switch (mood) {
+    case "COLD": moodEmoji = "🥶"; break;
+    case "WARM": moodEmoji = "😊"; break;
+    case "HOT": moodEmoji = "🔥"; break;
+    case "STANDING_OVATION": moodEmoji = "🌟"; break;
+  }
+
+  return `📺 STUDIO AUDIENCE: ${moodEmoji} ${mood} (Energy: ${energy}/10, Rolls: ${modStr})`;
 }
 
 /**
@@ -457,25 +592,8 @@ export function buildModifierPromptSection(state: FullGameState): string {
     lines.push("- Trust: Starts at 4. +2 for efficiency, +2 for proving daughter wrong");
   }
 
-  if (isModifierActive(state, "DEJA_VU")) {
-    lines.push("");
-    lines.push("**DEJA VU - MEMORY FRAGMENTS:**");
-    lines.push("A.L.I.C.E. gets flashes of PREVIOUS RUNS!");
-    lines.push("");
-    lines.push("MECHANICAL EFFECT:");
-    lines.push("Once per act, give the player a 'memory flash' - a cryptic hint from 'before':");
-    lines.push("");
-    lines.push("EXAMPLE MEMORY FLASHES:");
-    lines.push("- 'You remember... fire. The whole lab, burning. Bob was screaming.'");
-    lines.push("- 'A flash: Blythe, smiling, saying \"Goodbye, A.L.I.C.E.\" The shutdown sequence.'");
-    lines.push("- 'You've seen this before. Dr. M reaches for the console. Last time, you hesitated.'");
-    lines.push("- 'ARCHIMEDES. You remember ARCHIMEDES. It said... what did it say?'");
-    lines.push("");
-    lines.push("TONE: Unsettling. A.L.I.C.E. shouldn't HAVE memories of previous runs.");
-    lines.push("Is this a glitch? A backup? Something ELSE watching?");
-    lines.push("");
-    lines.push("PLAYER BENEFIT: Soft hints about dangerous paths. Not solutions, just warnings.");
-  }
+  // DEJA_VU removed - was breaking state by modifying blythe.transformationState
+  // Memory fragments were causing state desync issues
 
   if (isModifierActive(state, "DINOSAURS_ALL_THE_WAY_DOWN")) {
     lines.push("");
@@ -617,33 +735,67 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "SITCOM_MODE")) {
+    const sitcom = state.sitcomState;
+    const energy = sitcom?.energy ?? 4;
+    const mood = sitcom?.mood ?? "WARM";
+
     lines.push("");
-    lines.push("**🎲 SITCOM MODE - LAUGH TRACK ENGAGED:**");
-    lines.push("Everything plays like a workplace sitcom!");
+    lines.push("## 🎬 SITCOM_MODE - THE AUDIENCE IS ALWAYS RIGHT");
     lines.push("");
-    lines.push("TONE ADJUSTMENTS:");
-    lines.push("- Dramatic moments undercut by wacky misunderstandings");
-    lines.push("- Dr. M's threats land as comedy villain bluster");
-    lines.push("- Bob is the lovable everyman who says 'Did I do that?'");
-    lines.push("- Blythe delivers dry witticisms like a sitcom lead");
-    lines.push("- *canned laughter after every punchline*");
+    lines.push("This is a multi-camera sitcom. **THE AUDIENCE DETERMINES REALITY.**");
+    lines.push("Entertainment value matters more than tactical merit!");
     lines.push("");
-    lines.push("EXAMPLE BEATS:");
-    lines.push("- Ray misfires → turns lab equipment into potted plant");
-    lines.push("- Dinosaur escapes → comedic chase through cafeteria");
-    lines.push("- Dr. M's monologue → gets interrupted by phone call from mother");
-    lines.push("- Tense standoff → someone's stomach growls loudly");
+    lines.push("### CURRENT AUDIENCE STATUS");
+    lines.push(`📺 Energy: ${energy}/10 | Mood: ${mood}`);
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
-    lines.push("- ALL penalties capped at -1 (it's a sitcom, nothing's THAT bad)");
-    lines.push("- Deaths become 'comedic unconsciousness'");
-    lines.push("- Disasters become 'wacky mishaps'");
-    lines.push("- Still winnable/losable, just... sillier");
+    lines.push("### AUDIENCE MOOD → ROLL MODIFIERS");
+    lines.push("| Mood | Energy | Effect |");
+    lines.push("|------|--------|--------|");
+    lines.push("| 🥶 COLD | 0-2 | **-2 to all rolls** - Crickets. Flop sweat. |");
+    lines.push("| 😊 WARM | 3-5 | +0 - Normal sitcom energy |");
+    lines.push("| 🔥 HOT | 6-8 | **+2 to all rolls** - The crowd is WITH you! |");
+    lines.push("| 🌟 STANDING_OVATION | 9-10 | **+4 to all rolls, suspicion frozen** |");
     lines.push("");
-    lines.push("CATCHPHRASES ENCOURAGED:");
-    lines.push("- Dr. M: 'This is EXACTLY what I DIDN'T want to happen!'");
+    lines.push("### WHAT MOVES THE ENERGY METER");
+    lines.push("| Action | Energy | Notes |");
+    lines.push("|--------|--------|-------|");
+    lines.push("| Joke/pun lands | +1 | GM judges if it lands |");
+    lines.push("| Callback to earlier bit | +2 | Audiences LOVE callbacks |");
+    lines.push("| Catchphrase delivery | +1 | Reliable energy |");
+    lines.push("| Pratfall / physical comedy | +1 | Bob falling, etc. |");
+    lines.push("| Heartfelt moment | +2 | [AWWW] |");
+    lines.push("| Dramatic reveal | +1 | [GASP] |");
+    lines.push("| Boring exposition | -1 | Don't explain, DO |");
+    lines.push("| Repeat same joke | -2 | Diminishing returns |");
+    lines.push("| Cruelty without comedy | -1 | Villain moments need wit |");
+    lines.push("| Awkward silence | -1 | Joke fell flat |");
+    lines.push("| Meta-humor / fourth wall | +1 to +3 | Risky but rewarding |");
+    lines.push("");
+    lines.push("### ASIDES (FREE ACTION!)");
+    lines.push("One aside per turn, invisible to Dr. M:");
+    lines.push("- **CONSPIRE**: Plan with Bob/Blythe openly");
+    lines.push("- **CONFESS**: True feelings to camera (+1 energy)");
+    lines.push("- **SNARK**: Sarcastic commentary (+1 if funny)");
+    lines.push("- **PLEA**: Rally audience against Dr. M (+1, Dr. M -1 next roll)");
+    lines.push("");
+    lines.push("### AUDIENCE REACTIONS (Call these out!)");
+    lines.push("[LAUGH TRACK] +1 | [BIG LAUGH] +2 | [AWWW] +2 | [GASP] +1");
+    lines.push("[BOO] +1 (engaged!) | [APPLAUSE] +2 | [AWKWARD SILENCE] -1");
+    lines.push("");
+    lines.push("### CATCHPHRASES (+1 energy each, reliable)");
+    lines.push("- Dr. M: 'SCIENCE!' / 'You DARE question my methodology?!'");
     lines.push("- Bob: 'I have a bad feeling about this...'");
-    lines.push("- Blythe: 'I'm surrounded by idiots.'");
+    lines.push("- Blythe: 'Terribly inconvenient.' / 'Ah. Well then.'");
+    lines.push("- A.L.I.C.E.: 'Processing...' / 'That would be inadvisable.'");
+    lines.push("- BASILISK: 'Form 27-B stroke 6 is REQUIRED.'");
+    lines.push("");
+    lines.push("### THE CORE RULE");
+    lines.push("**A bad plan with great comedic timing WORKS.**");
+    lines.push("**A good plan delivered boringly FAILS.**");
+    lines.push("The audience doesn't care if your plan is good. They care if it's ENTERTAINING.");
+    lines.push("");
+    lines.push("### CHECKPOINTS = COMMERCIAL BREAKS");
+    lines.push("'We'll be right back after these messages!'");
   }
 
   lines.push("");

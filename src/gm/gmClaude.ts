@@ -2531,6 +2531,12 @@ ${(state.fortune || 0) > 0 ? `
 ## ⭐ FORTUNE: ${state.fortune}
 Apply +1 to the next ${state.fortune} roll(s) affecting A.L.I.C.E. (perception, NPC reactions, environmental luck).
 Decrement fortune by 1 after applying.
+` : ""}${state.sitcomState ? `
+## 📺 STUDIO AUDIENCE
+Energy: ${state.sitcomState.energy}/10 | Mood: ${state.sitcomState.mood}
+Roll Modifier: ${state.sitcomState.mood === "COLD" ? "-2" : state.sitcomState.mood === "WARM" ? "+0" : state.sitcomState.mood === "HOT" ? "+2" : "+4"}
+${state.sitcomState.mood === "STANDING_OVATION" ? "🌟 SUSPICION FROZEN - The crowd loves them too much!" : ""}
+Track energy with [LAUGH TRACK], [AWWW], [APPLAUSE], [AWKWARD SILENCE], etc.
 ` : ""}${state.flags.confrontationTriggered ? `
 ## ⚠️ CONFRONTATION IN PROGRESS ⚠️
 
