@@ -16,7 +16,7 @@ import {
   onDrMStateChange,
   ArchimedesEvent,
 } from "./rules/archimedes.js";
-import { formatAccessLevelUnlockDisplay } from "./rules/passwords.js";
+import { formatAccessLevelUnlockDisplay, ACCESS_LEVELS } from "./rules/passwords.js";
 import {
   checkActTransition,
   serializeActHandoff,
@@ -113,7 +113,11 @@ interface CompactSnapshot {
   phase: string;
   phaseDescription: string;
   demoClock: number;
+
+  // ACCESS LEVEL AND ACTIONS (Patch 17)
   accessLevel: number;
+  maxActions: number;  // Actions available at this level
+  accessLevelName: string;  // "Lab Operations", "Systems Access", etc.
 
   // Key metrics only
   rayState: string;
@@ -154,6 +158,9 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
     hint = "🔧 Ray needs calibration before firing.";
   }
 
+  // Get access level info (Patch 17)
+  const levelInfo = ACCESS_LEVELS[state.accessLevel] || ACCESS_LEVELS[1];
+
   return {
     // ACT INFO
     act: state.actConfig.currentAct,
@@ -165,7 +172,11 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
     phase: phaseInfo.phase,
     phaseDescription: phaseInfo.description,
     demoClock: state.clocks.demoClock,
+
+    // ACCESS LEVEL AND ACTIONS (Patch 17)
     accessLevel: state.accessLevel,
+    maxActions: levelInfo.actionsPerTurn,
+    accessLevelName: levelInfo.name,
 
     rayState: state.dinoRay.state,
     rayReady: state.dinoRay.state === "READY",

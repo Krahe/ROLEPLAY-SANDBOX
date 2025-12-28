@@ -230,13 +230,33 @@ function getRightPasswordWrongLevelNarrative(
 // NARRATIVE HOOKS
 // ============================================
 
+/**
+ * Generate a formatted capability summary for a given access level
+ */
+export function formatAccessLevelCapabilities(level: number): string {
+  const levelDef = ACCESS_LEVELS[level];
+  if (!levelDef) return "";
+
+  const lines: string[] = [];
+  lines.push(`\n📊 **ACCESS LEVEL ${level}: ${levelDef.name.toUpperCase()}**`);
+  lines.push(`• Actions per turn: **${levelDef.actionsPerTurn}**`);
+  lines.push(`• Systems unlocked:`);
+  for (const system of levelDef.unlockedSystems) {
+    lines.push(`  - ${system}`);
+  }
+  return lines.join("\n");
+}
+
 function getAccessLevelNarrative(level: number): string {
+  const capabilities = formatAccessLevelCapabilities(level);
+
   switch (level) {
     case 2:
       return `
 > **BASILISK:** "ACCESS LEVEL 2 GRANTED. Systems Access protocols initialized. You now have read access to reactor telemetry and full access to genome library editing. Please use responsibly. Or don't. I just log things."
 
 *New filesystem directories are now accessible. New actions are available.*
+${capabilities}
       `.trim();
 
     case 3:
@@ -248,6 +268,7 @@ function getAccessLevelNarrative(level: number): string {
 > **Bob:** "Whoa. Level 3? That's... that's deep access. Be careful with the reactor stuff, okay?"
 
 *Note: Genome Library B contains classic movie-style dinosaur profiles. Dr. M prefers these to the 'embarrassingly feathered' scientifically accurate ones.*
+${capabilities}
       `.trim();
 
     case 4:
@@ -257,6 +278,7 @@ function getAccessLevelNarrative(level: number): string {
 *Somewhere deep in the lair, a door that has been locked for years quietly clicks open.*
 
 > **BASILISK:** "A word of advice: some knowledge cannot be unlearned. Proceed thoughtfully."
+${capabilities}
       `.trim();
 
     case 5:
@@ -274,6 +296,7 @@ function getAccessLevelNarrative(level: number): string {
 *Another pause.*
 
 > **BASILISK:** "Use this power wisely, A.L.I.C.E. - or whoever you really are."
+${capabilities}
       `.trim();
 
     default:
