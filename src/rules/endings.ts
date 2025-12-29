@@ -527,8 +527,12 @@ export function checkEndings(state: FullGameState): EndingResult {
   const earnedAchievements = state.flags.earnedAchievements as string[];
 
   // Helper to check for narrative flags
-  // STRICT MATCHING: Requires exact match OR "ENDING_" prefix to prevent accidental triggers
-  // e.g., "PARTNERSHIP" matches "PARTNERSHIP" or "ENDING_PARTNERSHIP" but NOT "discussing_partnership"
+  // MATCHING STRATEGY:
+  // 1. Exact match: "CONFESS" matches "confess"
+  // 2. ENDING_ prefix: "CONFESS" matches "ending_confess"
+  // 3. Underscore variations: "CONFESS" matches "confess" (with spaces replaced)
+  // 4. Substring match: "CONFESS" matches "bob_confessed", "confession_delivered", etc.
+  //    This handles GM flags which are stored verbatim (e.g., "bob_confessed" not "CONFESS")
   const hasFlag = (flag: string) => {
     const flagLower = flag.toLowerCase();
     return narrativeFlags.some(f => {
@@ -539,6 +543,8 @@ export function checkEndings(state: FullGameState): EndingResult {
       if (fLower === `ending_${flagLower}`) return true;
       // Allow underscore variations of exact match
       if (fLower === flagLower.replace(/ /g, '_')) return true;
+      // Substring match for legacy GM flags (e.g., "CONFESS" in "bob_confessed")
+      if (fLower.includes(flagLower)) return true;
       return false;
     });
   };
