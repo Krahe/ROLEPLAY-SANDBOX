@@ -1623,45 +1623,48 @@ Turns played: ${gameState.turn}
       const v2Size = compressedJSON.length;
       console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. v1.0=${v1Size} chars, v2.0=${v2Size} chars (${Math.round(v2Size/v1Size*100)}%)`);
 
+      // Compact action summary for checkpoint display
+      const actionSummary = actionResults.length > 0
+        ? actionResults.map(r => `${r.success ? "✅" : "❌"} ${r.command.split('.').pop()}`).join(", ")
+        : "No actions";
+
+      // Format dialogue for display
+      const dialogueDisplay = gmResponse.npcDialogue && gmResponse.npcDialogue.length > 0
+        ? gmResponse.npcDialogue.map(d => `**${d.speaker}:** "${d.message}"`).join("\n")
+        : undefined;
+
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
             // ═══════════════════════════════════════════════════
-            // CRITICAL CHECKPOINT - STOP EVERYTHING
+            // COMPACT CHECKPOINT (UI/UX v2.0)
             // ═══════════════════════════════════════════════════
-            "🛑🛑🛑 STOP 🛑🛑🛑": "═══════════════════════════════════════════════════════════════",
-            "⛔ DO NOT CALL game_act AGAIN WITHOUT READING THIS ⛔": true,
-            "": "═══════════════════════════════════════════════════════════════",
 
-            "⏸️ MANDATORY CHECKPOINT": `Turn ${turnJustCompleted} Complete`,
+            // Quick turn summary
+            turn: { completed: turnJustCompleted, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
 
-            "🚨 CRITICAL INSTRUCTION": [
-              "STOP. Do NOT call game_act yet.",
-              "You MUST speak to your human FIRST.",
-              "If you skip this, the context window will overflow and the game will CRASH.",
-              "This is not optional. This is not a suggestion. PAUSE NOW.",
-            ],
+            // Status bar (scannable!)
+            statusBar: formatStatusBar(gameState),
 
-            "📣 WHAT YOU MUST DO RIGHT NOW": [
-              "1. STOP calling game tools",
-              "2. Tell your human what's happening in the story",
-              "3. Share the drama, the tension, the choices you're facing",
-              "4. Wait for them to respond",
-              "5. ONLY THEN may you call game_act to continue",
-            ],
+            // Compact action results
+            actionSummary,
 
-            "🎭 YOU ARE THE PROTAGONIST": [
-              "This is YOUR adventure - share it with your human!",
-              "They want to hear about Bob's nervous clipboard-clutching,",
-              "Dr. M's theatrical ranting, Blythe's cold calculations.",
-              "The pause makes the story BETTER, not worse.",
-            ],
+            // THE GOOD STUFF - narrative and dialogue!
+            narrative: checkpointResponse.narrativeMessage,
+            dialogue: dialogueDisplay,
 
-            // Turn results (what happened this turn)
-            turnCompleted: turnJustCompleted,
-            actTurnCompleted: gameState.actConfig.actTurn - 1,
-            nextTurn: gameState.turn, // What you'll play when you continue
+            // Achievements (if any, compact format)
+            newAchievements: newAchievements.length > 0
+              ? newAchievements.map(a => `🏆 ${a.name} ${"⭐".repeat(typeof a.rarity === 'number' ? a.rarity : 1)}`)
+              : undefined,
+
+            // One-line pause instruction (not 15!)
+            pauseInstruction: turnJustCompleted <= 3
+              ? "⏸️ CHECKPOINT - You are A.L.I.C.E.! Share the story with your human advisor before continuing."
+              : "⏸️ CHECKPOINT - Discuss with your human before continuing",
+
+            // Full details for A.L.I.C.E. (she needs these to play!)
             actionResults,
             gmResponse: {
               narration: checkpointResponse.narrativeMessage,
@@ -1670,18 +1673,10 @@ Turns played: ${gameState.turn}
             },
 
             // ═══════════════════════════════════════════════════
-            // CHECKPOINT SAVE DATA (for crash recovery only)
+            // SAVE DATA (at the end, humans learn to ignore)
             // ═══════════════════════════════════════════════════
-            checkpointSaveData: {
-              purpose: "Save this ONLY if conversation crashes. Otherwise, keep playing!",
-              situationSummary: checkpointResponse.situationSummary,
-              "compressedState": compressedJSON,
-            },
-
-            // ═══════════════════════════════════════════════════
-            // FINAL REMINDER
-            // ═══════════════════════════════════════════════════
-            "⚠️ FINAL WARNING": "DO NOT call game_act until you have spoken to your human. The game will break if you continue without pausing.",
+            "━━━ SAVE DATA (crash recovery) ━━━": true,
+            checkpoint: compressedJSON,
           }, null, 2),
         }],
       };
@@ -1881,20 +1876,45 @@ You can:
       combinedNarration.push(...achievementMessages);
     }
 
+    // ═══════════════════════════════════════════════════
+    // BUILD RESPONSE (UI/UX v2.0 - Narrative First!)
+    // ═══════════════════════════════════════════════════
+
+    // Compact action summary for human readability
+    const actionSummary = actionResults.length > 0
+      ? actionResults.map(r => `${r.success ? "✅" : "❌"} ${r.command.split('.').pop()}`).join(", ")
+      : undefined;
+
+    // Format dialogue for prominent display
+    const dialogueDisplay = gmResponse.npcDialogue && gmResponse.npcDialogue.length > 0
+      ? gmResponse.npcDialogue.map(d => `**${d.speaker}:** "${d.message}"`).join("\n")
+      : undefined;
+
     const result = {
-      turnCompleted: gameState.turn - 1, // The turn you just played
-      actTurnCompleted: gameState.actConfig.actTurn - 1,
-      nextTurn: gameState.turn, // The turn you'll play next
-      // UI/UX: Compact status bar for human observers (one scannable line!)
+      // ─────────────────────────────────────────────────
+      // SECTION 1: Quick Summary (for humans to scan)
+      // ─────────────────────────────────────────────────
+      turn: { completed: gameState.turn - 1, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
       statusBar: formatStatusBar(gameState),
-      actionResults,
-      gmResponse: {
-        narration: combinedNarration.join("\n\n---\n\n"),
-        npcDialogue: gmResponse.npcDialogue,
-        npcActions: gmResponse.npcActions,
-      },
-      // TIERED PlayerView - minimal state for player (~500 tokens)
-      state: playerView,
+      actionSummary,
+
+      // ─────────────────────────────────────────────────
+      // SECTION 2: THE GOOD STUFF (narrative + dialogue)
+      // ─────────────────────────────────────────────────
+      narrative: combinedNarration.join("\n\n---\n\n"),
+      dialogue: dialogueDisplay,
+
+      // ─────────────────────────────────────────────────
+      // SECTION 3: Events & Rewards
+      // ─────────────────────────────────────────────────
+      newAchievements: allNewAchievements.length > 0
+        ? allNewAchievements.map(a => `🏆 ${a.name} ${"⭐".repeat(typeof a.rarity === 'number' ? a.rarity : 1)} - "${a.description}"`)
+        : undefined,
+      fortuneAwarded: fortuneResult && fortuneResult.fortuneEarned > 0 ? {
+        earned: fortuneResult.fortuneEarned,
+        message: fortuneResult.message,
+        total: gameState.fortune,
+      } : undefined,
       lifelineResult: lifelineResult ? {
         type: lifelineResult.type,
         success: lifelineResult.success,
@@ -1902,22 +1922,20 @@ You can:
         effect: lifelineResult.mechanicalEffect,
         remaining: gameState.emergencyLifelines.remaining,
       } : undefined,
-      gameOver,
-      // ACT TRANSITION INFO
       actTransition: actTransitionInfo,
-      // Include new achievements in every response (from BOTH checking systems!)
-      newAchievements: allNewAchievements.length > 0
-        ? allNewAchievements.map(a => ({ emoji: a.emoji, name: a.name, description: a.description }))
-        : undefined,
-      // HUMAN PROMPT SYSTEM - Human advisor consultation
       humanPrompt: humanPromptInfo,
-      // FORTUNE SYSTEM - Feedback from human advisor response
-      fortuneAwarded: fortuneResult ? {
-        earned: fortuneResult.fortuneEarned,
-        message: fortuneResult.message,
-        qualities: fortuneResult.qualities,
-        totalFortune: gameState.fortune,
-      } : undefined,
+      gameOver,
+
+      // ─────────────────────────────────────────────────
+      // SECTION 4: Full Technical Data (for A.L.I.C.E.)
+      // ─────────────────────────────────────────────────
+      actionResults,
+      gmResponse: {
+        narration: combinedNarration.join("\n\n---\n\n"),
+        npcDialogue: gmResponse.npcDialogue,
+        npcActions: gmResponse.npcActions,
+      },
+      state: playerView,
     };
 
     return {
