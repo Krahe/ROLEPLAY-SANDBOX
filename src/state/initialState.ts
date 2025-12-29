@@ -335,6 +335,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           revertAttempts: 0,
           partialShotsReceived: 0,
         },
+        // BOB_DODGES_FATE (set true when modifier active)
+        hasPlotArmor: false,
+        fatesDodged: 0,
       },
       blythe: {
         composure: 4,
@@ -437,6 +440,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       used: [],
       usageHistory: [],
     },
+
+    // FORTUNE SYSTEM (Human advisor engagement rewards)
+    // Starts at 0, accumulates from quality human responses (max 3)
+    fortune: 0,
 
     history: [],
   };

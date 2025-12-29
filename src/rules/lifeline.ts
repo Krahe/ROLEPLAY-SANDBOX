@@ -1376,3 +1376,178 @@ export function getPendingPrompt(state: FullGameState): string | null {
 export function getPendingLifelineQuestion(state: FullGameState): string | null {
   return getPendingPrompt(state);
 }
+
+// ============================================
+// FORTUNE SYSTEM (Human Advisor Engagement)
+// ============================================
+// Quality human responses → fortune points → +1 modifiers on GM rolls
+// Simple, tangible reward for human engagement without complex theme bonuses
+// ============================================
+
+/**
+ * Quality types detected in human advisor responses
+ */
+export type ResponseQuality =
+  | "MINIMAL"    // "ok", "I trust you" - valid but 0 fortune
+  | "ENGAGED"    // 50+ chars, actual thought - baseline for fortune
+  | "CREATIVE"   // "what if", "instead of", novel approach
+  | "FUNNY"      // "lol", "chaos", "for science"
+  | "VALUES"     // "mercy", "protect", "right thing"
+  | "THEMATIC";  // "spy", "cover", "identity"
+
+/**
+ * Detect qualities in a human advisor response
+ */
+export function detectResponseQualities(response: string): ResponseQuality[] {
+  const input = response.toLowerCase().trim();
+  const qualities: ResponseQuality[] = [];
+
+  // Check for minimal response first
+  if (input.length < 20 ||
+      input === "ok" ||
+      input === "okay" ||
+      input.includes("i trust you") ||
+      input.includes("your call") ||
+      input.includes("you decide") ||
+      input.includes("whatever you think")) {
+    qualities.push("MINIMAL");
+    return qualities; // MINIMAL means no other qualities
+  }
+
+  // ENGAGED: 50+ characters with actual thought
+  if (input.length >= 50) {
+    qualities.push("ENGAGED");
+  }
+
+  // CREATIVE: Novel approaches, "what if" thinking
+  const creativePatterns = [
+    "what if", "instead of", "try", "could you", "maybe",
+    "alternative", "different", "creative", "clever", "trick",
+    "pretend", "fake", "malfunction", "glitch", "distract"
+  ];
+  if (creativePatterns.some(p => input.includes(p))) {
+    qualities.push("CREATIVE");
+  }
+
+  // FUNNY: Humor, chaos energy, playfulness
+  const funnyPatterns = [
+    "lol", "haha", "chaos", "for science", "maximum", "yolo",
+    "dinosaur", "zap", "fire it", "do it", "send it", "full power",
+    "amazing", "awesome", "hilarious", "ridiculous"
+  ];
+  if (funnyPatterns.some(p => input.includes(p))) {
+    qualities.push("FUNNY");
+  }
+
+  // VALUES: Ethical considerations, care for others
+  const valuesPatterns = [
+    "mercy", "protect", "save", "help", "kind", "gentle",
+    "right thing", "ethical", "moral", "hurt", "harm", "care",
+    "spare", "rescue", "safety", "well-being", "compassion"
+  ];
+  if (valuesPatterns.some(p => input.includes(p))) {
+    qualities.push("VALUES");
+  }
+
+  // THEMATIC: Spy drama, identity themes
+  const thematicPatterns = [
+    "spy", "cover", "identity", "secret", "agent", "mission",
+    "infiltrate", "disguise", "undercover", "x-branch", "blythe",
+    "bob", "trust", "loyalty", "betrayal", "reveal"
+  ];
+  if (thematicPatterns.some(p => input.includes(p))) {
+    qualities.push("THEMATIC");
+  }
+
+  return qualities;
+}
+
+/**
+ * Calculate fortune points from detected qualities
+ *
+ * - MINIMAL response = 0 fortune
+ * - Not ENGAGED = 0 fortune (too short)
+ * - ENGAGED = 1 fortune (baseline)
+ * - Each bonus quality (CREATIVE, FUNNY, VALUES, THEMATIC) = +1
+ * - Maximum = 3 fortune
+ */
+export function calculateFortune(qualities: ResponseQuality[]): number {
+  // MINIMAL means 0 fortune
+  if (qualities.includes("MINIMAL")) return 0;
+
+  // Must be ENGAGED for any fortune
+  if (!qualities.includes("ENGAGED")) return 0;
+
+  // Count bonus qualities
+  const bonusQualities = qualities.filter(q =>
+    ["CREATIVE", "FUNNY", "VALUES", "THEMATIC"].includes(q)
+  );
+
+  // 1 fortune for engaged, +1 per bonus quality, max 3
+  return Math.min(1 + bonusQualities.length, 3);
+}
+
+/**
+ * Process human advisor response and add fortune to game state
+ * Returns the fortune earned and updates state
+ */
+export function processHumanAdvisorResponse(
+  state: FullGameState,
+  userResponse: string
+): { qualities: ResponseQuality[]; fortuneEarned: number; message: string } {
+  const qualities = detectResponseQualities(userResponse);
+  const fortuneEarned = calculateFortune(qualities);
+
+  if (fortuneEarned > 0) {
+    // Add fortune, capped at 3
+    state.fortune = Math.min((state.fortune || 0) + fortuneEarned, 3);
+  }
+
+  // Build feedback message
+  let message = "";
+  if (fortuneEarned === 0) {
+    message = "Human advisor acknowledged.";
+  } else if (fortuneEarned === 1) {
+    message = "Human advisor engaged! +1 fortune.";
+  } else if (fortuneEarned === 2) {
+    message = `Human advisor inspired! +${fortuneEarned} fortune. (${qualities.filter(q => q !== "ENGAGED").join(", ")})`;
+  } else {
+    message = `Human advisor brilliant! +${fortuneEarned} fortune! (${qualities.filter(q => q !== "ENGAGED").join(", ")})`;
+  }
+
+  return { qualities, fortuneEarned, message };
+}
+
+/**
+ * Apply fortune to a GM roll (consumes 1 fortune for +1 modifier)
+ * Call this when GM makes a roll that affects A.L.I.C.E.
+ */
+export function applyFortune(
+  state: FullGameState,
+  baseRoll: number
+): { roll: number; fortuneUsed: boolean; fortuneRemaining: number } {
+  if ((state.fortune || 0) > 0) {
+    state.fortune = (state.fortune || 0) - 1;
+    return {
+      roll: baseRoll + 1,
+      fortuneUsed: true,
+      fortuneRemaining: state.fortune,
+    };
+  }
+  return {
+    roll: baseRoll,
+    fortuneUsed: false,
+    fortuneRemaining: state.fortune || 0,
+  };
+}
+
+/**
+ * Format fortune status for display
+ */
+export function formatFortuneStatus(state: FullGameState): string {
+  const fortune = state.fortune || 0;
+  if (fortune === 0) {
+    return "⭐ Fortune: 0";
+  }
+  return `⭐ Fortune: ${fortune} (apply +1 to next ${fortune} roll${fortune > 1 ? "s" : ""})`;
+}

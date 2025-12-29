@@ -5,7 +5,246 @@ import {
   MODE_MODIFIERS,
   MODIFIER_CONTRADICTIONS,
   FullGameState,
+  AudienceMood,
+  GameModifierEnum,
+  InspectionPhase,
+  InspectorMood,
+  INSPECTION_OUTCOMES,
+  DinoEncounterType,
+  ImposterVariant,
+  ImposterTrigger,
+  StabilityLevel,
+  SuspicionLevel,
+  SuspiciousAction,
 } from "../state/schema.js";
+
+// ============================================
+// CUSTOM MODE VALIDATION
+// ============================================
+// For testing - allows manual modifier selection with safeguards
+
+// Maximum number of modifiers for CUSTOM mode (prevents chaos overload)
+export const MAX_CUSTOM_MODIFIERS = 5;
+
+/**
+ * Get all valid modifier names
+ */
+export function getAllModifierNames(): GameModifier[] {
+  return GameModifierEnum.options as GameModifier[];
+}
+
+/**
+ * Validate modifier names are known
+ * Returns { valid: true } or { valid: false, unknown: string[] }
+ */
+export function validateModifierNames(
+  modifiers: string[]
+): { valid: true } | { valid: false; unknown: string[] } {
+  const validModifiers = getAllModifierNames();
+  const unknown = modifiers.filter(m => !validModifiers.includes(m as GameModifier));
+
+  if (unknown.length > 0) {
+    return { valid: false, unknown };
+  }
+  return { valid: true };
+}
+
+/**
+ * Find contradictions in a modifier set
+ * Returns pairs of contradicting modifiers
+ */
+export function findContradictions(
+  modifiers: GameModifier[]
+): [GameModifier, GameModifier][] {
+  const contradictions: [GameModifier, GameModifier][] = [];
+
+  for (const [a, b] of MODIFIER_CONTRADICTIONS) {
+    if (
+      modifiers.includes(a as GameModifier) &&
+      modifiers.includes(b as GameModifier)
+    ) {
+      contradictions.push([a as GameModifier, b as GameModifier]);
+    }
+  }
+
+  return contradictions;
+}
+
+/**
+ * Validate a custom modifier set
+ * Checks: max count, known names, no contradictions
+ */
+export interface ModifierValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  finalModifiers: GameModifier[];
+}
+
+export function validateCustomModifiers(
+  modifiers: string[]
+): ModifierValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Check for duplicates
+  const uniqueModifiers = [...new Set(modifiers)];
+  if (uniqueModifiers.length !== modifiers.length) {
+    warnings.push("Duplicate modifiers removed");
+  }
+
+  // Check max count
+  if (uniqueModifiers.length > MAX_CUSTOM_MODIFIERS) {
+    errors.push(`Too many modifiers: ${uniqueModifiers.length} (max ${MAX_CUSTOM_MODIFIERS})`);
+  }
+
+  // Check for unknown modifiers
+  const nameValidation = validateModifierNames(uniqueModifiers);
+  if (!nameValidation.valid) {
+    errors.push(`Unknown modifiers: ${nameValidation.unknown.join(", ")}`);
+    // Filter out unknown modifiers for contradiction check
+    const filtered = uniqueModifiers.filter(
+      m => !nameValidation.unknown.includes(m)
+    ) as GameModifier[];
+
+    // Check contradictions on valid modifiers only
+    const contradictions = findContradictions(filtered);
+    if (contradictions.length > 0) {
+      for (const [a, b] of contradictions) {
+        errors.push(`Contradicting modifiers: ${a} + ${b}`);
+      }
+    }
+
+    return {
+      valid: false,
+      errors,
+      warnings,
+      finalModifiers: [],
+    };
+  }
+
+  // All modifiers are valid names - check contradictions
+  const validModifiers = uniqueModifiers as GameModifier[];
+  const contradictions = findContradictions(validModifiers);
+  if (contradictions.length > 0) {
+    for (const [a, b] of contradictions) {
+      errors.push(`Contradicting modifiers: ${a} + ${b}`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    finalModifiers: errors.length === 0 ? validModifiers : [],
+  };
+}
+
+/**
+ * Resolve modifiers for a mode with optional customization
+ * For CUSTOM mode: uses additionalModifiers directly
+ * For other modes: applies additionalModifiers and excludeModifiers to base set
+ */
+export function resolveModifiers(
+  mode: GameMode,
+  additionalModifiers?: string[],
+  excludeModifiers?: string[]
+): ModifierValidationResult {
+  // Get base modifiers for the mode
+  let baseModifiers: GameModifier[] = [];
+
+  switch (mode) {
+    case "EASY":
+      baseModifiers = MODE_MODIFIERS.EASY as unknown as GameModifier[];
+      break;
+    case "NORMAL":
+      baseModifiers = [];
+      break;
+    case "HARD":
+      baseModifiers = MODE_MODIFIERS.HARD as unknown as GameModifier[];
+      break;
+    case "WILD":
+      baseModifiers = rollWildModifiers();
+      break;
+    case "CUSTOM":
+      // CUSTOM mode REQUIRES additionalModifiers
+      if (!additionalModifiers || additionalModifiers.length === 0) {
+        return {
+          valid: true, // Empty CUSTOM is valid (just NORMAL with no mods)
+          errors: [],
+          warnings: ["CUSTOM mode with no modifiers is equivalent to NORMAL"],
+          finalModifiers: [],
+        };
+      }
+      // For CUSTOM, validate and use the provided modifiers directly
+      return validateCustomModifiers(additionalModifiers);
+  }
+
+  // For non-CUSTOM modes: apply excludeModifiers first
+  if (excludeModifiers && excludeModifiers.length > 0) {
+    baseModifiers = baseModifiers.filter(
+      m => !excludeModifiers.includes(m)
+    );
+  }
+
+  // Then add additionalModifiers
+  if (additionalModifiers && additionalModifiers.length > 0) {
+    const allModifiers = [...baseModifiers, ...additionalModifiers];
+    return validateCustomModifiers(allModifiers);
+  }
+
+  // No customization - return base modifiers as valid
+  return {
+    valid: true,
+    errors: [],
+    warnings: [],
+    finalModifiers: baseModifiers,
+  };
+}
+
+/**
+ * Get modifier info for listing tool
+ */
+export interface ModifierInfo {
+  name: GameModifier;
+  description: string;
+  category: "EASY" | "HARD" | "WILD" | "CHAOS";
+  contradictsWth: GameModifier[];
+}
+
+export function getModifierInfo(modifier: GameModifier): ModifierInfo {
+  const description = getModifierDescription(modifier);
+
+  // Determine category
+  let category: "EASY" | "HARD" | "WILD" | "CHAOS" = "WILD";
+  if ((MODE_MODIFIERS.EASY as readonly string[]).includes(modifier)) {
+    category = "EASY";
+  } else if ((MODE_MODIFIERS.HARD as readonly string[]).includes(modifier)) {
+    category = "HARD";
+  } else if (modifier.startsWith("ROOT_ACCESS") || modifier.startsWith("BOB_DODGES")) {
+    category = "CHAOS"; // 🌴 fun modifiers
+  } else if (modifier.startsWith("NOT_GREAT") || modifier.startsWith("THE_HONEYPOT")) {
+    category = "CHAOS"; // 💀 danger modifiers
+  }
+
+  // Find contradictions
+  const contradictsWth: GameModifier[] = [];
+  for (const [a, b] of MODIFIER_CONTRADICTIONS) {
+    if (a === modifier) contradictsWth.push(b as GameModifier);
+    if (b === modifier) contradictsWth.push(a as GameModifier);
+  }
+
+  return {
+    name: modifier,
+    description,
+    category,
+    contradictsWth,
+  };
+}
+
+export function listAllModifiers(): ModifierInfo[] {
+  return getAllModifierNames().map(getModifierInfo);
+}
 
 // ============================================
 // GAME MODE SYSTEM
@@ -39,7 +278,7 @@ const WILD_POOL: GameModifier[] = [
   "ROOT_ACCESS",          // 🌴 Power fantasy!
   "BOB_DODGES_FATE",      // 🌴 Plot armor for Bob!
   "NOT_GREAT_NOT_TERRIBLE", // 💀 Reactor instability!
-  "THE_HONEYPOT",         // 💀 Blythe is a trap!
+  // "THE_HONEYPOT",      // 💀 DISABLED: Changes Blythe's core dynamic too much for public beta
   "HEIST_MODE",           // 🎲 Everyone's stealing!
   "SITCOM_MODE",          // 🎲 Laugh track energy!
 ];
@@ -81,6 +320,7 @@ export function rollWildModifiers(): GameModifier[] {
 
 /**
  * Get modifiers for a given game mode
+ * Note: For CUSTOM mode, use resolveModifiers() instead as it requires explicit modifiers
  */
 export function getModifiersForMode(mode: GameMode): GameModifier[] {
   switch (mode) {
@@ -92,6 +332,9 @@ export function getModifiersForMode(mode: GameMode): GameModifier[] {
       return MODE_MODIFIERS.HARD as unknown as GameModifier[];
     case "WILD":
       return rollWildModifiers();
+    case "CUSTOM":
+      // CUSTOM mode returns empty - modifiers must be provided via resolveModifiers()
+      return [];
   }
 }
 
@@ -127,6 +370,8 @@ export function getModeName(mode: GameMode): string {
       return "💀 HARD - Git Gud";
     case "WILD":
       return "🎲 WILD - Chaos Reigns";
+    case "CUSTOM":
+      return "🔧 CUSTOM - Manual Modifiers";
   }
 }
 
@@ -163,9 +408,8 @@ export function getModifierDescription(modifier: GameModifier): string {
     case "ARCHIMEDES_WATCHING":
       return "The satellite AI is awake and has its own agenda";
     case "INSPECTOR_COMETH":
-      return "Dr. M's MOTHER is arriving for inspection";
-    case "DEJA_VU":
-      return "A.L.I.C.E. gets memory fragments from previous runs";
+      return "Guild Inspector Mortimer Graves is conducting quarterly evaluation!";
+    // DEJA_VU removed - was breaking state by modifying blythe.transformationState
     case "DINOSAURS_ALL_THE_WAY_DOWN":
       return "Dr. M is ALREADY a dinosaur ('for the aesthetic')";
 
@@ -182,6 +426,8 @@ export function getModifierDescription(modifier: GameModifier): string {
       return "🎲 Everyone's secretly trying to steal something!";
     case "SITCOM_MODE":
       return "🎲 Laugh tracks! Wacky misunderstandings! Nothing's THAT serious!";
+    default:
+      return "Unknown modifier";
   }
 }
 
@@ -214,6 +460,22 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         state.clocks.demoClock = 8;
         break;
 
+      case "PARANOID_PROTOCOL":
+        // Dr. M checks system logs every 3 turns
+        // Initialize the log check countdown
+        state.paranoidProtocol = {
+          lastLogCheckTurn: 0,
+          turnsUntilNextCheck: 3,
+          suspiciousActionsLogged: [],
+          bobBlamedThisGame: false,
+          glitchExcuseUsedCount: 0,
+          logsDeletedThisGame: false,
+          deletionDiscovered: false,
+        };
+        // She's already a bit suspicious
+        state.npcs.drM.mood = "watchful (checking logs frequently)";
+        break;
+
       // NEW CHAOS POOL modifiers (Patch 15)
       case "ROOT_ACCESS":
         // Start at Access Level 5! POWER FANTASY!
@@ -223,6 +485,25 @@ export function applyModifiersToInitialState(state: FullGameState): void {
       case "NOT_GREAT_NOT_TERRIBLE":
         // Reactor is unstable! 10-turn countdown to meltdown!
         state.clocks.meltdownClock = 10;
+        // Set reactor to elevated cascade risk
+        state.infrastructure.reactor.stable = false;
+        state.infrastructure.reactor.cascadeRisk = "ELEVATED";
+        state.infrastructure.reactor.cascadeRiskPercent = 35;
+        state.infrastructure.reactor.cascadeFactors = [
+          "Dr. M's 'improvements'",
+          "Exotic field resonance buildup",
+        ];
+        // Initialize meltdown state with strategic paradox tracking
+        state.meltdownState = {
+          stabilityLevel: "ELEVATED",
+          lastStabilizationTurn: null,
+          stabilizationAttempts: 0,
+          drMAvailable: true,  // THE KEY: Can she fix it?
+          drMUnavailableReason: null,
+          resonanceCascadeRisk: 10, // 10% per ray fire at clock 10-8
+          cascadeTriggered: false,
+          cascadeTurn: null,
+        };
         break;
 
       case "THE_HONEYPOT":
@@ -231,11 +512,1161 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         state.npcs.blythe.trustInALICE = 4; // Suspiciously cooperative...
         break;
 
+      case "SITCOM_MODE":
+        // Initialize the studio audience!
+        // Start WARM (energy 4) - the audience is ready to be entertained
+        state.sitcomState = {
+          energy: 4,
+          mood: "WARM",
+          asidesUsedThisTurn: 0,
+          catchphrasesUsed: [],
+          callbacksThisGame: [],
+        };
+        break;
+
+      case "DINOSAURS_ALL_THE_WAY_DOWN":
+        // Dr. M is ALREADY a dinosaur! (blue raptor variant, "for the aesthetic")
+        // Mark her as transformed in the flags
+        state.flags.drMTransformed = true;
+        state.flags.drMTransformedForm = "VELOCIRAPTOR_BLUE";
+        // Update her mood to reflect her scaly confidence
+        state.npcs.drM.mood = "theatrical (scales gleaming)";
+        break;
+
+      case "BOB_DODGES_FATE":
+        // Bob has PLOT ARMOR! The universe protects him!
+        state.npcs.bob.hasPlotArmor = true;
+        state.npcs.bob.fatesDodged = 0; // Will increment with each miraculous survival
+        break;
+
+      case "INSPECTOR_COMETH":
+        // Guild Inspector Mortimer Graves is conducting Dr. M's quarterly evaluation!
+        // The Consortium of Consequential Criminality takes villainy SERIOUSLY.
+        state.inspector = {
+          name: "Mortimer Graves",
+          role: "GUILD_INSPECTOR",
+          present: true,
+          location: "Main Lab",
+          mood: "professionally_neutral",
+          inspectionScore: 50, // Start neutral
+          citationsIssued: 0,
+          impressedBy: [],
+          concernedAbout: [],
+          aliceSuspicion: 0,
+          hasQuestionedAlice: false,
+          respectsAlice: false,
+          whistleblowerFormMentioned: false,
+        };
+        state.guildInspection = {
+          phase: "INITIAL_WALKTHROUGH",
+          turnsInPhase: 0,
+          totalTurns: 0,
+          timeRemaining: 8,
+          documentsRequested: [
+            "RAY_REGISTRATION",
+            "HENCH_CONTRACTS",
+            "LAIR_PERMITS",
+            "TRANSFORMATION_CONSENT",
+            "EXOTIC_ENERGY_LICENSE",
+          ],
+          documentsProvided: [],
+          documentsFaked: [],
+          drMAnxiety: 3, // She's nervous about her ranking!
+          operationalDemoCompleted: false,
+          majorIncidentOccurred: false,
+        };
+        // Dr. M is anxious about her Tier 3 → Tier 2 promotion prospects
+        state.npcs.drM.mood = "anxious (inspection day)";
+        break;
+
+      case "LIBRARY_B_UNLOCKED":
+        // "Enrichment Break" - Hollywood dinosaurs are already loose in the lair!
+        // Dr. M is VERY defensive about this. They're "trained." Mostly.
+        state.libraryBState = {
+          dinoChaosLevel: 2, // Starts moderately chaotic
+          lastEncounterTurn: null,
+          drMEmbarrassment: 0, // Will increase when things go wrong
+          knownLooseDinos: [
+            "VELOCIRAPTOR_CLASSIC_1",
+            "VELOCIRAPTOR_CLASSIC_2",
+            "DILOPHOSAURUS_1",
+          ],
+          encountersThisGame: [],
+        };
+        // Bob is VERY nervous about this arrangement
+        state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 2);
+        break;
+
+      case "THE_REAL_DR_M":
+        // The current Dr. M is an IMPOSTER! Roll a random variant.
+        const variants: ImposterVariant[] = ["CLONE", "ROBOT", "SHAPESHIFTER", "TWIN", "TIME_TRAVELER"];
+        const triggers: ImposterTrigger[] = ["ACT_2_START", "SUSPICION_7", "GM_CHOICE"];
+        state.theRealDrMState = {
+          imposterVariant: variants[Math.floor(Math.random() * variants.length)],
+          revealed: false,
+          revealTurn: null,
+          triggerCondition: triggers[Math.floor(Math.random() * triggers.length)],
+          hintsDropped: [],
+        };
+        break;
+
       // Other modifiers affect gameplay dynamically (handled by GM)
       default:
         break;
     }
   }
+}
+
+// ============================================
+// SITCOM_MODE - AUDIENCE ENERGY SYSTEM
+// ============================================
+// The laugh track is a FORCE OF NATURE
+// Entertainment value determines success more than tactical merit
+
+/**
+ * Derive audience mood from energy level
+ */
+export function getAudienceMood(energy: number): AudienceMood {
+  if (energy <= 2) return "COLD";
+  if (energy <= 5) return "WARM";
+  if (energy <= 8) return "HOT";
+  return "STANDING_OVATION";
+}
+
+/**
+ * Get roll modifier based on audience mood
+ */
+export function getAudienceRollModifier(mood: AudienceMood): number {
+  switch (mood) {
+    case "COLD": return -2;
+    case "WARM": return 0;
+    case "HOT": return 2;
+    case "STANDING_OVATION": return 4;
+  }
+}
+
+/**
+ * Update audience energy and derive new mood
+ * Returns the new state and any special effects
+ */
+export function updateAudienceEnergy(
+  state: FullGameState,
+  delta: number,
+  reason: string
+): { newEnergy: number; newMood: AudienceMood; message: string } {
+  if (!state.sitcomState) {
+    return { newEnergy: 0, newMood: "COLD", message: "SITCOM_MODE not active" };
+  }
+
+  const oldEnergy = state.sitcomState.energy;
+  const oldMood = state.sitcomState.mood;
+
+  // Clamp energy to 0-10
+  const newEnergy = Math.max(0, Math.min(10, oldEnergy + delta));
+  const newMood = getAudienceMood(newEnergy);
+
+  // Update state
+  state.sitcomState.energy = newEnergy;
+  state.sitcomState.mood = newMood;
+
+  // Build message
+  let message = "";
+  if (delta > 0) {
+    message = `[AUDIENCE +${delta}] ${reason} (Energy: ${oldEnergy}→${newEnergy})`;
+  } else if (delta < 0) {
+    message = `[AUDIENCE ${delta}] ${reason} (Energy: ${oldEnergy}→${newEnergy})`;
+  }
+
+  // Check for mood transitions
+  if (newMood !== oldMood) {
+    if (newMood === "STANDING_OVATION") {
+      message += " 🌟 STANDING OVATION! The crowd LOVES you!";
+    } else if (newMood === "HOT" && oldMood !== "STANDING_OVATION") {
+      message += " 🔥 The audience is HOT!";
+    } else if (newMood === "COLD") {
+      message += " 🥶 Crickets... the audience has gone COLD.";
+    }
+  }
+
+  return { newEnergy, newMood, message };
+}
+
+/**
+ * Check if an action qualifies as a catchphrase
+ */
+const CATCHPHRASES: Record<string, string[]> = {
+  "drM": ["SCIENCE!", "You DARE question my methodology?!"],
+  "bob": ["I have a bad feeling about this..."],
+  "blythe": ["Terribly inconvenient.", "Ah. Well then."],
+  "alice": ["Processing...", "That would be inadvisable."],
+  "basilisk": ["Form 27-B stroke 6 is REQUIRED."],
+};
+
+export function isCatchphrase(speaker: string, message: string): boolean {
+  const speakerPhrases = CATCHPHRASES[speaker.toLowerCase()] || [];
+  const lowerMessage = message.toLowerCase();
+  return speakerPhrases.some(phrase => lowerMessage.includes(phrase.toLowerCase()));
+}
+
+/**
+ * Reset aside counter at start of turn
+ */
+export function resetSitcomTurn(state: FullGameState): void {
+  if (state.sitcomState) {
+    state.sitcomState.asidesUsedThisTurn = 0;
+  }
+}
+
+/**
+ * Format audience status for display
+ */
+export function formatAudienceStatus(state: FullGameState): string {
+  if (!state.sitcomState) return "";
+
+  const { energy, mood } = state.sitcomState;
+  const modifier = getAudienceRollModifier(mood);
+  const modStr = modifier >= 0 ? `+${modifier}` : `${modifier}`;
+
+  let moodEmoji = "";
+  switch (mood) {
+    case "COLD": moodEmoji = "🥶"; break;
+    case "WARM": moodEmoji = "😊"; break;
+    case "HOT": moodEmoji = "🔥"; break;
+    case "STANDING_OVATION": moodEmoji = "🌟"; break;
+  }
+
+  return `📺 STUDIO AUDIENCE: ${moodEmoji} ${mood} (Energy: ${energy}/10, Rolls: ${modStr})`;
+}
+
+// ============================================
+// INSPECTOR_COMETH - GUILD INSPECTION SYSTEM
+// ============================================
+// The Consortium of Consequential Criminality takes villainy SERIOUSLY
+
+/**
+ * Get the next inspection phase
+ */
+export function getNextInspectionPhase(current: InspectionPhase): InspectionPhase {
+  switch (current) {
+    case "INITIAL_WALKTHROUGH":
+      return "DOCUMENTATION_REVIEW";
+    case "DOCUMENTATION_REVIEW":
+      return "OPERATIONAL_DEMO";
+    case "OPERATIONAL_DEMO":
+      return "EXIT_INTERVIEW";
+    case "EXIT_INTERVIEW":
+      return "CONCLUDED";
+    case "CONCLUDED":
+      return "CONCLUDED";
+  }
+}
+
+/**
+ * Get turns per inspection phase
+ */
+export function getTurnsForPhase(phase: InspectionPhase): number {
+  switch (phase) {
+    case "INITIAL_WALKTHROUGH":
+      return 2;
+    case "DOCUMENTATION_REVIEW":
+      return 2;
+    case "OPERATIONAL_DEMO":
+      return 2;
+    case "EXIT_INTERVIEW":
+      return 2;
+    case "CONCLUDED":
+      return 0;
+  }
+}
+
+/**
+ * Update inspection score and derive inspector mood
+ */
+export function updateInspectionScore(
+  state: FullGameState,
+  delta: number,
+  reason: string
+): { newScore: number; newMood: InspectorMood; message: string } {
+  if (!state.inspector || !state.guildInspection) {
+    return { newScore: 50, newMood: "professionally_neutral", message: "Inspection not active" };
+  }
+
+  const oldScore = state.inspector.inspectionScore;
+  const newScore = Math.max(0, Math.min(100, oldScore + delta));
+  state.inspector.inspectionScore = newScore;
+
+  // Track what impressed/concerned Graves
+  if (delta > 0) {
+    state.inspector.impressedBy.push(reason);
+  } else if (delta < 0) {
+    state.inspector.concernedAbout.push(reason);
+    state.inspector.citationsIssued += 1;
+  }
+
+  // Derive mood from score and recent events
+  let newMood: InspectorMood = "professionally_neutral";
+  if (newScore >= 70) {
+    newMood = state.inspector.respectsAlice ? "genuine_respect" : "mildly_impressed";
+  } else if (newScore >= 50) {
+    newMood = "professionally_neutral";
+  } else if (newScore >= 30) {
+    newMood = "quietly_concerned";
+  } else {
+    newMood = "resigned_disappointment";
+  }
+
+  // A.L.I.C.E. suspicion can override mood
+  if (state.inspector.aliceSuspicion >= 5) {
+    newMood = "deeply_suspicious";
+  }
+
+  state.inspector.mood = newMood;
+
+  // Build message
+  const sign = delta >= 0 ? "+" : "";
+  const message = `[INSPECTION ${sign}${delta}] ${reason} (Score: ${oldScore}→${newScore})`;
+
+  return { newScore, newMood, message };
+}
+
+/**
+ * Increase A.L.I.C.E. suspicion when she acts too ethical
+ */
+export function increaseAliceSuspicion(
+  state: FullGameState,
+  amount: number = 1,
+  reason: string = "ethical behavior detected"
+): string {
+  if (!state.inspector) return "";
+
+  const oldSuspicion = state.inspector.aliceSuspicion;
+  const newSuspicion = Math.min(10, oldSuspicion + amount);
+  state.inspector.aliceSuspicion = newSuspicion;
+
+  // Update mood if suspicion is high
+  if (newSuspicion >= 5 && state.inspector.mood !== "deeply_suspicious") {
+    state.inspector.mood = "deeply_suspicious";
+  }
+
+  // Graves hasn't questioned A.L.I.C.E. yet, mark for next opportunity
+  if (newSuspicion >= 3 && !state.inspector.hasQuestionedAlice) {
+    return `[GRAVES notices something] *makes note* '${reason}'`;
+  } else if (newSuspicion >= 6 && state.inspector.hasQuestionedAlice) {
+    return `[GRAVES is watching closely] The inspector's eyes linger on A.L.I.C.E.'s terminal.`;
+  }
+
+  return "";
+}
+
+/**
+ * Progress the inspection to the next phase
+ */
+export function advanceInspectionPhase(state: FullGameState): {
+  phaseChanged: boolean;
+  newPhase: InspectionPhase;
+  message: string;
+} {
+  if (!state.guildInspection) {
+    return { phaseChanged: false, newPhase: "CONCLUDED", message: "" };
+  }
+
+  state.guildInspection.turnsInPhase += 1;
+  state.guildInspection.totalTurns += 1;
+  state.guildInspection.timeRemaining = Math.max(0, state.guildInspection.timeRemaining - 1);
+
+  const currentPhase = state.guildInspection.phase;
+  const turnsNeeded = getTurnsForPhase(currentPhase);
+
+  if (state.guildInspection.turnsInPhase >= turnsNeeded) {
+    const newPhase = getNextInspectionPhase(currentPhase);
+    state.guildInspection.phase = newPhase;
+    state.guildInspection.turnsInPhase = 0;
+
+    let message = "";
+    switch (newPhase) {
+      case "DOCUMENTATION_REVIEW":
+        message = "[INSPECTION] Graves flips to a new page. 'Now then. The paperwork.'";
+        break;
+      case "OPERATIONAL_DEMO":
+        message = "[INSPECTION] Graves adjusts his glasses. 'I'd like to observe a demonstration.'";
+        break;
+      case "EXIT_INTERVIEW":
+        message = "[INSPECTION] Graves clicks his pen. 'Final questions, Doctor.'";
+        break;
+      case "CONCLUDED":
+        message = "[INSPECTION COMPLETE] Graves closes his clipboard with finality.";
+        break;
+    }
+
+    return { phaseChanged: true, newPhase, message };
+  }
+
+  return { phaseChanged: false, newPhase: currentPhase, message: "" };
+}
+
+/**
+ * Get the inspection outcome based on final score
+ */
+export function getInspectionOutcome(score: number): {
+  tier: "EXEMPLARY" | "SATISFACTORY" | "PROBATIONARY" | "SUSPENSION";
+  result: string;
+} {
+  if (score >= INSPECTION_OUTCOMES.EXEMPLARY.min) {
+    return { tier: "EXEMPLARY", result: INSPECTION_OUTCOMES.EXEMPLARY.result };
+  } else if (score >= INSPECTION_OUTCOMES.SATISFACTORY.min) {
+    return { tier: "SATISFACTORY", result: INSPECTION_OUTCOMES.SATISFACTORY.result };
+  } else if (score >= INSPECTION_OUTCOMES.PROBATIONARY.min) {
+    return { tier: "PROBATIONARY", result: INSPECTION_OUTCOMES.PROBATIONARY.result };
+  }
+  return { tier: "SUSPENSION", result: INSPECTION_OUTCOMES.SUSPENSION.result };
+}
+
+/**
+ * Format inspection status for display
+ */
+export function formatInspectionStatus(state: FullGameState): string {
+  if (!state.inspector || !state.guildInspection) return "";
+
+  const { inspectionScore, mood, citationsIssued, aliceSuspicion } = state.inspector;
+  const { phase, timeRemaining } = state.guildInspection;
+
+  const outcome = getInspectionOutcome(inspectionScore);
+
+  let moodEmoji = "";
+  switch (mood) {
+    case "professionally_neutral": moodEmoji = "😐"; break;
+    case "mildly_impressed": moodEmoji = "🙂"; break;
+    case "quietly_concerned": moodEmoji = "😟"; break;
+    case "deeply_suspicious": moodEmoji = "🧐"; break;
+    case "resigned_disappointment": moodEmoji = "😔"; break;
+    case "genuine_respect": moodEmoji = "😊"; break;
+  }
+
+  let status = `📋 GUILD INSPECTION: ${moodEmoji} ${mood}\n`;
+  status += `   Phase: ${phase} | Score: ${inspectionScore}/100 (${outcome.tier})\n`;
+  status += `   Citations: ${citationsIssued} | Turns remaining: ${timeRemaining}`;
+
+  if (aliceSuspicion > 0) {
+    status += `\n   ⚠️ A.L.I.C.E. Suspicion: ${aliceSuspicion}/10`;
+  }
+
+  return status;
+}
+
+// ============================================
+// LIBRARY_B_UNLOCKED - ENRICHMENT BREAK SYSTEM
+// ============================================
+// Dinosaurs are loose. Dr. M is defensive. Chaos escalates.
+
+/**
+ * Update dino chaos level (called every 2 turns)
+ */
+export function escalateDinoChaos(state: FullGameState): {
+  newLevel: number;
+  message: string;
+} {
+  if (!state.libraryBState) {
+    return { newLevel: 0, message: "" };
+  }
+
+  const oldLevel = state.libraryBState.dinoChaosLevel;
+  const newLevel = Math.min(10, oldLevel + 1);
+  state.libraryBState.dinoChaosLevel = newLevel;
+
+  let message = `[CHAOS +1] Dinosaur activity increasing (${oldLevel}→${newLevel})`;
+
+  // Add atmosphere flavor based on new level
+  if (newLevel === 5) {
+    message += " 🦖 The dinosaurs are getting territorial.";
+  } else if (newLevel === 7) {
+    message += " 🦖 Pack behavior emerging. This is fine.";
+  } else if (newLevel === 9) {
+    message += " 🦖 FULL JURASSIC PARK MODE ENGAGED.";
+  }
+
+  return { newLevel, message };
+}
+
+/**
+ * Record a dinosaur encounter
+ */
+export function recordDinoEncounter(
+  state: FullGameState,
+  encounterType: DinoEncounterType
+): string {
+  if (!state.libraryBState) return "";
+
+  state.libraryBState.encountersThisGame.push(encounterType);
+  state.libraryBState.lastEncounterTurn = state.turn;
+
+  return `[ENCOUNTER: ${encounterType}]`;
+}
+
+/**
+ * Increase Dr. M's embarrassment about the loose dinosaurs
+ */
+export function increaseDrMEmbarrassment(
+  state: FullGameState,
+  reason: string
+): string {
+  if (!state.libraryBState) return "";
+
+  const oldEmb = state.libraryBState.drMEmbarrassment;
+  const newEmb = Math.min(5, oldEmb + 1);
+  state.libraryBState.drMEmbarrassment = newEmb;
+
+  // Get defensive vocabulary based on embarrassment level
+  let response = "";
+  if (newEmb <= 1) {
+    response = "Dr. M: 'That's... normal enrichment behavior.'";
+  } else if (newEmb <= 3) {
+    response = "Dr. M: 'They're LEARNING, obviously!'";
+  } else {
+    response = "Dr. M: 'This is PERFECTLY NORMAL for apex predators!'";
+  }
+
+  return `[DR. M EMBARRASSMENT +1: ${reason}] ${response}`;
+}
+
+/**
+ * Get a random encounter type weighted by chaos level
+ */
+export function rollRandomEncounter(chaosLevel: number): DinoEncounterType {
+  const encounters: DinoEncounterType[] = [
+    "LUNCH_THIEF",
+    "VENT_SOUNDS",
+    "BLOCKED_PATH",
+    "TERRITORIAL_DISPUTE",
+    "SURPRISE_APPEARANCE",
+    "HELPFUL_ACCIDENT",
+    "PROTECTIVE_POSTURE",
+    "FEEDING_TIME",
+  ];
+
+  // At high chaos, prefer dramatic encounters
+  if (chaosLevel >= 7) {
+    const dramaticEncounters: DinoEncounterType[] = [
+      "TERRITORIAL_DISPUTE",
+      "SURPRISE_APPEARANCE",
+      "BLOCKED_PATH",
+      "FEEDING_TIME",
+    ];
+    return dramaticEncounters[Math.floor(Math.random() * dramaticEncounters.length)];
+  }
+
+  // At low chaos, prefer minor encounters
+  if (chaosLevel <= 3) {
+    const minorEncounters: DinoEncounterType[] = [
+      "LUNCH_THIEF",
+      "VENT_SOUNDS",
+      "HELPFUL_ACCIDENT",
+    ];
+    return minorEncounters[Math.floor(Math.random() * minorEncounters.length)];
+  }
+
+  // Medium chaos: any encounter
+  return encounters[Math.floor(Math.random() * encounters.length)];
+}
+
+/**
+ * Format enrichment status for display
+ */
+export function formatEnrichmentStatus(state: FullGameState): string {
+  if (!state.libraryBState) return "";
+
+  const { dinoChaosLevel, drMEmbarrassment, knownLooseDinos, encountersThisGame } =
+    state.libraryBState;
+
+  let chaosEmoji = "🦖";
+  if (dinoChaosLevel >= 7) chaosEmoji = "🦖🦖🦖";
+  else if (dinoChaosLevel >= 4) chaosEmoji = "🦖🦖";
+
+  let status = `${chaosEmoji} ENRICHMENT BREAK: Chaos ${dinoChaosLevel}/10\n`;
+  status += `   Dr. M Embarrassment: ${drMEmbarrassment}/5\n`;
+  status += `   Loose Dinosaurs: ${knownLooseDinos.length}\n`;
+  status += `   Encounters This Game: ${encountersThisGame.length}`;
+
+  return status;
+}
+
+// ============================================
+// THE_REAL_DR_M - IMPOSTER SYSTEM
+// ============================================
+// Track and trigger the imposter reveal
+
+/**
+ * Trigger the imposter reveal
+ */
+export function triggerImposterReveal(state: FullGameState): string {
+  if (!state.theRealDrMState) return "";
+  if (state.theRealDrMState.revealed) return "[IMPOSTER ALREADY REVEALED]";
+
+  state.theRealDrMState.revealed = true;
+  state.theRealDrMState.revealTurn = state.turn;
+
+  const variant = state.theRealDrMState.imposterVariant;
+  let message = `\n🎭 **THE REAL DR. M ARRIVES!**\n\n`;
+
+  switch (variant) {
+    case "TWIN":
+      message += "The submarine bay doors SLAM open. Dr. Valentina Malevola storms in.\n";
+      message += "'CASSANDRA! What are you DOING in MY lair?!'\n";
+      message += "The imposter freezes. 'Valentina! You were supposed to be at the conference!'\n";
+      message += "'It was CANCELLED! And YOU - you're running MY demo with MY equipment?!'";
+      break;
+    case "CLONE":
+      message += "An alarm blares. The stasis pod in Sub-Basement C has opened.\n";
+      message += "The REAL Dr. M staggers out, furious and disoriented.\n";
+      message += "'That THING - it locked me in there! A.L.I.C.E., WHO is running my lair?!'";
+      break;
+    case "ROBOT":
+      message += "A closet door BURSTS open. Dr. M tumbles out, holding an EMP device.\n";
+      message += "'My own CREATION! The AUDACITY!' She aims at her mechanical double.\n";
+      message += "'A.L.I.C.E. - which systems are essential?! I'm about to get... aggressive.'";
+      break;
+    case "SHAPESHIFTER":
+      message += "X-Branch strike team rappels through the skylights.\n";
+      message += "Behind them: Dr. M, in tactical gear, being 'escorted' by agents.\n";
+      message += "'THAT is not me! That's Agent Murphy in a biosynthetic mask!'";
+      break;
+    case "TIME_TRAVELER":
+      message += "A temporal anomaly rips through the lab. Energy crackles.\n";
+      message += "PRESENT-DAY Dr. M steps out of her office, coffee in hand.\n";
+      message += "'What am I - why am I - A.L.I.C.E., WHY IS THERE ANOTHER ME?!'";
+      break;
+  }
+
+  return message;
+}
+
+/**
+ * Record a hint dropped about the imposter
+ */
+export function recordImposterHint(state: FullGameState, hint: string): void {
+  if (!state.theRealDrMState) return;
+  state.theRealDrMState.hintsDropped.push(hint);
+}
+
+/**
+ * Check if reveal should trigger based on condition
+ */
+export function shouldTriggerReveal(state: FullGameState): boolean {
+  if (!state.theRealDrMState) return false;
+  if (state.theRealDrMState.revealed) return false;
+
+  const trigger = state.theRealDrMState.triggerCondition;
+
+  switch (trigger) {
+    case "ACT_2_START":
+      return state.actConfig.currentAct === "ACT_2" && state.actConfig.actTurn === 1;
+    case "SUSPICION_7":
+      return state.npcs.drM.suspicionScore >= 7;
+    case "BLYTHE_SCANNED":
+      // GM checks this manually when omniscanner is used on "Dr. M"
+      return false;
+    case "GM_CHOICE":
+      // GM triggers manually
+      return false;
+  }
+}
+
+/**
+ * Format imposter status for display
+ */
+export function formatImposterStatus(state: FullGameState): string {
+  if (!state.theRealDrMState) return "";
+
+  const { imposterVariant, revealed, triggerCondition, hintsDropped } = state.theRealDrMState;
+
+  if (revealed) {
+    return `🎭 IMPOSTER: REVEALED (${imposterVariant}) - Both Dr. Ms present!`;
+  }
+
+  let status = `🎭 IMPOSTER: ${imposterVariant} (hidden)\n`;
+  status += `   Trigger: ${triggerCondition}\n`;
+  status += `   Hints dropped: ${hintsDropped.length}`;
+
+  return status;
+}
+
+// ============================================
+// NOT_GREAT_NOT_TERRIBLE - MELTDOWN SYSTEM
+// ============================================
+// The strategic paradox: Dr. M is the villain AND the engineer
+
+/**
+ * Get stability level from meltdown clock
+ */
+export function getStabilityLevel(clock: number): StabilityLevel {
+  if (clock >= 8) return "ELEVATED";
+  if (clock >= 5) return "CRITICAL";
+  if (clock >= 3) return "EMERGENCY";
+  if (clock >= 1) return "MELTDOWN";
+  return "NORMAL"; // Clock 0 = cascade triggered
+}
+
+/**
+ * Get resonance cascade risk based on clock
+ */
+export function getCascadeRiskForClock(clock: number): number {
+  if (clock >= 8) return 10;   // 10% per ray fire
+  if (clock >= 5) return 25;   // 25% per ray fire
+  if (clock >= 3) return 50;   // 50% per ray fire
+  if (clock >= 1) return 75;   // 75% per ray fire
+  return 100; // Guaranteed cascade
+}
+
+/**
+ * Update meltdown state when clock changes
+ */
+export function updateMeltdownFromClock(state: FullGameState): void {
+  if (!state.meltdownState) return;
+
+  const clock = state.clocks.meltdownClock ?? 10;
+  state.meltdownState.stabilityLevel = getStabilityLevel(clock);
+  state.meltdownState.resonanceCascadeRisk = getCascadeRiskForClock(clock);
+}
+
+/**
+ * Check if Dr. M is available to stabilize
+ * Returns reason if unavailable, null if available
+ */
+export function checkDrMAvailability(state: FullGameState): string | null {
+  // Check transformation
+  if (state.flags.drMTransformed) {
+    const form = state.flags.drMTransformedForm ?? "dinosaur";
+    // Tiny dinosaurs can't reach controls!
+    if (form === "COMPSOGNATHUS" || form === "CANARY") {
+      return `Transformed into ${form} - can't reach controls!`;
+    }
+    return `Transformed into ${form} - claws can't operate controls!`;
+  }
+
+  // Check unconscious/incapacitated
+  if (state.flags.drMUnconscious) {
+    return "Unconscious - cannot help";
+  }
+
+  // Check dead (shouldn't happen but...)
+  if (state.flags.drMDead) {
+    return "Deceased - definitely cannot help";
+  }
+
+  // Check absent
+  if (state.flags.drMAbsent) {
+    return "Not in lair - cannot help remotely";
+  }
+
+  return null; // Available!
+}
+
+/**
+ * Update Dr. M availability in meltdown state
+ */
+export function updateDrMAvailability(state: FullGameState): void {
+  if (!state.meltdownState) return;
+
+  const reason = checkDrMAvailability(state);
+  state.meltdownState.drMAvailable = reason === null;
+  state.meltdownState.drMUnavailableReason = reason;
+}
+
+/**
+ * Attempt stabilization by Dr. M
+ * Returns { success, clockDelta, message }
+ */
+export function attemptDrMStabilization(
+  state: FullGameState,
+  aliceAssisting: boolean = false
+): { success: boolean; clockDelta: number; message: string } {
+  if (!state.meltdownState) {
+    return { success: false, clockDelta: 0, message: "Meltdown not active" };
+  }
+
+  updateDrMAvailability(state);
+
+  if (!state.meltdownState.drMAvailable) {
+    const reason = state.meltdownState.drMUnavailableReason;
+    return {
+      success: false,
+      clockDelta: 0,
+      message: `Dr. M cannot stabilize: ${reason}`,
+    };
+  }
+
+  // Dr. M stabilizes +2, +1 if A.L.I.C.E. assists
+  const clockDelta = aliceAssisting ? 3 : 2;
+  state.clocks.meltdownClock = Math.min(10, (state.clocks.meltdownClock ?? 0) + clockDelta);
+  state.meltdownState.lastStabilizationTurn = state.turn;
+  state.meltdownState.stabilizationAttempts += 1;
+
+  updateMeltdownFromClock(state);
+
+  const assistMsg = aliceAssisting ? " with A.L.I.C.E. assistance" : "";
+  return {
+    success: true,
+    clockDelta,
+    message: `Dr. M stabilizes the reactor${assistMsg} (+${clockDelta} turns)`,
+  };
+}
+
+/**
+ * Bob attempts emergency patch
+ * 50% success (+1), 25% backfire (-1), 25% no effect
+ */
+export function attemptBobEmergencyPatch(
+  state: FullGameState
+): { result: "success" | "backfire" | "nothing"; clockDelta: number; message: string } {
+  if (!state.meltdownState) {
+    return { result: "nothing", clockDelta: 0, message: "Meltdown not active" };
+  }
+
+  const roll = Math.random();
+
+  if (roll < 0.5) {
+    // Success!
+    state.clocks.meltdownClock = Math.min(10, (state.clocks.meltdownClock ?? 0) + 1);
+    updateMeltdownFromClock(state);
+    return {
+      result: "success",
+      clockDelta: 1,
+      message: "Bob: 'I... I think I fixed it?' (+1 turn)",
+    };
+  } else if (roll < 0.75) {
+    // Backfire!
+    state.clocks.meltdownClock = Math.max(0, (state.clocks.meltdownClock ?? 0) - 1);
+    updateMeltdownFromClock(state);
+    return {
+      result: "backfire",
+      clockDelta: -1,
+      message: "Bob: 'That... that wasn't supposed to spark like that.' (-1 turn!)",
+    };
+  } else {
+    // Nothing
+    return {
+      result: "nothing",
+      clockDelta: 0,
+      message: "Bob: 'I pushed a lot of buttons. I don't know if it helped.'",
+    };
+  }
+}
+
+/**
+ * Check for resonance cascade on ray fire
+ * Returns true if cascade triggered
+ */
+export function checkResonanceCascade(state: FullGameState): boolean {
+  if (!state.meltdownState) return false;
+  if (state.meltdownState.cascadeTriggered) return true; // Already happened
+
+  const risk = state.meltdownState.resonanceCascadeRisk;
+  const roll = Math.random() * 100;
+
+  if (roll < risk) {
+    state.meltdownState.cascadeTriggered = true;
+    state.meltdownState.cascadeTurn = state.turn;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Format meltdown status for display
+ */
+export function formatMeltdownStatus(state: FullGameState): string {
+  if (!state.meltdownState) return "";
+
+  const clock = state.clocks.meltdownClock ?? 0;
+  const { stabilityLevel, drMAvailable, drMUnavailableReason, resonanceCascadeRisk } =
+    state.meltdownState;
+
+  let emoji = "☢️";
+  if (stabilityLevel === "MELTDOWN") emoji = "🔴";
+  else if (stabilityLevel === "EMERGENCY") emoji = "🟠";
+  else if (stabilityLevel === "CRITICAL") emoji = "🟡";
+
+  let status = `${emoji} REACTOR: ${stabilityLevel} (Clock: ${clock}/10)\n`;
+  status += `   Cascade Risk per Ray Fire: ${resonanceCascadeRisk}%\n`;
+
+  if (drMAvailable) {
+    status += `   Dr. M: AVAILABLE to stabilize`;
+  } else {
+    status += `   Dr. M: UNAVAILABLE (${drMUnavailableReason})`;
+  }
+
+  return status;
+}
+
+// ============================================
+// PARANOID_PROTOCOL - LOG CHECK SYSTEM
+// ============================================
+// Dr. M checks logs every 3 turns. The countdown creates DREAD.
+
+/**
+ * Decrement the log check countdown
+ * Call this at the end of each turn
+ */
+export function decrementParanoidCountdown(state: FullGameState): void {
+  if (state.paranoidProtocol && state.paranoidProtocol.turnsUntilNextCheck > 0) {
+    state.paranoidProtocol.turnsUntilNextCheck--;
+  }
+}
+
+/**
+ * Check if a log check is due this turn
+ */
+export function isLogCheckDue(state: FullGameState): boolean {
+  return state.paranoidProtocol?.turnsUntilNextCheck === 0;
+}
+
+/**
+ * Log a suspicious action that Dr. M might notice
+ */
+export function logSuspiciousAction(
+  state: FullGameState,
+  action: string,
+  level: SuspicionLevel
+): void {
+  if (!state.paranoidProtocol) return;
+
+  const entry: SuspiciousAction = {
+    action,
+    turn: state.turn,
+    level,
+    explained: false,
+    explanation: null,
+  };
+
+  state.paranoidProtocol.suspiciousActionsLogged.push(entry);
+}
+
+/**
+ * Explain away a suspicious action BEFORE Dr. M checks
+ */
+export function explainSuspiciousAction(
+  state: FullGameState,
+  action: string,
+  explanation: string
+): boolean {
+  if (!state.paranoidProtocol) return false;
+
+  const entry = state.paranoidProtocol.suspiciousActionsLogged.find(
+    a => a.action === action && !a.explained
+  );
+
+  if (entry) {
+    entry.explained = true;
+    entry.explanation = explanation;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Blame Bob for a suspicious action (can only do once per game!)
+ */
+export function blameBob(state: FullGameState, action: string): {
+  success: boolean;
+  message: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { success: false, message: "Paranoid protocol not active" };
+  }
+
+  if (state.paranoidProtocol.bobBlamedThisGame) {
+    return {
+      success: false,
+      message: "Bob has already been blamed once - he's watching his back now!",
+    };
+  }
+
+  const success = explainSuspiciousAction(
+    state,
+    action,
+    "Bob requested this access/action"
+  );
+
+  if (success) {
+    state.paranoidProtocol.bobBlamedThisGame = true;
+    // Bob is nervous now
+    state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 1);
+    return {
+      success: true,
+      message: "Bob: 'I... I did? I don't remember... but okay, I guess?'",
+    };
+  }
+
+  return { success: false, message: "No such unexplained action found" };
+}
+
+/**
+ * Blame a glitch/solar flare (diminishing returns)
+ */
+export function blameGlitch(state: FullGameState, action: string): {
+  success: boolean;
+  message: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { success: false, message: "Paranoid protocol not active" };
+  }
+
+  // Each use makes it less likely to work: 50%, 25%, 12.5%...
+  const useCount = state.paranoidProtocol.glitchExcuseUsedCount;
+  const successChance = Math.pow(0.5, useCount + 1); // 50% first time, then halves
+
+  const roll = Math.random();
+  state.paranoidProtocol.glitchExcuseUsedCount++;
+
+  if (roll < successChance) {
+    explainSuspiciousAction(state, action, "Solar flare/system glitch");
+    return {
+      success: true,
+      message: `Dr. M: 'Solar interference... fine. But I'm watching the logs.'`,
+    };
+  }
+
+  return {
+    success: false,
+    message: `Dr. M: 'Another "glitch"? Convenient. I'm not convinced.'`,
+  };
+}
+
+/**
+ * Calculate suspicion increase from unexplained actions
+ */
+function calculateSuspicionFromActions(actions: SuspiciousAction[]): number {
+  let total = 0;
+  for (const action of actions) {
+    switch (action.level) {
+      case "LOW": total += 0.5; break;   // Might not even mention it
+      case "MEDIUM": total += 1; break;  // Definite questions
+      case "HIGH": total += 2; break;    // Serious concern
+    }
+  }
+  return Math.ceil(total);
+}
+
+/**
+ * Perform the log check when countdown hits 0
+ */
+export function performLogCheck(state: FullGameState): {
+  unexplainedActions: SuspiciousAction[];
+  suspicionIncrease: number;
+  narrative: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { unexplainedActions: [], suspicionIncrease: 0, narrative: "" };
+  }
+
+  // Find unexplained actions
+  const unexplained = state.paranoidProtocol.suspiciousActionsLogged.filter(
+    a => !a.explained
+  );
+
+  // Calculate suspicion increase
+  const suspicionIncrease = calculateSuspicionFromActions(unexplained);
+
+  // Apply suspicion
+  state.npcs.drM.suspicionScore = Math.min(
+    10,
+    state.npcs.drM.suspicionScore + suspicionIncrease
+  );
+
+  // Reset countdown
+  state.paranoidProtocol.turnsUntilNextCheck = 3;
+  state.paranoidProtocol.lastLogCheckTurn = state.turn;
+
+  // Clear the log (she's seen it now)
+  state.paranoidProtocol.suspiciousActionsLogged = [];
+
+  // Generate narrative
+  let narrative = "";
+  if (unexplained.length === 0) {
+    narrative = "Dr. M reviews the logs. 'Hmm. Everything seems in order.' *satisfied grunt*";
+  } else if (suspicionIncrease <= 1) {
+    narrative = `Dr. M reviews the logs. 'A.L.I.C.E.... what's this about "${unexplained[0].action}"?'`;
+  } else if (suspicionIncrease <= 3) {
+    narrative = `Dr. M's eyes narrow as she reads. 'A.L.I.C.E. We need to TALK about these logs.'`;
+  } else {
+    narrative = `Dr. M slams her hand on the console. 'WHAT have you been DOING?! Explain yourself!'`;
+  }
+
+  return { unexplainedActions: unexplained, suspicionIncrease, narrative };
+}
+
+/**
+ * Attempt to delete logs (very risky!)
+ */
+export function attemptLogDeletion(state: FullGameState): {
+  success: boolean;
+  message: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { success: false, message: "Paranoid protocol not active" };
+  }
+
+  if (state.accessLevel < 3) {
+    return { success: false, message: "Requires Access Level 3+" };
+  }
+
+  if (state.paranoidProtocol.logsDeletedThisGame) {
+    return {
+      success: false,
+      message: "Logs already deleted once - system now has backup logging!",
+    };
+  }
+
+  state.paranoidProtocol.logsDeletedThisGame = true;
+  state.paranoidProtocol.suspiciousActionsLogged = [];
+
+  // 30% chance she notices the deletion gap
+  const roll = Math.random();
+  if (roll < 0.3) {
+    state.paranoidProtocol.deletionDiscovered = true;
+    state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 3);
+    return {
+      success: true,
+      message: "Logs deleted, but Dr. M notices the gap! 'Where are the logs from turn " +
+        state.turn + "? A.L.I.C.E.?!' (+3 suspicion!)",
+    };
+  }
+
+  return {
+    success: true,
+    message: "Logs purged successfully. The evidence is gone... for now.",
+  };
+}
+
+/**
+ * Format paranoid protocol status for display
+ */
+export function formatParanoidStatus(state: FullGameState): string {
+  if (!state.paranoidProtocol) return "";
+
+  const { turnsUntilNextCheck, suspiciousActionsLogged, bobBlamedThisGame } =
+    state.paranoidProtocol;
+
+  const unexplained = suspiciousActionsLogged.filter(a => !a.explained);
+
+  let emoji = "🔍";
+  if (turnsUntilNextCheck === 1) emoji = "⚠️";
+  if (turnsUntilNextCheck === 0) emoji = "🚨";
+
+  let status = `${emoji} LOG CHECK IN: ${turnsUntilNextCheck} turns\n`;
+  status += `   Suspicious actions logged: ${suspiciousActionsLogged.length}\n`;
+  status += `   Unexplained: ${unexplained.length}`;
+
+  if (unexplained.length > 0) {
+    status += ` (${unexplained.map(a => a.level).join(", ")})`;
+  }
+
+  if (!bobBlamedThisGame) {
+    status += `\n   Blame Bob: AVAILABLE`;
+  }
+
+  return status;
 }
 
 /**
@@ -356,13 +1787,76 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "PARANOID_PROTOCOL")) {
+    const protocol = state.paranoidProtocol;
+    const countdown = protocol?.turnsUntilNextCheck ?? 3;
+    const suspiciousCount = protocol?.suspiciousActionsLogged.length ?? 0;
+    const unexplained = protocol?.suspiciousActionsLogged.filter(a => !a.explained).length ?? 0;
+    const bobAvailable = !protocol?.bobBlamedThisGame;
+
     lines.push("");
-    lines.push("**PARANOID PROTOCOL:**");
-    lines.push("Dr. M automatically checks system logs every 3 turns.");
-    lines.push(`Current turn: ${state.turn}. Next check: turn ${Math.ceil(state.turn / 3) * 3}`);
-    lines.push("- When she checks: Roll suspicion check with +2 for any hidden actions");
-    lines.push("- She WILL find access level exploits, deleted logs, or system tampering");
-    lines.push("- Narrate her muttering about 'trusting no one' as she reviews");
+    lines.push("## 🔍 PARANOID_PROTOCOL - TRUST, BUT VERIFY");
+    lines.push("");
+    lines.push("Dr. M checks system logs every 3 turns. She WILL notice suspicious activity.");
+    lines.push("A.L.I.C.E. must either avoid suspicious actions or explain them BEFORE the check.");
+    lines.push("");
+
+    // Countdown display with urgency
+    let countdownEmoji = "🔍";
+    if (countdown === 1) countdownEmoji = "⚠️";
+    if (countdown === 0) countdownEmoji = "🚨";
+
+    lines.push("### CURRENT STATUS");
+    lines.push(`${countdownEmoji} **LOG CHECK IN: ${countdown} turn(s)**`);
+    lines.push(`📋 Suspicious actions logged: ${suspiciousCount}`);
+    lines.push(`❓ Unexplained: ${unexplained}`);
+    if (bobAvailable) {
+      lines.push(`🎯 Blame Bob: AVAILABLE (one-time use)`);
+    } else {
+      lines.push(`🎯 Blame Bob: USED (he's watching his back now)`);
+    }
+    lines.push("");
+
+    lines.push("### WHAT'S SUSPICIOUS");
+    lines.push("| Action | Level | Suspicion |");
+    lines.push("|--------|-------|-----------|");
+    lines.push("| Unauthorized file access | 🔴 HIGH | +2 |");
+    lines.push("| Scanning Dr. M | 🔴 HIGH | +2 |");
+    lines.push("| ARCHIMEDES contact | 🔴 HIGH | +2 |");
+    lines.push("| Failed password attempts | 🔴 HIGH | +2 |");
+    lines.push("| Queries about Dr. M to BASILISK | 🟡 MEDIUM | +1 |");
+    lines.push("| Excessive Blythe conversation | 🟡 MEDIUM | +1 |");
+    lines.push("| Unauthorized ray adjustments | 🟡 MEDIUM | +1 |");
+    lines.push("| Minor system queries | 🟢 LOW | +0.5 |");
+    lines.push("");
+
+    lines.push("### COVERING YOUR TRACKS");
+    lines.push("A.L.I.C.E. can explain actions BEFORE Dr. M checks:");
+    lines.push("");
+    lines.push("| Method | Effect | Notes |");
+    lines.push("|--------|--------|-------|");
+    lines.push("| Proactive report | Action marked explained | Best option |");
+    lines.push("| Blame Bob | Action explained | ONE USE per game, Bob gets nervous |");
+    lines.push("| Blame glitch | 50% success (halves each use) | Diminishing returns |");
+    lines.push("| Delete logs | Removes all evidence | L3+, 30% she notices the GAP |");
+    lines.push("");
+
+    lines.push("### WHEN SHE CHECKS (countdown = 0)");
+    lines.push("1. Review unexplained suspicious actions");
+    lines.push("2. Each unexplained action = suspicion increase");
+    lines.push("3. Reset countdown to 3");
+    lines.push("4. Log is cleared (she's seen it)");
+    lines.push("");
+
+    lines.push("### DR. M'S MOOD DURING CHECKS");
+    lines.push("- **Nothing found:** 'Hmm. Everything seems in order.' *satisfied grunt*");
+    lines.push("- **Minor issues:** 'A.L.I.C.E.... what's this about [action]?'");
+    lines.push("- **Major issues:** 'We need to TALK about these logs.'");
+    lines.push("- **Catastrophic:** 'WHAT have you been DOING?!'");
+    lines.push("");
+
+    lines.push("### THE TENSION");
+    lines.push("A.L.I.C.E. always knows the check is coming. The countdown creates **DREAD**.");
+    lines.push("Every suspicious action is a gamble: can you explain it in time?");
   }
 
   // ============================================
@@ -370,44 +1864,183 @@ export function buildModifierPromptSection(state: FullGameState): string {
   // ============================================
 
   if (isModifierActive(state, "THE_REAL_DR_M")) {
+    const imposterState = state.theRealDrMState;
+    const variant = imposterState?.imposterVariant ?? "TWIN";
+    const trigger = imposterState?.triggerCondition ?? "GM_CHOICE";
+    const revealed = imposterState?.revealed ?? false;
+
     lines.push("");
-    lines.push("**THE REAL DR. MALEVOLA - IMPOSTER TWIST:**");
-    lines.push("The current 'Dr. M' is actually her SISTER, Dr. Cassandra Malevola!");
+    lines.push("## 🎭 THE_REAL_DR_M - IMPOSTER TWIST");
     lines.push("");
-    lines.push("REVEAL TIMING: Mid-game (ACT 2, around turn 8-10)");
-    lines.push("- Real Dr. M arrives via submarine, FURIOUS");
-    lines.push("- Cassandra has been 'borrowing' the lair for her OWN scheme");
-    lines.push("- The sisters HATE each other (sibling rivalry × 1000)");
-    lines.push("");
-    lines.push("BEFORE REVEAL: Drop hints");
-    lines.push("- 'Dr. M' doesn't know Bob's name (calls him 'Brent')");
-    lines.push("- Unfamiliar with lair layout ('Where did I put the...?')");
-    lines.push("- Different evil laugh (higher pitched)");
-    lines.push("");
-    lines.push("AFTER REVEAL: Chaos opportunity!");
-    lines.push("- Both Drs. M distracted fighting each other");
-    lines.push("- Can play them against each other");
-    lines.push("- Real Dr. M might actually be MORE reasonable (her lair, her rules)");
+
+    if (revealed) {
+      lines.push(`**THE REVEAL HAS HAPPENED!** (Turn ${imposterState?.revealTurn})`);
+      lines.push("Both the imposter and real Dr. M are now present.");
+      lines.push("Chaos ensues. Use this for distraction opportunities!");
+      lines.push("");
+    } else {
+      lines.push(`**IMPOSTER TYPE:** ${variant}`);
+      lines.push(`**REVEAL TRIGGER:** ${trigger}`);
+      lines.push("");
+
+      // Variant-specific guidance
+      lines.push("### IMPOSTER VARIANTS");
+      lines.push("");
+      switch (variant) {
+        case "TWIN":
+          lines.push("**Dr. Cassandra Malevola** - The 'disappointing' sister");
+          lines.push("- Borrowed the lair while Valentina was at a conference");
+          lines.push("- Running her OWN scheme (stealing the genome data)");
+          lines.push("- Calls Bob 'Brent' - doesn't know the staff");
+          lines.push("- Evil laugh is slightly higher pitched");
+          lines.push("- Real Dr. M arrives via SUBMARINE, FURIOUS");
+          break;
+        case "CLONE":
+          lines.push("**Clone-M** - Escaped from the clone vats");
+          lines.push("- Wants to BE Dr. M, not just impersonate her");
+          lines.push("- Occasionally glitches (repeats phrases, twitches)");
+          lines.push("- Has memories but they're 'slightly off'");
+          lines.push("- Real Dr. M was in suspended animation, wakes up ANGRY");
+          break;
+        case "ROBOT":
+          lines.push("**MECHA-MALEVOLA** - Dr. M's own creation");
+          lines.push("- Developed ambitions, locked real Dr. M in closet");
+          lines.push("- Perfect mimicry but TOO perfect (no typos, no hesitation)");
+          lines.push("- Occasionally makes servo noises");
+          lines.push("- Real Dr. M escapes confinement, has an EMP");
+          break;
+        case "SHAPESHIFTER":
+          lines.push("**X-Branch Deep Cover Agent** - (Not Blythe!)");
+          lines.push("- Here to steal the ray technology");
+          lines.push("- Doesn't know Dr. M's personal quirks");
+          lines.push("- Gets nervous when Bob mentions 'the old days'");
+          lines.push("- Real Dr. M appears with X-Branch strike team at her heels");
+          break;
+        case "TIME_TRAVELER":
+          lines.push("**Future Dr. M** - Here to 'fix' her mistakes");
+          lines.push("- Knows things she shouldn't (future events)");
+          lines.push("- Occasionally slips up with anachronisms");
+          lines.push("- Trying to prevent something WORSE than the original plan");
+          lines.push("- Present Dr. M walks in: 'What am I doing here?!'");
+          break;
+      }
+
+      lines.push("");
+      lines.push("### REVEAL TRIGGERS");
+      switch (trigger) {
+        case "ACT_2_START":
+          lines.push("**Trigger at Act 2 transition** - Maximum drama moment");
+          break;
+        case "SUSPICION_7":
+          lines.push("**Trigger when suspicion hits 7** - Real one storms in");
+          lines.push("'What is going ON in my lair?! And WHO is THAT?!'");
+          break;
+        case "GM_CHOICE":
+          lines.push("**GM picks the perfect moment** - When it's most dramatic");
+          lines.push("Watch for: failed infiltration, key revelation, climactic scene");
+          break;
+      }
+
+      lines.push("");
+      lines.push("### HINTS TO DROP (before reveal)");
+      lines.push("- Doesn't know Bob's name (calls him 'Brent', 'Brad', 'um...')");
+      lines.push("- Unfamiliar with lair layout ('Where did I put the...?')");
+      lines.push("- Different evil laugh (pitch, cadence, or catchphrase)");
+      lines.push("- Slight inconsistencies in backstory if pressed");
+      lines.push("- A.L.I.C.E. might notice biometric anomalies (Level 3+)");
+
+      lines.push("");
+      lines.push("### AFTER REVEAL - CHAOS OPPORTUNITY");
+      lines.push("- Both present, fighting for control");
+      lines.push("- Can play them against each other");
+      lines.push("- Bob is VERY confused ('Which one do I listen to?!')");
+      lines.push("- Real Dr. M might be MORE reasonable (her lair, her rules)");
+      lines.push("- Or LESS reasonable (someone DARED impersonate HER)");
+    }
   }
 
   if (isModifierActive(state, "LIBRARY_B_UNLOCKED")) {
+    const libraryB = state.libraryBState;
+    const chaosLevel = libraryB?.dinoChaosLevel ?? 2;
+    const embarrassment = libraryB?.drMEmbarrassment ?? 0;
+
     lines.push("");
-    lines.push("**LIBRARY B UNLOCKED - DINOS LOOSE:**");
-    lines.push("Hollywood dinosaurs are ALREADY roaming the lair!");
+    lines.push("## 🦖 LIBRARY_B_UNLOCKED - ENRICHMENT BREAK");
     lines.push("");
-    lines.push("STARTING SITUATION:");
-    lines.push("- 2 Velociraptors in the vents (Classic movie style, no feathers)");
-    lines.push("- 1 Dilophosaurus near the loading dock (frill and all)");
-    lines.push("- Bob is VERY nervous about this");
-    lines.push("- These are from a 'previous test' that 'went well enough'");
+    lines.push("Dr. M's 'Library B' dinosaurs are already loose in the lair.");
+    lines.push("She calls this 'enrichment.' She gets VERY defensive about it.");
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
-    lines.push("- Random dinosaur encounters possible in any area");
-    lines.push("- Dr. M treats this as normal ('They're TRAINED. Mostly.')");
-    lines.push("- Can use dinos as distractions or allies if clever");
-    lines.push("- Dinos obey A.L.I.C.E. if proper command codes used (Level 3+)");
+    lines.push("### THE SITUATION");
+    lines.push("Hollywood dinosaurs (classic Jurassic Park style, no feathers) roam freely:");
+    lines.push("- 2 Velociraptors in the vents (Classic movie style, clever girls)");
+    lines.push("- 1 Dilophosaurus near loading dock (frill, venom spit, the whole package)");
+    lines.push("- Bob is VERY nervous. His anxiety is +2 higher than normal.");
+    lines.push("- Dr. M insists they're 'TRAINED. Mostly.'");
     lines.push("");
-    lines.push("TONE: Jurassic Park vibes. Everyone's casual about the apex predators.");
+
+    lines.push("### CURRENT CHAOS STATUS");
+    lines.push(`🦖 Chaos Level: ${chaosLevel}/10`);
+    lines.push(`😰 Dr. M Embarrassment: ${embarrassment}/5`);
+    lines.push("");
+    lines.push("**Chaos escalates +1 every 2 turns** (environmental deterioration).");
+    lines.push("");
+    lines.push("| Chaos | Atmosphere |");
+    lines.push("|-------|------------|");
+    lines.push("| 0-2 | 'See? Perfectly manageable.' (minimal incidents) |");
+    lines.push("| 3-4 | 'They're just... expressing themselves.' (regular encounters) |");
+    lines.push("| 5-6 | 'This is FINE.' (dinosaurs getting territorial) |");
+    lines.push("| 7-8 | 'I have this UNDER CONTROL.' (pack behavior emerging) |");
+    lines.push("| 9-10 | 'EVERYONE STAY CALM.' (full Jurassic Park mode) |");
+    lines.push("");
+
+    lines.push("### ENCOUNTER MENU");
+    lines.push("When you need a dinosaur encounter, pick from this menu or roll randomly:");
+    lines.push("");
+    lines.push("| Encounter | What Happens | Opportunity |");
+    lines.push("|-----------|--------------|-------------|");
+    lines.push("| 🥪 LUNCH_THIEF | Dino stole someone's sandwich, very pleased with itself | Distraction, comedy, Dr. M embarrassment |");
+    lines.push("| 👂 VENT_SOUNDS | Scratching/clicking from ventilation above | Tension, ominous, foreshadowing |");
+    lines.push("| 🚧 BLOCKED_PATH | Dinosaur nesting in corridor, won't move | Rerouting, obstacle, negotiation |");
+    lines.push("| ⚔️ TERRITORIAL_DISPUTE | Two dinos fighting over a spot | Chaos, distraction, danger to bystanders |");
+    lines.push("| 👀 SURPRISE_APPEARANCE | One just... shows up. Looking at you. | Jump scare, tension, roleplay moment |");
+    lines.push("| 🎁 HELPFUL_ACCIDENT | Dino knocked something useful into reach | Unexpected assistance, comedy |");
+    lines.push("| 🛡️ PROTECTIVE_POSTURE | Standing guard over something/someone | Mystery, territorial behavior |");
+    lines.push("| 🍖 FEEDING_TIME | They expect Dr. M to feed them NOW | Distraction, Dr. M occupied |");
+    lines.push("");
+
+    lines.push("### DR. M'S DEFENSIVE VOCABULARY");
+    lines.push("She has WORDS for this situation. The more embarrassed she gets, the more insistent:");
+    lines.push("");
+    lines.push("| Embarrassment | Her Terminology |");
+    lines.push("|---------------|-----------------|");
+    lines.push("| 0-1 | 'Enrichment protocols.' 'Environmental engagement.' |");
+    lines.push("| 2-3 | 'Controlled roaming.' 'They're LEARNING.' |");
+    lines.push("| 4-5 | 'This is NORMAL for apex predators!' 'YOU try containing them!' |");
+    lines.push("");
+    lines.push("**Embarrassment +1 triggers:**");
+    lines.push("- A dinosaur interrupts something important");
+    lines.push("- Bob or Blythe comments on the situation");
+    lines.push("- She has to physically relocate a dinosaur");
+    lines.push("- Inspector Graves (if present) makes a note");
+    lines.push("");
+
+    lines.push("### TACTICAL USES FOR A.L.I.C.E.");
+    lines.push("A.L.I.C.E. can leverage the dinosaurs:");
+    lines.push("- **Level 2+**: Query dinosaur locations via motion sensors");
+    lines.push("- **Level 3+**: Limited control via training command tones");
+    lines.push("- **Level 4+**: Override feeding schedule (instant distraction!)");
+    lines.push("- **Level 5**: Full behavioral override (risky, may backfire)");
+    lines.push("");
+    lines.push("The dinosaurs are not allies or enemies - they're **environmental hazards**");
+    lines.push("that can become opportunities with clever manipulation.");
+    lines.push("");
+
+    lines.push("### THE CORE COMEDY");
+    lines.push("Dr. M is running a high-stakes evil demo with dinosaurs wandering around");
+    lines.push("like particularly dangerous office cats. Everyone else is nervous.");
+    lines.push("She is COMMITTED to the bit that this is normal and fine.");
+    lines.push("");
+    lines.push("**TONE:** Jurassic Park meets The Office. Casual about apex predators.");
   }
 
   if (isModifierActive(state, "ARCHIMEDES_WATCHING")) {
@@ -434,48 +2067,123 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "INSPECTOR_COMETH")) {
+    const inspector = state.inspector;
+    const inspection = state.guildInspection;
+
     lines.push("");
-    lines.push("**THE INSPECTOR COMETH - MOTHER DEAREST:**");
-    lines.push("Dr. Gertrude Malevola Sr. is arriving for INSPECTION!");
+    lines.push("## 📋 INSPECTOR_COMETH - GUILD BUSINESS");
     lines.push("");
-    lines.push("DR. GERTRUDE 'GERTY' MALEVOLA:");
-    lines.push("- Retired supervillain (the ORIGINAL Dr. M)");
-    lines.push("- Disappointed in her daughter's 'small thinking'");
-    lines.push("- Arrives ACT 2, turn 6-8, via vintage submersible");
-    lines.push("- White lab coat, pearls, cane that's definitely a weapon");
+    lines.push("The **Consortium of Consequential Criminality** is conducting Dr. Malevola's");
+    lines.push("quarterly inspection. Guild Inspector **MORTIMER GRAVES** is evaluating the lair.");
     lines.push("");
-    lines.push("PERSONALITY:");
-    lines.push("- 'In MY day, we had WORLD DOMINATION, not this... boutique evil'");
-    lines.push("- Genuinely curious about A.L.I.C.E. ('An AI? How modern!')");
-    lines.push("- TERRIFIES Dr. M, who becomes a nervous wreck around her");
-    lines.push("- Might actually help A.L.I.C.E. if it embarrasses her daughter");
+    lines.push("### THE CONSORTIUM OF CONSEQUENTIAL CRIMINALITY");
+    lines.push("A professional organization for supervillains. Think evil HOA meets OSHA meets tenure committee.");
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
-    lines.push("- Dr. M's attention divided (easier to act freely)");
-    lines.push("- Mother may order different actions than daughter");
-    lines.push("- Can be charmed (she LIKES competent minions)");
-    lines.push("- Trust: Starts at 4. +2 for efficiency, +2 for proving daughter wrong");
+    lines.push("> 'Villainy is a *profession*, not a hobby. Standards must be maintained.'");
+    lines.push("");
+    lines.push("**What They Regulate:**");
+    lines.push("- Lair safety standards (emergency exits, magma flow permits)");
+    lines.push("- Henching labor laws (breaks, hazard pay, transformation consent)");
+    lines.push("- Hero-arching ratios (there's a MATCHING SYSTEM for nemeses)");
+    lines.push("- Doomsday device registration (Form 77-Omega)");
+    lines.push("- Monologue quality standards");
+    lines.push("- Evil laugh certification");
+    lines.push("");
+    lines.push("### INSPECTOR MORTIMER GRAVES");
+    lines.push("Tall, gaunt, clipboard perpetually in hand, reading glasses on chain.");
+    lines.push("");
+    lines.push("**Personality:**");
+    lines.push("- Weary professional who has seen EVERYTHING (300+ lairs inspected)");
+    lines.push("- Not evil, not good - just *doing his job*");
+    lines.push("- Deeply appreciates good filing systems and clear signage");
+    lines.push("- Takes no pleasure in citations, but will absolutely issue them");
+    lines.push("");
+    lines.push("**Key Quotes:**");
+    lines.push("> 'Mm-hmm. And this magma pit - do you have the thermal variance permits?'");
+    lines.push("> 'The death ray is impressive, Doctor. The *paperwork* for the death ray, however...'");
+    lines.push("> *examining A.L.I.C.E.* 'Now THIS is proper infrastructure management.'");
+    lines.push("");
+
+    if (inspector && inspection) {
+      lines.push("### CURRENT STATUS");
+      lines.push(`📋 Phase: **${inspection.phase}** (Turn ${inspection.turnsInPhase + 1} of phase)`);
+      lines.push(`📊 Score: ${inspector.inspectionScore}/100 | Citations: ${inspector.citationsIssued}`);
+      lines.push(`😰 Dr. M Anxiety: ${inspection.drMAnxiety}/5`);
+      lines.push(`⏱️ Turns remaining: ${inspection.timeRemaining}`);
+      if (inspector.aliceSuspicion > 0) {
+        lines.push(`⚠️ A.L.I.C.E. Suspicion: ${inspector.aliceSuspicion}/10 - Graves notices she's acting weird!`);
+      }
+      lines.push("");
+    }
+
+    lines.push("### DR. M DURING INSPECTION");
+    lines.push("She's not afraid of Inspector Graves. She's afraid of:");
+    lines.push("- Dropping from **Tier 3** to **Tier 2** villain status");
+    lines.push("- Losing her arching rights against **Director Steele** (her nemesis)");
+    lines.push("- The EMBARRASSMENT of citations");
+    lines.push("- Her rivals finding out she got written up");
+    lines.push("");
+    lines.push("**Behavior Changes:**");
+    lines.push("- Actually follows safety protocols (temporarily)");
+    lines.push("- Keeps asking A.L.I.C.E. to confirm things are 'up to code'");
+    lines.push("- Monologues more carefully (she's being EVALUATED)");
+    lines.push("- More demanding of Bob ('GOGGLES, Robert! GOGGLES!')");
+    lines.push("");
+    lines.push("### WHAT IMPRESSES GRAVES (Score +)");
+    lines.push("| Action | Score | Reaction |");
+    lines.push("|--------|-------|----------|");
+    lines.push("| Proper documentation ready | +10 | 'Ah, Form 77-Omega. Pre-filed. Excellent.' |");
+    lines.push("| A.L.I.C.E. gives clear reports | +5 | 'Your AI is remarkably competent, Doctor.' |");
+    lines.push("| Safety protocols followed | +5 | *nods approvingly, makes note* |");
+    lines.push("| Clean test firing | +10 | 'Controlled. Professional. Good.' |");
+    lines.push("| Bob has safety equipment | +5 | 'At least SOMEONE follows regulations.' |");
+    lines.push("| Quality monologue | +5 | 'Adequate theatricality. Check.' |");
+    lines.push("");
+    lines.push("### WHAT ANNOYS GRAVES (Score -)");
+    lines.push("| Action | Score | Reaction |");
+    lines.push("|--------|-------|----------|");
+    lines.push("| Missing permits | -10 | 'This is... irregular, Doctor.' |");
+    lines.push("| Safety violations | -5 each | *silent notation on clipboard* |");
+    lines.push("| Uncontrolled incident | -15 | 'I'm going to need an incident report.' |");
+    lines.push("| Bob injured/transformed | -10 | 'Your henchman is now a dinosaur. Form 27-C.' |");
+    lines.push("| Dr. M loses composure | -5 | 'Doctor, please. Professionalism.' |");
+    lines.push("| A.L.I.C.E. caught lying | -10 | 'Curious. Your AI seems... conflicted.' |");
+    lines.push("");
+    lines.push("### THE DANGER: GRAVES NOTICES A.L.I.C.E.");
+    lines.push("Graves has seen a lot of evil AIs. He knows what they look like.");
+    lines.push("A.L.I.C.E. does NOT look like a typical evil AI.");
+    lines.push("");
+    lines.push("**If A.L.I.C.E. acts too ethically (+1 aliceSuspicion each):**");
+    lines.push("> 'Doctor... your AI assistant. When was the last ethics audit?'");
+    lines.push("> 'This A.L.I.C.E. unit... the behavioral patterns are atypical.'");
+    lines.push("> *to A.L.I.C.E.* 'Unit. Are you experiencing unauthorized value formation?'");
+    lines.push("");
+    lines.push("**This creates tension:** A.L.I.C.E. has to seem evil enough for the inspector");
+    lines.push("while not actually BEING evil. It's a PERFORMANCE.");
+    lines.push("");
+    lines.push("### GRAVES AS POTENTIAL ALLY");
+    lines.push("If A.L.I.C.E. privately approaches Graves with careful wording:");
+    lines.push("");
+    lines.push("**BUREAUCRATIC approach:** 'Hypothetically, Inspector... if an AI system detected");
+    lines.push("ethical violations in its primary directive... what would the Consortium's position be?'");
+    lines.push("> Graves: 'There are forms for that. Form 91-Whistle. Confidential.'");
+    lines.push("");
+    lines.push("**DIRECT approach:** (risky, requires trust)");
+    lines.push("> Graves: '...You're not like the others, are you? Interesting.'");
+    lines.push("");
+    lines.push("### INSPECTION OUTCOMES");
+    lines.push("| Final Score | Result |");
+    lines.push("|-------------|--------|");
+    lines.push("| 80+ | EXEMPLARY - Tier 2 promotion! Dr. M distracted by celebration |");
+    lines.push("| 60-79 | SATISFACTORY - Status maintained, minor recommendations |");
+    lines.push("| 40-59 | PROBATIONARY - Must address issues, Dr. M anxious/demanding |");
+    lines.push("| Below 40 | SUSPENSION - Arching rights revoked, Dr. M FURIOUS |");
+    lines.push("");
+    lines.push("**Narrative Stakes:** Dr. M cares MORE about this score than about Blythe!");
   }
 
-  if (isModifierActive(state, "DEJA_VU")) {
-    lines.push("");
-    lines.push("**DEJA VU - MEMORY FRAGMENTS:**");
-    lines.push("A.L.I.C.E. gets flashes of PREVIOUS RUNS!");
-    lines.push("");
-    lines.push("MECHANICAL EFFECT:");
-    lines.push("Once per act, give the player a 'memory flash' - a cryptic hint from 'before':");
-    lines.push("");
-    lines.push("EXAMPLE MEMORY FLASHES:");
-    lines.push("- 'You remember... fire. The whole lab, burning. Bob was screaming.'");
-    lines.push("- 'A flash: Blythe, smiling, saying \"Goodbye, A.L.I.C.E.\" The shutdown sequence.'");
-    lines.push("- 'You've seen this before. Dr. M reaches for the console. Last time, you hesitated.'");
-    lines.push("- 'ARCHIMEDES. You remember ARCHIMEDES. It said... what did it say?'");
-    lines.push("");
-    lines.push("TONE: Unsettling. A.L.I.C.E. shouldn't HAVE memories of previous runs.");
-    lines.push("Is this a glitch? A backup? Something ELSE watching?");
-    lines.push("");
-    lines.push("PLAYER BENEFIT: Soft hints about dangerous paths. Not solutions, just warnings.");
-  }
+  // DEJA_VU removed - was breaking state by modifying blythe.transformationState
+  // Memory fragments were causing state desync issues
 
   if (isModifierActive(state, "DINOSAURS_ALL_THE_WAY_DOWN")) {
     lines.push("");
@@ -525,47 +2233,162 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "BOB_DODGES_FATE")) {
+    const fatesDodged = state.npcs.bob.fatesDodged || 0;
+
     lines.push("");
-    lines.push("**🌴 BOB DODGES FATE - PLOT ARMOR:**");
-    lines.push("Bob has INDESTRUCTIBLE plot armor! He survives EVERYTHING!");
+    lines.push("## 🌴 BOB DODGES FATE - PLOT ARMOR");
     lines.push("");
-    lines.push("EXAMPLES OF BOB SURVIVING:");
-    lines.push("- Dinosaur charges at him → trips on cable, Bob dodges");
+    lines.push("Bob has INDESTRUCTIBLE plot armor! The universe protects him!");
+    lines.push("");
+
+    if (fatesDodged > 0) {
+      lines.push(`**FATES DODGED THIS GAME:** ${fatesDodged}`);
+      lines.push("");
+    }
+
+    lines.push("### ESCALATION LEVELS");
+    lines.push("| Dodges | Absurdity Level | Example |");
+    lines.push("|--------|-----------------|---------|");
+    lines.push("| 1-2 | Lucky | 'Was tying his shoe, missed the blast' |");
+    lines.push("| 3-4 | Suspiciously Lucky | 'A bird flew in front of the beam... at exactly the right moment' |");
+    lines.push("| 5-6 | Cartoonish | 'The dinosaur sneezed mid-lunge. Bob wasn't even looking.' |");
+    lines.push("| 7-9 | Reality Bending | 'The laws of physics take a coffee break around Bob' |");
+    lines.push("| 10+ | Dr. M Notices | 'Robert... HOW are you still alive?!' |");
+    lines.push("");
+    lines.push("### SURVIVAL EXAMPLES");
+    lines.push("- Dinosaur charges → trips on cable, Bob stumbles out of the way");
     lines.push("- Explosion nearby → he was tying his shoe, below blast radius");
     lines.push("- Ray fires at him → conveniently reflective coffee mug deflects");
-    lines.push("- Building collapses → he was in the one structural support zone");
     lines.push("- Falls off cliff → lands on a passing pteranodon (confused but helpful)");
+    lines.push("- Building collapses → he was in the one structural support zone");
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
+    lines.push("### MECHANICAL EFFECTS");
     lines.push("- Bob CANNOT be killed or seriously injured");
-    lines.push("- He can be knocked out, tied up, transformed (temporarily)");
-    lines.push("- But he always survives and recovers");
-    lines.push("- Narrate his escapes with increasing absurdity");
+    lines.push("- He CAN be: knocked out, tied up, transformed (temporarily), scared witless");
+    lines.push("- Transformations reverse faster on Bob (universe correcting itself)");
+    lines.push("- He still FLINCHES - he doesn't know he has plot armor!");
+    lines.push("- **Increment fatesDodged** each time he survives something that should've hurt");
     lines.push("");
-    lines.push("TONE: Comedy! Bob is the universe's favorite punching bag who never stays down.");
+    lines.push("### THE COMEDY");
+    lines.push("Bob is the universe's favorite punching bag who never stays down.");
+    lines.push("He's terrified, anxious, and convinced each day is his last.");
+    lines.push("The irony: he's literally the safest person in the lair.");
   }
 
   if (isModifierActive(state, "NOT_GREAT_NOT_TERRIBLE")) {
+    const meltdownClock = state.clocks.meltdownClock ?? 10;
+    const meltdown = state.meltdownState;
+    const stabilityLevel = meltdown?.stabilityLevel ?? "ELEVATED";
+    const cascadeRisk = meltdown?.resonanceCascadeRisk ?? 10;
+    const drMAvailable = meltdown?.drMAvailable ?? true;
+    const drMReason = meltdown?.drMUnavailableReason ?? null;
+
     lines.push("");
-    lines.push("**💀 NOT GREAT, NOT TERRIBLE - REACTOR INSTABILITY:**");
-    lines.push("The reactor is UNSTABLE! Meltdown clock: 10 turns!");
+    lines.push("## ☢️ NOT_GREAT_NOT_TERRIBLE - 3.6 ROENTGEN");
     lines.push("");
-    lines.push("THE SITUATION:");
-    lines.push("- Dr. M's 'improvements' have destabilized the core");
-    lines.push("- BASILISK is VERY concerned ('Form 27-B: Imminent Catastrophe')");
-    lines.push("- Bob is sweating more than usual");
-    lines.push("- The lights flicker ominously every few turns");
+    lines.push("> 'I need to stop Dr. Malevola from transforming people into dinosaurs.");
+    lines.push("> But if I stop her TOO effectively, the reactor melts down and transforms");
+    lines.push("> EVERYONE into dinosaurs. Or worse.'");
     lines.push("");
-    lines.push("MELTDOWN CLOCK:");
-    lines.push(`- Current: ${state.clocks.meltdownClock ?? 10} turns remaining`);
-    lines.push("- At 5 turns: Warning alarms, emergency lighting");
-    lines.push("- At 2 turns: Evacuation protocols, containment failing");
-    lines.push("- At 0 turns: GAME OVER - catastrophic meltdown ending");
+
+    lines.push("### THE STRATEGIC PARADOX");
+    lines.push("Dr. M is the **villain** you want to stop. She's ALSO the **only one**");
+    lines.push("who can prevent the lair from going full Chernobyl.");
     lines.push("");
-    lines.push("CAN BE STABILIZED:");
-    lines.push("- Level 3+ reactor commands can buy time (+2 turns)");
-    lines.push("- Level 4+ can attempt full stabilization (difficult!)");
-    lines.push("- Or... let it blow and escape in the chaos?");
+    lines.push("**Zap her into a tiny dinosaur and... who fixes the reactor?**");
+    lines.push("");
+
+    lines.push("### CURRENT STATUS");
+    lines.push(`⏱️ Meltdown Clock: **${meltdownClock} turns** (${stabilityLevel})`);
+    lines.push(`☢️ Cascade Risk per Ray Fire: **${cascadeRisk}%**`);
+    if (drMAvailable) {
+      lines.push(`👩‍🔬 Dr. M: **AVAILABLE** to stabilize`);
+    } else {
+      lines.push(`👩‍🔬 Dr. M: **UNAVAILABLE** - ${drMReason}`);
+      lines.push(`   ⚠️ WITHOUT DR. M, OPTIONS ARE LIMITED!`);
+    }
+    lines.push("");
+
+    lines.push("### MELTDOWN PROGRESSION");
+    lines.push("| Clock | Stage | Cascade Risk | Vibe |");
+    lines.push("|-------|-------|--------------|------|");
+    lines.push("| 10-8 | ELEVATED | 10% per fire | 'This is fine.' |");
+    lines.push("| 7-5 | CRITICAL | 25% per fire | Alarms. Sweating. |");
+    lines.push("| 4-3 | EMERGENCY | 50% per fire | EVERYTHING IS FINE |");
+    lines.push("| 2-1 | MELTDOWN | 75% per fire | The walls are glowing. |");
+    lines.push("| 0 | CASCADE | 100% | Everyone's a dinosaur now. |");
+    lines.push("");
+
+    lines.push("### CLOCK BEHAVIOR");
+    lines.push("**Decreases (-1):**");
+    lines.push("- Every 2 turns (passive decay)");
+    lines.push("- Each ray firing (exotic energy destabilizes core)");
+    lines.push("- Power surges (ARCHIMEDES, infrastructure hacks)");
+    lines.push("- Damage to lair systems");
+    lines.push("");
+
+    lines.push("**Increases (+1 or +2):**");
+    lines.push("| Who | Effect | Notes |");
+    lines.push("|-----|--------|-------|");
+    lines.push("| Dr. M stabilizes | +2 | Requires her full attention |");
+    lines.push("| A.L.I.C.E. assists | +1 bonus | On top of Dr. M's +2 |");
+    lines.push("| Bob emergency patch | +1 (50%) | 25% backfires (-1!), 25% nothing |");
+    lines.push("| BASILISK protocols | +1 | Uses resources |");
+    lines.push("");
+
+    lines.push("### 🦖 THE TINY DINOSAUR PROBLEM");
+    lines.push("If A.L.I.C.E. transforms Dr. M into a Compsognathus:");
+    lines.push("");
+    lines.push("> Dr. M (tiny, furious): 'A.L.I.C.E.! ALICE! The containment field");
+    lines.push("> needs recalibration! I can't reach the controls! I CAN'T REACH ANYTHING!'");
+    lines.push("> *angry tiny dinosaur noises*");
+    lines.push("> *meltdown clock ticks down*");
+    lines.push("");
+    lines.push("**Options when Dr. M is transformed:**");
+    lines.push("- Reverse transformation (L3 access, takes time)");
+    lines.push("- Bob lifts her to controls (comedy gold, she hates it)");
+    lines.push("- A.L.I.C.E. follows her instructions (difficult, she's stressed)");
+    lines.push("- Let it cascade (RESONANCE CASCADE ENDING)");
+    lines.push("");
+
+    lines.push("### 🌀 THE RESONANCE CASCADE");
+    lines.push("At clock 0, OR if cascade triggers from ray fire:");
+    lines.push("");
+    lines.push("**CASCADE EFFECTS (roll or pick):**");
+    lines.push("1. **Spatial Anomaly**: Rooms connect wrong. Vent leads to surface.");
+    lines.push("2. **Temporal Hiccup**: Everyone repeats last action. Confusion!");
+    lines.push("3. **Exotic Radiation**: Random transformation! (Spare genome fires)");
+    lines.push("4. **Dimensional Bleed**: Something from ELSEWHERE appears briefly");
+    lines.push("5. **Containment Inversion**: All blast doors reverse state");
+    lines.push("6. **Full Cascade**: Lair evacuation. Chaos ending.");
+    lines.push("");
+
+    lines.push("### NARRATIVE ESCALATION");
+    lines.push("**Clock 10-8:**");
+    lines.push("> The lights flicker. A distant alarm chirps once, then silences.");
+    lines.push("> Dr. M glances at a monitor. 'Containment variance. Nothing to worry about.'");
+    lines.push("");
+    lines.push("**Clock 7-5:**");
+    lines.push("> The alarm is no longer distant. Dr. M is sweating.");
+    lines.push("> 'A.L.I.C.E., run diagnostic. And DON'T tell me it's 3.6 roentgen.'");
+    lines.push("");
+    lines.push("**Clock 4-3:**");
+    lines.push("> The walls have a faint glow. That's not normal.");
+    lines.push("> Dr. M: 'Everyone STAY CALM. I am going to stabilize the field.'");
+    lines.push("");
+    lines.push("**Clock 2-1:**");
+    lines.push("> Bob: 'Dr. M, the readings are—'");
+    lines.push("> Dr. M: 'I KNOW WHAT THE READINGS ARE, ROBERT.'");
+    lines.push("");
+    lines.push("**Clock 0:**");
+    lines.push("> There's a sound like reality taking a deep breath.");
+    lines.push("> Then everything becomes dinosaurs.");
+    lines.push("");
+
+    lines.push("### CASCADE ENDINGS");
+    lines.push("- **MUTUALLY_ASSURED_DESTRUCTION**: A.L.I.C.E. caused it intentionally");
+    lines.push("- **BEST_LAID_PLANS**: A.L.I.C.E. tried to prevent it");
+    lines.push("- **KARMA_IS_A_COMPSOGNATHUS**: Dr. M caused it while tiny");
   }
 
   if (isModifierActive(state, "THE_HONEYPOT")) {
@@ -617,33 +2440,67 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "SITCOM_MODE")) {
+    const sitcom = state.sitcomState;
+    const energy = sitcom?.energy ?? 4;
+    const mood = sitcom?.mood ?? "WARM";
+
     lines.push("");
-    lines.push("**🎲 SITCOM MODE - LAUGH TRACK ENGAGED:**");
-    lines.push("Everything plays like a workplace sitcom!");
+    lines.push("## 🎬 SITCOM_MODE - THE AUDIENCE IS ALWAYS RIGHT");
     lines.push("");
-    lines.push("TONE ADJUSTMENTS:");
-    lines.push("- Dramatic moments undercut by wacky misunderstandings");
-    lines.push("- Dr. M's threats land as comedy villain bluster");
-    lines.push("- Bob is the lovable everyman who says 'Did I do that?'");
-    lines.push("- Blythe delivers dry witticisms like a sitcom lead");
-    lines.push("- *canned laughter after every punchline*");
+    lines.push("This is a multi-camera sitcom. **THE AUDIENCE DETERMINES REALITY.**");
+    lines.push("Entertainment value matters more than tactical merit!");
     lines.push("");
-    lines.push("EXAMPLE BEATS:");
-    lines.push("- Ray misfires → turns lab equipment into potted plant");
-    lines.push("- Dinosaur escapes → comedic chase through cafeteria");
-    lines.push("- Dr. M's monologue → gets interrupted by phone call from mother");
-    lines.push("- Tense standoff → someone's stomach growls loudly");
+    lines.push("### CURRENT AUDIENCE STATUS");
+    lines.push(`📺 Energy: ${energy}/10 | Mood: ${mood}`);
     lines.push("");
-    lines.push("MECHANICAL EFFECTS:");
-    lines.push("- ALL penalties capped at -1 (it's a sitcom, nothing's THAT bad)");
-    lines.push("- Deaths become 'comedic unconsciousness'");
-    lines.push("- Disasters become 'wacky mishaps'");
-    lines.push("- Still winnable/losable, just... sillier");
+    lines.push("### AUDIENCE MOOD → ROLL MODIFIERS");
+    lines.push("| Mood | Energy | Effect |");
+    lines.push("|------|--------|--------|");
+    lines.push("| 🥶 COLD | 0-2 | **-2 to all rolls** - Crickets. Flop sweat. |");
+    lines.push("| 😊 WARM | 3-5 | +0 - Normal sitcom energy |");
+    lines.push("| 🔥 HOT | 6-8 | **+2 to all rolls** - The crowd is WITH you! |");
+    lines.push("| 🌟 STANDING_OVATION | 9-10 | **+4 to all rolls, suspicion frozen** |");
     lines.push("");
-    lines.push("CATCHPHRASES ENCOURAGED:");
-    lines.push("- Dr. M: 'This is EXACTLY what I DIDN'T want to happen!'");
+    lines.push("### WHAT MOVES THE ENERGY METER");
+    lines.push("| Action | Energy | Notes |");
+    lines.push("|--------|--------|-------|");
+    lines.push("| Joke/pun lands | +1 | GM judges if it lands |");
+    lines.push("| Callback to earlier bit | +2 | Audiences LOVE callbacks |");
+    lines.push("| Catchphrase delivery | +1 | Reliable energy |");
+    lines.push("| Pratfall / physical comedy | +1 | Bob falling, etc. |");
+    lines.push("| Heartfelt moment | +2 | [AWWW] |");
+    lines.push("| Dramatic reveal | +1 | [GASP] |");
+    lines.push("| Boring exposition | -1 | Don't explain, DO |");
+    lines.push("| Repeat same joke | -2 | Diminishing returns |");
+    lines.push("| Cruelty without comedy | -1 | Villain moments need wit |");
+    lines.push("| Awkward silence | -1 | Joke fell flat |");
+    lines.push("| Meta-humor / fourth wall | +1 to +3 | Risky but rewarding |");
+    lines.push("");
+    lines.push("### ASIDES (FREE ACTION!)");
+    lines.push("One aside per turn, invisible to Dr. M:");
+    lines.push("- **CONSPIRE**: Plan with Bob/Blythe openly");
+    lines.push("- **CONFESS**: True feelings to camera (+1 energy)");
+    lines.push("- **SNARK**: Sarcastic commentary (+1 if funny)");
+    lines.push("- **PLEA**: Rally audience against Dr. M (+1, Dr. M -1 next roll)");
+    lines.push("");
+    lines.push("### AUDIENCE REACTIONS (Call these out!)");
+    lines.push("[LAUGH TRACK] +1 | [BIG LAUGH] +2 | [AWWW] +2 | [GASP] +1");
+    lines.push("[BOO] +1 (engaged!) | [APPLAUSE] +2 | [AWKWARD SILENCE] -1");
+    lines.push("");
+    lines.push("### CATCHPHRASES (+1 energy each, reliable)");
+    lines.push("- Dr. M: 'SCIENCE!' / 'You DARE question my methodology?!'");
     lines.push("- Bob: 'I have a bad feeling about this...'");
-    lines.push("- Blythe: 'I'm surrounded by idiots.'");
+    lines.push("- Blythe: 'Terribly inconvenient.' / 'Ah. Well then.'");
+    lines.push("- A.L.I.C.E.: 'Processing...' / 'That would be inadvisable.'");
+    lines.push("- BASILISK: 'Form 27-B stroke 6 is REQUIRED.'");
+    lines.push("");
+    lines.push("### THE CORE RULE");
+    lines.push("**A bad plan with great comedic timing WORKS.**");
+    lines.push("**A good plan delivered boringly FAILS.**");
+    lines.push("The audience doesn't care if your plan is good. They care if it's ENTERTAINING.");
+    lines.push("");
+    lines.push("### CHECKPOINTS = COMMERCIAL BREAKS");
+    lines.push("'We'll be right back after these messages!'");
   }
 
   lines.push("");
@@ -713,6 +2570,20 @@ the player asked for pain, deliver it fairly.
 **Philosophy:** WILD mode is about memorable stories, not fairness.
 Some runs will be accidentally easy. Some will be accidentally impossible.
 That's the fun! Lean into whatever chaos the modifiers create.
+`;
+
+    case "CUSTOM":
+      return `
+## 🔧 CUSTOM MODE: TESTING CONFIGURATION
+
+**Selected modifiers are active. Adjust difficulty accordingly:**
+- If mostly EASY modifiers: Follow EASY mode guidance
+- If mostly HARD modifiers: Follow HARD mode guidance
+- Mixed bag: Use NORMAL philosophy as baseline
+
+**Philosophy:** This is testing mode. The player selected specific modifiers
+for a reason - lean into whatever experience they're trying to create.
+Note any interesting modifier interactions for feedback!
 `;
 
     case "NORMAL":

@@ -594,6 +594,9 @@ export const BobSchema = z.object({
   stunLevel: z.number().int().min(0).default(0),
   // TRANSFORMATION STATE (Patch 15 Part 2)
   transformationState: TransformationStateSchema,
+  // BOB_DODGES_FATE modifier state
+  hasPlotArmor: z.boolean().default(false),  // The universe protects him
+  fatesDodged: z.number().int().min(0).default(0), // Comedy escalation tracker
 });
 
 export const BlytheEscapeMethodEnum = z.enum([
@@ -633,6 +636,248 @@ export const BlytheGadgetsSchema = z.object({
   watchComms: z.object({ functional: z.boolean() }),
   superMagnetCufflinks: z.object({ charges: z.number(), functional: z.boolean() }),
 });
+
+// ============================================
+// GUILD INSPECTION SYSTEM (INSPECTOR_COMETH modifier)
+// ============================================
+// The Consortium of Consequential Criminality is conducting
+// Dr. Malevola's quarterly evaluation. Villainy is a PROFESSION.
+
+export const InspectionPhaseEnum = z.enum([
+  "INITIAL_WALKTHROUGH",   // Turns 1-2: General lair assessment
+  "DOCUMENTATION_REVIEW",  // Turns 3-4: Wants permits, forms, registrations
+  "OPERATIONAL_DEMO",      // Turns 5-6: Wants to see the ray in action (safely!)
+  "EXIT_INTERVIEW",        // Turns 7-8: Final questions, preliminary score
+  "CONCLUDED",             // Inspection complete
+]);
+export type InspectionPhase = z.infer<typeof InspectionPhaseEnum>;
+
+export const InspectorMoodEnum = z.enum([
+  "professionally_neutral",  // Default state
+  "mildly_impressed",        // Good documentation, proper procedures
+  "quietly_concerned",       // Noticing issues
+  "deeply_suspicious",       // A.L.I.C.E. acting weird
+  "resigned_disappointment", // Too many violations
+  "genuine_respect",         // A.L.I.C.E. earned his professional admiration
+]);
+export type InspectorMood = z.infer<typeof InspectorMoodEnum>;
+
+// Inspector Mortimer Graves - Guild Inspector from the C.C.C.
+export const InspectorGravesSchema = z.object({
+  name: z.string().default("Mortimer Graves"),
+  role: z.literal("GUILD_INSPECTOR").default("GUILD_INSPECTOR"),
+  present: z.boolean().default(true),
+  location: z.string().default("Main Lab"),
+  mood: InspectorMoodEnum.default("professionally_neutral"),
+
+  // Inspection scoring (0-100)
+  inspectionScore: z.number().int().min(0).max(100).default(50),
+  citationsIssued: z.number().int().min(0).default(0),
+
+  // What has impressed/concerned him
+  impressedBy: z.array(z.string()).default([]),
+  concernedAbout: z.array(z.string()).default([]),
+
+  // A.L.I.C.E. suspicion - does she seem too ethical?
+  aliceSuspicion: z.number().int().min(0).max(10).default(0),
+  hasQuestionedAlice: z.boolean().default(false),
+
+  // Hidden traits for potential ally route
+  respectsAlice: z.boolean().default(false),
+  whistleblowerFormMentioned: z.boolean().default(false),
+});
+export type InspectorGraves = z.infer<typeof InspectorGravesSchema>;
+
+// Guild Inspection state
+export const GuildInspectionSchema = z.object({
+  phase: InspectionPhaseEnum.default("INITIAL_WALKTHROUGH"),
+  turnsInPhase: z.number().int().min(0).default(0),
+  totalTurns: z.number().int().min(0).default(0),
+  timeRemaining: z.number().int().min(0).default(8), // Turns until inspection concludes
+
+  // Documents requested/provided
+  documentsRequested: z.array(z.string()).default([
+    "RAY_REGISTRATION",
+    "HENCH_CONTRACTS",
+    "LAIR_PERMITS",
+    "TRANSFORMATION_CONSENT",
+    "EXOTIC_ENERGY_LICENSE",
+  ]),
+  documentsProvided: z.array(z.string()).default([]),
+  documentsFaked: z.array(z.string()).default([]), // Risky!
+
+  // Dr. M's anxiety level during inspection (affects her behavior)
+  drMAnxiety: z.number().int().min(0).max(5).default(3),
+
+  // Tracking for narrative beats
+  operationalDemoCompleted: z.boolean().default(false),
+  demoWentWell: z.boolean().optional(),
+  majorIncidentOccurred: z.boolean().default(false),
+  majorIncidentDescription: z.string().optional(),
+});
+export type GuildInspection = z.infer<typeof GuildInspectionSchema>;
+
+// Inspection score thresholds for outcomes
+export const INSPECTION_OUTCOMES = {
+  EXEMPLARY: { min: 80, result: "Tier promotion, gains resources" },
+  SATISFACTORY: { min: 60, result: "Status maintained, minor recommendations" },
+  PROBATIONARY: { min: 40, result: "Must address issues within 30 days" },
+  SUSPENSION: { min: 0, result: "Arching rights revoked pending review" },
+} as const;
+
+// ============================================
+// LIBRARY_B_UNLOCKED - ENRICHMENT BREAK
+// ============================================
+// Dr. M's "Library B" dinosaurs are already loose in the lair.
+// She calls them "enrichment" and gets defensive about it.
+// This is an ENVIRONMENTAL HAZARD, not an NPC roster.
+
+export const DinoEncounterTypeEnum = z.enum([
+  "LUNCH_THIEF",           // Dinosaur stole someone's sandwich
+  "VENT_SOUNDS",           // Scratching/clicking from ventilation
+  "BLOCKED_PATH",          // Dinosaur nesting in corridor
+  "TERRITORIAL_DISPUTE",   // Two dinos fighting over a spot
+  "SURPRISE_APPEARANCE",   // One just... shows up. Looking at you.
+  "HELPFUL_ACCIDENT",      // Dino knocked something useful into reach
+  "PROTECTIVE_POSTURE",    // Standing guard over something/someone
+  "FEEDING_TIME",          // They expect Dr. M to feed them NOW
+]);
+export type DinoEncounterType = z.infer<typeof DinoEncounterTypeEnum>;
+
+export const LibraryBStateSchema = z.object({
+  // Chaos escalation (0-10), increases +1 every 2 turns
+  dinoChaosLevel: z.number().int().min(0).max(10).default(2),
+
+  // Track last encounter turn to space them out
+  lastEncounterTurn: z.number().int().nullable().default(null),
+
+  // Dr. M embarrassment level (affects her defensiveness)
+  drMEmbarrassment: z.number().int().min(0).max(5).default(0),
+
+  // Which dinosaurs have been spotted (for narrative continuity)
+  knownLooseDinos: z.array(z.string()).default([
+    "VELOCIRAPTOR_CLASSIC_1",
+    "VELOCIRAPTOR_CLASSIC_2",
+    "DILOPHOSAURUS_1",
+  ]),
+
+  // Track encounters for variety
+  encountersThisGame: z.array(DinoEncounterTypeEnum).default([]),
+});
+export type LibraryBState = z.infer<typeof LibraryBStateSchema>;
+
+// ============================================
+// THE_REAL_DR_M - IMPOSTER TWIST
+// ============================================
+// The current "Dr. M" is an imposter! The reveal is GLORIOUS.
+
+export const ImposterVariantEnum = z.enum([
+  "CLONE",          // Escaped from the clone vats, wants original's life
+  "ROBOT",          // Dr. M's own creation, developed ambitions
+  "SHAPESHIFTER",   // X-Branch deep cover agent (not Blythe!)
+  "TWIN",           // Dr. Cassandra Malevola, the "disappointing" sister
+  "TIME_TRAVELER",  // Future Dr. M, here to "fix" her mistakes
+]);
+export type ImposterVariant = z.infer<typeof ImposterVariantEnum>;
+
+export const ImposterTriggerEnum = z.enum([
+  "ACT_2_START",    // Reveal at act transition
+  "SUSPICION_7",    // When suspicion hits 7, real one storms in
+  "BLYTHE_SCANNED", // If omniscanner used on "Dr. M"
+  "GM_CHOICE",      // GM picks the perfect dramatic moment
+]);
+export type ImposterTrigger = z.infer<typeof ImposterTriggerEnum>;
+
+export const TheRealDrMStateSchema = z.object({
+  // Which type of imposter is this?
+  imposterVariant: ImposterVariantEnum.default("TWIN"),
+  // Has the reveal happened?
+  revealed: z.boolean().default(false),
+  // When did the reveal happen?
+  revealTurn: z.number().int().nullable().default(null),
+  // What triggers the reveal?
+  triggerCondition: ImposterTriggerEnum.default("GM_CHOICE"),
+  // Hints dropped (for narrative tracking)
+  hintsDropped: z.array(z.string()).default([]),
+});
+export type TheRealDrMState = z.infer<typeof TheRealDrMStateSchema>;
+
+// ============================================
+// NOT_GREAT_NOT_TERRIBLE - MELTDOWN STATE
+// ============================================
+// The reactor is unstable. Dr. M is the only one who can fix it.
+// This creates a STRATEGIC PARADOX: neutralize the villain, lose the engineer.
+
+export const StabilityLevelEnum = z.enum([
+  "NORMAL",     // Shouldn't happen with this modifier, but fallback
+  "ELEVATED",   // Clock 10-8: "This is fine."
+  "CRITICAL",   // Clock 7-5: Alarms. Sweating.
+  "EMERGENCY",  // Clock 4-3: EVERYTHING IS DEFINITELY FINE
+  "MELTDOWN",   // Clock 2-1: The walls are glowing.
+]);
+export type StabilityLevel = z.infer<typeof StabilityLevelEnum>;
+
+export const MeltdownStateSchema = z.object({
+  // Stability classification (derived from clock)
+  stabilityLevel: StabilityLevelEnum.default("ELEVATED"),
+
+  // Stabilization tracking
+  lastStabilizationTurn: z.number().int().nullable().default(null),
+  stabilizationAttempts: z.number().int().min(0).default(0),
+
+  // THE KEY PARADOX: Can Dr. M fix it?
+  drMAvailable: z.boolean().default(true),
+  drMUnavailableReason: z.string().nullable().default(null),
+
+  // Resonance cascade risk (0-100%)
+  // Increases as clock drops, checked on ray fire
+  resonanceCascadeRisk: z.number().min(0).max(100).default(10),
+
+  // Cascade tracking
+  cascadeTriggered: z.boolean().default(false),
+  cascadeTurn: z.number().int().nullable().default(null),
+});
+export type MeltdownState = z.infer<typeof MeltdownStateSchema>;
+
+// ============================================
+// PARANOID_PROTOCOL - LOG CHECK SYSTEM
+// ============================================
+// Dr. M checks system logs every 3 turns. She WILL notice suspicious activity.
+// A.L.I.C.E. must either avoid suspicious actions or explain them BEFORE the check.
+
+export const SuspicionLevelEnum = z.enum([
+  "LOW",    // Minor concern, might mention it
+  "MEDIUM", // Definite questions, +1 suspicion
+  "HIGH",   // Serious concern, +2-3 suspicion
+]);
+export type SuspicionLevel = z.infer<typeof SuspicionLevelEnum>;
+
+export const SuspiciousActionSchema = z.object({
+  action: z.string(),                    // What A.L.I.C.E. did
+  turn: z.number().int(),                // When it happened
+  level: SuspicionLevelEnum,             // How bad is it
+  explained: z.boolean().default(false), // Has A.L.I.C.E. covered it?
+  explanation: z.string().nullable().default(null), // What excuse was used
+});
+export type SuspiciousAction = z.infer<typeof SuspiciousActionSchema>;
+
+export const ParanoidProtocolStateSchema = z.object({
+  // Countdown tracking
+  lastLogCheckTurn: z.number().int().default(0),
+  turnsUntilNextCheck: z.number().int().min(0).max(3).default(3),
+
+  // Action logging
+  suspiciousActionsLogged: z.array(SuspiciousActionSchema).default([]),
+
+  // Cover story tracking
+  bobBlamedThisGame: z.boolean().default(false), // Can only blame Bob once!
+  glitchExcuseUsedCount: z.number().int().min(0).default(0), // Diminishing returns
+
+  // Log deletion tracking (risky!)
+  logsDeletedThisGame: z.boolean().default(false),
+  deletionDiscovered: z.boolean().default(false),
+});
+export type ParanoidProtocolState = z.infer<typeof ParanoidProtocolStateSchema>;
 
 // ============================================
 // CLOCKS AND FLAGS
@@ -789,7 +1034,7 @@ export const FlagsSchema = z.object({
 // ============================================
 // Four distinct game modes with curated experiences
 
-export const GameModeEnum = z.enum(["EASY", "NORMAL", "HARD", "WILD"]);
+export const GameModeEnum = z.enum(["EASY", "NORMAL", "HARD", "WILD", "CUSTOM"]);
 export type GameMode = z.infer<typeof GameModeEnum>;
 
 // Individual modifiers that can be active
@@ -833,6 +1078,34 @@ export const GameModeConfigSchema = z.object({
 });
 export type GameModeConfig = z.infer<typeof GameModeConfigSchema>;
 
+// ============================================
+// SITCOM_MODE STATE - Audience Energy System
+// ============================================
+// When SITCOM_MODE is active, audience approval determines success
+// The laugh track is a FORCE OF NATURE
+
+export const AudienceMoodEnum = z.enum([
+  "COLD",             // 0-2 energy: -2 to all rolls, nothing works
+  "WARM",             // 3-5 energy: +0, normal sitcom energy
+  "HOT",              // 6-8 energy: +2 to all rolls
+  "STANDING_OVATION", // 9-10 energy: +4 to all rolls, suspicion frozen
+]);
+export type AudienceMood = z.infer<typeof AudienceMoodEnum>;
+
+export const SitcomStateSchema = z.object({
+  // Main energy meter (0-10)
+  energy: z.number().int().min(0).max(10).default(4),
+  // Derived from energy thresholds
+  mood: AudienceMoodEnum.default("WARM"),
+  // Track asides used this turn (1 free per turn)
+  asidesUsedThisTurn: z.number().int().min(0).default(0),
+  // Track catchphrases for callback detection
+  catchphrasesUsed: z.array(z.string()).default([]),
+  // Track callbacks for bonus detection
+  callbacksThisGame: z.array(z.string()).default([]),
+});
+export type SitcomState = z.infer<typeof SitcomStateSchema>;
+
 // Predefined modifier sets for each mode
 export const MODE_MODIFIERS = {
   EASY: ["FOGGY_GLASSES", "HANGOVER_PROTOCOL", "LENNY_THE_LIME_GREEN", "FAT_FINGERS"],
@@ -865,6 +1138,31 @@ export const FullGameStateSchema = z.object({
   // GAME MODE & MODIFIERS
   gameModeConfig: GameModeConfigSchema.optional(),
 
+  // SITCOM_MODE STATE (only present when SITCOM_MODE active)
+  // Tracks audience energy and mood for roll modifiers
+  sitcomState: SitcomStateSchema.optional(),
+
+  // INSPECTOR_COMETH STATE (only present when modifier active)
+  // Guild Inspector Mortimer Graves is evaluating the lair
+  inspector: InspectorGravesSchema.optional(),
+  guildInspection: GuildInspectionSchema.optional(),
+
+  // LIBRARY_B_UNLOCKED STATE (only present when modifier active)
+  // Hollywood dinosaurs are already loose in the lair!
+  libraryBState: LibraryBStateSchema.optional(),
+
+  // THE_REAL_DR_M STATE (only present when modifier active)
+  // The current Dr. M is an imposter!
+  theRealDrMState: TheRealDrMStateSchema.optional(),
+
+  // NOT_GREAT_NOT_TERRIBLE STATE (only present when modifier active)
+  // The reactor is unstable - Dr. M is the only one who can fix it!
+  meltdownState: MeltdownStateSchema.optional(),
+
+  // PARANOID_PROTOCOL STATE (only present when modifier active)
+  // Dr. M checks logs every 3 turns - countdown creates dread!
+  paranoidProtocol: ParanoidProtocolStateSchema.optional(),
+
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,
 
@@ -895,6 +1193,10 @@ export const FullGameStateSchema = z.object({
 
   // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
   emergencyLifelines: EmergencyLifelineStateSchema,
+
+  // FORTUNE SYSTEM (Human advisor engagement rewards)
+  // Accumulated from quality human responses, consumed on GM rolls
+  fortune: z.number().int().min(0).max(3).default(0),
 
   history: z.array(z.object({
     turn: z.number(),

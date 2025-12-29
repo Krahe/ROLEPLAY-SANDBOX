@@ -59,6 +59,9 @@ import {
   createGameModeConfig,
   applyModifiersToInitialState,
   getModeName,
+  resolveModifiers,
+  listAllModifiers,
+  MAX_CUSTOM_MODIFIERS,
 } from "./rules/gameModes.js";
 import {
   recordEnding,
@@ -284,12 +287,19 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
 const GameStartInputSchema = z.object({
   scenario: z.enum(["classic", "speedrun", "chaos"]).default("classic")
     .describe("Which scenario variant to play"),
-  mode: z.enum(["EASY", "NORMAL", "HARD", "WILD"]).default("NORMAL")
-    .describe("Difficulty mode: EASY (training wheels, generous bonuses), NORMAL (classic experience), HARD (fair cold math, faster clocks), WILD (random modifiers, chaos!)"),
+  mode: z.enum(["EASY", "NORMAL", "HARD", "WILD", "CUSTOM"]).default("NORMAL")
+    .describe("Difficulty mode: EASY (training wheels), NORMAL (classic), HARD (fair cold math), WILD (random chaos), CUSTOM (manual modifiers)"),
   act: z.enum(["ACT_1", "ACT_2", "ACT_3"]).default("ACT_1")
     .describe("Which act to start from (ACT_1 is the beginning)"),
   handoffState: z.string().optional()
     .describe("Optional JSON-serialized handoff state from previous act"),
+  // CUSTOM MODE PARAMETERS
+  modifiers: z.array(z.string()).optional()
+    .describe("For CUSTOM mode: array of modifier names to activate. Use game_list_modifiers to see available options."),
+  addModifiers: z.array(z.string()).optional()
+    .describe("Add these modifiers ON TOP of the mode's default set (for EASY/HARD/WILD customization)"),
+  removeModifiers: z.array(z.string()).optional()
+    .describe("Remove these modifiers FROM the mode's default set (for EASY/HARD/WILD customization)"),
 }).strict();
 
 server.registerTool(
@@ -303,14 +313,21 @@ GAME MODES:
 - NORMAL: Classic Dino Lair experience (default)
 - HARD: Fair cold math. Faster clocks, -3 penalties allowed, Bruce Patagonia is watching
 - WILD: Random modifiers! Chaos mode with unpredictable effects
+- CUSTOM: Manual modifier selection (use 'modifiers' param)
+
+CUSTOM MODE:
+Use mode="CUSTOM" with modifiers=["SITCOM_MODE", "ROOT_ACCESS"] to test specific combos.
+Use game_list_modifiers to see all available modifiers.
+Max ${MAX_CUSTOM_MODIFIERS} modifiers, no contradictions allowed.
+
+MODIFIER CUSTOMIZATION (any mode):
+- addModifiers: Add extra modifiers to the default set
+- removeModifiers: Remove modifiers from the default set
 
 THREE-ACT STRUCTURE:
 - ACT_1 (Calibration): 4-6 turns, learning mechanics, genome choice
 - ACT_2 (The Blythe Problem): 8-12 turns, moral dilemmas, alliances
 - ACT_3 (Dino City): 6-10 turns, global stakes, resolution
-
-Each act is a separate session to prevent timeout issues.
-Use handoffState to continue from a previous act.
 
 Returns:
 - Act-specific briefing
@@ -344,11 +361,41 @@ Returns:
       gameState = createInitialState(startAct);
     }
 
-    // Apply game mode configuration
+    // Apply game mode configuration with custom modifier support
     const selectedMode = (params.mode || "NORMAL") as GameMode;
-    gameState.gameModeConfig = createGameModeConfig(selectedMode);
+
+    // Determine which modifiers param to use
+    const additionalMods = selectedMode === "CUSTOM" ? params.modifiers : params.addModifiers;
+    const excludeMods = params.removeModifiers;
+
+    // Resolve modifiers with validation
+    const modifierResult = resolveModifiers(selectedMode, additionalMods, excludeMods);
+
+    if (!modifierResult.valid) {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            error: "INVALID MODIFIER CONFIGURATION",
+            errors: modifierResult.errors,
+            warnings: modifierResult.warnings,
+            hint: "Use game_list_modifiers to see valid modifier names and contradictions",
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Create game mode config with validated modifiers
+    gameState.gameModeConfig = {
+      mode: selectedMode,
+      activeModifiers: modifierResult.finalModifiers,
+      wildRollResult: selectedMode === "WILD" ? modifierResult.finalModifiers : undefined,
+    };
     applyModifiersToInitialState(gameState);
-    console.error(`[DINO LAIR] Game mode: ${selectedMode}, modifiers: ${gameState.gameModeConfig.activeModifiers.join(", ") || "none"}`);
+
+    // Log with any warnings
+    const warningStr = modifierResult.warnings.length > 0 ? ` (warnings: ${modifierResult.warnings.join(", ")})` : "";
+    console.error(`[DINO LAIR] Game mode: ${selectedMode}, modifiers: ${gameState.gameModeConfig.activeModifiers.join(", ") || "none"}${warningStr}`);
 
     // Reset GM memory for new game (pass session ID for file logging)
     resetGMMemory(gameState.sessionId);
@@ -1988,6 +2035,91 @@ The gallery persists across game sessions, so you can track your progress over t
           },
           tip: "Use showFullHistory: true to see complete game history",
         }, null, 2),
+      }],
+    };
+  }
+);
+
+// ============================================
+// TOOL: game_list_modifiers
+// ============================================
+
+server.registerTool(
+  "game_list_modifiers",
+  {
+    title: "List Available Game Modifiers",
+    description: `List all available game modifiers for CUSTOM mode.
+
+Shows:
+- All modifier names and descriptions
+- Category (EASY, HARD, WILD, CHAOS)
+- Which modifiers contradict each other
+
+Use this to plan your CUSTOM mode configuration before calling game_start.
+
+Example: game_start with mode="CUSTOM" and modifiers=["SITCOM_MODE", "ROOT_ACCESS"]`,
+    inputSchema: z.object({
+      category: z.enum(["ALL", "EASY", "HARD", "WILD", "CHAOS"]).optional()
+        .describe("Filter by category (default: ALL)"),
+    }).strict(),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async (params) => {
+    const allModifiers = listAllModifiers();
+
+    // Filter by category if specified
+    const category = params.category || "ALL";
+    const filtered = category === "ALL"
+      ? allModifiers
+      : allModifiers.filter(m => m.category === category);
+
+    // Group by category for display
+    const byCategory: Record<string, typeof allModifiers> = {};
+    for (const mod of filtered) {
+      if (!byCategory[mod.category]) {
+        byCategory[mod.category] = [];
+      }
+      byCategory[mod.category].push(mod);
+    }
+
+    // Build output
+    const output = {
+      "🔧 AVAILABLE MODIFIERS": {
+        total: filtered.length,
+        maxPerGame: MAX_CUSTOM_MODIFIERS,
+        note: "Use game_start with mode='CUSTOM' and modifiers=[...] to activate",
+      },
+      categories: Object.fromEntries(
+        Object.entries(byCategory).map(([cat, mods]) => [
+          cat,
+          mods.map(m => ({
+            name: m.name,
+            description: m.description,
+            contradicts: m.contradictsWth.length > 0 ? m.contradictsWth : undefined,
+          })),
+        ])
+      ),
+      "⚠️ CONTRADICTIONS": [
+        "The following pairs cannot be used together:",
+        "- LENNY_THE_LIME_GREEN + BRUCE_PATAGONIA",
+        "- HANGOVER_PROTOCOL + SPEED_RUN",
+        "- FOGGY_GLASSES + PARANOID_PROTOCOL",
+        "- ROOT_ACCESS + FAT_FINGERS",
+        "- NOT_GREAT_NOT_TERRIBLE + HANGOVER_PROTOCOL",
+        "- THE_HONEYPOT + LENNY_THE_LIME_GREEN",
+        "- SITCOM_MODE + PARANOID_PROTOCOL",
+      ],
+    };
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(output, null, 2),
       }],
     };
   }
