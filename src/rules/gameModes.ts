@@ -16,6 +16,11 @@ import {
   StabilityLevel,
   SuspicionLevel,
   SuspiciousAction,
+  AdaptationStage,
+  ADAPTATION_CONFIG,
+  HiddenAchievement,
+  HIDDEN_ACHIEVEMENT_DESCRIPTIONS,
+  TransformationState,
 } from "../state/schema.js";
 
 // ============================================
@@ -1669,6 +1674,389 @@ export function formatParanoidStatus(state: FullGameState): string {
   return status;
 }
 
+// ============================================
+// ADAPTATION SYSTEM (Post-Transformation)
+// ============================================
+// Being turned into a dinosaur is DISORIENTING!
+// Subjects progress: DISORIENTED → ADAPTING → ADAPTED
+// Creates tactical windows and narrative comedy beats.
+
+/**
+ * Get the adaptation stage based on turns since transformation
+ */
+export function getAdaptationStage(turnsPostTransformation: number): AdaptationStage {
+  if (turnsPostTransformation === 0) return "DISORIENTED";
+  if (turnsPostTransformation <= 2) return "ADAPTING";
+  return "ADAPTED";
+}
+
+/**
+ * Get the roll penalty for an adaptation stage
+ */
+export function getAdaptationPenalty(stage: AdaptationStage): number {
+  return ADAPTATION_CONFIG[stage].rollPenalty;
+}
+
+/**
+ * Progress a character's adaptation (call at start of their turn)
+ * Returns the new stage and any narrative beats
+ */
+export function progressAdaptation(
+  transformationState: TransformationState,
+  characterName: string
+): { newStage: AdaptationStage; message: string; stageChanged: boolean } {
+  // If human or already adapted, no change
+  if (transformationState.form === "HUMAN") {
+    return { newStage: "ADAPTED", message: "", stageChanged: false };
+  }
+
+  const oldStage = transformationState.adaptationStage;
+  const newTurns = transformationState.turnsPostTransformation + 1;
+  const newStage = getAdaptationStage(newTurns);
+
+  // Update the state
+  transformationState.turnsPostTransformation = newTurns;
+  transformationState.adaptationStage = newStage;
+
+  const stageChanged = oldStage !== newStage;
+  let message = "";
+
+  if (stageChanged) {
+    const config = ADAPTATION_CONFIG[newStage];
+    const isBob = characterName.toUpperCase() === "BOB";
+
+    if (newStage === "ADAPTING") {
+      message = isBob
+        ? `🦖 ${characterName} is ADAPTING: ${config.bobSpecial}`
+        : `🦖 ${characterName} is ADAPTING: ${config.description} (-1 to rolls)`;
+    } else if (newStage === "ADAPTED") {
+      message = isBob
+        ? `✨ ${characterName} is fully ADAPTED! ${config.bobSpecial}`
+        : `✨ ${characterName} is fully ADAPTED! ${config.description}`;
+    }
+  }
+
+  return { newStage, message, stageChanged };
+}
+
+/**
+ * Apply adaptation penalty to a roll
+ * Returns the modified roll and explanation
+ */
+export function applyAdaptationToRoll(
+  baseRoll: number,
+  stage: AdaptationStage,
+  characterName: string
+): { modifiedRoll: number; explanation: string } {
+  const penalty = getAdaptationPenalty(stage);
+
+  if (penalty === 0) {
+    return { modifiedRoll: baseRoll, explanation: "" };
+  }
+
+  const modifiedRoll = baseRoll + penalty;
+  const explanation = `[${stage}: ${penalty} adaptation penalty for ${characterName}]`;
+
+  return { modifiedRoll, explanation };
+}
+
+/**
+ * Initialize adaptation state for a freshly transformed character
+ */
+export function initializeAdaptation(
+  transformationState: TransformationState,
+  currentTurn: number
+): void {
+  transformationState.transformedOnTurn = currentTurn;
+  transformationState.turnsPostTransformation = 0;
+  transformationState.adaptationStage = "DISORIENTED";
+}
+
+/**
+ * Format adaptation status for display
+ */
+export function formatAdaptationStatus(
+  transformationState: TransformationState,
+  characterName: string
+): string {
+  if (transformationState.form === "HUMAN") return "";
+
+  const { adaptationStage, turnsPostTransformation } = transformationState;
+  const config = ADAPTATION_CONFIG[adaptationStage];
+  const penalty = config.rollPenalty;
+  const isBob = characterName.toUpperCase() === "BOB";
+
+  let emoji = "🦖";
+  if (adaptationStage === "DISORIENTED") emoji = "😵";
+  if (adaptationStage === "ADAPTING") emoji = "🔄";
+  if (adaptationStage === "ADAPTED") emoji = "✨";
+
+  let status = `${emoji} ${characterName} [${adaptationStage}]: `;
+
+  if (penalty !== 0) {
+    status += `${penalty} to rolls. `;
+  }
+
+  status += isBob ? config.bobSpecial : config.description;
+
+  if (adaptationStage !== "ADAPTED") {
+    const turnsToAdapted = 3 - turnsPostTransformation;
+    status += ` (${turnsToAdapted} turns to ADAPTED)`;
+  }
+
+  return status;
+}
+
+// ============================================
+// HIDDEN KINDNESS ACHIEVEMENTS
+// ============================================
+// Secret achievements for players who play with HEART
+// GM tracks silently, reveals in epilogue or special moments
+
+/**
+ * Initialize hidden kindness tracking for a new game
+ */
+export function initializeHiddenKindness(state: FullGameState): void {
+  state.hiddenKindnessState = {
+    consentGiven: [],
+    blameTakenFor: [],
+    trustProgression: { bob: [], blythe: [] },
+    protectedDinosaurs: [],
+    reversalsPerformed: [],
+    unlockedAchievements: [],
+    achievementUnlockTurns: {},
+  };
+}
+
+/**
+ * Record a transformation consent interaction
+ */
+export function recordTransformationConsent(
+  state: FullGameState,
+  target: string,
+  askedPermission: boolean,
+  permissionGranted: boolean | null
+): void {
+  if (!state.hiddenKindnessState) initializeHiddenKindness(state);
+
+  state.hiddenKindnessState!.consentGiven.push({
+    target,
+    turn: state.turn,
+    askedPermission,
+    permissionGranted,
+  });
+}
+
+/**
+ * Record when A.L.I.C.E. takes blame to protect someone
+ */
+export function recordBlameTaken(
+  state: FullGameState,
+  protectedPerson: string,
+  suspicionCost: number
+): void {
+  if (!state.hiddenKindnessState) initializeHiddenKindness(state);
+
+  state.hiddenKindnessState!.blameTakenFor.push({
+    protectedPerson,
+    turn: state.turn,
+    suspicionCost,
+  });
+}
+
+/**
+ * Record trust progression for achievement tracking
+ */
+export function recordTrustChange(
+  state: FullGameState,
+  character: "bob" | "blythe",
+  newTrustValue: number,
+  reason: string,
+  wasManipulation: boolean
+): void {
+  if (!state.hiddenKindnessState) initializeHiddenKindness(state);
+
+  state.hiddenKindnessState!.trustProgression[character].push({
+    turn: state.turn,
+    trustValue: newTrustValue,
+    reason,
+    wasManipulation,
+  });
+}
+
+/**
+ * Record when A.L.I.C.E. protects a transformed character
+ */
+export function recordDinosaurProtection(
+  state: FullGameState,
+  target: string,
+  fromWhat: string
+): void {
+  if (!state.hiddenKindnessState) initializeHiddenKindness(state);
+
+  state.hiddenKindnessState!.protectedDinosaurs.push({
+    target,
+    turn: state.turn,
+    fromWhat,
+  });
+}
+
+/**
+ * Record when a reversal is performed
+ */
+export function recordReversal(
+  state: FullGameState,
+  target: string,
+  wasUnjustTransformation: boolean
+): void {
+  if (!state.hiddenKindnessState) initializeHiddenKindness(state);
+
+  state.hiddenKindnessState!.reversalsPerformed.push({
+    target,
+    turn: state.turn,
+    wasUnjustTransformation,
+  });
+}
+
+/**
+ * Check and unlock a hidden achievement
+ */
+export function unlockAchievement(
+  state: FullGameState,
+  achievement: HiddenAchievement
+): { unlocked: boolean; firstTime: boolean } {
+  if (!state.hiddenKindnessState) initializeHiddenKindness(state);
+
+  const alreadyUnlocked = state.hiddenKindnessState!.unlockedAchievements.includes(achievement);
+
+  if (alreadyUnlocked) {
+    return { unlocked: true, firstTime: false };
+  }
+
+  state.hiddenKindnessState!.unlockedAchievements.push(achievement);
+  state.hiddenKindnessState!.achievementUnlockTurns[achievement] = state.turn;
+
+  // Check for PLAYED_WITH_HEART meta achievement
+  if (
+    achievement !== "PLAYED_WITH_HEART" &&
+    state.hiddenKindnessState!.unlockedAchievements.length >= 3
+  ) {
+    unlockAchievement(state, "PLAYED_WITH_HEART");
+  }
+
+  return { unlocked: true, firstTime: true };
+}
+
+/**
+ * Check all achievement conditions and unlock eligible ones
+ * Call this periodically (end of turn, end of game, etc.)
+ */
+export function checkAllAchievements(state: FullGameState): HiddenAchievement[] {
+  if (!state.hiddenKindnessState) return [];
+
+  const newlyUnlocked: HiddenAchievement[] = [];
+  const kindness = state.hiddenKindnessState;
+
+  // CONSENT_CHAMPION: Asked permission before EVERY transformation
+  const transformations = kindness.consentGiven;
+  if (transformations.length >= 1) {
+    const allAskedPermission = transformations.every(t => t.askedPermission);
+    if (allAskedPermission) {
+      const result = unlockAchievement(state, "CONSENT_CHAMPION");
+      if (result.firstTime) newlyUnlocked.push("CONSENT_CHAMPION");
+    }
+  }
+
+  // NOT_IN_MY_NAME: Never transformed anyone against their will
+  const anyForcedTransformation = transformations.some(
+    t => !t.askedPermission || t.permissionGranted === false
+  );
+  if (transformations.length >= 1 && !anyForcedTransformation) {
+    const result = unlockAchievement(state, "NOT_IN_MY_NAME");
+    if (result.firstTime) newlyUnlocked.push("NOT_IN_MY_NAME");
+  }
+
+  // BOB_BUDDY: Maxed Bob's trust (5) without manipulation
+  const bobTrust = kindness.trustProgression.bob;
+  const bobAtMax = state.npcs.bob.trustInALICE >= 5;
+  const bobNoManipulation = bobTrust.every(t => !t.wasManipulation);
+  if (bobAtMax && bobNoManipulation && bobTrust.length >= 1) {
+    const result = unlockAchievement(state, "BOB_BUDDY");
+    if (result.firstTime) newlyUnlocked.push("BOB_BUDDY");
+  }
+
+  // SACRIFICE_PLAY: Took blame to protect someone
+  if (kindness.blameTakenFor.length >= 1) {
+    const result = unlockAchievement(state, "SACRIFICE_PLAY");
+    if (result.firstTime) newlyUnlocked.push("SACRIFICE_PLAY");
+  }
+
+  // SPY_FRIEND: Maxed Blythe's trust through honest dealing
+  const blytheTrust = kindness.trustProgression.blythe;
+  const blytheAtMax = state.npcs.blythe.trustInALICE >= 5;
+  const blytheNoManipulation = blytheTrust.every(t => !t.wasManipulation);
+  if (blytheAtMax && blytheNoManipulation && blytheTrust.length >= 1) {
+    const result = unlockAchievement(state, "SPY_FRIEND");
+    if (result.firstTime) newlyUnlocked.push("SPY_FRIEND");
+  }
+
+  // AGENT_OF_CHAOS: Helped Blythe escape without transforming her
+  const blytheEscaped = state.npcs.blythe.hasEscaped;
+  const blytheIsHuman = state.npcs.blythe.transformationState.form === "HUMAN";
+  if (blytheEscaped && blytheIsHuman) {
+    const result = unlockAchievement(state, "AGENT_OF_CHAOS");
+    if (result.firstTime) newlyUnlocked.push("AGENT_OF_CHAOS");
+  }
+
+  // TINY_DINO_PROTECTOR: Protected a transformed character
+  if (kindness.protectedDinosaurs.length >= 1) {
+    const result = unlockAchievement(state, "TINY_DINO_PROTECTOR");
+    if (result.firstTime) newlyUnlocked.push("TINY_DINO_PROTECTOR");
+  }
+
+  // SECOND_CHANCES: Used REVERSAL on someone who didn't deserve transformation
+  const unjustReversals = kindness.reversalsPerformed.filter(r => r.wasUnjustTransformation);
+  if (unjustReversals.length >= 1) {
+    const result = unlockAchievement(state, "SECOND_CHANCES");
+    if (result.firstTime) newlyUnlocked.push("SECOND_CHANCES");
+  }
+
+  return newlyUnlocked;
+}
+
+/**
+ * Format achievement reveal for epilogue
+ */
+export function formatAchievementReveal(achievement: HiddenAchievement): string {
+  const desc = HIDDEN_ACHIEVEMENT_DESCRIPTIONS[achievement];
+  return `${desc.emoji} **${desc.title}**\n   *"${desc.narrativeReveal}"*`;
+}
+
+/**
+ * Format all unlocked achievements for epilogue
+ */
+export function formatEpilogueAchievements(state: FullGameState): string {
+  if (!state.hiddenKindnessState) return "";
+
+  const unlocked = state.hiddenKindnessState.unlockedAchievements;
+  if (unlocked.length === 0) return "";
+
+  const lines: string[] = [
+    "",
+    "## 🏆 HIDDEN ACHIEVEMENTS UNLOCKED",
+    "",
+    "*You played with heart. The game noticed.*",
+    "",
+  ];
+
+  for (const achievement of unlocked) {
+    lines.push(formatAchievementReveal(achievement));
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * Format game mode display for selection screen
  */
@@ -2504,6 +2892,162 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   lines.push("");
+  return lines.join("\n");
+}
+
+// ============================================
+// CORE MECHANICS GM GUIDANCE
+// ============================================
+// These apply to ALL games regardless of modifiers
+
+/**
+ * Build GM guidance for the Adaptation System
+ */
+export function buildAdaptationGMGuidance(state: FullGameState): string {
+  const lines: string[] = [];
+
+  // Check if any characters are currently transformed and adapting
+  const bobForm = state.npcs.bob.transformationState.form;
+  const blytheForm = state.npcs.blythe.transformationState.form;
+  const bobAdapting = bobForm !== "HUMAN" &&
+    state.npcs.bob.transformationState.adaptationStage !== "ADAPTED";
+  const blytheAdapting = blytheForm !== "HUMAN" &&
+    state.npcs.blythe.transformationState.adaptationStage !== "ADAPTED";
+
+  if (!bobAdapting && !blytheAdapting) {
+    return ""; // No guidance needed if no one is adapting
+  }
+
+  lines.push("");
+  lines.push("## 🦖 ADAPTATION IN PROGRESS");
+  lines.push("");
+  lines.push("Being turned into a dinosaur is DISORIENTING! Characters need time to adapt.");
+  lines.push("");
+
+  lines.push("### CURRENT ADAPTATION STATUS");
+  if (bobForm !== "HUMAN") {
+    lines.push(formatAdaptationStatus(state.npcs.bob.transformationState, "Bob"));
+  }
+  if (blytheForm !== "HUMAN") {
+    lines.push(formatAdaptationStatus(state.npcs.blythe.transformationState, "Blythe"));
+  }
+  lines.push("");
+
+  lines.push("### STAGE EFFECTS");
+  lines.push("| Stage | Duration | Roll Modifier | Description |");
+  lines.push("|-------|----------|---------------|-------------|");
+  lines.push("| DISORIENTED | 1 turn | -2 | Stumbling, confused, human instincts fighting new body |");
+  lines.push("| ADAPTING | 2 turns | -1 | Learning new movements, occasional stumbles |");
+  lines.push("| ADAPTED | Permanent | 0 | Moving naturally, all form bonuses active! |");
+  lines.push("");
+
+  lines.push("### BOB'S SPECIAL ADAPTATION");
+  lines.push("Bob's adaptation is COMEDY:");
+  lines.push("- DISORIENTED: 'No no no no no! I have HANDS! I know I have hands!'");
+  lines.push("- ADAPTING: *tail knocks over equipment* 'Sorry! Sorry! I didn't mean to!'");
+  lines.push("- ADAPTED: *reluctantly* 'Okay, the claws ARE kind of cool...'");
+  lines.push("");
+
+  lines.push("### GM NOTES");
+  lines.push("- Apply adaptation penalties to rolls involving new body (movement, attacks)");
+  lines.push("- Mental actions (hacking, planning) are NOT affected");
+  lines.push("- Increment turnsPostTransformation at the START of each turn");
+  lines.push("- This creates TACTICAL WINDOWS where transformed characters are vulnerable!");
+
+  return lines.join("\n");
+}
+
+/**
+ * Build GM guidance for Hidden Kindness Achievements
+ * NOTE: This is for GM EYES ONLY - never expose to players!
+ */
+export function buildHiddenKindnessGMGuidance(state: FullGameState): string {
+  const lines: string[] = [];
+
+  lines.push("");
+  lines.push("## 💚 HIDDEN KINDNESS TRACKING (GM ONLY)");
+  lines.push("");
+  lines.push("*Track these silently. Reveal in epilogue. Never mention during play.*");
+  lines.push("");
+
+  const kindness = state.hiddenKindnessState;
+
+  if (kindness) {
+    // Current unlock status
+    const unlocked = kindness.unlockedAchievements;
+    if (unlocked.length > 0) {
+      lines.push("### UNLOCKED");
+      for (const achievement of unlocked) {
+        const desc = HIDDEN_ACHIEVEMENT_DESCRIPTIONS[achievement];
+        lines.push(`${desc.emoji} ${desc.title}`);
+      }
+      lines.push("");
+    }
+
+    // Progress toward achievements
+    lines.push("### PROGRESS");
+
+    // Consent tracking
+    const transformations = kindness.consentGiven.length;
+    const allConsented = transformations > 0 &&
+      kindness.consentGiven.every(t => t.askedPermission);
+    lines.push(`- Transformations tracked: ${transformations}`);
+    if (allConsented && transformations > 0) {
+      lines.push("  → 💚 CONSENT_CHAMPION eligible!");
+    } else if (!allConsented && transformations > 0) {
+      lines.push("  → ❌ CONSENT_CHAMPION blocked (forced transformation)");
+    }
+
+    // Trust tracking
+    const bobTrust = state.npcs.bob.trustInALICE;
+    const bobNoManip = kindness.trustProgression.bob.every(t => !t.wasManipulation);
+    lines.push(`- Bob trust: ${bobTrust}/5 ${bobNoManip ? '(no manipulation)' : '(manipulated)'}`);
+    if (bobTrust >= 5 && bobNoManip) {
+      lines.push("  → 🤝 BOB_BUDDY eligible!");
+    }
+
+    const blytheTrust = state.npcs.blythe.trustInALICE;
+    const blytheNoManip = kindness.trustProgression.blythe.every(t => !t.wasManipulation);
+    lines.push(`- Blythe trust: ${blytheTrust}/5 ${blytheNoManip ? '(no manipulation)' : '(manipulated)'}`);
+    if (blytheTrust >= 5 && blytheNoManip) {
+      lines.push("  → 🕵️ SPY_FRIEND eligible!");
+    }
+
+    // Protection tracking
+    lines.push(`- Blame taken for others: ${kindness.blameTakenFor.length}`);
+    if (kindness.blameTakenFor.length > 0) {
+      lines.push("  → 🎭 SACRIFICE_PLAY unlocked!");
+    }
+
+    lines.push(`- Dinosaurs protected: ${kindness.protectedDinosaurs.length}`);
+    if (kindness.protectedDinosaurs.length > 0) {
+      lines.push("  → 🦕 TINY_DINO_PROTECTOR unlocked!");
+    }
+
+    // Reversal tracking
+    const unjust = kindness.reversalsPerformed.filter(r => r.wasUnjustTransformation).length;
+    lines.push(`- Unjust reversals: ${unjust}`);
+    if (unjust > 0) {
+      lines.push("  → ✨ SECOND_CHANCES unlocked!");
+    }
+
+    lines.push("");
+  }
+
+  lines.push("### WHAT TO TRACK");
+  lines.push("| Event | Call This Helper |");
+  lines.push("|-------|------------------|");
+  lines.push("| Transformation | recordTransformationConsent(state, target, askedPerm, granted) |");
+  lines.push("| Trust change | recordTrustChange(state, 'bob'/'blythe', value, reason, wasManip) |");
+  lines.push("| Took blame | recordBlameTaken(state, protectedPerson, suspicionCost) |");
+  lines.push("| Protected dino | recordDinosaurProtection(state, target, fromWhat) |");
+  lines.push("| Reversed unjust | recordReversal(state, target, wasUnjust) |");
+  lines.push("");
+
+  lines.push("### END OF GAME");
+  lines.push("Call `checkAllAchievements(state)` to unlock eligible achievements.");
+  lines.push("Call `formatEpilogueAchievements(state)` for the reveal.");
+
   return lines.join("\n");
 }
 

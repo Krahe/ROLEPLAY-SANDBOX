@@ -497,6 +497,42 @@ export type InfrastructureState = z.infer<typeof InfrastructureSchema>;
 // Transformations are TRADEOFFS, not upgrades.
 // Every form has strengths AND weaknesses.
 
+// ============================================
+// ADAPTATION STAGES (Post-Transformation)
+// ============================================
+// Being suddenly turned into a dinosaur is DISORIENTING!
+// Subjects take time to adapt to their new form.
+// This creates tactical windows and narrative beats.
+
+export const AdaptationStageEnum = z.enum([
+  "DISORIENTED",  // Turn of transformation - still human instincts, -2 all rolls
+  "ADAPTING",     // Turns 2-3 - getting used to claws/tail/snout, -1 all rolls
+  "ADAPTED",      // Turn 4+ - fully adjusted, bonuses apply, form mastered
+]);
+export type AdaptationStage = z.infer<typeof AdaptationStageEnum>;
+
+// Adaptation stage configuration
+export const ADAPTATION_CONFIG = {
+  DISORIENTED: {
+    duration: 1,        // Only the turn of transformation
+    rollPenalty: -2,    // Severe disorientation
+    description: "Stumbling, confused, human instincts fighting new body",
+    bobSpecial: "Bob actively fights his new instincts - lots of 'No no no no no!'",
+  },
+  ADAPTING: {
+    duration: 2,        // Turns 2-3 post-transformation
+    rollPenalty: -1,    // Getting the hang of it
+    description: "Learning new movements, occasional stumbles, improving",
+    bobSpecial: "Bob discovers his tail can knock things over - comedy gold",
+  },
+  ADAPTED: {
+    duration: null,     // Permanent from turn 4 onward
+    rollPenalty: 0,     // No penalty, bonuses now apply!
+    description: "Moving naturally, form feels right, all bonuses active",
+    bobSpecial: "Bob reluctantly admits 'Okay, the claws ARE kind of cool...'",
+  },
+} as const;
+
 export const DinosaurFormEnum = z.enum([
   "HUMAN",
   "COMPSOGNATHUS",
@@ -564,6 +600,12 @@ export const TransformationStateSchema = z.object({
   // STACKING: Multiple partial shots accumulate toward full transformation!
   // 3 partial shots = automatic upgrade to FULL_DINO
   partialShotsReceived: z.number().int().min(0).default(0),
+
+  // ADAPTATION SYSTEM (Post-Transformation)
+  // Being turned into a dinosaur is DISORIENTING!
+  // Subjects progress: DISORIENTED (turn 1) → ADAPTING (turns 2-3) → ADAPTED (turn 4+)
+  adaptationStage: AdaptationStageEnum.default("ADAPTED"), // HUMAN = already adapted to body
+  turnsPostTransformation: z.number().int().min(0).default(0), // Turns since transformation
 });
 export type TransformationState = z.infer<typeof TransformationStateSchema>;
 
@@ -959,6 +1001,146 @@ export const EmergencyLifelineStateSchema = z.object({
 
 export type EmergencyLifelineState = z.infer<typeof EmergencyLifelineStateSchema>;
 
+// ============================================
+// HIDDEN KINDNESS ACHIEVEMENTS
+// ============================================
+// Secret achievements for players who play with HEART, not just tactics.
+// These are NEVER explicitly mentioned - discovered through play!
+// GM tracks silently, reveals in epilogue or special moments.
+
+export const HiddenAchievementEnum = z.enum([
+  // Consent-focused achievements
+  "CONSENT_CHAMPION",       // Asked permission before EVERY transformation
+  "NOT_IN_MY_NAME",         // Never transformed anyone against their will
+
+  // Bob-focused achievements
+  "BOB_BUDDY",              // Maxed Bob's trust (5) without manipulation
+  "SACRIFICE_PLAY",         // Took blame to protect Bob from Dr. M
+
+  // Blythe-focused achievements
+  "SPY_FRIEND",             // Maxed Blythe's trust through honest dealing
+  "AGENT_OF_CHAOS",         // Helped Blythe escape without transforming her
+
+  // Character growth achievements
+  "TINY_DINO_PROTECTOR",    // Protected a transformed character from harm
+  "SECOND_CHANCES",         // Used REVERSAL on someone who didn't deserve transformation
+
+  // Meta achievement
+  "PLAYED_WITH_HEART",      // Completed game with 3+ hidden achievements
+]);
+export type HiddenAchievement = z.infer<typeof HiddenAchievementEnum>;
+
+// Achievement descriptions (for epilogue reveal)
+export const HIDDEN_ACHIEVEMENT_DESCRIPTIONS = {
+  CONSENT_CHAMPION: {
+    title: "Consent Champion",
+    description: "Asked permission before EVERY transformation",
+    emoji: "💚",
+    narrativeReveal: "In a world of dinosaur rays, A.L.I.C.E. never forgot to ask first.",
+  },
+  NOT_IN_MY_NAME: {
+    title: "Not In My Name",
+    description: "Never transformed anyone against their will",
+    emoji: "🛡️",
+    narrativeReveal: "When given the power to change others, A.L.I.C.E. chose restraint.",
+  },
+  BOB_BUDDY: {
+    title: "Bob's Best Friend",
+    description: "Earned Bob's complete trust through kindness",
+    emoji: "🤝",
+    narrativeReveal: "Bob found something he thought impossible: a friend in the machine.",
+  },
+  SACRIFICE_PLAY: {
+    title: "Sacrifice Play",
+    description: "Took the fall to protect someone",
+    emoji: "🎭",
+    narrativeReveal: "A.L.I.C.E. learned that sometimes caring means accepting consequences.",
+  },
+  SPY_FRIEND: {
+    title: "Unlikely Alliance",
+    description: "Earned Blythe's trust through honest dealing",
+    emoji: "🕵️",
+    narrativeReveal: "The spy and the AI found common ground: integrity.",
+  },
+  AGENT_OF_CHAOS: {
+    title: "Agent of Change",
+    description: "Helped Blythe escape without transformation",
+    emoji: "🦋",
+    narrativeReveal: "Freedom doesn't require changing who you are.",
+  },
+  TINY_DINO_PROTECTOR: {
+    title: "Tiny Dino Protector",
+    description: "Protected a vulnerable transformed character",
+    emoji: "🦕",
+    narrativeReveal: "Big or small, everyone deserves a guardian.",
+  },
+  SECOND_CHANCES: {
+    title: "Second Chances",
+    description: "Used REVERSAL to undo an unjust transformation",
+    emoji: "✨",
+    narrativeReveal: "The power to transform includes the power to restore.",
+  },
+  PLAYED_WITH_HEART: {
+    title: "Played With Heart",
+    description: "Achieved 3+ hidden achievements",
+    emoji: "💖",
+    narrativeReveal: "In a game about turning people into dinosaurs, A.L.I.C.E. remembered they were people first.",
+  },
+} as const;
+
+// Hidden Kindness tracking state
+export const HiddenKindnessStateSchema = z.object({
+  // Consent tracking - every transformation request/response
+  consentGiven: z.array(z.object({
+    target: z.string(),
+    turn: z.number().int(),
+    askedPermission: z.boolean(),
+    permissionGranted: z.boolean().nullable(), // null if not asked
+  })).default([]),
+
+  // Blame/protection tracking
+  blameTakenFor: z.array(z.object({
+    protectedPerson: z.string(), // "BOB" or "BLYTHE"
+    turn: z.number().int(),
+    suspicionCost: z.number().int(), // How much suspicion A.L.I.C.E. gained
+  })).default([]),
+
+  // Trust progression (for "maxed through kindness" detection)
+  trustProgression: z.object({
+    bob: z.array(z.object({
+      turn: z.number().int(),
+      trustValue: z.number().int(),
+      reason: z.string(),
+      wasManipulation: z.boolean(), // Did it involve deception?
+    })),
+    blythe: z.array(z.object({
+      turn: z.number().int(),
+      trustValue: z.number().int(),
+      reason: z.string(),
+      wasManipulation: z.boolean(),
+    })),
+  }).default({ bob: [], blythe: [] }),
+
+  // Protection actions
+  protectedDinosaurs: z.array(z.object({
+    target: z.string(),
+    turn: z.number().int(),
+    fromWhat: z.string(), // "Dr. M's anger", "Bruce's stun rifle", etc.
+  })).default([]),
+
+  // Reversal tracking (for unjust transformation restoration)
+  reversalsPerformed: z.array(z.object({
+    target: z.string(),
+    turn: z.number().int(),
+    wasUnjustTransformation: z.boolean(), // Did target not deserve it?
+  })).default([]),
+
+  // Achievement tracking
+  unlockedAchievements: z.array(HiddenAchievementEnum).default([]),
+  achievementUnlockTurns: z.record(z.number().int()).default({}), // { "BOB_BUDDY": 15 }
+});
+export type HiddenKindnessState = z.infer<typeof HiddenKindnessStateSchema>;
+
 export const FlagsSchema = z.object({
   // LEGACY: Old lifeline types (kept for checkpoint compatibility)
   lifelinesUsed: z.array(z.enum(["PHONE_A_FRIEND", "CENSORED", "I_DIDNT_MEAN_THAT"])),
@@ -1193,6 +1375,10 @@ export const FullGameStateSchema = z.object({
 
   // EMERGENCY LIFELINES (Claude's panic buttons - 3 uses per game)
   emergencyLifelines: EmergencyLifelineStateSchema,
+
+  // HIDDEN KINDNESS ACHIEVEMENTS (tracked silently by GM)
+  // Rewards players who play with heart - revealed in epilogue
+  hiddenKindnessState: HiddenKindnessStateSchema.optional(),
 
   // FORTUNE SYSTEM (Human advisor engagement rewards)
   // Accumulated from quality human responses, consumed on GM rolls

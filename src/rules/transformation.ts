@@ -887,6 +887,9 @@ export function createHumanState(): TransformationState {
     canRevert: true,
     revertAttempts: 0,
     partialShotsReceived: 0,  // Stacking: 3 partials = FULL_DINO!
+    // ADAPTATION SYSTEM
+    adaptationStage: "ADAPTED",  // Humans are already adapted to their body
+    turnsPostTransformation: 0,
   };
 }
 

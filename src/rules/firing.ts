@@ -982,6 +982,9 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
         canRevert: result.outcome !== "CHAOTIC", // Chaotic transformations harder to revert
         revertAttempts: 0,
         partialShotsReceived: result.outcome === "FULL_DINO" ? 0 : newPartialCount,
+        // ADAPTATION SYSTEM - freshly transformed = DISORIENTED
+        adaptationStage: "DISORIENTED",
+        turnsPostTransformation: 0,
       };
     }
   }
