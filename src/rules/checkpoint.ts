@@ -1,4 +1,5 @@
 import { FullGameState, ACT_CONFIGS } from "../state/schema.js";
+import { serializeGMMemory } from "../gm/gmClaude.js";
 
 // ============================================
 // MANDATORY CHECKPOINT SYSTEM
@@ -47,6 +48,10 @@ export interface CheckpointState {
 
   // Full state for restoration
   fullState: FullGameState;
+
+  // GM Memory - preserves "same DM" across checkpoints!
+  // Serialized JSON string of GMMemory from gmClaude.ts
+  gmMemory?: string;
 }
 
 export interface CheckpointResponse {
@@ -204,6 +209,9 @@ export function serializeCheckpoint(state: FullGameState): CheckpointState {
     narrativeFlags,
     keyMoments: mergedMarkers.map(m => `T${m.turn}: ${m.marker}`),
     fullState: stateForCheckpoint,
+
+    // GM Memory - preserves "same DM" across checkpoints!
+    gmMemory: serializeGMMemory(),
   };
 }
 

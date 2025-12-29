@@ -11,6 +11,7 @@
  */
 
 import { FullGameState, ACT_CONFIGS, TransformationState } from "./schema.js";
+import { serializeGMMemory } from "../gm/gmClaude.js";
 
 // Helper to create default human transformation state for checkpoint restoration
 function createDefaultTransformationState(): TransformationState {
@@ -359,6 +360,9 @@ export interface CompressedCheckpoint {
 
   // FORTUNE (v2.2 - human advisor engagement)
   ft?: number;   // fortune (0-3), omit if 0
+
+  // GM MEMORY (v2.3 - preserves "same DM" across checkpoints!)
+  gm?: string;   // Serialized GM memory JSON
 }
 
 // Ray state to enum (save chars)
@@ -501,6 +505,9 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
 
     // Fortune (v2.2) - only store if non-zero
     ft: (full.fortune || 0) > 0 ? full.fortune : undefined,
+
+    // GM Memory (v2.3) - preserves "same DM" across checkpoints!
+    gm: serializeGMMemory(),
   };
 }
 

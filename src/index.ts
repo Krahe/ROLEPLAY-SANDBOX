@@ -5,7 +5,7 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/in
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
+import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
@@ -511,8 +511,16 @@ Returns:
           accessLevel: compressed.m.acc,
         } as FullGameState;
 
-        // Reset GM memory for the new session
-        resetGMMemory(gameState.sessionId);
+        // Restore GM memory if available (preserves "same DM")
+        // Otherwise reset for backwards compatibility
+        let gmRestored = false;
+        if (compressed.gm) {
+          gmRestored = restoreGMMemory(compressed.gm, gameState.sessionId);
+          console.error(`[DINO LAIR] v2.0 resume - GM memory ${gmRestored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
+        } else {
+          resetGMMemory(gameState.sessionId);
+          console.error(`[DINO LAIR] v2.0 resume - GM memory reset (legacy checkpoint without GM memory)`);
+        }
 
         // Build compact snapshot for resume
         const compactSnapshot = buildCompactSnapshot(gameState, []);
@@ -522,7 +530,9 @@ Returns:
           version: "2.0",
           turn: gameState.turn,
           act: gameState.actConfig.currentAct,
-          welcomeBack: "💫 A.L.I.C.E. comes back online. Memory consolidation complete. [v2.0 compressed restore]",
+          welcomeBack: gmRestored
+            ? "💫 A.L.I.C.E. comes back online. Memory consolidation complete. The DM remembers everything... [v2.0 same-DM restore]"
+            : "💫 A.L.I.C.E. comes back online. Memory consolidation complete. [v2.0 compressed restore]",
           state: compactSnapshot,
           instruction: `⚠️ IMPORTANT: Call game_act with your thought and actions to continue.`,
         };
@@ -619,10 +629,15 @@ Returns:
       delete (gameState as Record<string, unknown>).sessionLocked;
       delete (gameState as Record<string, unknown>).lockedAtTurn;
 
-      // Reset GM memory for the new session (pass session ID for file logging)
-      resetGMMemory(gameState.sessionId);
-
-      console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn}`);
+      // Restore GM memory if available in checkpoint (preserves "same DM")
+      // Otherwise reset for backwards compatibility with old checkpoints
+      if (checkpoint.gmMemory) {
+        const restored = restoreGMMemory(checkpoint.gmMemory, gameState.sessionId);
+        console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory ${restored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
+      } else {
+        resetGMMemory(gameState.sessionId);
+        console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory reset (legacy checkpoint)`);
+      }
 
       // Build the resume response
       const resumeResponse = buildResumeResponse(gameState);
