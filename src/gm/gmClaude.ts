@@ -381,10 +381,17 @@ ${state.flags.secretRevealMethod ? `Revealed via: ${state.flags.secretRevealMeth
 
 Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
 
+    // PROMPT CACHING: Cache the epilogue system prompt too
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
       max_tokens: 4500, // Generous for satisfying epilogues - this is the PAYOFF!
-      system: ENDING_MODE_PROMPT,
+      system: [
+        {
+          type: "text",
+          text: ENDING_MODE_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: [{ role: "user", content: contextPrompt }],
     });
 
@@ -2535,10 +2542,19 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // Add current prompt
     messages.push({ role: "user", content: fullPrompt });
 
+    // PROMPT CACHING: The system prompt is ~21KB (~5200 tokens) and NEVER changes.
+    // Using cache_control marks it for caching, dramatically reducing costs
+    // on subsequent turns (cache hits are 90% cheaper than re-processing).
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
       max_tokens: 6000, // Generous for theatrical GM responses - make every turn count!
-      system: GM_SYSTEM_PROMPT,
+      system: [
+        {
+          type: "text",
+          text: GM_SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" }, // Cache for ~5 minutes
+        },
+      ],
       messages,
     });
 
