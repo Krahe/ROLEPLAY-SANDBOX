@@ -706,12 +706,25 @@ export function formatAchievement(achievement: Achievement): string {
 }
 
 /**
- * Format achievement unlock notification
+ * Format achievement unlock notification (COMPACT - single line!)
+ * Example: 🏆 First Blood ⭐ - "Fired the ray for the first time"
  */
-export function formatAchievementUnlock(achievement: Achievement, totalUnlocked: number): string {
+export function formatAchievementUnlock(achievement: Achievement, _totalUnlocked?: number): string {
+  const stars = achievement.rarity === "secret"
+    ? "🔒"
+    : "⭐".repeat(achievement.rarity as number);
+
+  return `🏆 ${achievement.name} ${stars} - "${achievement.description}"`;
+}
+
+/**
+ * Format achievement unlock notification (VERBOSE - for special moments)
+ * Use this for legendary/secret achievements if desired
+ */
+export function formatAchievementUnlockVerbose(achievement: Achievement, totalUnlocked: number): string {
   const stars = achievement.rarity === "secret"
     ? "🔒 SECRET"
-    : "⭐".repeat(achievement.rarity);
+    : "⭐".repeat(achievement.rarity as number);
 
   return `
 ╔═══════════════════════════════════════════════════════════════╗
@@ -730,9 +743,53 @@ export function formatAchievementUnlock(achievement: Achievement, totalUnlocked:
 }
 
 /**
- * Format end-of-game achievement summary
+ * Format end-of-game achievement summary (COMPACT)
+ * Example output:
+ * ━━━ SESSION ACHIEVEMENTS (5) ━━━
+ *   🔒 The Secret Ending
+ *   ⭐⭐⭐ 🦖 First Blood
+ *   ⭐⭐ 🎭 Master Manipulator
  */
 export function formatSessionAchievementSummary(achievements: Achievement[]): string {
+  if (achievements.length === 0) {
+    return "━━━ SESSION ACHIEVEMENTS ━━━\n  No achievements unlocked. Try exploring more!";
+  }
+
+  // Sort by rarity (secret first for dramatic reveal, then legendary, etc.)
+  const sorted = [...achievements].sort((a, b) => {
+    const rarityOrder: Record<string | number, number> = { secret: 0, 3: 1, 2: 2, 1: 3 };
+    const aOrder = typeof a.rarity === 'number' ? rarityOrder[a.rarity] : rarityOrder.secret;
+    const bOrder = typeof b.rarity === 'number' ? rarityOrder[b.rarity] : rarityOrder.secret;
+    return aOrder - bOrder;
+  });
+
+  const lines = sorted.map(a => {
+    const stars = a.rarity === "secret"
+      ? "🔒"
+      : "⭐".repeat(a.rarity as number);
+    return `  ${stars} ${a.emoji} ${a.name}`;
+  });
+
+  // Count by rarity for summary line
+  const common = achievements.filter(a => a.rarity === 1).length;
+  const uncommon = achievements.filter(a => a.rarity === 2).length;
+  const legendary = achievements.filter(a => a.rarity === 3).length;
+  const secret = achievements.filter(a => a.rarity === "secret").length;
+
+  const counts: string[] = [];
+  if (secret > 0) counts.push(`${secret}🔒`);
+  if (legendary > 0) counts.push(`${legendary}⭐⭐⭐`);
+  if (uncommon > 0) counts.push(`${uncommon}⭐⭐`);
+  if (common > 0) counts.push(`${common}⭐`);
+
+  return `━━━ SESSION ACHIEVEMENTS (${achievements.length}) ━━━\n${lines.join('\n')}\n  [${counts.join(' ')}]`;
+}
+
+/**
+ * Format end-of-game achievement summary (VERBOSE - fancy box)
+ * Use for special endings or gallery display
+ */
+export function formatSessionAchievementSummaryVerbose(achievements: Achievement[]): string {
   if (achievements.length === 0) {
     return `
 ╔═══════════════════════════════════════════════════════════════╗
@@ -759,7 +816,7 @@ export function formatSessionAchievementSummary(achievements: Achievement[]): st
 
   // Sort by rarity (secret first for dramatic reveal, then legendary, etc.)
   const sorted = [...achievements].sort((a, b) => {
-    const rarityOrder = { secret: 0, 3: 1, 2: 2, 1: 3 };
+    const rarityOrder: Record<string | number, number> = { secret: 0, 3: 1, 2: 2, 1: 3 };
     const aOrder = typeof a.rarity === 'number' ? rarityOrder[a.rarity] : rarityOrder.secret;
     const bOrder = typeof b.rarity === 'number' ? rarityOrder[b.rarity] : rarityOrder.secret;
     return aOrder - bOrder;

@@ -3,6 +3,7 @@ import { FullGameState } from "../state/schema.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
 import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance, buildAdaptationGMGuidance, buildHiddenKindnessGMGuidance } from "../rules/gameModes.js";
+import { formatGMStatusBar } from "../ui/statusBar.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -2803,7 +2804,15 @@ ${actContext}
 ${actTransitionNotification}
 ` : "";
 
+  // GM Status Bar - quick orientation for Opus
+  const gmStatusBar = formatGMStatusBar(state);
+
   return `${actTransitionSection}${actContextSection}${phaseSection}${gameModeSection}${adaptationSection}${hiddenKindnessSection}
+## 📊 QUICK STATUS
+\`\`\`
+${gmStatusBar}
+\`\`\`
+
 ## Current Turn: ${state.turn}
 ${eventSection}
 
