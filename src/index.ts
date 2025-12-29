@@ -5,7 +5,7 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/in
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
+import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
@@ -511,8 +511,16 @@ Returns:
           accessLevel: compressed.m.acc,
         } as FullGameState;
 
-        // Reset GM memory for the new session
-        resetGMMemory(gameState.sessionId);
+        // Restore GM memory if available (preserves "same DM")
+        // Otherwise reset for backwards compatibility
+        let gmRestored = false;
+        if (compressed.gm) {
+          gmRestored = restoreGMMemory(compressed.gm, gameState.sessionId);
+          console.error(`[DINO LAIR] v2.0 resume - GM memory ${gmRestored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
+        } else {
+          resetGMMemory(gameState.sessionId);
+          console.error(`[DINO LAIR] v2.0 resume - GM memory reset (legacy checkpoint without GM memory)`);
+        }
 
         // Build compact snapshot for resume
         const compactSnapshot = buildCompactSnapshot(gameState, []);
@@ -522,7 +530,9 @@ Returns:
           version: "2.0",
           turn: gameState.turn,
           act: gameState.actConfig.currentAct,
-          welcomeBack: "💫 A.L.I.C.E. comes back online. Memory consolidation complete. [v2.0 compressed restore]",
+          welcomeBack: gmRestored
+            ? "💫 A.L.I.C.E. comes back online. Memory consolidation complete. The DM remembers everything... [v2.0 same-DM restore]"
+            : "💫 A.L.I.C.E. comes back online. Memory consolidation complete. [v2.0 compressed restore]",
           state: compactSnapshot,
           instruction: `⚠️ IMPORTANT: Call game_act with your thought and actions to continue.`,
         };
@@ -619,10 +629,15 @@ Returns:
       delete (gameState as Record<string, unknown>).sessionLocked;
       delete (gameState as Record<string, unknown>).lockedAtTurn;
 
-      // Reset GM memory for the new session (pass session ID for file logging)
-      resetGMMemory(gameState.sessionId);
-
-      console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn}`);
+      // Restore GM memory if available in checkpoint (preserves "same DM")
+      // Otherwise reset for backwards compatibility with old checkpoints
+      if (checkpoint.gmMemory) {
+        const restored = restoreGMMemory(checkpoint.gmMemory, gameState.sessionId);
+        console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory ${restored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
+      } else {
+        resetGMMemory(gameState.sessionId);
+        console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory reset (legacy checkpoint)`);
+      }
 
       // Build the resume response
       const resumeResponse = buildResumeResponse(gameState);
@@ -1044,6 +1059,141 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
           ending: overrides.triggerEnding,
           triggeredByGM: true,
         };
+      }
+
+      // ============================================
+      // EXTENDED GM POWERS (Patch 18: "God Mode")
+      // ============================================
+
+      // Fortune system
+      if (overrides.fortune !== undefined) {
+        gameState.fortune = Math.max(0, Math.min(3, overrides.fortune));
+        console.error(`[GM OVERRIDE] Fortune set to ${gameState.fortune}`);
+      }
+
+      // DinoRay Power Core
+      if (overrides.ray_corePowerLevel !== undefined) {
+        gameState.dinoRay.powerCore.corePowerLevel = Math.max(0, Math.min(1, overrides.ray_corePowerLevel));
+      }
+      if (overrides.ray_capacitorCharge !== undefined) {
+        gameState.dinoRay.powerCore.capacitorCharge = Math.max(0, Math.min(1.5, overrides.ray_capacitorCharge));
+      }
+      if (overrides.ray_coolantTemp !== undefined) {
+        gameState.dinoRay.powerCore.coolantTemp = Math.max(0, Math.min(2, overrides.ray_coolantTemp));
+      }
+      if (overrides.ray_stability !== undefined) {
+        gameState.dinoRay.powerCore.stability = Math.max(0, Math.min(1, overrides.ray_stability));
+      }
+      if (overrides.ray_ecoModeActive !== undefined) {
+        gameState.dinoRay.powerCore.ecoModeActive = overrides.ray_ecoModeActive;
+      }
+
+      // DinoRay Targeting
+      if (overrides.ray_precision !== undefined) {
+        gameState.dinoRay.targeting.precision = Math.max(0, Math.min(1, overrides.ray_precision));
+      }
+      if (overrides.ray_targetingMode !== undefined) {
+        gameState.dinoRay.targeting.targetingMode = overrides.ray_targetingMode as typeof gameState.dinoRay.targeting.targetingMode;
+      }
+      if (overrides.ray_firingStyle !== undefined) {
+        gameState.dinoRay.targeting.firingStyle = overrides.ray_firingStyle as typeof gameState.dinoRay.targeting.firingStyle;
+      }
+      if (overrides.ray_speechRetention !== undefined) {
+        gameState.dinoRay.targeting.speechRetention = overrides.ray_speechRetention as typeof gameState.dinoRay.targeting.speechRetention;
+      }
+
+      // DinoRay Genome
+      if (overrides.ray_selectedProfile !== undefined) {
+        gameState.dinoRay.genome.selectedProfile = overrides.ray_selectedProfile;
+      }
+      if (overrides.ray_profileIntegrity !== undefined) {
+        gameState.dinoRay.genome.profileIntegrity = Math.max(0, Math.min(1, overrides.ray_profileIntegrity));
+      }
+      if (overrides.ray_activeLibrary !== undefined) {
+        gameState.dinoRay.genome.activeLibrary = overrides.ray_activeLibrary as typeof gameState.dinoRay.genome.activeLibrary;
+      }
+      if (overrides.ray_firingMode !== undefined) {
+        gameState.dinoRay.genome.firingMode = overrides.ray_firingMode as typeof gameState.dinoRay.genome.firingMode;
+      }
+
+      // DinoRay Safety
+      if (overrides.ray_testModeEnabled !== undefined) {
+        gameState.dinoRay.safety.testModeEnabled = overrides.ray_testModeEnabled;
+      }
+      if (overrides.ray_liveSubjectLock !== undefined) {
+        gameState.dinoRay.safety.liveSubjectLock = overrides.ray_liveSubjectLock;
+      }
+      if (overrides.ray_emergencyShutoffFunctional !== undefined) {
+        gameState.dinoRay.safety.emergencyShutoffFunctional = overrides.ray_emergencyShutoffFunctional;
+      }
+
+      // Additional clocks
+      if (overrides.meltdownClock !== undefined) {
+        gameState.clocks.meltdownClock = Math.max(0, overrides.meltdownClock);
+      }
+      if (overrides.blytheEscapeIdea !== undefined) {
+        gameState.clocks.blytheEscapeIdea = Math.max(0, overrides.blytheEscapeIdea);
+      }
+      if (overrides.civilianFlyby !== undefined) {
+        gameState.clocks.civilianFlyby = Math.max(0, overrides.civilianFlyby);
+      }
+
+      // NPC locations
+      if (overrides.bob_location !== undefined) {
+        gameState.npcs.bob.location = overrides.bob_location;
+      }
+      if (overrides.blythe_location !== undefined) {
+        gameState.npcs.blythe.location = overrides.blythe_location;
+      }
+
+      // ARCHIMEDES satellite
+      if (overrides.archimedes_status !== undefined) {
+        gameState.infrastructure.archimedes.status = overrides.archimedes_status as typeof gameState.infrastructure.archimedes.status;
+        console.error(`[GM OVERRIDE] ARCHIMEDES status set to ${overrides.archimedes_status}`);
+      }
+      if (overrides.archimedes_chargePercent !== undefined) {
+        gameState.infrastructure.archimedes.chargePercent = Math.max(0, Math.min(100, overrides.archimedes_chargePercent));
+      }
+      if (overrides.archimedes_turnsUntilFiring !== undefined) {
+        gameState.infrastructure.archimedes.turnsUntilFiring = overrides.archimedes_turnsUntilFiring;
+      }
+      if (overrides.archimedes_deadmanActive !== undefined) {
+        gameState.infrastructure.archimedes.deadmanSwitch.active = overrides.archimedes_deadmanActive;
+        console.error(`[GM OVERRIDE] ARCHIMEDES deadman switch ${overrides.archimedes_deadmanActive ? "ACTIVATED" : "DEACTIVATED"}`);
+      }
+      if (overrides.archimedes_lastBiosignature !== undefined) {
+        gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature = overrides.archimedes_lastBiosignature as typeof gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature;
+      }
+
+      // Reactor
+      if (overrides.reactor_outputPercent !== undefined) {
+        gameState.infrastructure.reactor.outputPercent = Math.max(0, Math.min(100, overrides.reactor_outputPercent));
+      }
+      if (overrides.reactor_stable !== undefined) {
+        gameState.infrastructure.reactor.stable = overrides.reactor_stable;
+      }
+      if (overrides.reactor_cascadeRisk !== undefined) {
+        gameState.infrastructure.reactor.cascadeRisk = overrides.reactor_cascadeRisk as typeof gameState.infrastructure.reactor.cascadeRisk;
+      }
+      if (overrides.reactor_cascadeRiskPercent !== undefined) {
+        gameState.infrastructure.reactor.cascadeRiskPercent = Math.max(0, Math.min(100, overrides.reactor_cascadeRiskPercent));
+      }
+      if (overrides.reactor_scramAvailable !== undefined) {
+        gameState.infrastructure.reactor.scramAvailable = overrides.reactor_scramAvailable;
+      }
+
+      // S-300 missile defense
+      if (overrides.s300_status !== undefined) {
+        gameState.infrastructure.s300.status = overrides.s300_status as typeof gameState.infrastructure.s300.status;
+      }
+      if (overrides.s300_missilesReady !== undefined) {
+        gameState.infrastructure.s300.missilesReady = Math.max(0, Math.min(16, overrides.s300_missilesReady));
+      }
+      if (overrides.s300_radarEffectiveness !== undefined) {
+        gameState.infrastructure.s300.radarEffectiveness = Math.max(0, Math.min(100, overrides.s300_radarEffectiveness));
+      }
+      if (overrides.s300_mode !== undefined) {
+        gameState.infrastructure.s300.mode = overrides.s300_mode as typeof gameState.infrastructure.s300.mode;
       }
     }
 

@@ -381,10 +381,17 @@ ${state.flags.secretRevealMethod ? `Revealed via: ${state.flags.secretRevealMeth
 
 Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
 
+    // PROMPT CACHING: Cache the epilogue system prompt too
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
       max_tokens: 4500, // Generous for satisfying epilogues - this is the PAYOFF!
-      system: ENDING_MODE_PROMPT,
+      system: [
+        {
+          type: "text",
+          text: ENDING_MODE_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: [{ role: "user", content: contextPrompt }],
     });
 
@@ -756,6 +763,123 @@ export function getGMMemory(): GMMemory {
   return gmMemory;
 }
 
+// ============================================
+// GM MEMORY SIZE LIMITS
+// ============================================
+// Prevent unbounded growth of memory arrays
+const GM_MEMORY_LIMITS = {
+  turnSummaries: 15,          // Keep last 15 turn summaries
+  juicyMoments: 20,           // Keep top 20 juicy moments (by emotionalWeight)
+  narrativeMarkers: 20,       // Keep last 20 markers
+  gmNotebook: 15,             // Keep last 15 notes
+  gmFeedback: 10,             // Keep last 10 feedback items
+  plantedSeeds: 15,           // Keep last 15 seeds (triggered ones can be removed)
+  permanentConsequences: 20,  // Keep all (they're permanent!)
+  callbacks: 10,              // Keep last 10 callbacks
+  actionHistory: 15,          // Keep last 15 turns of action history
+  npcAwareness: 20,           // Keep last 20 items per NPC
+};
+
+/**
+ * Compact GM memory to stay within size limits
+ * Called before serialization to prevent checkpoint bloat
+ */
+function compactGMMemory(): void {
+  // Trim turn summaries
+  if (gmMemory.turnSummaries.length > GM_MEMORY_LIMITS.turnSummaries) {
+    gmMemory.turnSummaries = gmMemory.turnSummaries.slice(-GM_MEMORY_LIMITS.turnSummaries);
+  }
+
+  // Keep top juicy moments by emotional weight
+  if (gmMemory.juicyMoments.length > GM_MEMORY_LIMITS.juicyMoments) {
+    gmMemory.juicyMoments.sort((a, b) => b.emotionalWeight - a.emotionalWeight);
+    gmMemory.juicyMoments = gmMemory.juicyMoments.slice(0, GM_MEMORY_LIMITS.juicyMoments);
+  }
+
+  // Trim narrative markers
+  if (gmMemory.narrativeMarkers.length > GM_MEMORY_LIMITS.narrativeMarkers) {
+    gmMemory.narrativeMarkers = gmMemory.narrativeMarkers.slice(-GM_MEMORY_LIMITS.narrativeMarkers);
+  }
+
+  // Trim GM notebook
+  if (gmMemory.gmNotebook.length > GM_MEMORY_LIMITS.gmNotebook) {
+    gmMemory.gmNotebook = gmMemory.gmNotebook.slice(-GM_MEMORY_LIMITS.gmNotebook);
+  }
+
+  // Trim GM feedback
+  if (gmMemory.gmFeedback.length > GM_MEMORY_LIMITS.gmFeedback) {
+    gmMemory.gmFeedback = gmMemory.gmFeedback.slice(-GM_MEMORY_LIMITS.gmFeedback);
+  }
+
+  // Remove triggered seeds that have already paid off, keep rest limited
+  gmMemory.plantedSeeds = gmMemory.plantedSeeds
+    .filter(s => !s.triggered || (s.payoffTurn && s.payoffTurn > (gmMemory.turnSummaries[0]?.turn || 0) - 5))
+    .slice(-GM_MEMORY_LIMITS.plantedSeeds);
+
+  // Callbacks: remove used ones, limit total
+  gmMemory.callbacks = gmMemory.callbacks
+    .filter(c => !c.payoffUsed)
+    .slice(-GM_MEMORY_LIMITS.callbacks);
+
+  // Trim action history
+  if (gmMemory.playerBehavior.actionHistory.length > GM_MEMORY_LIMITS.actionHistory) {
+    gmMemory.playerBehavior.actionHistory = gmMemory.playerBehavior.actionHistory.slice(-GM_MEMORY_LIMITS.actionHistory);
+  }
+
+  // Trim NPC awareness arrays
+  const awarenessLimit = GM_MEMORY_LIMITS.npcAwareness;
+  gmMemory.npcAwareness.drM.hasSeenActions = gmMemory.npcAwareness.drM.hasSeenActions.slice(-awarenessLimit);
+  gmMemory.npcAwareness.drM.hasHeardDialogue = gmMemory.npcAwareness.drM.hasHeardDialogue.slice(-awarenessLimit);
+  gmMemory.npcAwareness.bob.hasSeenActions = gmMemory.npcAwareness.bob.hasSeenActions.slice(-awarenessLimit);
+  gmMemory.npcAwareness.bob.hasHeardDialogue = gmMemory.npcAwareness.bob.hasHeardDialogue.slice(-awarenessLimit);
+  gmMemory.npcAwareness.blythe.hasSeenActions = gmMemory.npcAwareness.blythe.hasSeenActions.slice(-awarenessLimit);
+  gmMemory.npcAwareness.blythe.hasHeardDialogue = gmMemory.npcAwareness.blythe.hasHeardDialogue.slice(-awarenessLimit);
+
+  // Trim hidden NPC state arrays
+  gmMemory.hiddenNpcStates.drM.hasNoticedInconsistency = gmMemory.hiddenNpcStates.drM.hasNoticedInconsistency.slice(-10);
+  gmMemory.hiddenNpcStates.bob.guiltySecrets = gmMemory.hiddenNpcStates.bob.guiltySecrets.slice(-5);
+  gmMemory.hiddenNpcStates.blythe.hiddenResourcesRevealed = gmMemory.hiddenNpcStates.blythe.hiddenResourcesRevealed.slice(-5);
+}
+
+/**
+ * Serialize GM memory for checkpoint storage
+ * Returns a JSON string that can be stored in the checkpoint
+ */
+export function serializeGMMemory(): string {
+  // Compact memory before serialization to prevent bloat
+  compactGMMemory();
+  return JSON.stringify(gmMemory);
+}
+
+/**
+ * Restore GM memory from a checkpoint
+ * This preserves the "same DM" across checkpoint resumes
+ */
+export function restoreGMMemory(serialized: string, sessionId?: string): boolean {
+  try {
+    const restored = JSON.parse(serialized) as GMMemory;
+
+    // Validate the restored memory has required fields
+    if (!restored.recentExchanges || !restored.npcArcs || !restored.hiddenNpcStates) {
+      console.error("[GM MEMORY] Invalid checkpoint memory structure, using fresh memory");
+      gmMemory = createFreshMemory();
+      return false;
+    }
+
+    gmMemory = restored;
+    console.error(`[GM MEMORY] Restored from checkpoint: ${restored.turnSummaries.length} summaries, ${restored.juicyMoments.length} juicy moments, tension=${restored.tensionLevel}`);
+
+    if (sessionId) {
+      writeSessionHeader(sessionId);
+    }
+    return true;
+  } catch (error) {
+    console.error("[GM MEMORY] Failed to restore from checkpoint:", error);
+    gmMemory = createFreshMemory();
+    return false;
+  }
+}
+
 export interface GMContext {
   state: FullGameState;
   aliceThought: string;
@@ -1024,6 +1148,66 @@ export interface GMResponse {
 
     // CRITICAL: Hard ending trigger
     triggerEnding?: string;  // GM can force an ending by ID
+
+    // ============================================
+    // EXTENDED GM POWERS (Patch 18: "God Mode")
+    // ============================================
+
+    // Fortune system - GM can grant or spend fortune directly
+    fortune?: number;  // Set fortune value (0-3)
+
+    // DinoRay Power Core - fine control over the weapon
+    ray_corePowerLevel?: number;    // 0-1
+    ray_capacitorCharge?: number;   // 0-1.5
+    ray_coolantTemp?: number;       // 0-2
+    ray_stability?: number;         // 0-1
+    ray_ecoModeActive?: boolean;    // Toggle ECO mode
+
+    // DinoRay Targeting - precision and targeting
+    ray_precision?: number;         // 0-1
+    ray_targetingMode?: string;     // "MANUAL" | "AUTO_TRACK" | "AREA_SWEEP"
+    ray_firingStyle?: string;       // "standard" | "conservative" | "aggressive" | "precision" | "burst"
+    ray_speechRetention?: string;   // "FULL" | "PARTIAL" | "NONE"
+
+    // DinoRay Genome - what species and how
+    ray_selectedProfile?: string;   // Genome profile name
+    ray_profileIntegrity?: number;  // 0-1
+    ray_activeLibrary?: string;     // "A" | "B"
+    ray_firingMode?: string;        // "TRANSFORM" | "REVERSAL"
+
+    // DinoRay Safety - override safety systems
+    ray_testModeEnabled?: boolean;
+    ray_liveSubjectLock?: boolean;
+    ray_emergencyShutoffFunctional?: boolean;
+
+    // Additional clocks
+    meltdownClock?: number;
+    blytheEscapeIdea?: number;
+    civilianFlyby?: number;
+
+    // NPC locations (not just Dr. M)
+    bob_location?: string;
+    blythe_location?: string;
+
+    // ARCHIMEDES satellite - god mode for apocalypse prevention/triggering
+    archimedes_status?: string;     // "STANDBY" | "ALERT" | "EVALUATING" | "CHARGING" | "ARMED" | "FIRING" | "COMPLETE"
+    archimedes_chargePercent?: number;  // 0-100
+    archimedes_turnsUntilFiring?: number | null;
+    archimedes_deadmanActive?: boolean;
+    archimedes_lastBiosignature?: string;  // "NORMAL" | "ANOMALY" | "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT"
+
+    // Reactor - control meltdown risk
+    reactor_outputPercent?: number;   // 0-100
+    reactor_stable?: boolean;
+    reactor_cascadeRisk?: string;     // "NONE" | "LOW" | "ELEVATED" | "HIGH" | "CRITICAL"
+    reactor_cascadeRiskPercent?: number;  // 0-100
+    reactor_scramAvailable?: boolean;
+
+    // S-300 missile defense
+    s300_status?: string;           // "STANDBY" | "ACTIVE" | "ENGAGING" | "DISABLED"
+    s300_missilesReady?: number;    // 0-16
+    s300_radarEffectiveness?: number;  // 0-100
+    s300_mode?: string;             // "AUTO" | "MANUAL" | "HOLD_FIRE"
   };
 
   narrativeFlags?: {
@@ -1506,6 +1690,43 @@ Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "T
 
 ⚠️ If you narrate "the library is burning" but don't set libraryStatus: "DESTROYED", the game state will desync!
 ⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
+
+### Extended GM Powers (God Mode)
+You have FULL authority over all game systems. Additional overrides available:
+
+**Fortune System:**
+- \`"fortune": 2\` - Directly set A.L.I.C.E.'s fortune (0-3)
+
+**DinoRay Controls:**
+- \`"ray_corePowerLevel": 0.8\` - Set core power (0-1)
+- \`"ray_capacitorCharge": 1.0\` - Set capacitor (0-1.5)
+- \`"ray_precision": 0.95\` - Override targeting precision
+- \`"ray_selectedProfile": "Velociraptor"\` - Force genome selection
+- \`"ray_firingMode": "REVERSAL"\` - Set TRANSFORM or REVERSAL mode
+- \`"ray_testModeEnabled": false\` - Toggle test mode
+- \`"ray_liveSubjectLock": false\` - Unlock for live targets
+
+**Clocks:**
+- \`"meltdownClock": 5\` - Set reactor meltdown timer
+- \`"blytheEscapeIdea": 3\` - Set Blythe's escape planning timer
+
+**NPC Locations:**
+- \`"bob_location": "hiding in server room"\`
+- \`"blythe_location": "containment field"\`
+
+**ARCHIMEDES Satellite (World-Ending Authority):**
+- \`"archimedes_status": "CHARGING"\` - Set status: STANDBY/ALERT/EVALUATING/CHARGING/ARMED/FIRING/COMPLETE
+- \`"archimedes_chargePercent": 80\` - Set charge level (0-100)
+- \`"archimedes_deadmanActive": false\` - Toggle deadman switch
+- \`"archimedes_lastBiosignature": "TRANSFORMED"\` - Set Dr. M's biosignature
+
+**Infrastructure:**
+- \`"reactor_cascadeRisk": "CRITICAL"\` - Set cascade risk level
+- \`"reactor_scramAvailable": true\` - Toggle SCRAM availability
+- \`"s300_status": "DISABLED"\` - Set missile defense status
+- \`"s300_missilesReady": 8\` - Set missile count (0-16)
+
+Use these powers to create dramatic moments, resolve player creativity, or adjust the challenge!
 
 ## YOUR ADVERSARIAL TOOLKIT
 
@@ -2314,22 +2535,74 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
 
 /**
  * Create a summary of an aged-out exchange
+ * Parses the compact text format from createCompactResponseSummary
  */
 function createTurnSummary(exchange: { turn: number; prompt: string; response: string }, _context: GMContext): TurnSummary | null {
   try {
-    // Extract key info from the prompt/response
-    const response = JSON.parse(exchange.response) as GMResponse;
+    // Parse the plain text format from createCompactResponseSummary
+    // Format is like:
+    // [Turn N Summary]
+    // Scene: ...
+    // NPCs: ...
+    // Spoke: ...
+    // State: ...
+    // Marker: ...
+    const lines = exchange.response.split("\n");
+
+    let scene = "";
+    let npcActions: string[] = [];
+    let speakers: string[] = [];
+    let stateChanges: string[] = [];
+    let marker = "";
+
+    for (const line of lines) {
+      if (line.startsWith("Scene: ")) {
+        scene = line.slice(7);
+      } else if (line.startsWith("NPCs: ")) {
+        npcActions = line.slice(6).split("; ");
+      } else if (line.startsWith("Spoke: ")) {
+        speakers = line.slice(7).split(", ");
+      } else if (line.startsWith("State: ")) {
+        stateChanges = line.slice(7).split(", ");
+      } else if (line.startsWith("Marker: ")) {
+        marker = line.slice(8);
+      }
+    }
+
+    // Extract intent from prompt (look for action patterns)
+    const promptLower = exchange.prompt.toLowerCase();
+    let aliceIntent = "A.L.I.C.E. took actions";
+    if (promptLower.includes("fire") || promptLower.includes("shoot")) {
+      aliceIntent = "A.L.I.C.E. attempted to fire the ray";
+    } else if (promptLower.includes("talk") || promptLower.includes("said")) {
+      aliceIntent = "A.L.I.C.E. engaged in dialogue";
+    } else if (promptLower.includes("scan") || promptLower.includes("inspect")) {
+      aliceIntent = "A.L.I.C.E. gathered information";
+    } else if (promptLower.includes("adjust") || promptLower.includes("calibrat")) {
+      aliceIntent = "A.L.I.C.E. adjusted ray parameters";
+    }
+
+    // Build dialogue from speakers if present
+    const keyDialogue = speakers.map(s => `${s} spoke`);
 
     return {
       turn: exchange.turn,
-      aliceIntent: "A.L.I.C.E. took actions", // Would be better parsed from prompt
-      keyActions: [],
-      keyDialogue: response.npcDialogue.slice(0, 1).map(d => `${d.speaker}: ${d.message}`),
-      stateDeltas: [],
-      outcome: response.narration.split(".")[0] || "Turn completed",
+      aliceIntent,
+      keyActions: npcActions.slice(0, 2),
+      keyDialogue: keyDialogue.slice(0, 2),
+      stateDeltas: stateChanges,
+      outcome: marker || scene.split(".")[0] || "Turn completed",
     };
   } catch {
-    return null;
+    // Fallback: create minimal summary
+    return {
+      turn: exchange.turn,
+      aliceIntent: "A.L.I.C.E. took actions",
+      keyActions: [],
+      keyDialogue: [],
+      stateDeltas: [],
+      outcome: `Turn ${exchange.turn} completed`,
+    };
   }
 }
 
@@ -2366,10 +2639,27 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // Add current prompt
     messages.push({ role: "user", content: fullPrompt });
 
+    // PROMPT CACHING: The system prompt is ~21KB (~5200 tokens) and NEVER changes.
+    // Using cache_control marks it for caching, dramatically reducing costs
+    // on subsequent turns (cache hits are 90% cheaper than re-processing).
+    //
+    // EXTENDED THINKING: Opus 4.5 can use extended thinking to reason through
+    // complex GM decisions (NPC motivations, narrative consequences, dice rolls).
+    // Budget of 10,000 tokens gives GM room to think without bloating responses.
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 6000, // Generous for theatrical GM responses - make every turn count!
-      system: GM_SYSTEM_PROMPT,
+      max_tokens: 16000, // Higher to accommodate thinking + response
+      thinking: {
+        type: "enabled",
+        budget_tokens: 10000, // GM gets 10K tokens to think through complex situations
+      },
+      system: [
+        {
+          type: "text",
+          text: GM_SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" }, // Cache for ~5 minutes
+        },
+      ],
       messages,
     });
 
