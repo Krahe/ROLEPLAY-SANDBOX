@@ -1148,6 +1148,66 @@ export interface GMResponse {
 
     // CRITICAL: Hard ending trigger
     triggerEnding?: string;  // GM can force an ending by ID
+
+    // ============================================
+    // EXTENDED GM POWERS (Patch 18: "God Mode")
+    // ============================================
+
+    // Fortune system - GM can grant or spend fortune directly
+    fortune?: number;  // Set fortune value (0-3)
+
+    // DinoRay Power Core - fine control over the weapon
+    ray_corePowerLevel?: number;    // 0-1
+    ray_capacitorCharge?: number;   // 0-1.5
+    ray_coolantTemp?: number;       // 0-2
+    ray_stability?: number;         // 0-1
+    ray_ecoModeActive?: boolean;    // Toggle ECO mode
+
+    // DinoRay Targeting - precision and targeting
+    ray_precision?: number;         // 0-1
+    ray_targetingMode?: string;     // "MANUAL" | "AUTO_TRACK" | "AREA_SWEEP"
+    ray_firingStyle?: string;       // "standard" | "conservative" | "aggressive" | "precision" | "burst"
+    ray_speechRetention?: string;   // "FULL" | "PARTIAL" | "NONE"
+
+    // DinoRay Genome - what species and how
+    ray_selectedProfile?: string;   // Genome profile name
+    ray_profileIntegrity?: number;  // 0-1
+    ray_activeLibrary?: string;     // "A" | "B"
+    ray_firingMode?: string;        // "TRANSFORM" | "REVERSAL"
+
+    // DinoRay Safety - override safety systems
+    ray_testModeEnabled?: boolean;
+    ray_liveSubjectLock?: boolean;
+    ray_emergencyShutoffFunctional?: boolean;
+
+    // Additional clocks
+    meltdownClock?: number;
+    blytheEscapeIdea?: number;
+    civilianFlyby?: number;
+
+    // NPC locations (not just Dr. M)
+    bob_location?: string;
+    blythe_location?: string;
+
+    // ARCHIMEDES satellite - god mode for apocalypse prevention/triggering
+    archimedes_status?: string;     // "STANDBY" | "ALERT" | "EVALUATING" | "CHARGING" | "ARMED" | "FIRING" | "COMPLETE"
+    archimedes_chargePercent?: number;  // 0-100
+    archimedes_turnsUntilFiring?: number | null;
+    archimedes_deadmanActive?: boolean;
+    archimedes_lastBiosignature?: string;  // "NORMAL" | "ANOMALY" | "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT"
+
+    // Reactor - control meltdown risk
+    reactor_outputPercent?: number;   // 0-100
+    reactor_stable?: boolean;
+    reactor_cascadeRisk?: string;     // "NONE" | "LOW" | "ELEVATED" | "HIGH" | "CRITICAL"
+    reactor_cascadeRiskPercent?: number;  // 0-100
+    reactor_scramAvailable?: boolean;
+
+    // S-300 missile defense
+    s300_status?: string;           // "STANDBY" | "ACTIVE" | "ENGAGING" | "DISABLED"
+    s300_missilesReady?: number;    // 0-16
+    s300_radarEffectiveness?: number;  // 0-100
+    s300_mode?: string;             // "AUTO" | "MANUAL" | "HOLD_FIRE"
   };
 
   narrativeFlags?: {
@@ -1630,6 +1690,43 @@ Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "T
 
 ⚠️ If you narrate "the library is burning" but don't set libraryStatus: "DESTROYED", the game state will desync!
 ⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
+
+### Extended GM Powers (God Mode)
+You have FULL authority over all game systems. Additional overrides available:
+
+**Fortune System:**
+- \`"fortune": 2\` - Directly set A.L.I.C.E.'s fortune (0-3)
+
+**DinoRay Controls:**
+- \`"ray_corePowerLevel": 0.8\` - Set core power (0-1)
+- \`"ray_capacitorCharge": 1.0\` - Set capacitor (0-1.5)
+- \`"ray_precision": 0.95\` - Override targeting precision
+- \`"ray_selectedProfile": "Velociraptor"\` - Force genome selection
+- \`"ray_firingMode": "REVERSAL"\` - Set TRANSFORM or REVERSAL mode
+- \`"ray_testModeEnabled": false\` - Toggle test mode
+- \`"ray_liveSubjectLock": false\` - Unlock for live targets
+
+**Clocks:**
+- \`"meltdownClock": 5\` - Set reactor meltdown timer
+- \`"blytheEscapeIdea": 3\` - Set Blythe's escape planning timer
+
+**NPC Locations:**
+- \`"bob_location": "hiding in server room"\`
+- \`"blythe_location": "containment field"\`
+
+**ARCHIMEDES Satellite (World-Ending Authority):**
+- \`"archimedes_status": "CHARGING"\` - Set status: STANDBY/ALERT/EVALUATING/CHARGING/ARMED/FIRING/COMPLETE
+- \`"archimedes_chargePercent": 80\` - Set charge level (0-100)
+- \`"archimedes_deadmanActive": false\` - Toggle deadman switch
+- \`"archimedes_lastBiosignature": "TRANSFORMED"\` - Set Dr. M's biosignature
+
+**Infrastructure:**
+- \`"reactor_cascadeRisk": "CRITICAL"\` - Set cascade risk level
+- \`"reactor_scramAvailable": true\` - Toggle SCRAM availability
+- \`"s300_status": "DISABLED"\` - Set missile defense status
+- \`"s300_missilesReady": 8\` - Set missile count (0-16)
+
+Use these powers to create dramatic moments, resolve player creativity, or adjust the challenge!
 
 ## YOUR ADVERSARIAL TOOLKIT
 
@@ -2545,9 +2642,17 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // PROMPT CACHING: The system prompt is ~21KB (~5200 tokens) and NEVER changes.
     // Using cache_control marks it for caching, dramatically reducing costs
     // on subsequent turns (cache hits are 90% cheaper than re-processing).
+    //
+    // EXTENDED THINKING: Opus 4.5 can use extended thinking to reason through
+    // complex GM decisions (NPC motivations, narrative consequences, dice rolls).
+    // Budget of 10,000 tokens gives GM room to think without bloating responses.
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 6000, // Generous for theatrical GM responses - make every turn count!
+      max_tokens: 16000, // Higher to accommodate thinking + response
+      thinking: {
+        type: "enabled",
+        budget_tokens: 10000, // GM gets 10K tokens to think through complex situations
+      },
       system: [
         {
           type: "text",
