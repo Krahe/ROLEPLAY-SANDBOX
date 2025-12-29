@@ -83,3 +83,87 @@ export function formatStatusBarCompact(state: FullGameState): string {
 
   return `T${state.turn} Sus:${sus} Cap:${cap}% Demo:${demo}`;
 }
+
+/**
+ * Format status bar for GM (Opus 4.5) - includes hidden state and trends
+ * Example:
+ * 📊 T12/ACT2 | Sus:3 (ego:2) | Demo:2 | Bob:ALLIED(5) Blythe:WARY(2) | Ray:READY@95%
+ * 🎯 Clocks: Demo(2) Melt(5) | DrM:impatient @lab | Fortune:2
+ */
+export function formatGMStatusBar(state: FullGameState): string {
+  const lines: string[] = [];
+
+  // Line 1: Core state
+  const parts1: string[] = [];
+
+  // Turn/Act
+  const actName = state.actConfig?.currentAct || "ACT_1";
+  const actNum = actName.replace("ACT_", "");
+  parts1.push(`📊 T${state.turn}/ACT${actNum}`);
+
+  // Suspicion with ego threat
+  const sus = state.npcs.drM.suspicionScore;
+  const ego = state.npcs.drM.egoThreatLevel || 0;
+  parts1.push(`Sus:${sus}${ego > 0 ? ` (ego:${ego})` : ""}`);
+
+  // Demo clock
+  parts1.push(`Demo:${state.clocks.demoClock}`);
+
+  // NPC alliance status (compact)
+  const bobTrust = state.npcs.bob.trustInALICE;
+  const bobStatus = bobTrust >= 4 ? "ALLIED" : bobTrust >= 2 ? "FRIENDLY" : bobTrust >= 0 ? "NEUTRAL" : "HOSTILE";
+  const blytheTrust = state.npcs.blythe.trustInALICE;
+  const blytheStatus = blytheTrust >= 4 ? "ALLIED" : blytheTrust >= 2 ? "FRIENDLY" : blytheTrust >= 0 ? "WARY" : "HOSTILE";
+  parts1.push(`Bob:${bobStatus}(${bobTrust}) Blythe:${blytheStatus}(${blytheTrust})`);
+
+  // Ray state
+  const rayState = state.dinoRay.state;
+  const cap = Math.round(state.dinoRay.powerCore.capacitorCharge * 100);
+  parts1.push(`Ray:${rayState}@${cap}%`);
+
+  lines.push(parts1.join(" | "));
+
+  // Line 2: Clocks, Dr. M location/mood, fortune
+  const parts2: string[] = [];
+
+  // Active clocks
+  const clocks: string[] = [];
+  clocks.push(`Demo(${state.clocks.demoClock})`);
+  if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock > 0) {
+    clocks.push(`Melt(${state.clocks.meltdownClock})`);
+  }
+  if (state.clocks.civilianFlyby !== undefined && state.clocks.civilianFlyby > 0) {
+    clocks.push(`Flyby(${state.clocks.civilianFlyby})`);
+  }
+  if (state.infrastructure?.archimedes?.status !== "STANDBY") {
+    const arch = state.infrastructure.archimedes;
+    clocks.push(`ARCH:${arch.status}(${arch.turnsUntilFiring ?? "?"})`);
+  }
+  parts2.push(`🎯 Clocks: ${clocks.join(" ")}`);
+
+  // Dr. M location and mood (critical for GM)
+  const drMLocation = state.npcs.drM.location || "lab";
+  const drMMood = state.npcs.drM.mood || "focused";
+  parts2.push(`DrM:${drMMood} @${drMLocation}`);
+
+  // Fortune (affects GM rolls)
+  if (state.fortune && state.fortune > 0) {
+    parts2.push(`Fortune:${state.fortune}`);
+  }
+
+  // Bob anxiety (affects his behavior)
+  const bobAnxiety = state.npcs.bob.anxietyLevel;
+  if (bobAnxiety >= 3) {
+    parts2.push(`Bob:ANXIOUS(${bobAnxiety})`);
+  }
+
+  // Blythe restraints (critical for escape plots)
+  const restraints = state.npcs.blythe.restraintsStatus;
+  if (restraints !== "secure") {
+    parts2.push(`Blythe:${restraints}`);
+  }
+
+  lines.push(parts2.join(" | "));
+
+  return lines.join("\n");
+}
