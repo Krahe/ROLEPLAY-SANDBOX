@@ -255,7 +255,8 @@ function getInfraControlKey(cmd: string): string | null {
 export interface ActionResult {
   command: string;
   success: boolean;
-  message: string;
+  message: string;              // Full technical message for A.L.I.C.E.
+  shortMessage?: string;        // Compact summary for human display (UI/UX v2.0)
   stateChanges?: Record<string, unknown>;
 }
 
@@ -390,10 +391,18 @@ infra.query is an action. game_query_basilisk is a tool.`,
       ? "✅ Ray calibration thresholds met - will transition to READY at end of turn."
       : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
 
+    // Short param names for compact display
+    const shortParam = param.replace('capacitorCharge', 'capacitor')
+                            .replace('spatialCoherence', 'coherence')
+                            .replace('corePowerLevel', 'power');
+    const oldPct = Math.round((oldValue as number) * 100);
+    const newPct = Math.round(clampedValue * 100);
+
     return {
       command: action.command,
       success: true,
       message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}\n\n${calibrationNote}`,
+      shortMessage: `${shortParam}: ${oldPct}% → ${newPct}%`,
       stateChanges: { [param]: { old: oldValue, new: clampedValue }, rayState: state.dinoRay.state },
     };
   }
@@ -421,6 +430,7 @@ Ray state: ${previousState} → READY
 The Dinosaur Ray is now ready to fire!
 
 Use lab.configure_firing_profile to set your target, then lab.fire to discharge.`,
+        shortMessage: `calibrated → READY`,
         stateChanges: { rayState: "READY", previousState },
       };
     } else {
@@ -854,10 +864,11 @@ ${formatFileList(state)}`,
 Dr. M may call them "overgrown chickens" but they're honest science.`
         : `Genome Library B selected. Profiles will be "classic" movie-style dinosaurs.
 Dr. M will be DELIGHTED. But is feeding her ego the right choice?`,
+      shortMessage: `library: ${library} (${library === "A" ? "feathered" : "classic"})`,
       stateChanges: { activeLibrary: library, selectedProfile: state.dinoRay.genome.selectedProfile },
     };
   }
-  
+
   // ============================================
   // SET_SPEECH_RETENTION - Transformation Parameter
   // ============================================
@@ -1445,10 +1456,18 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeN
       firingResult.narrativeHooks.forEach(h => messageParts.push(`• ${h}`));
     }
 
+    // Compact short message for human display
+    const shortTarget = firingTargetId.replace('AGENT_', '').replace('_', ' ');
+    const shortOutcome = firingResult.outcome === "FULL_DINO" ? firingResult.effectiveProfile :
+                         firingResult.outcome === "PARTIAL" ? "partial" :
+                         firingResult.outcome === "FIZZLE" ? "FIZZLE!" :
+                         firingResult.outcome;
+
     return {
       command: action.command,
       success: firingResult.outcome !== "FIZZLE",
       message: messageParts.join("\n"),
+      shortMessage: `FIRED → ${shortTarget} (${shortOutcome})`,
       stateChanges: {
         firingResult: {
           outcome: firingResult.outcome,
@@ -1461,7 +1480,7 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeN
       },
     };
   }
-  
+
   // ============================================
   // LAB.INSPECT_LOGS
   // ============================================

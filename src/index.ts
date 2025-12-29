@@ -88,6 +88,7 @@ import {
   formatSessionAchievementSummary,
 } from "./rules/achievements.js";
 import { formatStatusBar } from "./ui/statusBar.js";
+import { formatActionSummary } from "./ui/actionSummary.js";
 
 // ============================================
 // SERVER SETUP
@@ -1623,10 +1624,8 @@ Turns played: ${gameState.turn}
       const v2Size = compressedJSON.length;
       console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. v1.0=${v1Size} chars, v2.0=${v2Size} chars (${Math.round(v2Size/v1Size*100)}%)`);
 
-      // Compact action summary for checkpoint display
-      const actionSummary = actionResults.length > 0
-        ? actionResults.map(r => `${r.success ? "✅" : "❌"} ${r.command.split('.').pop()}`).join(", ")
-        : "No actions";
+      // Compact action summary for checkpoint display (UI/UX v2.0)
+      const actionSummary = formatActionSummary(actionResults);
 
       // Format dialogue for display
       const dialogueDisplay = gmResponse.npcDialogue && gmResponse.npcDialogue.length > 0
@@ -1880,10 +1879,8 @@ You can:
     // BUILD RESPONSE (UI/UX v2.0 - Narrative First!)
     // ═══════════════════════════════════════════════════
 
-    // Compact action summary for human readability
-    const actionSummary = actionResults.length > 0
-      ? actionResults.map(r => `${r.success ? "✅" : "❌"} ${r.command.split('.').pop()}`).join(", ")
-      : undefined;
+    // Compact action summary for human readability (UI/UX v2.0)
+    const actionSummary = formatActionSummary(actionResults);
 
     // Format dialogue for prominent display
     const dialogueDisplay = gmResponse.npcDialogue && gmResponse.npcDialogue.length > 0
