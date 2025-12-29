@@ -10,14 +10,17 @@ import { FullGameState } from "../state/schema.js";
 
 /**
  * Format the status bar for human-readable display
+ * @param state - The full game state
+ * @param turnOverride - Optional turn number to display (for showing completed turn instead of next turn)
  */
-export function formatStatusBar(state: FullGameState): string {
+export function formatStatusBar(state: FullGameState, turnOverride?: number): string {
   const parts: string[] = [];
 
   // 🎭 Turn/Act
   const actName = state.actConfig?.currentAct || "ACT_1";
   const actNum = actName.replace("ACT_", "");
-  parts.push(`🎭 T${state.turn}/ACT${actNum}`);
+  const displayTurn = turnOverride !== undefined ? turnOverride : state.turn;
+  parts.push(`🎭 T${displayTurn}/ACT${actNum}`);
 
   // 😈 Suspicion with color indicator
   const sus = state.npcs.drM.suspicionScore;
