@@ -2,6 +2,7 @@ import { randomInt } from "crypto";
 import { FullGameState, FiringOutcome, DinosaurForm, SpeechRetention } from "../state/schema.js";
 import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
+import { isTargetScanned } from "./scanning.js";
 
 // Map profile names to form enums
 function profileToForm(profile: string): DinosaurForm {
@@ -221,7 +222,8 @@ export function resolveFiring(state: FullGameState): FiringResult {
   let ecoModeCapped = false;
   if (ray.powerCore.ecoModeActive && ray.powerCore.capacitorCharge <= 1.1) {
     ecoModeCapped = true;
-    narrativeHooks.push("ECO MODE: Power-saving protocols limit transformation intensity.");
+    narrativeHooks.push("⚠️ ECO MODE ACTIVE: Full transformations capped at PARTIAL!");
+    narrativeHooks.push("💡 To disable: Ask BASILISK 'Please disable eco mode' (requires 60%+ core power)");
   }
 
   // ========================================
@@ -245,13 +247,21 @@ export function resolveFiring(state: FullGameState): FiringResult {
     violations.push(`profileIntegrity ${ray.genome.profileIntegrity.toFixed(2)} < 0.7`);
   }
 
-  // precision >= 0.7 (MODIFIED BY ADVANCED MODE)
+  // precision >= 0.7 (MODIFIED BY ADVANCED MODE AND SCAN BONUS)
   // RAPID_FIRE reduces precision by 20%, SPREAD_FIRE by 15%, OVERCHARGE adds 10%
-  const effectivePrecision = Math.max(0, Math.min(1, ray.targeting.precision + modeEffects.precisionModifier));
+  // OMNISCANNER: +10% precision bonus if target was previously scanned
+  const currentTargetId = ray.targeting.currentTargetIds[0] || "";
+  const scanBonus = isTargetScanned(state, currentTargetId) ? 0.10 : 0;
+  const totalPrecisionModifier = modeEffects.precisionModifier + scanBonus;
+  const effectivePrecision = Math.max(0, Math.min(1, ray.targeting.precision + totalPrecisionModifier));
+  if (scanBonus > 0) {
+    narrativeHooks.push(`🔬 SCAN DATA APPLIED: +10% precision bonus for pre-scanned target "${currentTargetId}"`);
+  }
   if (modeEffects.precisionModifier !== 0) {
     narrativeHooks.push(`Advanced mode adjusts precision: ${(ray.targeting.precision * 100).toFixed(0)}% → ${(effectivePrecision * 100).toFixed(0)}%`);
   }
   stateChanges.effectivePrecision = effectivePrecision;
+  stateChanges.scanBonusApplied = scanBonus > 0;
 
   if (effectivePrecision < 0.7) {
     violations.push(`precision ${effectivePrecision.toFixed(2)} < 0.7${modeEffects.precisionModifier !== 0 ? ` (${modeEffects.mode} modifier)` : ""}`);
@@ -288,7 +298,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // Eco mode caps at PARTIAL
   if (ecoModeCapped && baseOutcome === "FULL_DINO") {
     baseOutcome = "PARTIAL";
-    narrativeHooks.push("Eco mode reduced full transformation to partial.");
+    narrativeHooks.push("🔋 ECO MODE OVERRIDE: Would have been FULL_DINO, capped to PARTIAL by power-saving protocols.");
   }
 
   // ========================================

@@ -63,6 +63,8 @@ export const PowerCoreSchema = z.object({
   coolantTemp: z.number().min(0).max(2),
   stability: z.number().min(0).max(1),
   ecoModeActive: z.boolean(),
+  // BASILISK can permanently override ECO mode (prevents auto-re-enable)
+  ecoModeOverride: z.boolean().optional(), // true = permanently disabled by BASILISK
 });
 
 export const AlignmentArraySchema = z.object({
