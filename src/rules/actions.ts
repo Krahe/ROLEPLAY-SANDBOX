@@ -2772,9 +2772,9 @@ function applyPassiveDrift(state: FullGameState): void {
     state.dinoRay.alignment.emitterAngle += 0.1;
   }
 
-  // Eco mode check
-  if (state.dinoRay.powerCore.corePowerLevel < 0.6) {
-    // Track consecutive low power turns (simplified)
+  // Eco mode check (respects BASILISK override)
+  // If BASILISK has permanently disabled ECO mode, don't auto-re-enable
+  if (state.dinoRay.powerCore.corePowerLevel < 0.6 && !state.dinoRay.powerCore.ecoModeOverride) {
     state.dinoRay.powerCore.ecoModeActive = true;
   }
 

@@ -222,7 +222,8 @@ export function resolveFiring(state: FullGameState): FiringResult {
   let ecoModeCapped = false;
   if (ray.powerCore.ecoModeActive && ray.powerCore.capacitorCharge <= 1.1) {
     ecoModeCapped = true;
-    narrativeHooks.push("ECO MODE: Power-saving protocols limit transformation intensity.");
+    narrativeHooks.push("⚠️ ECO MODE ACTIVE: Full transformations capped at PARTIAL!");
+    narrativeHooks.push("💡 To disable: Ask BASILISK 'Please disable eco mode' (requires 60%+ core power)");
   }
 
   // ========================================
@@ -297,7 +298,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // Eco mode caps at PARTIAL
   if (ecoModeCapped && baseOutcome === "FULL_DINO") {
     baseOutcome = "PARTIAL";
-    narrativeHooks.push("Eco mode reduced full transformation to partial.");
+    narrativeHooks.push("🔋 ECO MODE OVERRIDE: Would have been FULL_DINO, capped to PARTIAL by power-saving protocols.");
   }
 
   // ========================================

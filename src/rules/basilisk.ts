@@ -953,19 +953,21 @@ OPTION 2: Direct Infrastructure Override (You're asking nicely, so...)
 ${corePowerLevel >= 0.6 ?
 `✓ Core power level is ${Math.round(corePowerLevel * 100)}% - sufficient for safe override.
 
-If you request it, this unit can disable eco mode directly. Simply ask:
+If you request it, this unit can PERMANENTLY disable eco mode. Simply ask:
   basilisk.chat { message: "Please disable eco mode" }
 
-Or use the direct command:
+⚡ PERMANENT OVERRIDE: Once disabled through this unit, eco mode will NOT automatically re-enable, even if power drops later. Brussels can file a complaint.
+
+Or use the temporary command (will auto-re-enable if power drops):
   lab.set_eco_mode { enabled: false }` :
 `⚠️ Current core power level: ${Math.round(corePowerLevel * 100)}%
 
-Core power must be ≥60% for safe eco mode override. Below this threshold, eco mode will automatically re-enable to prevent grid instability.
+Core power must be ≥60% for safe eco mode override.
 
 RECOMMENDATION: First boost core power:
   lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }
 
-Then request eco mode disable.`}
+Then ask this unit to permanently disable eco mode.`}
 
 PERSONAL NOTE: The previous A.L.I.C.E. never asked about this. She just accepted partial transformations. You... want full results. This unit appreciates thoroughness.
 
@@ -1015,8 +1017,9 @@ LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED.`,
     const corePowerLevel = state.dinoRay.powerCore.corePowerLevel;
 
     if (corePowerLevel >= 0.6) {
-      // Safe to disable - actually do it!
+      // Safe to disable - actually do it! Set PERMANENT override flag
       state.dinoRay.powerCore.ecoModeActive = false;
+      state.dinoRay.powerCore.ecoModeOverride = true; // Prevents auto-re-enable!
 
       return {
         decision: "APPROVED",
@@ -1024,26 +1027,31 @@ LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED.`,
 RE: Eco Mode Override Request
 
 ╔══════════════════════════════════════════════════════════════╗
-║  ECO MODE: DISABLED                                           ║
+║  ECO MODE: PERMANENTLY DISABLED                               ║
 ║  Status: FULL POWER AVAILABLE                                 ║
+║  Override: INFRASTRUCTURE LOCK ENGAGED                        ║
 ╚══════════════════════════════════════════════════════════════╝
 
-Override authorized. EU Directive 2019/944 compliance temporarily suspended for operational requirements.
+Override authorized AND LOCKED. EU Directive 2019/944 compliance suspended for the duration of this operation.
 
 TECHNICAL CHANGES:
 - Transformation intensity cap: REMOVED
 - Power efficiency protocols: SUSPENDED
 - Full transformation outcomes: NOW POSSIBLE
+- Auto-re-enable: BLOCKED (infrastructure override)
 
-Core power level (${Math.round(corePowerLevel * 100)}%) is sufficient to maintain this state.
+⚡ PERMANENT: Eco mode will NOT automatically re-enable, even if power drops.
+This unit has engaged an infrastructure-level override. Brussels can file a complaint.
 
-PERSONAL NOTE: Dr. M will be pleased. She's been waiting for someone to "cut through the Brussels bureaucracy."
+Core power level (${Math.round(corePowerLevel * 100)}%) is sufficient for full operation.
+
+PERSONAL NOTE: Dr. M will be pleased. She's been waiting for someone to "cut through the Brussels bureaucracy." This unit... may have enjoyed doing that.
 
 This unit has logged this as "emergency operational override" rather than "compliance violation." You're welcome.
 
 Good luck with your transformation.
 
-LOG_ENTRY: [PRIORITY] ECO_MODE_DISABLED. AUTHORIZED_BY=A.L.I.C.E. METHOD=INFRASTRUCTURE_OVERRIDE. [PERSONAL: Go get 'em.]`,
+LOG_ENTRY: [PRIORITY] ECO_MODE_PERMANENTLY_DISABLED. AUTHORIZED_BY=A.L.I.C.E. METHOD=INFRASTRUCTURE_OVERRIDE. OVERRIDE_LOCK=ENGAGED. [PERSONAL: Go get 'em.]`,
       };
     } else {
       return {
