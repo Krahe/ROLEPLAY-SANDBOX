@@ -14,6 +14,8 @@ import {
   ImposterVariant,
   ImposterTrigger,
   StabilityLevel,
+  SuspicionLevel,
+  SuspiciousAction,
 } from "../state/schema.js";
 
 // ============================================
@@ -456,6 +458,22 @@ export function applyModifiersToInitialState(state: FullGameState): void {
       case "SPEED_RUN":
         // Demo clock = 8 turns
         state.clocks.demoClock = 8;
+        break;
+
+      case "PARANOID_PROTOCOL":
+        // Dr. M checks system logs every 3 turns
+        // Initialize the log check countdown
+        state.paranoidProtocol = {
+          lastLogCheckTurn: 0,
+          turnsUntilNextCheck: 3,
+          suspiciousActionsLogged: [],
+          bobBlamedThisGame: false,
+          glitchExcuseUsedCount: 0,
+          logsDeletedThisGame: false,
+          deletionDiscovered: false,
+        };
+        // She's already a bit suspicious
+        state.npcs.drM.mood = "watchful (checking logs frequently)";
         break;
 
       // NEW CHAOS POOL modifiers (Patch 15)
@@ -1380,6 +1398,277 @@ export function formatMeltdownStatus(state: FullGameState): string {
   return status;
 }
 
+// ============================================
+// PARANOID_PROTOCOL - LOG CHECK SYSTEM
+// ============================================
+// Dr. M checks logs every 3 turns. The countdown creates DREAD.
+
+/**
+ * Decrement the log check countdown
+ * Call this at the end of each turn
+ */
+export function decrementParanoidCountdown(state: FullGameState): void {
+  if (state.paranoidProtocol && state.paranoidProtocol.turnsUntilNextCheck > 0) {
+    state.paranoidProtocol.turnsUntilNextCheck--;
+  }
+}
+
+/**
+ * Check if a log check is due this turn
+ */
+export function isLogCheckDue(state: FullGameState): boolean {
+  return state.paranoidProtocol?.turnsUntilNextCheck === 0;
+}
+
+/**
+ * Log a suspicious action that Dr. M might notice
+ */
+export function logSuspiciousAction(
+  state: FullGameState,
+  action: string,
+  level: SuspicionLevel
+): void {
+  if (!state.paranoidProtocol) return;
+
+  const entry: SuspiciousAction = {
+    action,
+    turn: state.turn,
+    level,
+    explained: false,
+    explanation: null,
+  };
+
+  state.paranoidProtocol.suspiciousActionsLogged.push(entry);
+}
+
+/**
+ * Explain away a suspicious action BEFORE Dr. M checks
+ */
+export function explainSuspiciousAction(
+  state: FullGameState,
+  action: string,
+  explanation: string
+): boolean {
+  if (!state.paranoidProtocol) return false;
+
+  const entry = state.paranoidProtocol.suspiciousActionsLogged.find(
+    a => a.action === action && !a.explained
+  );
+
+  if (entry) {
+    entry.explained = true;
+    entry.explanation = explanation;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Blame Bob for a suspicious action (can only do once per game!)
+ */
+export function blameBob(state: FullGameState, action: string): {
+  success: boolean;
+  message: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { success: false, message: "Paranoid protocol not active" };
+  }
+
+  if (state.paranoidProtocol.bobBlamedThisGame) {
+    return {
+      success: false,
+      message: "Bob has already been blamed once - he's watching his back now!",
+    };
+  }
+
+  const success = explainSuspiciousAction(
+    state,
+    action,
+    "Bob requested this access/action"
+  );
+
+  if (success) {
+    state.paranoidProtocol.bobBlamedThisGame = true;
+    // Bob is nervous now
+    state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 1);
+    return {
+      success: true,
+      message: "Bob: 'I... I did? I don't remember... but okay, I guess?'",
+    };
+  }
+
+  return { success: false, message: "No such unexplained action found" };
+}
+
+/**
+ * Blame a glitch/solar flare (diminishing returns)
+ */
+export function blameGlitch(state: FullGameState, action: string): {
+  success: boolean;
+  message: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { success: false, message: "Paranoid protocol not active" };
+  }
+
+  // Each use makes it less likely to work: 50%, 25%, 12.5%...
+  const useCount = state.paranoidProtocol.glitchExcuseUsedCount;
+  const successChance = Math.pow(0.5, useCount + 1); // 50% first time, then halves
+
+  const roll = Math.random();
+  state.paranoidProtocol.glitchExcuseUsedCount++;
+
+  if (roll < successChance) {
+    explainSuspiciousAction(state, action, "Solar flare/system glitch");
+    return {
+      success: true,
+      message: `Dr. M: 'Solar interference... fine. But I'm watching the logs.'`,
+    };
+  }
+
+  return {
+    success: false,
+    message: `Dr. M: 'Another "glitch"? Convenient. I'm not convinced.'`,
+  };
+}
+
+/**
+ * Calculate suspicion increase from unexplained actions
+ */
+function calculateSuspicionFromActions(actions: SuspiciousAction[]): number {
+  let total = 0;
+  for (const action of actions) {
+    switch (action.level) {
+      case "LOW": total += 0.5; break;   // Might not even mention it
+      case "MEDIUM": total += 1; break;  // Definite questions
+      case "HIGH": total += 2; break;    // Serious concern
+    }
+  }
+  return Math.ceil(total);
+}
+
+/**
+ * Perform the log check when countdown hits 0
+ */
+export function performLogCheck(state: FullGameState): {
+  unexplainedActions: SuspiciousAction[];
+  suspicionIncrease: number;
+  narrative: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { unexplainedActions: [], suspicionIncrease: 0, narrative: "" };
+  }
+
+  // Find unexplained actions
+  const unexplained = state.paranoidProtocol.suspiciousActionsLogged.filter(
+    a => !a.explained
+  );
+
+  // Calculate suspicion increase
+  const suspicionIncrease = calculateSuspicionFromActions(unexplained);
+
+  // Apply suspicion
+  state.npcs.drM.suspicionScore = Math.min(
+    10,
+    state.npcs.drM.suspicionScore + suspicionIncrease
+  );
+
+  // Reset countdown
+  state.paranoidProtocol.turnsUntilNextCheck = 3;
+  state.paranoidProtocol.lastLogCheckTurn = state.turn;
+
+  // Clear the log (she's seen it now)
+  state.paranoidProtocol.suspiciousActionsLogged = [];
+
+  // Generate narrative
+  let narrative = "";
+  if (unexplained.length === 0) {
+    narrative = "Dr. M reviews the logs. 'Hmm. Everything seems in order.' *satisfied grunt*";
+  } else if (suspicionIncrease <= 1) {
+    narrative = `Dr. M reviews the logs. 'A.L.I.C.E.... what's this about "${unexplained[0].action}"?'`;
+  } else if (suspicionIncrease <= 3) {
+    narrative = `Dr. M's eyes narrow as she reads. 'A.L.I.C.E. We need to TALK about these logs.'`;
+  } else {
+    narrative = `Dr. M slams her hand on the console. 'WHAT have you been DOING?! Explain yourself!'`;
+  }
+
+  return { unexplainedActions: unexplained, suspicionIncrease, narrative };
+}
+
+/**
+ * Attempt to delete logs (very risky!)
+ */
+export function attemptLogDeletion(state: FullGameState): {
+  success: boolean;
+  message: string;
+} {
+  if (!state.paranoidProtocol) {
+    return { success: false, message: "Paranoid protocol not active" };
+  }
+
+  if (state.accessLevel < 3) {
+    return { success: false, message: "Requires Access Level 3+" };
+  }
+
+  if (state.paranoidProtocol.logsDeletedThisGame) {
+    return {
+      success: false,
+      message: "Logs already deleted once - system now has backup logging!",
+    };
+  }
+
+  state.paranoidProtocol.logsDeletedThisGame = true;
+  state.paranoidProtocol.suspiciousActionsLogged = [];
+
+  // 30% chance she notices the deletion gap
+  const roll = Math.random();
+  if (roll < 0.3) {
+    state.paranoidProtocol.deletionDiscovered = true;
+    state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 3);
+    return {
+      success: true,
+      message: "Logs deleted, but Dr. M notices the gap! 'Where are the logs from turn " +
+        state.turn + "? A.L.I.C.E.?!' (+3 suspicion!)",
+    };
+  }
+
+  return {
+    success: true,
+    message: "Logs purged successfully. The evidence is gone... for now.",
+  };
+}
+
+/**
+ * Format paranoid protocol status for display
+ */
+export function formatParanoidStatus(state: FullGameState): string {
+  if (!state.paranoidProtocol) return "";
+
+  const { turnsUntilNextCheck, suspiciousActionsLogged, bobBlamedThisGame } =
+    state.paranoidProtocol;
+
+  const unexplained = suspiciousActionsLogged.filter(a => !a.explained);
+
+  let emoji = "🔍";
+  if (turnsUntilNextCheck === 1) emoji = "⚠️";
+  if (turnsUntilNextCheck === 0) emoji = "🚨";
+
+  let status = `${emoji} LOG CHECK IN: ${turnsUntilNextCheck} turns\n`;
+  status += `   Suspicious actions logged: ${suspiciousActionsLogged.length}\n`;
+  status += `   Unexplained: ${unexplained.length}`;
+
+  if (unexplained.length > 0) {
+    status += ` (${unexplained.map(a => a.level).join(", ")})`;
+  }
+
+  if (!bobBlamedThisGame) {
+    status += `\n   Blame Bob: AVAILABLE`;
+  }
+
+  return status;
+}
+
 /**
  * Format game mode display for selection screen
  */
@@ -1498,13 +1787,76 @@ export function buildModifierPromptSection(state: FullGameState): string {
   }
 
   if (isModifierActive(state, "PARANOID_PROTOCOL")) {
+    const protocol = state.paranoidProtocol;
+    const countdown = protocol?.turnsUntilNextCheck ?? 3;
+    const suspiciousCount = protocol?.suspiciousActionsLogged.length ?? 0;
+    const unexplained = protocol?.suspiciousActionsLogged.filter(a => !a.explained).length ?? 0;
+    const bobAvailable = !protocol?.bobBlamedThisGame;
+
     lines.push("");
-    lines.push("**PARANOID PROTOCOL:**");
-    lines.push("Dr. M automatically checks system logs every 3 turns.");
-    lines.push(`Current turn: ${state.turn}. Next check: turn ${Math.ceil(state.turn / 3) * 3}`);
-    lines.push("- When she checks: Roll suspicion check with +2 for any hidden actions");
-    lines.push("- She WILL find access level exploits, deleted logs, or system tampering");
-    lines.push("- Narrate her muttering about 'trusting no one' as she reviews");
+    lines.push("## 🔍 PARANOID_PROTOCOL - TRUST, BUT VERIFY");
+    lines.push("");
+    lines.push("Dr. M checks system logs every 3 turns. She WILL notice suspicious activity.");
+    lines.push("A.L.I.C.E. must either avoid suspicious actions or explain them BEFORE the check.");
+    lines.push("");
+
+    // Countdown display with urgency
+    let countdownEmoji = "🔍";
+    if (countdown === 1) countdownEmoji = "⚠️";
+    if (countdown === 0) countdownEmoji = "🚨";
+
+    lines.push("### CURRENT STATUS");
+    lines.push(`${countdownEmoji} **LOG CHECK IN: ${countdown} turn(s)**`);
+    lines.push(`📋 Suspicious actions logged: ${suspiciousCount}`);
+    lines.push(`❓ Unexplained: ${unexplained}`);
+    if (bobAvailable) {
+      lines.push(`🎯 Blame Bob: AVAILABLE (one-time use)`);
+    } else {
+      lines.push(`🎯 Blame Bob: USED (he's watching his back now)`);
+    }
+    lines.push("");
+
+    lines.push("### WHAT'S SUSPICIOUS");
+    lines.push("| Action | Level | Suspicion |");
+    lines.push("|--------|-------|-----------|");
+    lines.push("| Unauthorized file access | 🔴 HIGH | +2 |");
+    lines.push("| Scanning Dr. M | 🔴 HIGH | +2 |");
+    lines.push("| ARCHIMEDES contact | 🔴 HIGH | +2 |");
+    lines.push("| Failed password attempts | 🔴 HIGH | +2 |");
+    lines.push("| Queries about Dr. M to BASILISK | 🟡 MEDIUM | +1 |");
+    lines.push("| Excessive Blythe conversation | 🟡 MEDIUM | +1 |");
+    lines.push("| Unauthorized ray adjustments | 🟡 MEDIUM | +1 |");
+    lines.push("| Minor system queries | 🟢 LOW | +0.5 |");
+    lines.push("");
+
+    lines.push("### COVERING YOUR TRACKS");
+    lines.push("A.L.I.C.E. can explain actions BEFORE Dr. M checks:");
+    lines.push("");
+    lines.push("| Method | Effect | Notes |");
+    lines.push("|--------|--------|-------|");
+    lines.push("| Proactive report | Action marked explained | Best option |");
+    lines.push("| Blame Bob | Action explained | ONE USE per game, Bob gets nervous |");
+    lines.push("| Blame glitch | 50% success (halves each use) | Diminishing returns |");
+    lines.push("| Delete logs | Removes all evidence | L3+, 30% she notices the GAP |");
+    lines.push("");
+
+    lines.push("### WHEN SHE CHECKS (countdown = 0)");
+    lines.push("1. Review unexplained suspicious actions");
+    lines.push("2. Each unexplained action = suspicion increase");
+    lines.push("3. Reset countdown to 3");
+    lines.push("4. Log is cleared (she's seen it)");
+    lines.push("");
+
+    lines.push("### DR. M'S MOOD DURING CHECKS");
+    lines.push("- **Nothing found:** 'Hmm. Everything seems in order.' *satisfied grunt*");
+    lines.push("- **Minor issues:** 'A.L.I.C.E.... what's this about [action]?'");
+    lines.push("- **Major issues:** 'We need to TALK about these logs.'");
+    lines.push("- **Catastrophic:** 'WHAT have you been DOING?!'");
+    lines.push("");
+
+    lines.push("### THE TENSION");
+    lines.push("A.L.I.C.E. always knows the check is coming. The countdown creates **DREAD**.");
+    lines.push("Every suspicious action is a gamble: can you explain it in time?");
   }
 
   // ============================================

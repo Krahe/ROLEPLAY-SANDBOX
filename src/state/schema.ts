@@ -840,6 +840,46 @@ export const MeltdownStateSchema = z.object({
 export type MeltdownState = z.infer<typeof MeltdownStateSchema>;
 
 // ============================================
+// PARANOID_PROTOCOL - LOG CHECK SYSTEM
+// ============================================
+// Dr. M checks system logs every 3 turns. She WILL notice suspicious activity.
+// A.L.I.C.E. must either avoid suspicious actions or explain them BEFORE the check.
+
+export const SuspicionLevelEnum = z.enum([
+  "LOW",    // Minor concern, might mention it
+  "MEDIUM", // Definite questions, +1 suspicion
+  "HIGH",   // Serious concern, +2-3 suspicion
+]);
+export type SuspicionLevel = z.infer<typeof SuspicionLevelEnum>;
+
+export const SuspiciousActionSchema = z.object({
+  action: z.string(),                    // What A.L.I.C.E. did
+  turn: z.number().int(),                // When it happened
+  level: SuspicionLevelEnum,             // How bad is it
+  explained: z.boolean().default(false), // Has A.L.I.C.E. covered it?
+  explanation: z.string().nullable().default(null), // What excuse was used
+});
+export type SuspiciousAction = z.infer<typeof SuspiciousActionSchema>;
+
+export const ParanoidProtocolStateSchema = z.object({
+  // Countdown tracking
+  lastLogCheckTurn: z.number().int().default(0),
+  turnsUntilNextCheck: z.number().int().min(0).max(3).default(3),
+
+  // Action logging
+  suspiciousActionsLogged: z.array(SuspiciousActionSchema).default([]),
+
+  // Cover story tracking
+  bobBlamedThisGame: z.boolean().default(false), // Can only blame Bob once!
+  glitchExcuseUsedCount: z.number().int().min(0).default(0), // Diminishing returns
+
+  // Log deletion tracking (risky!)
+  logsDeletedThisGame: z.boolean().default(false),
+  deletionDiscovered: z.boolean().default(false),
+});
+export type ParanoidProtocolState = z.infer<typeof ParanoidProtocolStateSchema>;
+
+// ============================================
 // CLOCKS AND FLAGS
 // ============================================
 
@@ -1118,6 +1158,10 @@ export const FullGameStateSchema = z.object({
   // NOT_GREAT_NOT_TERRIBLE STATE (only present when modifier active)
   // The reactor is unstable - Dr. M is the only one who can fix it!
   meltdownState: MeltdownStateSchema.optional(),
+
+  // PARANOID_PROTOCOL STATE (only present when modifier active)
+  // Dr. M checks logs every 3 turns - countdown creates dread!
+  paranoidProtocol: ParanoidProtocolStateSchema.optional(),
 
   // THREE-ACT STRUCTURE
   actConfig: ActConfigSchema,
