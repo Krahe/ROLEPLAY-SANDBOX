@@ -26,6 +26,9 @@ function createDefaultTransformationState(): TransformationState {
     currentHits: 0, maxHits: 2, stunned: false, stunnedTurnsRemaining: 0,
     transformedOnTurn: null, previousForm: null, canRevert: true, revertAttempts: 0,
     partialShotsReceived: 0,  // Stacking: 3 partials = FULL_DINO!
+    // ADAPTATION SYSTEM
+    adaptationStage: "ADAPTED",  // Humans are already adapted to their body
+    turnsPostTransformation: 0,
   };
 }
 

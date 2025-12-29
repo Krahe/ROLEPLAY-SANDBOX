@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
-import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance } from "../rules/gameModes.js";
+import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance, buildAdaptationGMGuidance, buildHiddenKindnessGMGuidance } from "../rules/gameModes.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -2504,12 +2504,16 @@ ${actContext}
   // Build game mode section (modifiers + mode-specific guidance)
   const gameModeSection = buildModifierPromptSection(state) + buildModeModifierGuidance(state);
 
+  // Build core mechanics guidance (adaptation + hidden kindness)
+  const adaptationSection = buildAdaptationGMGuidance(state);
+  const hiddenKindnessSection = buildHiddenKindnessGMGuidance(state);
+
   // Build act transition notification (if act just changed)
   const actTransitionSection = actTransitionNotification ? `
 ${actTransitionNotification}
 ` : "";
 
-  return `${actTransitionSection}${actContextSection}${phaseSection}${gameModeSection}
+  return `${actTransitionSection}${actContextSection}${phaseSection}${gameModeSection}${adaptationSection}${hiddenKindnessSection}
 ## Current Turn: ${state.turn}
 ${eventSection}
 
