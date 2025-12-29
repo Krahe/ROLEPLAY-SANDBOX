@@ -47,6 +47,8 @@ import {
   hasPendingPrompt,
   getPendingPrompt,
   PROMPT_INTERVAL,
+  // Fortune System (Human advisor engagement rewards)
+  processHumanAdvisorResponse,
   // Emergency Lifelines (panic buttons)
   useEmergencyLifeline,
   isValidEmergencyLifeline,
@@ -878,10 +880,15 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
     // Process human prompt response if provided
     let userPromptResponse: string | undefined;
+    let fortuneResult: { qualities: string[]; fortuneEarned: number; message: string } | undefined;
     if (params.humanPromptResponse && hasPendingPrompt(gameState)) {
       const pendingQuestion = getPendingPrompt(gameState);
       const parsedResponse = parseHumanPromptResponse(params.humanPromptResponse);
       userPromptResponse = buildHumanPromptContext(parsedResponse);
+
+      // FORTUNE SYSTEM: Analyze response quality and award fortune
+      fortuneResult = processHumanAdvisorResponse(gameState, params.humanPromptResponse);
+      console.error(`[FORTUNE] ${fortuneResult.message} (qualities: ${fortuneResult.qualities.join(", ") || "none"})`);
 
       // Record the consultation
       recordHumanPrompt(
@@ -1751,6 +1758,13 @@ You can:
         : undefined,
       // HUMAN PROMPT SYSTEM - Human advisor consultation
       humanPrompt: humanPromptInfo,
+      // FORTUNE SYSTEM - Feedback from human advisor response
+      fortuneAwarded: fortuneResult ? {
+        earned: fortuneResult.fortuneEarned,
+        message: fortuneResult.message,
+        qualities: fortuneResult.qualities,
+        totalFortune: gameState.fortune,
+      } : undefined,
     };
 
     return {
