@@ -87,6 +87,7 @@ import {
   formatAchievementUnlock,
   formatSessionAchievementSummary,
 } from "./rules/achievements.js";
+import { formatStatusBar } from "./ui/statusBar.js";
 
 // ============================================
 // SERVER SETUP
@@ -1884,6 +1885,8 @@ You can:
       turnCompleted: gameState.turn - 1, // The turn you just played
       actTurnCompleted: gameState.actConfig.actTurn - 1,
       nextTurn: gameState.turn, // The turn you'll play next
+      // UI/UX: Compact status bar for human observers (one scannable line!)
+      statusBar: formatStatusBar(gameState),
       actionResults,
       gmResponse: {
         narration: combinedNarration.join("\n\n---\n\n"),
