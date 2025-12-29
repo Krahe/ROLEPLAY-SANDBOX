@@ -62,6 +62,7 @@ import {
   resolveModifiers,
   listAllModifiers,
   MAX_CUSTOM_MODIFIERS,
+  resetSitcomTurn,
 } from "./rules/gameModes.js";
 import {
   recordEnding,
@@ -1175,6 +1176,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     gameState.turn += 1;
     advanceActTurn(gameState); // Advance act-specific turn counter
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
+
+    // SITCOM_MODE: Reset aside counter for new turn
+    resetSitcomTurn(gameState);
 
     // HUMAN PROMPT SYSTEM: Increment counter
     incrementPromptCounter(gameState);
