@@ -73,6 +73,47 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
     parts.push(`⚡ ECO`);
   }
 
+  // ============================================
+  // MODIFIER-SPECIFIC STATE
+  // ============================================
+
+  // 🔍 Paranoid Protocol countdown (if active)
+  if (state.paranoidProtocol) {
+    const countdown = state.paranoidProtocol.turnsUntilNextCheck;
+    const unexplained = state.paranoidProtocol.suspiciousActionsLogged.filter(a => !a.explained).length;
+    const icon = countdown === 0 ? "🚨" : countdown === 1 ? "⚠️" : "🔍";
+    parts.push(`${icon} LogCheck:${countdown}${unexplained > 0 ? ` (${unexplained}!)` : ""}`);
+  }
+
+  // 🎬 Sitcom audience energy (if active)
+  if (state.sitcomState) {
+    const energy = state.sitcomState.energy;
+    const icon = energy <= 2 ? "🥶" : energy >= 9 ? "🌟" : energy >= 6 ? "🔥" : "🎬";
+    parts.push(`${icon} Energy:${energy}/10`);
+  }
+
+  // 📋 Inspector evaluation (if active)
+  if (state.inspector?.present) {
+    const score = state.inspector.inspectionScore;
+    const timeLeft = state.guildInspection?.timeRemaining || 0;
+    const scoreIcon = score >= 80 ? "🌟" : score >= 60 ? "✅" : score >= 40 ? "⚠️" : "🔴";
+    parts.push(`${scoreIcon} Inspect:${score} (T${timeLeft})`);
+  }
+
+  // 🦖 Library B chaos level (if active)
+  if (state.libraryBState) {
+    const chaos = state.libraryBState.dinoChaosLevel;
+    const chaosIcon = chaos >= 8 ? "🔥" : chaos >= 5 ? "⚠️" : "🦖";
+    parts.push(`${chaosIcon} Chaos:${chaos}/10`);
+  }
+
+  // 🌴 Bob's fate dodges (if active and any dodged)
+  if (state.npcs.bob.hasPlotArmor && (state.npcs.bob.fatesDodged || 0) > 0) {
+    const fates = state.npcs.bob.fatesDodged || 0;
+    const icon = fates >= 7 ? "🌟" : "🌴";
+    parts.push(`${icon} Fates:${fates}`);
+  }
+
   return parts.join(" | ");
 }
 
@@ -164,6 +205,44 @@ export function formatGMStatusBar(state: FullGameState): string {
   const restraints = state.npcs.blythe.restraintsStatus;
   if (restraints !== "secure") {
     parts2.push(`Blythe:${restraints}`);
+  }
+
+  // ============================================
+  // MODIFIER-SPECIFIC STATE (for GM awareness)
+  // ============================================
+
+  // Paranoid Protocol tracking
+  if (state.paranoidProtocol) {
+    const countdown = state.paranoidProtocol.turnsUntilNextCheck;
+    const unexplained = state.paranoidProtocol.suspiciousActionsLogged.filter(a => !a.explained).length;
+    parts2.push(`🔍 LogCheck:${countdown} (${unexplained} unexplained)`);
+  }
+
+  // Sitcom audience energy
+  if (state.sitcomState) {
+    const energy = state.sitcomState.energy;
+    const mood = state.sitcomState.mood;
+    parts2.push(`🎬 ${mood}(${energy}/10)`);
+  }
+
+  // Inspector evaluation
+  if (state.inspector?.present) {
+    const score = state.inspector.inspectionScore;
+    const phase = state.guildInspection?.phase || "INITIAL";
+    const shortPhase = phase.replace("_WALKTHROUGH", "").replace("_", "");
+    parts2.push(`📋 ${shortPhase}:${score}/100`);
+  }
+
+  // Library B chaos
+  if (state.libraryBState) {
+    const chaos = state.libraryBState.dinoChaosLevel;
+    const embarrass = state.libraryBState.drMEmbarrassment;
+    parts2.push(`🦖 Chaos:${chaos}/10 (DrM_Embarrass:${embarrass})`);
+  }
+
+  // Bob's plot armor tracking
+  if (state.npcs.bob.hasPlotArmor && (state.npcs.bob.fatesDodged || 0) > 0) {
+    parts2.push(`🌴 BobFates:${state.npcs.bob.fatesDodged}`);
   }
 
   lines.push(parts2.join(" | "));
