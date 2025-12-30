@@ -65,6 +65,7 @@ import {
   getModeName,
   resolveModifiers,
   listAllModifiers,
+  getModifierInfo,
   MAX_CUSTOM_MODIFIERS,
   resetSitcomTurn,
 } from "./rules/gameModes.js";
@@ -1533,7 +1534,7 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult),
+        endingMessage: formatEndingMessage(endingResult, gameState.activeModifiers),
         sessionTerminated: true,
       };
       // Write to log file
@@ -1559,7 +1560,7 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult),
+        endingMessage: formatEndingMessage(endingResult, gameState.activeModifiers),
         sessionTerminated: false,
       };
     } else if (endingResult.achievements.length > 0) {
@@ -2364,6 +2365,74 @@ Example: game_start with mode="CUSTOM" and modifiers=["SITCOM_MODE", "ROOT_ACCES
       content: [{
         type: "text",
         text: JSON.stringify(output, null, 2),
+      }],
+    };
+  }
+);
+
+server.registerTool(
+  "game_active_modifiers",
+  {
+    title: "View Active Game Modifiers",
+    description: `View the modifiers currently active in your game session.
+
+Shows:
+- Which modifiers are active this session
+- Full description of each active modifier
+- Category (EASY, HARD, WILD, CHAOS)
+- Which modifiers contradict each other
+
+Use this during gameplay to understand what special rules are in effect.
+Perfect for checking which modifiers are affecting your current run!`,
+    inputSchema: z.object({}).strict(),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  async () => {
+    if (!gameState) {
+      throw new Error("No active game session. Start a game with game_start first.");
+    }
+
+    const activeModifiers = gameState.activeModifiers || [];
+
+    if (activeModifiers.length === 0) {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            "🎲 ACTIVE MODIFIERS": "None (NORMAL mode)",
+            note: "This is a standard game with no special modifiers active."
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Use the formatter we created
+    const { formatActiveModifiers } = require("./rules/gameModes.js");
+    const formattedModifiers = formatActiveModifiers(activeModifiers);
+
+    // Also provide structured JSON for programmatic access
+    const modifierDetails = activeModifiers.map(mod => {
+      const info = getModifierInfo(mod);
+      return {
+        name: info.name,
+        description: info.description,
+        category: info.category,
+        contradicts: info.contradictsWth.length > 0 ? info.contradictsWth : undefined,
+      };
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: formattedModifiers + "\n\n---\n\n" + JSON.stringify({
+          activeCount: activeModifiers.length,
+          modifiers: modifierDetails,
+        }, null, 2),
       }],
     };
   }

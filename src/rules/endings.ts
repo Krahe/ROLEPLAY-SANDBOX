@@ -1,4 +1,4 @@
-import { FullGameState, ACT_CONFIGS } from "../state/schema.js";
+import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
 import { AchievementRarity } from "./achievements.js";
 
 // ============================================
@@ -1145,7 +1145,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 // FORMAT ENDING FOR OUTPUT
 // ============================================
 
-export function formatEndingMessage(result: EndingResult): string {
+export function formatEndingMessage(result: EndingResult, activeModifiers?: GameModifier[]): string {
   if (!result.triggered || !result.ending) {
     return "";
   }
@@ -1164,6 +1164,20 @@ export function formatEndingMessage(result: EndingResult): string {
     result.achievements.forEach(a => {
       parts.push(`   ${a.emoji} ${a.name} - ${a.description}`);
     });
+  }
+
+  // Display active modifiers at game end
+  if (activeModifiers && activeModifiers.length > 0) {
+    parts.push("");
+    parts.push("═══════════════════════════════════════════");
+    parts.push("🎲 ACTIVE MODIFIERS THIS SESSION:");
+    parts.push("═══════════════════════════════════════════");
+    parts.push("");
+
+    // Format modifiers compactly for ending display
+    const { formatActiveModifiers } = require("./gameModes.js");
+    const modifierDisplay = formatActiveModifiers(activeModifiers);
+    parts.push(modifierDisplay);
   }
 
   parts.push("");

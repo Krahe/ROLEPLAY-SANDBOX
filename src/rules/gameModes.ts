@@ -251,6 +251,59 @@ export function listAllModifiers(): ModifierInfo[] {
   return getAllModifierNames().map(getModifierInfo);
 }
 
+/**
+ * Format active modifiers for player display
+ * Shows modifier names, descriptions, and categories
+ */
+export function formatActiveModifiers(activeModifiers: GameModifier[]): string {
+  if (activeModifiers.length === 0) {
+    return "No active modifiers (NORMAL mode)";
+  }
+
+  const lines: string[] = [];
+  lines.push("# Active Game Modifiers");
+  lines.push("");
+
+  // Group by category
+  const byCategory: Record<string, ModifierInfo[]> = {
+    EASY: [],
+    HARD: [],
+    WILD: [],
+    CHAOS: [],
+  };
+
+  for (const mod of activeModifiers) {
+    const info = getModifierInfo(mod);
+    byCategory[info.category].push(info);
+  }
+
+  // Display each category
+  const categoryIcons = {
+    EASY: "🟢",
+    HARD: "🔴",
+    WILD: "🎲",
+    CHAOS: "💥",
+  };
+
+  for (const [category, mods] of Object.entries(byCategory)) {
+    if (mods.length === 0) continue;
+
+    lines.push(`## ${categoryIcons[category as keyof typeof categoryIcons]} ${category} MODIFIERS`);
+    lines.push("");
+
+    for (const mod of mods) {
+      lines.push(`### ${mod.name}`);
+      lines.push(mod.description);
+      if (mod.contradictsWth.length > 0) {
+        lines.push(`*Contradicts: ${mod.contradictsWth.join(", ")}*`);
+      }
+      lines.push("");
+    }
+  }
+
+  return lines.join("\n");
+}
+
 // ============================================
 // GAME MODE SYSTEM
 // ============================================
