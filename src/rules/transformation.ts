@@ -929,6 +929,13 @@ export function transformSubject(
     return `Unknown form: ${newForm}`;
   }
 
+  // 🛡️ DOUBLE-TRANSFORMATION GUARD
+  // Prevent transforming an already-transformed character to another dinosaur form
+  // (Reversal to human is still allowed)
+  if (transformation.form !== "HUMAN" && newForm !== "HUMAN") {
+    return `${subjectId} is already transformed (${FORM_DEFINITIONS[transformation.form].displayName})! Cannot transform to ${formDef.displayName}. Revert to human first.`;
+  }
+
   // Store previous form
   transformation.previousForm = transformation.form;
   transformation.form = newForm;
