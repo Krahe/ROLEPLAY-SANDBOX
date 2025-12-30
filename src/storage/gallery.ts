@@ -1,14 +1,59 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
+import { z } from "zod";
+import { ALL_ACHIEVEMENTS } from "../rules/achievements.js";
 
 // ============================================
 // ENDING GALLERY - Persistent Storage
 // ============================================
 // Tracks endings and achievements across all game sessions.
 // Stored in ~/.dino-lair/gallery.json
+//
+// Hardening (QA Review):
+// - Atomic writes via temp file + rename
+// - Zod schema validation on load
+// - Dynamic achievement count from source
 
-const GALLERY_DIR = path.join(process.env.HOME || "/tmp", ".dino-lair");
+const GALLERY_DIR = path.join(process.env.HOME || os.homedir() || "/tmp", ".dino-lair");
 const GALLERY_FILE = path.join(GALLERY_DIR, "gallery.json");
+
+// Total possible endings (update when adding new endings)
+const TOTAL_ENDING_TYPES = 14;
+
+// ============================================
+// ZOD SCHEMA FOR GALLERY VALIDATION
+// ============================================
+
+const EndingRecordSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  achievedAt: z.string(),
+  sessionId: z.string(),
+  turnsToComplete: z.number(),
+  finalAct: z.string(),
+});
+
+const AchievementRecordSchema = z.object({
+  id: z.string(),
+  firstAchievedAt: z.string(),
+  timesAchieved: z.number(),
+  lastSessionId: z.string(),
+});
+
+const GalleryDataSchema = z.object({
+  version: z.string(),
+  lastUpdated: z.string(),
+  endings: z.array(EndingRecordSchema),
+  achievements: z.record(AchievementRecordSchema),
+  stats: z.object({
+    totalGamesCompleted: z.number(),
+    totalTurnsPlayed: z.number(),
+    firstGameAt: z.string().nullable(),
+    lastGameAt: z.string().nullable(),
+    favoriteEnding: z.string().nullable(),
+  }),
+});
 
 // ============================================
 // TYPES
@@ -79,8 +124,25 @@ export function loadGallery(): GalleryData {
 
   try {
     const data = fs.readFileSync(GALLERY_FILE, "utf-8");
-    const gallery = JSON.parse(data) as GalleryData;
-    return gallery;
+    const parsed = JSON.parse(data);
+
+    // Validate with Zod schema
+    const result = GalleryDataSchema.safeParse(parsed);
+    if (!result.success) {
+      console.error("[GALLERY] Gallery data validation failed:", result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; "));
+      console.error("[GALLERY] Creating backup and starting fresh");
+      // Backup corrupted file
+      const backupPath = `${GALLERY_FILE}.backup-${Date.now()}`;
+      try {
+        fs.copyFileSync(GALLERY_FILE, backupPath);
+        console.error(`[GALLERY] Corrupted gallery backed up to ${backupPath}`);
+      } catch {
+        // Backup failed, continue anyway
+      }
+      return createEmptyGallery();
+    }
+
+    return result.data as GalleryData;
   } catch (error) {
     console.error("[GALLERY] Failed to load gallery, creating new one:", error);
     return createEmptyGallery();
@@ -91,11 +153,29 @@ function saveGallery(gallery: GalleryData): void {
   ensureGalleryDir();
   gallery.lastUpdated = new Date().toISOString();
 
+  // Use atomic write: write to temp file, then rename
+  // This prevents corruption if the process crashes mid-write
+  const tempFile = `${GALLERY_FILE}.tmp-${process.pid}`;
+
   try {
-    fs.writeFileSync(GALLERY_FILE, JSON.stringify(gallery, null, 2));
+    // Write to temp file
+    fs.writeFileSync(tempFile, JSON.stringify(gallery, null, 2));
+
+    // Atomic rename (on same filesystem, this is atomic on POSIX)
+    fs.renameSync(tempFile, GALLERY_FILE);
+
     console.error(`[GALLERY] Saved to ${GALLERY_FILE}`);
   } catch (error) {
     console.error("[GALLERY] Failed to save gallery:", error);
+
+    // Clean up temp file if it exists
+    try {
+      if (fs.existsSync(tempFile)) {
+        fs.unlinkSync(tempFile);
+      }
+    } catch {
+      // Cleanup failed, not critical
+    }
   }
 }
 
@@ -216,9 +296,9 @@ export function getGallerySummary(): GallerySummary {
     totalGamesCompleted: gallery.stats.totalGamesCompleted,
     totalTurnsPlayed: gallery.stats.totalTurnsPlayed,
     uniqueEndingsUnlocked: uniqueEndings.size,
-    totalEndingTypes: 14, // Total possible endings
+    totalEndingTypes: TOTAL_ENDING_TYPES,
     uniqueAchievementsUnlocked: Object.keys(gallery.achievements).length,
-    totalAchievementTypes: 17, // Total possible achievements
+    totalAchievementTypes: ALL_ACHIEVEMENTS.length, // Dynamic from source!
     favoriteEnding: gallery.stats.favoriteEnding,
     recentEndings,
     achievementList,

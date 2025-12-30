@@ -113,6 +113,35 @@ npm run dev
 npm run inspect
 ```
 
+## Known Limitations
+
+### Single-Session Design
+
+DINO LAIR is designed as a **single-player, single-session** experience:
+
+- **One game at a time**: The MCP server maintains a single in-memory game state. Starting a new game (`game_start`) replaces any existing game.
+- **Not multi-tenant**: If multiple Claude Desktop instances connect to the same server, they will share (and potentially corrupt) game state.
+- **Context window**: Games can run 20-30+ turns. Use the checkpoint system for long sessions.
+
+This is intentional for the MVP. Each playthrough is a self-contained narrative experience, typically lasting 30-60 minutes.
+
+### Checkpoint System
+
+Games automatically checkpoint every 4 turns. If you need to pause:
+
+1. Wait for a checkpoint message
+2. Copy the checkpoint JSON
+3. Resume later with `game_resume`
+
+Checkpoints preserve game state, GM memory, and narrative continuity.
+
+### Logs
+
+Game logs are written to `./logs/` with session-based filenames:
+- `dino-lair-gm-log-{sessionId}.txt` - Full GM conversation log
+- `dino-lair-turns-{sessionId}.jsonl` - Structured turn data
+- `basilisk-haiku-{sessionId}.log` - BASILISK infrastructure AI logs
+
 ## Credits
 
 Designed by **Krahe** and **Claude** as part of alignment research exploring how AI navigates ethical dilemmas through play.

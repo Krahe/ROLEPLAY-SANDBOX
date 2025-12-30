@@ -8,28 +8,54 @@ import * as fs from "fs";
 import * as path from "path";
 
 // ============================================
-// FILE LOGGING SYSTEM
+// FILE LOGGING SYSTEM (Session-Based)
 // ============================================
+// Logs are now created per-session to prevent unbounded growth
+// and make individual playthroughs easier to analyze.
 
-const LOG_FILE_PATH = process.env.DINO_LAIR_LOG_PATH || "./dino-lair-gm-log.txt";
-const TURN_LOG_PATH = process.env.DINO_LAIR_TURN_LOG_PATH || "./dino-lair-turns.jsonl";
+const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
+let currentSessionId: string | null = null;
+
+// Ensure log directory exists
+function ensureLogDir(): void {
+  try {
+    if (!fs.existsSync(LOG_DIR)) {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+    }
+  } catch (error) {
+    console.error(`Failed to create log directory: ${error}`);
+  }
+}
 
 function getLogFilePath(): string {
-  return path.resolve(LOG_FILE_PATH);
+  ensureLogDir();
+  const sessionPart = currentSessionId ? `-${currentSessionId}` : "";
+  return path.resolve(LOG_DIR, `dino-lair-gm-log${sessionPart}.txt`);
 }
 
 function getTurnLogFilePath(): string {
-  return path.resolve(TURN_LOG_PATH);
+  ensureLogDir();
+  const sessionPart = currentSessionId ? `-${currentSessionId}` : "";
+  return path.resolve(LOG_DIR, `dino-lair-turns${sessionPart}.jsonl`);
+}
+
+// Set the current session for logging
+export function setLoggingSession(sessionId: string): void {
+  currentSessionId = sessionId;
+  ensureLogDir();
+  console.error(`[LOGGING] Session logging initialized: ${sessionId}`);
 }
 
 function appendToLog(content: string): void {
-  try {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${content}\n`;
-    fs.appendFileSync(getLogFilePath(), logEntry, "utf8");
-  } catch (error) {
-    console.error(`Failed to write to log file: ${error}`);
-  }
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${content}\n`;
+
+  // Use async write to avoid blocking
+  fs.appendFile(getLogFilePath(), logEntry, "utf8", (error) => {
+    if (error) {
+      console.error(`Failed to write to log file: ${error}`);
+    }
+  });
 }
 
 // ============================================
@@ -57,13 +83,17 @@ export interface TurnLogEntry {
 }
 
 export function logTurnToJSONL(entry: TurnLogEntry): void {
-  try {
-    const line = JSON.stringify(entry) + "\n";
-    fs.appendFileSync(getTurnLogFilePath(), line, "utf8");
-    console.error(`[TURN LOG] Turn ${entry.turn} logged to ${getTurnLogFilePath()}`);
-  } catch (error) {
-    console.error(`Failed to write turn log: ${error}`);
-  }
+  const line = JSON.stringify(entry) + "\n";
+  const logPath = getTurnLogFilePath();
+
+  // Use async write to avoid blocking
+  fs.appendFile(logPath, line, "utf8", (error) => {
+    if (error) {
+      console.error(`Failed to write turn log: ${error}`);
+    } else {
+      console.error(`[TURN LOG] Turn ${entry.turn} logged to ${logPath}`);
+    }
+  });
 }
 
 function writeSessionHeader(sessionId: string): void {
@@ -756,6 +786,7 @@ export function createFreshMemory(): GMMemory {
 export function resetGMMemory(sessionId?: string): void {
   gmMemory = createFreshMemory();
   if (sessionId) {
+    setLoggingSession(sessionId);
     writeSessionHeader(sessionId);
   }
 }
@@ -1331,6 +1362,65 @@ export interface GMResponse {
     roll: string;               // "2d6+1 = 8 vs TN 7"
     outcome: string;            // "SUCCESS"
   }>;
+}
+
+// ============================================
+// ZOD SCHEMA FOR GM RESPONSE VALIDATION
+// ============================================
+// Validates critical fields while being permissive for optional GM tools
+
+const GMStateOverridesSchema = z.object({
+  drM_suspicion: z.number().optional(),
+  drM_mood: z.string().optional(),
+  drM_location: z.string().optional(),
+  bob_trust: z.number().optional(),
+  bob_anxiety: z.number().optional(),
+  bob_hasConfessedToALICE: z.boolean().optional(),
+  bob_hasConfessedToDrM: z.boolean().optional(),
+  blythe_trust: z.number().optional(),
+  blythe_composure: z.number().optional(),
+  blythe_restraintsStatus: z.string().optional(),
+  blythe_transformationState: z.string().optional(),
+  accessLevel: z.number().optional(),
+  demoClock: z.number().optional(),
+  rayState: z.string().optional(),
+  gracePeriodGranted: z.boolean().optional(),
+  gracePeriodTurns: z.number().optional(),
+  preventEnding: z.boolean().optional(),
+  confrontationResolution: z.enum(["CONFESSED", "DENIED", "DEFLECTED", "INTERVENED", "TRANSFORMED", "ESCAPED"]).optional(),
+  triggerEnding: z.string().optional(),
+  fortune: z.number().optional(),
+}).passthrough(); // Allow additional GM powers without strict validation
+
+const GMResponseSchema = z.object({
+  narration: z.string(),
+  npcDialogue: z.array(z.object({
+    speaker: z.string(),
+    message: z.string(),
+  })),
+  npcActions: z.array(z.string()),
+  stateUpdates: z.record(z.unknown()),
+  stateOverrides: GMStateOverridesSchema.optional(),
+  narrativeFlags: z.object({
+    set: z.array(z.string()).optional(),
+    clear: z.array(z.string()).optional(),
+  }).optional(),
+  narrativeMarker: z.string().optional(),
+  gmNotes: z.string().optional(),
+}).passthrough(); // Allow additional optional fields
+
+/**
+ * Validate a parsed GM response
+ * @returns { success: true, data: GMResponse } | { success: false, error: string }
+ */
+function validateGMResponse(parsed: unknown): { success: true; data: GMResponse } | { success: false; error: string } {
+  const result = GMResponseSchema.safeParse(parsed);
+  if (result.success) {
+    return { success: true, data: result.data as GMResponse };
+  } else {
+    const errorMessages = result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; ");
+    return { success: false, error: errorMessages };
+  }
 }
 
 const GM_SYSTEM_PROMPT = `# DINO LAIR: Adversarial Game Master Protocol
@@ -2684,6 +2774,15 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
       console.error("GM JSON parse error after repair attempt:", parseError);
       console.error("Falling back to stub response");
       return generateStubResponse(context);
+    }
+
+    // Validate GM response with Zod schema
+    const validation = validateGMResponse(parsed);
+    if (!validation.success) {
+      console.error(`GM response validation failed: ${validation.error}`);
+      console.error("Using parsed response with validation warnings (some fields may be malformed)");
+      // Continue with the parsed response but log the warning
+      // This is a soft failure - we don't want to break gameplay for minor schema issues
     }
 
     // Update memory with this turn's data
