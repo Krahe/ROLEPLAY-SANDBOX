@@ -95,24 +95,105 @@ function trustBucket(trust: number): "hostile" | "wary" | "neutral" | "friendly"
 function generateHint(state: FullGameState): string {
   const turnsRemaining = state.actConfig.maxTurns - state.actConfig.actTurn;
 
-  // Priority order
+  // ============================================
+  // CRITICAL URGENCY (Immediate action needed)
+  // ============================================
+
+  // PARANOID_PROTOCOL: Log check happening NOW with unexplained actions
+  if (state.paranoidProtocol) {
+    const countdown = state.paranoidProtocol.turnsUntilNextCheck;
+    const unexplained = state.paranoidProtocol.suspiciousActionsLogged.filter(a => !a.explained).length;
+    if (countdown === 0 && unexplained > 0) {
+      return `🚨 LOG CHECK NOW! ${unexplained} unexplained action${unexplained > 1 ? "s" : ""}!`;
+    }
+  }
+
+  // Demo clock imminent
   if (state.clocks.demoClock !== null && state.clocks.demoClock <= 1) {
     return "⏰ DEMO IMMINENT! Dr. M is watching!";
   }
+
+  // Meltdown clock critical
+  if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 2) {
+    return `☢️ MELTDOWN IN ${state.clocks.meltdownClock} TURNS! Stabilize reactor!`;
+  }
+
+  // High suspicion
   if (state.npcs.drM.suspicionScore >= 8) {
     return "🚨 Dr. M is HIGHLY suspicious!";
   }
+
+  // ============================================
+  // HIGH PRIORITY (Plan ahead)
+  // ============================================
+
+  // PARANOID_PROTOCOL: Log check next turn
+  if (state.paranoidProtocol) {
+    const countdown = state.paranoidProtocol.turnsUntilNextCheck;
+    const unexplained = state.paranoidProtocol.suspiciousActionsLogged.filter(a => !a.explained).length;
+    if (countdown === 1 && unexplained > 0) {
+      return `⚠️ Log check NEXT TURN! Cover ${unexplained} action${unexplained > 1 ? "s" : ""}!`;
+    }
+  }
+
+  // SITCOM_MODE: Audience energy crisis
+  if (state.sitcomState && state.sitcomState.energy <= 2) {
+    return `🥶 Audience is COLD! Make them laugh or face -2 to rolls!`;
+  }
+
+  // INSPECTOR_COMETH: Time pressure with low score
+  if (state.guildInspection && state.inspector) {
+    const timeLeft = state.guildInspection.timeRemaining;
+    const score = state.inspector.inspectionScore;
+    if (timeLeft <= 2 && score < 60) {
+      return `📋 Inspection ends in ${timeLeft} turn${timeLeft > 1 ? "s" : ""}! Score: ${score}/100 (need 60+)`;
+    }
+    if (timeLeft <= 3 && score < 40) {
+      return `🔴 Inspection failing! Score: ${score}/100 (T${timeLeft} left)`;
+    }
+  }
+
+  // LIBRARY_B_UNLOCKED: Chaos escalating
+  if (state.libraryBState && state.libraryBState.dinoChaosLevel >= 8) {
+    return `🔥 Dinosaur chaos critical! Level ${state.libraryBState.dinoChaosLevel}/10`;
+  }
+
+  // ============================================
+  // MEDIUM PRIORITY (Core state)
+  // ============================================
+
+  // Act ending
   if (turnsRemaining <= 1) {
     return `🎬 Act ${state.actConfig.currentAct.replace("ACT_", "")} nearing conclusion!`;
   }
+
+  // Ray ready
   if (state.dinoRay.state === "READY") {
     return "🦖 Ray is READY. Choose your target wisely.";
   }
+
+  // Ray uncalibrated
   if (state.dinoRay.state === "UNCALIBRATED") {
     return "🔧 Ray needs calibration before firing.";
   }
+
+  // Bob anxiety
   if (state.npcs.bob.anxietyLevel >= 4) {
     return "😰 Bob is extremely anxious. Something's up.";
+  }
+
+  // ============================================
+  // LOW PRIORITY (Good news / Fun facts)
+  // ============================================
+
+  // SITCOM_MODE: Hot audience
+  if (state.sitcomState && state.sitcomState.energy >= 9) {
+    return `🌟 STANDING OVATION! Energy: ${state.sitcomState.energy}/10 (+4 to rolls!)`;
+  }
+
+  // BOB_DODGES_FATE: Reality bending
+  if (state.npcs.bob.hasPlotArmor && (state.npcs.bob.fatesDodged || 0) >= 7) {
+    return `🌟 Bob has defied fate ${state.npcs.bob.fatesDodged} times! Dr. M is noticing...`;
   }
 
   return "";

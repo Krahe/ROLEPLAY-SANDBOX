@@ -395,14 +395,31 @@ infra.query is an action. game_query_basilisk is a tool.`,
     const shortParam = param.replace('capacitorCharge', 'capacitor')
                             .replace('spatialCoherence', 'coherence')
                             .replace('corePowerLevel', 'power');
-    const oldPct = Math.round((oldValue as number) * 100);
-    const newPct = Math.round(clampedValue * 100);
+
+    // Format values based on parameter type
+    let shortMessage: string;
+    if (param === 'emitterAngle') {
+      // Angle in degrees: -45 to 45
+      const oldDeg = Math.round(oldValue as number);
+      const newDeg = Math.round(clampedValue);
+      shortMessage = `${shortParam}: ${oldDeg}° → ${newDeg}°`;
+    } else if (param === 'coolantTemp') {
+      // Coolant temp: 0 to 2 (raw value)
+      const oldTemp = (oldValue as number).toFixed(2);
+      const newTemp = clampedValue.toFixed(2);
+      shortMessage = `${shortParam}: ${oldTemp} → ${newTemp}`;
+    } else {
+      // All other params are 0-1 ratios (percentages)
+      const oldPct = Math.round((oldValue as number) * 100);
+      const newPct = Math.round(clampedValue * 100);
+      shortMessage = `${shortParam}: ${oldPct}% → ${newPct}%`;
+    }
 
     return {
       command: action.command,
       success: true,
       message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}\n\n${calibrationNote}`,
-      shortMessage: `${shortParam}: ${oldPct}% → ${newPct}%`,
+      shortMessage,
       stateChanges: { [param]: { old: oldValue, new: clampedValue }, rayState: state.dinoRay.state },
     };
   }

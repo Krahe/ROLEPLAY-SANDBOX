@@ -1644,7 +1644,7 @@ Turns played: ${gameState.turn}
             turn: { completed: turnJustCompleted, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
 
             // Status bar (scannable!)
-            statusBar: formatStatusBar(gameState),
+            statusBar: formatStatusBar(gameState, turnJustCompleted),
 
             // Compact action results
             actionSummary,
@@ -1892,7 +1892,7 @@ You can:
       // SECTION 1: Quick Summary (for humans to scan)
       // ─────────────────────────────────────────────────
       turn: { completed: gameState.turn - 1, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
-      statusBar: formatStatusBar(gameState),
+      statusBar: formatStatusBar(gameState, gameState.turn - 1),
       actionSummary,
 
       // ─────────────────────────────────────────────────
