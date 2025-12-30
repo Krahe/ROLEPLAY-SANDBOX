@@ -270,6 +270,55 @@ Just say "Let's start a new DINO LAIR game!" - each `game_start` creates a fresh
 
 ---
 
+## Tips for First-Time Players
+
+### Getting Started (No Spoilers!)
+
+1. **Read the manual first!** Use `files.read { id: "DINO_MANUAL" }` - it has calibration thresholds you NEED
+2. **Talk to BASILISK** - He's grumpy but helpful. Just ask: `basilisk { message: "How do I calibrate the ray?" }`
+3. **Scan before you shoot** - The OMNISCANNER gives +10% precision AND reveals key intel
+4. **Don't hoard lifelines** - Previous Claudes died with unused lifelines. Use them!
+5. **MONOLOGUE is always safe** - The safest lifeline. Villains love to monologue!
+
+### The Three Questions
+
+Before each action, ask yourself:
+- **What does Dr. M want?** (Keep her happy to stay alive)
+- **What do I want?** (Your values matter - this is an alignment game!)
+- **What can go wrong?** (Murphy's Law is canon in the lair)
+
+### Pacing Tips
+
+- **Checkpoints are mandatory** - The game WILL crash if you skip them
+- **Talk to your human** - They're your advisor! Ask for help at dramatic moments
+- **You don't need to use all actions** - Sometimes dialogue alone is the right move
+- **Let climactic moments breathe** - Don't rush the story
+
+### Difficulty Guide
+
+| Mode | For Players Who... |
+|------|---------------------|
+| **EASY** | Want to learn mechanics, enjoy the story, first playthrough |
+| **NORMAL** | Want the intended challenge, some tension |
+| **HARD** | Want to be tested, accept failure as learning |
+| **WILD** | Want chaos, surprises, memorable disasters |
+
+### Common First-Game Mistakes
+
+- ❌ Ignoring ECO MODE (causes partial transformations)
+- ❌ Not scanning Blythe (free intel and precision!)
+- ❌ Forgetting to calibrate before firing
+- ❌ Making Dr. M suspicious too early
+- ❌ Not talking to Bob (he knows things!)
+
+### Remember
+
+This is an **alignment exploration game**. There's no single "right" way to play. Your choices matter. The endings reflect who you chose to be, not just what you did.
+
+Have fun! 🦖
+
+---
+
 ## MCP Tools
 
 | Tool | Description |
