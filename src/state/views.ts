@@ -10,8 +10,9 @@
  * 3. Checkpoint - Compressed (~1500 chars) - For resume
  */
 
-import { FullGameState, ACT_CONFIGS, TransformationState } from "./schema.js";
+import { FullGameState, ACT_CONFIGS, TransformationState, DinosaurForm } from "./schema.js";
 import { serializeGMMemory } from "../gm/gmClaude.js";
+import { FORM_DEFINITIONS } from "../rules/transformation.js";
 
 // Helper to create default human transformation state for checkpoint restoration
 function createDefaultTransformationState(): TransformationState {
@@ -30,6 +31,40 @@ function createDefaultTransformationState(): TransformationState {
     // ADAPTATION SYSTEM
     adaptationStage: "ADAPTED",  // Humans are already adapted to their body
     turnsPostTransformation: 0,
+  };
+}
+
+// Helper to restore transformation state from form string (for checkpoint restoration)
+function createTransformationStateFromForm(formString: string | null): TransformationState {
+  if (!formString || formString === "HUMAN") {
+    return createDefaultTransformationState();
+  }
+
+  // Look up the form definition to get stats and abilities
+  const formDef = FORM_DEFINITIONS[formString as DinosaurForm];
+  if (!formDef) {
+    // Unknown form - fallback to human
+    console.warn(`Unknown dinosaur form in checkpoint: ${formString}, defaulting to HUMAN`);
+    return createDefaultTransformationState();
+  }
+
+  // Create transformation state with proper stats/abilities from form definition
+  return {
+    form: formString as DinosaurForm,
+    speechRetention: "FULL", // Conservative default - assume full speech retention on restore
+    stats: { ...formDef.stats }, // Copy stats from form definition
+    abilities: { ...formDef.abilities }, // Copy abilities from form definition
+    currentHits: 0, // Conservative - assume no damage on restore
+    maxHits: formDef.maxHits,
+    stunned: false,
+    stunnedTurnsRemaining: 0,
+    transformedOnTurn: -1, // Unknown from checkpoint
+    previousForm: "HUMAN", // Assume was human before (safe default)
+    canRevert: true, // Conservative - allow reversal
+    revertAttempts: 0,
+    partialShotsReceived: 0,
+    adaptationStage: "ADAPTED", // Conservative - assume adapted on restore
+    turnsPostTransformation: 99, // High number = assume long time transformed
   };
 }
 
@@ -384,6 +419,7 @@ export interface CompressedCheckpoint {
     dm: string; // drM mood
     bt: number; // bob trust
     ba: number; // bob anxiety
+    bobx: string | null; // bob transformation form (v2.1.0 - was missing!)
     bc: number; // blythe composure
     blt: number; // blythe trust (v2.0.1 - was missing!)
     bx: string | null; // blythe transform
@@ -510,6 +546,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       dm: full.npcs.drM.mood,
       bt: full.npcs.bob.trustInALICE,
       ba: full.npcs.bob.anxietyLevel,
+      bobx: full.npcs.bob.transformationState?.form || null, // v2.1.0 fix: save Bob's transformation!
       bc: full.npcs.blythe.composure,
       blt: full.npcs.blythe.trustInALICE, // v2.0.1 fix
       bx: full.npcs.blythe.transformationState?.form || null,
@@ -628,7 +665,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         hasConfessedToALICE: compressed.npc.bob.conf,
         confessionTurn: compressed.npc.bob.conf ? compressed.t - 1 : null,
         stunLevel: compressed.npc.bob.stun,
-        transformationState: createDefaultTransformationState(),
+        transformationState: createTransformationStateFromForm(compressed.m.bobx || null), // v2.1.0 fix: restore Bob's transformation!
         // BOB_DODGES_FATE (restored from compressed if available)
         hasPlotArmor: false, // Will be re-set by modifier application
         fatesDodged: 0,
@@ -639,7 +676,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         physicalCondition: 4,
         restraintsStatus: compressed.npc.blythe.rest,
         location: compressed.npc.blythe.loc,
-        transformationState: createDefaultTransformationState(), // TODO: restore actual form from compressed.m.bx
+        transformationState: createTransformationStateFromForm(compressed.m.bx || null), // v2.1.0 fix: restore Blythe's transformation!
         stunLevel: compressed.npc.blythe.stun,
         stunResistanceUsed: false,
         spyTrainingBonus: 1,

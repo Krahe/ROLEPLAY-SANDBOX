@@ -972,6 +972,16 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
       const formName = profileToForm(result.effectiveProfile);
       const formDef = FORM_DEFINITIONS[formName];
 
+      // 🛡️ DOUBLE-TRANSFORMATION GUARD
+      // Prevent transforming an already-transformed character to another dinosaur form
+      const currentForm = state.npcs.blythe.transformationState.form;
+      if (currentForm !== "HUMAN" && formName !== "HUMAN") {
+        result.outcome = "FIZZLE";
+        result.description = `TRANSFORMATION BLOCKED: Blythe is already transformed (${FORM_DEFINITIONS[currentForm].displayName})! Cannot transform to ${formDef.displayName}. Revert to human first.`;
+        result.targetEffect = "Double transformation prevented by safety protocol";
+        // Don't apply transformation, skip setting transformationState
+      } else {
+
       // Track partial stacking
       const newPartialCount = changes.partialShotsReceived as number ??
         (result.outcome === "PARTIAL"
@@ -996,6 +1006,7 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
         adaptationStage: "DISORIENTED",
         turnsPostTransformation: 0,
       };
+      }
     }
   }
 

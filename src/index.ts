@@ -11,6 +11,8 @@ import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } fr
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
+import { FORM_DEFINITIONS } from "./rules/transformation.js";
+import { DinosaurForm, SpeechRetention } from "./state/schema.js";
 import {
   processArchimedesCountdown,
   onDrMStateChange,
@@ -854,12 +856,68 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       if (outcome) {
         const bobHit = checkAccidentalBobTransformation(gameState, outcome, "blythe");
         if (bobHit.occurred) {
-          bobTransformationNarration = bobHit.narration;
-          // Update Bob's state to reflect transformation
-          gameState.npcs.bob.location = `transformed: ${bobHit.profile || "dinosaur"}`;
-          gameState.npcs.bob.currentTask = "being a dinosaur";
+          // 🛡️ DOUBLE-TRANSFORMATION GUARD
+          // Check if Bob is already transformed before applying new transformation
+          const currentForm = gameState.npcs.bob.transformationState.form;
+          if (currentForm !== "HUMAN") {
+            // Bob is already transformed, block the second transformation
+            bobTransformationNarration = `
+### TRANSFORMATION BLOCKED
+
+The beam catches Bob mid-${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}, but nothing happens.
+
+> **A.L.I.C.E. (internal):** "Safety protocol: Target already transformed. Cannot double-transform."
+
+Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives you a grateful look. Being transformed twice would NOT have been fun.
+            `.trim();
+          } else {
+            bobTransformationNarration = bobHit.narration;
+
+            // Update Bob's state to reflect transformation
+            gameState.npcs.bob.location = `transformed: ${bobHit.profile || "dinosaur"}`;
+            gameState.npcs.bob.currentTask = "being a dinosaur";
+
+            // Properly update Bob's transformationState
+            const profileName = bobHit.profile || "Velociraptor";
+            const formName = profileToFormName(profileName);
+            const formDef = FORM_DEFINITIONS[formName];
+            const speechRetention: SpeechRetention = bobHit.transformationType === "CANARY" ? "PARTIAL" : "FULL";
+
+            gameState.npcs.bob.transformationState = {
+              form: formName,
+              speechRetention,
+              stats: { ...formDef.stats },
+              abilities: { ...formDef.abilities },
+              currentHits: 0,
+              maxHits: formDef.maxHits,
+              stunned: false,
+              stunnedTurnsRemaining: 0,
+              transformedOnTurn: gameState.turn,
+              previousForm: "HUMAN",
+              canRevert: true,
+              revertAttempts: 0,
+              partialShotsReceived: 0,
+              adaptationStage: "DISORIENTED",
+              turnsPostTransformation: 0,
+            };
+          }
         }
       }
+    }
+
+    // Helper function to convert profile names to DinosaurForm
+    function profileToFormName(profile: string): DinosaurForm {
+      const p = profile.toLowerCase();
+      if (p.includes("compy") || p.includes("compsognathus")) return "COMPSOGNATHUS";
+      if (p.includes("blue")) return "VELOCIRAPTOR_BLUE";
+      if (p.includes("accurate") || p.includes("feather")) return "VELOCIRAPTOR_ACCURATE";
+      if (p.includes("jp") || (p.includes("velociraptor") && !p.includes("accurate"))) return "VELOCIRAPTOR_JP";
+      if (p.includes("t-rex") || p.includes("tyrannosaurus") || p.includes("rex")) return "TYRANNOSAURUS";
+      if (p.includes("dilo") || p.includes("dilophosaurus")) return "DILOPHOSAURUS";
+      if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
+      if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
+      if (p.includes("canary")) return "CANARY";
+      return "VELOCIRAPTOR_JP"; // Default fallback
     }
 
     // ============================================
