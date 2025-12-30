@@ -10,9 +10,92 @@
  * 3. Checkpoint - Compressed (~1500 chars) - For resume
  */
 
+import { z } from "zod";
 import { FullGameState, ACT_CONFIGS, TransformationState, DinosaurForm } from "./schema.js";
 import { serializeGMMemory } from "../gm/gmClaude.js";
 import { FORM_DEFINITIONS } from "../rules/transformation.js";
+
+// ============================================
+// ZOD SCHEMA FOR CHECKPOINT VALIDATION
+// ============================================
+// Validates checkpoint payloads to prevent crashes from malformed data
+
+export const CompressedCheckpointSchema = z.object({
+  v: z.literal("2.0"),
+  sid: z.string(),
+  t: z.number(),
+  act: z.string(),
+  at: z.number(),
+
+  m: z.object({
+    s: z.number(),
+    dm: z.string(),
+    bt: z.number(),
+    ba: z.number(),
+    bobx: z.string().nullable(),
+    bc: z.number(),
+    blt: z.number(),
+    bx: z.string().nullable(),
+    cap: z.number(),
+    ray: z.number(),
+    demo: z.number().nullable(),
+    acc: z.number(),
+  }),
+
+  f: z.string(),
+  nm: z.array(z.string()),
+  ach: z.array(z.string()),
+
+  npc: z.object({
+    bob: z.object({ conf: z.boolean(), task: z.string(), stun: z.number() }),
+    blythe: z.object({ rest: z.string(), stun: z.number(), loc: z.string() }),
+    drM: z.object({ loc: z.string() }),
+  }),
+
+  ray: z.object({
+    prof: z.string().nullable(),
+    lib: z.string(),
+    tm: z.boolean(),
+    style: z.string(),
+    speech: z.string(),
+  }),
+
+  // Optional fields
+  clk: z.object({
+    melt: z.number().optional(),
+    esc: z.number().optional(),
+    fly: z.number().optional(),
+  }).optional(),
+
+  ll: z.array(z.string()).optional(),
+  srm: z.string().optional(),
+  gp: z.object({
+    g: z.boolean(),
+    t: z.number(),
+  }).optional(),
+
+  el: z.object({
+    r: z.number(),
+    u: z.array(z.string()),
+  }).optional(),
+
+  ft: z.number().optional(),
+  gm: z.string().optional(),
+});
+
+/**
+ * Validate a checkpoint payload and return the result
+ * @returns { success: true, data: CompressedCheckpoint } | { success: false, error: string }
+ */
+export function validateCheckpoint(payload: unknown): { success: true; data: CompressedCheckpoint } | { success: false; error: string } {
+  const result = CompressedCheckpointSchema.safeParse(payload);
+  if (result.success) {
+    return { success: true, data: result.data as CompressedCheckpoint };
+  } else {
+    const errorMessages = result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; ");
+    return { success: false, error: `Invalid checkpoint: ${errorMessages}` };
+  }
+}
 
 // Helper to create default human transformation state for checkpoint restoration
 function createDefaultTransformationState(): TransformationState {

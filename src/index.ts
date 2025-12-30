@@ -6,6 +6,7 @@ import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./stat
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
+import { setBasiliskLoggingSession } from "./gm/basiliskClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
@@ -26,6 +27,7 @@ import {
   getActBriefing,
   advanceActTurn,
   applyActTransition,
+  validateHandoff,
   ActHandoffState,
 } from "./rules/acts.js";
 import {
@@ -80,6 +82,7 @@ import {
   extractGMView,
   compressCheckpoint,
   decompressCheckpoint,
+  validateCheckpoint,
   PlayerView,
   GMView,
   CompressedCheckpoint,
@@ -357,9 +360,17 @@ Returns:
     // Check for handoff state from previous act
     if (params.handoffState) {
       try {
-        const handoff = JSON.parse(params.handoffState) as ActHandoffState;
-        gameState = createStateFromHandoff(handoff);
-        console.error(`[DINO LAIR] Resuming from handoff: ${handoff.completedAct} -> ${handoff.nextAct}`);
+        const parsed = JSON.parse(params.handoffState);
+        const validation = validateHandoff(parsed);
+        if (!validation.success) {
+          console.error(`[DINO LAIR] Handoff validation failed: ${validation.error}`);
+          console.error(`[DINO LAIR] Starting fresh game instead`);
+          gameState = createInitialState(startAct);
+        } else {
+          const handoff = validation.data;
+          gameState = createStateFromHandoff(handoff);
+          console.error(`[DINO LAIR] Resuming from handoff: ${handoff.completedAct} -> ${handoff.nextAct}`);
+        }
       } catch (error) {
         console.error(`[DINO LAIR] Failed to parse handoff state, starting fresh: ${error}`);
         gameState = createInitialState(startAct);
@@ -407,6 +418,7 @@ Returns:
 
     // Reset GM memory for new game (pass session ID for file logging)
     resetGMMemory(gameState.sessionId);
+    setBasiliskLoggingSession(gameState.sessionId);
     console.error(`[DINO LAIR] ${startAct} started (${gameState.sessionId}), GM memory reset`);
 
     // Use compact snapshot for reduced context
@@ -501,7 +513,15 @@ Returns:
         // ============================================
         // v2.0 COMPRESSED CHECKPOINT HANDLING
         // ============================================
-        const compressed = parsed as CompressedCheckpoint;
+        // Validate checkpoint with Zod schema before using
+        const validation = validateCheckpoint(parsed);
+        if (!validation.success) {
+          console.error(`[DINO LAIR] Checkpoint validation failed: ${validation.error}`);
+          return {
+            content: [{ type: "text", text: `❌ CHECKPOINT CORRUPTED\n\n${validation.error}\n\nThe checkpoint data is malformed and cannot be loaded. Please start a new game with game_start.` }],
+          };
+        }
+        const compressed = validation.data;
         console.error(`[DINO LAIR] Loading v2.0 compressed checkpoint for session ${compressed.sid}`);
 
         // Decompress to full state
@@ -521,9 +541,11 @@ Returns:
         let gmRestored = false;
         if (compressed.gm) {
           gmRestored = restoreGMMemory(compressed.gm, gameState.sessionId);
+          setBasiliskLoggingSession(gameState.sessionId);
           console.error(`[DINO LAIR] v2.0 resume - GM memory ${gmRestored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
         } else {
           resetGMMemory(gameState.sessionId);
+          setBasiliskLoggingSession(gameState.sessionId);
           console.error(`[DINO LAIR] v2.0 resume - GM memory reset (legacy checkpoint without GM memory)`);
         }
 
@@ -638,9 +660,11 @@ Returns:
       // Otherwise reset for backwards compatibility with old checkpoints
       if (checkpoint.gmMemory) {
         const restored = restoreGMMemory(checkpoint.gmMemory, gameState.sessionId);
+        setBasiliskLoggingSession(gameState.sessionId);
         console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory ${restored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
       } else {
         resetGMMemory(gameState.sessionId);
+        setBasiliskLoggingSession(gameState.sessionId);
         console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory reset (legacy checkpoint)`);
       }
 

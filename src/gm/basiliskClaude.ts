@@ -13,13 +13,37 @@ import { fileURLToPath } from "url";
 // the GM and gives BASILISK genuine personality.
 
 // ============================================
-// BASILISK LOGGING SYSTEM (Patch 17.7)
+// BASILISK LOGGING SYSTEM (Session-Based)
 // ============================================
-// Comprehensive logging for debugging and feedback from Haiku.
-// Logs are written to a dedicated file for easy review.
+// Logs are now created per-session to prevent unbounded growth
+// and make individual playthroughs easier to analyze.
 
-const BASILISK_LOG_FILE = "./basilisk-haiku.log";
+const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
 const BASILISK_VERBOSE_LOGGING = process.env.BASILISK_DEBUG === "true";
+let basiliskSessionId: string | null = null;
+
+// Ensure log directory exists
+function ensureLogDir(): void {
+  try {
+    if (!fs.existsSync(LOG_DIR)) {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+    }
+  } catch {
+    // Silent fail - logging shouldn't break gameplay
+  }
+}
+
+function getBasiliskLogPath(): string {
+  ensureLogDir();
+  const sessionPart = basiliskSessionId ? `-${basiliskSessionId}` : "";
+  return path.resolve(LOG_DIR, `basilisk-haiku${sessionPart}.log`);
+}
+
+// Set the current session for BASILISK logging
+export function setBasiliskLoggingSession(sessionId: string): void {
+  basiliskSessionId = sessionId;
+  ensureLogDir();
+}
 
 interface BasiliskLogEntry {
   timestamp: string;
@@ -38,12 +62,10 @@ function logBasilisk(entry: BasiliskLogEntry): void {
     }${typeof entry.data === "string" && entry.data.length > 200 ? "..." : ""}`);
   }
 
-  // Always append to log file for comprehensive record
-  try {
-    fs.appendFileSync(BASILISK_LOG_FILE, logLine);
-  } catch {
+  // Use async write to avoid blocking
+  fs.appendFile(getBasiliskLogPath(), logLine, "utf8", () => {
     // Silent fail - logging shouldn't break gameplay
-  }
+  });
 }
 
 function logBasiliskPromptExchange(

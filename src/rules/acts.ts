@@ -1,4 +1,46 @@
+import { z } from "zod";
 import { FullGameState, Act, ACT_CONFIGS, ActConfig } from "../state/schema.js";
+
+// ============================================
+// ZOD SCHEMA FOR HANDOFF VALIDATION
+// ============================================
+// Light validation for act handoff payloads
+
+export const ActHandoffSchema = z.object({
+  version: z.string(),
+  sessionId: z.string(),
+  completedAct: z.enum(["ACT_1", "ACT_2", "ACT_3"]),
+  nextAct: z.enum(["ACT_1", "ACT_2", "ACT_3"]),
+  globalTurn: z.number(),
+  metrics: z.object({
+    drMSuspicion: z.number(),
+    bobTrust: z.number(),
+    blytheTrust: z.number(),
+    blytheTransformed: z.string().nullable(),
+    accessLevel: z.number(),
+    demoClock: z.number(),
+    secretKnown: z.boolean(),
+  }),
+  narrativeFlags: z.array(z.string()),
+  keyMoments: z.array(z.string()),
+  fullState: z.object({
+    sessionId: z.string(),
+    turn: z.number(),
+  }).passthrough(), // Allow additional fields without strict validation
+});
+
+/**
+ * Validate a handoff payload
+ */
+export function validateHandoff(payload: unknown): { success: true; data: ActHandoffState } | { success: false; error: string } {
+  const result = ActHandoffSchema.safeParse(payload);
+  if (result.success) {
+    return { success: true, data: result.data as ActHandoffState };
+  } else {
+    const errorMessages = result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; ");
+    return { success: false, error: `Invalid handoff: ${errorMessages}` };
+  }
+}
 
 // ============================================
 // ACT TRANSITION DETECTION
