@@ -1022,4 +1022,52 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     // Slight suspicion decrease for good work
     state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - 1);
   }
+
+  // ============================================
+  // INSPECTOR GRAVES TRANSFORMATION (INSPECTOR_COMETH)
+  // ============================================
+  // Transforming a Guild Inspector is... technically legal.
+  // The consequences, however, are CATASTROPHIC.
+  if (targetId === "INSPECTOR_GRAVES" && state.inspector && result.outcome !== "FIZZLE") {
+    // Inspector is no longer... present. As an inspector. He's a dinosaur now.
+    state.inspector.present = false;
+    state.inspector.location = "Transformed";
+    state.inspector.mood = "deeply_suspicious"; // His last expression before scales
+
+    // The Consortium will NOT be happy
+    if (result.outcome === "FULL_DINO" || result.outcome === "PARTIAL" || result.outcome === "CHAOTIC") {
+      // Add narrative hooks for consequences
+      result.narrativeHooks.push(
+        "📋 CONSORTIUM ALERT: Inspector Graves' vital signs have... changed significantly.",
+        "⚠️ INCOMING TRANSMISSION: 'This is the Consortium of Consequential Criminality. Inspector Graves missed his check-in...'",
+        "🦎 Graves' clipboard clatters to the floor, a half-finished citation still attached."
+      );
+
+      // This is CATASTROPHIC for the inspection
+      if (state.guildInspection) {
+        state.guildInspection.phase = "CONCLUDED";
+        state.guildInspection.timeRemaining = 0;
+      }
+
+      // Dr. M will have... feelings about this
+      state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 3);
+      state.npcs.drM.mood = "horrified_impressed";
+      state.npcs.drM.latestCommandToALICE = "DID YOU JUST TRANSFORM A GUILD INSPECTOR?!";
+
+      // Environmental effects
+      result.environmentalEffects.push(
+        "Graves' Consortium ID badge begins flashing red",
+        "The lair's communication systems detect an URGENT inbound transmission",
+        "Bob has gone very, very pale"
+      );
+
+      // Set a flag for ongoing consequences
+      state.flags.inspectorTransformed = true;
+
+      // Update the result description
+      result.description += "\n\n📋 CONSORTIUM PROTECTION CLAUSE VIOLATED: You have transformed a Guild Inspector. " +
+        "This is technically not illegal, but the Consortium takes a dim view of interference with its inspection apparatus. " +
+        "Expect... consequences.";
+    }
+  }
 }

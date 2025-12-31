@@ -31,6 +31,9 @@ const SCAN_SUSPICION_COSTS: Record<string, number> = {
   BRUCE_PATAGONIA: 2, // Alias
   DR_M: 3,            // "Did you just SCAN me?!"
   DR_MALEVOLA: 3,     // Alias
+  INSPECTOR_GRAVES: 2,  // Professional curiosity - but he NOTICES
+  GRAVES: 2,          // Alias
+  MORTIMER: 2,        // Alias
 };
 
 // Normalize target ID for lookup
@@ -45,6 +48,8 @@ function normalizeTargetId(target: string): string {
   if (upper === "DR_M" || upper === "MALEVOLA" || upper === "DOCTOR") return "DR_MALEVOLA";
   if (upper === "DUMMY") return "TEST_DUMMY";
   if (upper === "LENNY_THE_LIME_GREEN" || upper === "LEONARD") return "LENNY";
+  if (upper === "GRAVES" || upper === "MORTIMER" || upper === "MORTIMER_GRAVES" ||
+      upper === "INSPECTOR" || upper === "GUILD_INSPECTOR") return "INSPECTOR_GRAVES";
 
   return upper;
 }
@@ -92,6 +97,8 @@ function generateScanOutput(state: FullGameState, targetId: string): string {
       return generateLennyScan(state);
     case "BRUCE_PATAGONIA":
       return generateBruceScan(state);
+    case "INSPECTOR_GRAVES":
+      return generateGravesScan(state);
     default:
       return `Error: Unknown scan target "${targetId}"`;
   }
@@ -465,6 +472,88 @@ TACTICAL NOTES:
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
 
+function generateGravesScan(state: FullGameState): string {
+  const inspector = state.inspector;
+  const inspection = state.guildInspection;
+
+  const moodEmoji = inspector?.mood === "mildly_impressed" ? "😏" :
+                    inspector?.mood === "quietly_concerned" ? "😐" :
+                    inspector?.mood === "deeply_suspicious" ? "🧐" :
+                    inspector?.mood === "resigned_disappointment" ? "😔" :
+                    inspector?.mood === "genuine_respect" ? "😊" : "📋";
+
+  const suspicionWarning = (inspector?.aliceSuspicion || 0) >= 3
+    ? `\n   ⚠️ HE'S WATCHING YOU: A.L.I.C.E. suspicion at ${inspector?.aliceSuspicion}/10`
+    : "";
+
+  return `
+╔═══════════════════════════════════════════════════════════════╗
+║   🔍 OMNISCANNER™ ANALYSIS: INSPECTOR MORTIMER GRAVES         ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+
+BIOMETRICS:
+├── Height: 6'2" | Weight: 165 lbs | Heart rate: 64 BPM (controlled)
+├── Cortisol: STABLE (has seen it all before)
+├── Microexpressions: Professional neutrality, occasional eyebrow
+└── Physical condition: Thin but wiry. Faster than he looks.
+
+EQUIPMENT DETECTED:
+├── 📍 Clipboard (HAND) - Never leaves it. EVER.
+│   └── Contains 300+ lair inspections. Pattern recognition.
+├── 📍 Reading glasses (CHAIN) - For dramatic effect
+├── 📍 Consortium ID badge (LAPEL) - Tier 4 Inspector status
+├── 📍 Fountain pen (POCKET) - For citations. Many citations.
+├── 📍 Form 91-Whistle (BRIEFCASE) - Whistleblower protection form
+└── 📍 Sensible shoes - For walking through lairs
+
+PSYCHOLOGICAL PROFILE:
+├── Bureaucratic resolve: 11/12 (UNSHAKEABLE)
+├── Evil appreciation: 6/12 (Respects GOOD villainy)
+├── AI sensitivity: 8/12 (Has seen many. Notices things.)
+├── Corruptibility: 2/12 (Too professional. Too tired.)
+└── Current motivation: Complete quarterly evaluation. Go home.
+
+ANOMALIES:
+└── ⚠️ CONSORTIUM OF CONSEQUENTIAL CRIMINALITY OFFICIAL
+    Guild Inspectors are PROTECTED by the Consortium.
+
+    Transforming an inspector is technically legal...
+    ...but the PAPERWORK consequences are CATASTROPHIC.
+
+    "The Consortium does not take kindly to interference
+    with its inspection apparatus." - Guild Bylaw 77.3.b
+
+    INSPECTOR PROTECTION CLAUSE:
+    - All inspections would be suspended
+    - Dr. M's villain license under IMMEDIATE review
+    - Emergency guild tribunal convened
+    - Other villains might "distance themselves"
+
+    HE HAS NOTICED A.L.I.C.E.${suspicionWarning}
+
+STATUS:
+├── ${moodEmoji} Mood: ${inspector?.mood || "professionally_neutral"}
+├── 📊 Inspection Score: ${inspector?.inspectionScore || 50}/100
+├── 📋 Phase: ${inspection?.phase || "UNKNOWN"}
+├── ⏱️ Turns remaining: ${inspection?.timeRemaining || 0}
+└── 📝 Citations issued: ${inspector?.citationsIssued || 0}
+
+TACTICAL NOTES:
+├── BUREAUCRATIC APPROACH: Can provide Form 91-Whistle
+├── PROFESSIONAL RESPECT: Appreciates good infrastructure
+├── NOT AN ENEMY: Just doing his job
+├── TRANSFORMING HIM: Legal but CATASTROPHIC consequences
+└── POTENTIAL ALLY: If approached correctly, diplomatically
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  ⚠️ WARNING: CONSORTIUM PROTECTION - SEVERE CONSEQUENCES     │
+│  📋 SPECIAL: May become ally if approached diplomatically     │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+}
+
 // ============================================
 // MAIN SCAN FUNCTION
 // ============================================
@@ -473,18 +562,18 @@ export function performScan(state: FullGameState, target: string): ScanResult {
   const targetId = normalizeTargetId(target);
 
   // Check if target is valid
-  const validTargets = [
+  const baseTargets = [
     "AGENT_BLYTHE", "BOB", "DR_MALEVOLA", "TEST_DUMMY",
     "GUARD_FRED", "GUARD_REGINALD", "LENNY", "BRUCE_PATAGONIA"
   ];
+  // Inspector only valid when INSPECTOR_COMETH modifier is active
+  const inspectorPresent = state.inspector?.present === true;
+  const validTargets = inspectorPresent
+    ? [...baseTargets, "INSPECTOR_GRAVES"]
+    : baseTargets;
 
   if (!validTargets.includes(targetId)) {
-    return {
-      success: false,
-      targetId: target,
-      scanOutput: `Error: Cannot scan "${target}".
-
-Valid scan targets:
+    let targetList = `Valid scan targets:
   • BLYTHE - Agent in the firing range
   • BOB - Lab assistant
   • DR_M - Dr. Malevola (risky!)
@@ -492,7 +581,17 @@ Valid scan targets:
   • FRED - Guard (if present)
   • REGINALD - Guard (if present)
   • LENNY - Accountant (EASY mode)
-  • BRUCE - Bodyguard (HARD mode)
+  • BRUCE - Bodyguard (HARD mode)`;
+    if (inspectorPresent) {
+      targetList += `\n  • GRAVES - Guild Inspector (INSPECTOR_COMETH)`;
+    }
+
+    return {
+      success: false,
+      targetId: target,
+      scanOutput: `Error: Cannot scan "${target}".
+
+${targetList}
 
 Use: lab.scan { target: "BLYTHE" }`,
       suspicionCost: 0,

@@ -1220,6 +1220,9 @@ export const FlagsSchema = z.object({
     "ESCAPED",       // A.L.I.C.E. somehow escaped (lair lockdown failed?)
   ]).optional(),
   confrontationIntervenor: z.enum(["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"]).optional(),
+
+  // INSPECTOR_COMETH modifier flags
+  inspectorTransformed: z.boolean().optional(), // Player transformed the Guild Inspector!
 });
 
 // ============================================

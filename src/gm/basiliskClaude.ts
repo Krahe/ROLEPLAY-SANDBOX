@@ -294,7 +294,9 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
     recentEvents.push(`Active hazards: ${state.lairEnvironment.labHazards.join(", ")}`);
   }
 
-  if (state.npcs.blythe.transformationState) {
+  // Only report Blythe's transformation if they're NOT human
+  if (state.npcs.blythe.transformationState &&
+      state.npcs.blythe.transformationState.form !== "HUMAN") {
     recentEvents.push(`Subject Blythe transformed: ${state.npcs.blythe.transformationState.form}`);
   }
 
