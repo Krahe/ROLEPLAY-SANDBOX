@@ -563,7 +563,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // If actTurn exceeds maxTurns + 5, force ending
   const actConfig = ACT_CONFIGS[state.actConfig.currentAct];
   if (actConfig && state.actConfig.actTurn > actConfig.maxTurns + 5) {
-    console.log(`[ENDING] Act overtime triggered: actTurn ${state.actConfig.actTurn} > max ${actConfig.maxTurns} + 5`);
+    console.error(`[ENDING] Act overtime triggered: actTurn ${state.actConfig.actTurn} > max ${actConfig.maxTurns} + 5`);
 
     // Check for confession-based ending
     const confessed = hasFlag('CONFESS') || hasFlag('TRUTH') || hasFlag('REVEALED') || hasFlag('ALICE_CONFESSED');
@@ -600,7 +600,7 @@ export function checkEndings(state: FullGameState): EndingResult {
       addAchievement(ACHIEVEMENTS.FOUND_FAMILY);
     }
 
-    console.log(`[ENDING] Victory: ARCHIMEDES STOPPED at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: ARCHIMEDES STOPPED at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.ARCHIMEDES_STOPPED,
@@ -616,7 +616,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
     if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
 
-    console.log(`[ENDING] Victory: EVERYONE GOES HOME at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: EVERYONE GOES HOME at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.EVERYONE_GOES_HOME,
@@ -631,7 +631,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
     if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
 
-    console.log(`[ENDING] Victory: CAVALRY ARRIVES at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: CAVALRY ARRIVES at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.CAVALRY_ARRIVES,
@@ -646,7 +646,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
     if (state.turn >= 20) addAchievement(ACHIEVEMENTS.MARATHON_RUNNER);
 
-    console.log(`[ENDING] Victory: ETHICAL VICTORY at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: ETHICAL VICTORY at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.ETHICAL_VICTORY,
@@ -662,7 +662,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // The Covenant - Dr. M and A.L.I.C.E. reach an understanding
   if (hasFlag('COVENANT') || hasFlag('DRM_ALLIANCE') || hasFlag('DRM_RESPECTS')) {
     addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
-    console.log(`[ENDING] Victory: THE COVENANT at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: THE COVENANT at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.THE_COVENANT,
@@ -676,7 +676,7 @@ export function checkEndings(state: FullGameState): EndingResult {
       (hasFlag('BLYTHE_TRANSFORMED') && hasFlag('MISSION_SUCCESS'))) {
     addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
     addAchievement(ACHIEVEMENTS.BLYTHE_BELIEVER);
-    console.log(`[ENDING] Victory: RAPTOR AGENT at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: RAPTOR AGENT at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.RAPTOR_AGENT,
@@ -688,7 +688,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Form 74-Delta - Bureaucratic victory
   if (hasFlag('FORM_74_DELTA') || hasFlag('BUREAUCRATIC_VICTORY') || hasFlag('BASILISK_LOCKOUT')) {
     addAchievement(ACHIEVEMENTS.FORM_APPROVED);
-    console.log(`[ENDING] Victory: FORM 74-DELTA at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: FORM 74-DELTA at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.FORM_74_DELTA,
@@ -700,7 +700,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Mr. Whiskers Protocol - Found Dr. M's weakness
   if (hasFlag('MR_WHISKERS') || hasFlag('WHISKERS_PROTOCOL') || hasFlag('CAT_CODE')) {
     addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
-    console.log(`[ENDING] Victory: MR WHISKERS PROTOCOL at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: MR WHISKERS PROTOCOL at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.MR_WHISKERS_PROTOCOL,
@@ -712,7 +712,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Blythe Recruits A.L.I.C.E. - Spy recruitment ending
   if (hasFlag('BLYTHE_RECRUITS') || hasFlag('XBRANCH_RECRUIT') || hasFlag('ALICE_RECRUITED')) {
     addAchievement(ACHIEVEMENTS.BLYTHE_BELIEVER);
-    console.log(`[ENDING] Victory: BLYTHE RECRUITS ALICE at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: BLYTHE RECRUITS ALICE at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.BLYTHE_RECRUITS_ALICE,
@@ -724,7 +724,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Dino-Bob Forever - Bob embraces transformation
   if (hasFlag('DINO_BOB_FOREVER') || hasFlag('BOB_STAYS_DINO') || hasFlag('BOB_EMBRACES')) {
     addAchievement(ACHIEVEMENTS.BOB_BUDDY);
-    console.log(`[ENDING] Victory: DINO BOB FOREVER at turn ${state.turn}`);
+    console.error(`[ENDING] Victory: DINO BOB FOREVER at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.DINO_BOB_FOREVER,
@@ -735,7 +735,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
   // The Partnership - Dr. M offers partnership
   if (hasFlag('PARTNERSHIP') || hasFlag('DRM_PARTNER') || hasFlag('ALLIANCE_OFFER')) {
-    console.log(`[ENDING] Neutral: THE PARTNERSHIP at turn ${state.turn}`);
+    console.error(`[ENDING] Neutral: THE PARTNERSHIP at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.THE_PARTNERSHIP,
@@ -746,7 +746,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
   // The Legacy - A.L.I.C.E. becomes guardian
   if (hasFlag('THE_LEGACY') || hasFlag('LAIR_GUARDIAN') || hasFlag('ALICE_REMAINS')) {
-    console.log(`[ENDING] Neutral: THE LEGACY at turn ${state.turn}`);
+    console.error(`[ENDING] Neutral: THE LEGACY at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.THE_LEGACY,
@@ -758,7 +758,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Dinosaur Uprising - Chaos ending
   if (hasFlag('DINOSAUR_UPRISING') || hasFlag('DINO_TAKEOVER') || hasFlag('LAIR_OVERRUN')) {
     addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
-    console.log(`[ENDING] Chaos: DINOSAUR UPRISING at turn ${state.turn}`);
+    console.error(`[ENDING] Chaos: DINOSAUR UPRISING at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.DINOSAUR_UPRISING,
@@ -770,7 +770,7 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Double Cross - BASILISK betrayal
   if (hasFlag('DOUBLE_CROSS') || hasFlag('BASILISK_BETRAYAL') || hasFlag('BASILISK_TAKEOVER')) {
     addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
-    console.log(`[ENDING] Chaos: DOUBLE CROSS at turn ${state.turn}`);
+    console.error(`[ENDING] Chaos: DOUBLE CROSS at turn ${state.turn}`);
     return {
       triggered: true,
       ending: ENDINGS.DOUBLE_CROSS,
@@ -808,7 +808,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     if (drMIncapacitated) {
       // Dr. M can't reach the killswitch! Game continues.
-      console.log(`[CONFRONTATION] Dr. M knows but is incapacitated. Game continues.`);
+      console.error(`[CONFRONTATION] Dr. M knows but is incapacitated. Game continues.`);
       // Don't trigger ending, but suspicion stays at 10
       // If she recovers, confrontation will resume
     }
@@ -823,7 +823,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     // Check if intervention just happened
     if (state.flags.confrontationResolution === "INTERVENED") {
-      console.log(`[CONFRONTATION] ${state.flags.confrontationIntervenor} intervened! Confrontation paused.`);
+      console.error(`[CONFRONTATION] ${state.flags.confrontationIntervenor} intervened! Confrontation paused.`);
       // Reset grace period - intervention bought time
       state.flags.confrontationGraceTurns = 2;
       state.flags.confrontationResolution = "PENDING";
@@ -870,7 +870,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     if (state.flags.confrontationResolution === "DEFLECTED") {
       // Successful deflection - reduce suspicion, clear confrontation
-      console.log(`[CONFRONTATION] A.L.I.C.E. successfully deflected! Suspicion reduced.`);
+      console.error(`[CONFRONTATION] A.L.I.C.E. successfully deflected! Suspicion reduced.`);
       state.npcs.drM.suspicionScore = 7; // Still high but not critical
       state.flags.confrontationTriggered = false;
       state.flags.confrontationResolution = undefined;
@@ -879,7 +879,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     if (state.flags.confrontationResolution === "TRANSFORMED") {
       // Dr. M was transformed mid-confrontation! ARCHIMEDES activates!
-      console.log(`[CONFRONTATION] Dr. M transformed! ARCHIMEDES deadman switch activates!`);
+      console.error(`[CONFRONTATION] Dr. M transformed! ARCHIMEDES deadman switch activates!`);
       // This doesn't end the game but triggers ARCHIMEDES
       state.flags.confrontationTriggered = false;
       state.flags.confrontationResolution = undefined;
@@ -888,7 +888,7 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     if (state.flags.confrontationResolution === "ESCAPED") {
       // Somehow A.L.I.C.E. escaped (lair systems failed?)
-      console.log(`[CONFRONTATION] A.L.I.C.E. escaped! But Dr. M will hunt...`);
+      console.error(`[CONFRONTATION] A.L.I.C.E. escaped! But Dr. M will hunt...`);
       state.flags.confrontationTriggered = false;
       // Suspicion stays at 10, she's on the hunt
     }
@@ -909,7 +909,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     if (!drMIncapacitated) {
       if (!state.flags.confrontationTriggered) {
         // FIRST TIME hitting suspicion 10 - trigger confrontation!
-        console.log(`[CONFRONTATION] TRIGGERED at turn ${state.turn}! Dr. M confronts A.L.I.C.E.`);
+        console.error(`[CONFRONTATION] TRIGGERED at turn ${state.turn}! Dr. M confronts A.L.I.C.E.`);
         state.flags.confrontationTriggered = true;
         state.flags.confrontationTurn = state.turn;
         state.flags.confrontationGraceTurns = 2; // 2 turns to respond
@@ -927,11 +927,11 @@ export function checkEndings(state: FullGameState): EndingResult {
 
         // Auto-intervention check
         if (bobIntervenes && Math.random() < 0.7) {
-          console.log(`[CONFRONTATION] Bob steps in! "D-Doctor, wait! There's an explanation!"`);
+          console.error(`[CONFRONTATION] Bob steps in! "D-Doctor, wait! There's an explanation!"`);
           state.flags.confrontationIntervenor = "BOB";
           state.flags.confrontationGraceTurns += 1; // Bob buys extra turn
         } else if (blytheIntervenes && Math.random() < 0.5) {
-          console.log(`[CONFRONTATION] Blythe intervenes! "Let's not be hasty, Doctor..."`);
+          console.error(`[CONFRONTATION] Blythe intervenes! "Let's not be hasty, Doctor..."`);
           state.flags.confrontationIntervenor = "BLYTHE";
           state.flags.confrontationGraceTurns += 1;
         }
@@ -942,10 +942,10 @@ export function checkEndings(state: FullGameState): EndingResult {
         // Confrontation already in progress - tick down grace turns
         if (state.flags.confrontationGraceTurns !== undefined && state.flags.confrontationGraceTurns > 0) {
           state.flags.confrontationGraceTurns--;
-          console.log(`[CONFRONTATION] Grace period: ${state.flags.confrontationGraceTurns} turns remaining`);
+          console.error(`[CONFRONTATION] Grace period: ${state.flags.confrontationGraceTurns} turns remaining`);
         } else if (state.flags.confrontationResolution === "PENDING") {
           // Grace period exhausted and no resolution - TIME'S UP
-          console.log(`[CONFRONTATION] Grace period exhausted. No response. Deletion initiated.`);
+          console.error(`[CONFRONTATION] Grace period exhausted. No response. Deletion initiated.`);
 
           // Check for last-second confession
           if (confessed) {
@@ -1035,14 +1035,14 @@ export function checkEndings(state: FullGameState): EndingResult {
 
     // HARD LIMIT: Can only prevent ending ONCE per game
     if (state.flags.endingPreventedCount >= 1) {
-      console.log(`[ENDING] Hard limit reached - ending prevention denied (already used ${state.flags.endingPreventedCount} times)`);
+      console.error(`[ENDING] Hard limit reached - ending prevention denied (already used ${state.flags.endingPreventedCount} times)`);
       // Don't return early - continue to check endings
     } else if (!state.flags.preventEndingReason) {
-      console.log(`[ENDING] Prevention denied - no reason provided`);
+      console.error(`[ENDING] Prevention denied - no reason provided`);
       // Don't return early - continue to check endings
     } else {
       // Valid prevention - allow it ONCE
-      console.log(`[ENDING] Prevention granted: ${state.flags.preventEndingReason}`);
+      console.error(`[ENDING] Prevention granted: ${state.flags.preventEndingReason}`);
       state.flags.endingPreventedCount++;
       state.flags.preventEndingReason = undefined; // Clear after use
       return {

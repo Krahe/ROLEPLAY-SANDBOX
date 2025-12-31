@@ -171,6 +171,9 @@ files.read { id: "ALICE_LOG_13" }
 | `GUARD_FRED` | Security guard (armed) | Turn 5+ or Act 2+ |
 | `GUARD_REGINALD` | Security guard (armed) | Turn 5+ or Act 2+ |
 | `DR_M` | Dr. Malevola herself! | Level 4+ only |
+| `INSPECTOR_GRAVES` | Guild Inspector Mortimer Graves | INSPECTOR_COMETH modifier only |
+
+> ⚠️ **INSPECTOR_GRAVES WARNING**: Transforming a Guild Inspector is technically legal, but the Consortium of Consequential Criminality takes a DIM VIEW of interference with its inspection apparatus. Expect... consequences.
 
 ---
 

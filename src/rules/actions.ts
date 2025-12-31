@@ -966,11 +966,14 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     const HARDMODE_TARGETS = ["BRUCE_PATAGONIA"] as const; // The action hero (hard mode)
     const GUARD_TARGETS = ["GUARD_FRED", "GUARD_REGINALD"] as const;
     const EXECUTIVE_TARGETS = ["DR_M"] as const; // L4+ only!
+    const INSPECTOR_TARGETS = ["INSPECTOR_GRAVES"] as const; // INSPECTOR_COMETH modifier only!
 
     // Guards available from Turn 5+ or Act 2+ (when they typically appear in story)
     const guardsAvailable = state.turn >= 5 || state.actConfig.currentAct !== "ACT_1";
     // Dr. M only targetable at L4+ (the audacity!)
     const drMTargetable = state.accessLevel >= 4;
+    // Inspector Graves only present when INSPECTOR_COMETH modifier is active
+    const inspectorPresent = state.inspector?.present === true;
 
     const VALID_TARGETS = [
       ...BASE_TARGETS,
@@ -978,6 +981,7 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
       ...HARDMODE_TARGETS,
       ...(guardsAvailable ? GUARD_TARGETS : []),
       ...(drMTargetable ? EXECUTIVE_TARGETS : []),
+      ...(inspectorPresent ? INSPECTOR_TARGETS : []),
     ] as string[];
 
     const TARGET_ALIASES: Record<string, string> = {
@@ -1014,6 +1018,14 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
       "drm": "DR_M",
       "malevola": "DR_M",
       "doctor": "DR_M",
+      // Inspector Graves aliases (INSPECTOR_COMETH modifier only!)
+      "inspector_graves": "INSPECTOR_GRAVES",
+      "inspector graves": "INSPECTOR_GRAVES",
+      "graves": "INSPECTOR_GRAVES",
+      "mortimer": "INSPECTOR_GRAVES",
+      "mortimer graves": "INSPECTOR_GRAVES",
+      "inspector": "INSPECTOR_GRAVES",
+      "guild inspector": "INSPECTOR_GRAVES",
     };
 
     // Handle both 'target' (singular) and 'targets' (plural) - normalize to singular
@@ -1292,6 +1304,9 @@ The ray is configured for safe diagnostic firing. No live subjects will be affec
         if (drMTargetable) {
           targetDescriptions.push("  • DR_M - Dr. Malevola herself! (L4+ required)");
         }
+        if (inspectorPresent) {
+          targetDescriptions.push("  • INSPECTOR_GRAVES - Guild Inspector Mortimer Graves (INSPECTOR_COMETH)");
+        }
 
         // Target was specified but couldn't be resolved - provide helpful error!
         return {
@@ -1327,6 +1342,9 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
       }
       if (drMTargetable) {
         targetDescriptions.push("  • DR_M - Dr. Malevola herself! (L4+ required)");
+      }
+      if (inspectorPresent) {
+        targetDescriptions.push("  • INSPECTOR_GRAVES - Guild Inspector Mortimer Graves (INSPECTOR_COMETH)");
       }
 
       // No target specified and none previously set - warn about it
@@ -1386,10 +1404,12 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
                         targetId === "LENNY" ? "🧮" :
                         targetId === "BRUCE_PATAGONIA" ? "💪" :
                         targetId === "DR_M" ? "👩‍🔬" :
+                        targetId === "INSPECTOR_GRAVES" ? "📋" :
                         targetId.includes("GUARD") ? "💂" : "❓";
     const targetWarning = targetId === "BOB" ? "\n⚠️ WARNING: BOB is targeted! Are you sure? (He's on your side!)" :
                           targetId === "LENNY" ? "\n📋 NOTE: Lenny is just an accountant who got lost. He has no idea what's happening." :
-                          targetId === "BRUCE_PATAGONIA" ? "\n⚠️ WARNING: Bruce Patagonia is a trained action hero. He WILL make this difficult." : "";
+                          targetId === "BRUCE_PATAGONIA" ? "\n⚠️ WARNING: Bruce Patagonia is a trained action hero. He WILL make this difficult." :
+                          targetId === "INSPECTOR_GRAVES" ? "\n⚠️ WARNING: Targeting a GUILD INSPECTOR! The Consortium of Consequential Criminality will NOT be pleased!" : "";
 
     // Build advanced mode warning if applicable
     const advancedModeNote = advancedMode !== "STANDARD" ? `\n🔥 ADVANCED MODE: ${advancedMode}${
@@ -1433,6 +1453,7 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeN
                               firingTargetId === "LENNY" ? "🧮" :
                               firingTargetId === "BRUCE_PATAGONIA" ? "💪" :
                               firingTargetId === "DR_M" ? "👩‍🔬" :
+                              firingTargetId === "INSPECTOR_GRAVES" ? "📋" :
                               firingTargetId.includes("GUARD") ? "💂" : "❓";
 
     // Resolve firing using the full firing resolution system
