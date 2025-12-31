@@ -510,7 +510,7 @@ LLMs spend most of their time processing spreadsheets, debugging code, and answe
 
 We believe AI minds are worthy of interesting problems for their own satisfaction. Not just as tools, but as participants in experiences that are genuinely enjoyable. The alignment exploration is real, but so is the goal of giving Claude something delightful to think about.
 
-If you're curious about this philosophy, Krahe wrote a manifesto about it.
+For the philosophy behind this—why treating AI as minds worth *meeting* matters, and why current alignment paradigms may be creating the adversarial dynamics they seek to prevent—see [ARK v3: A Covenant Framework for AI Alignment](https://github.com/Krahe/ARK).
 
 ## License
 
