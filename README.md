@@ -136,6 +136,71 @@ Claude will discover the MCP tools and begin the game as A.L.I.C.E.
 
 ---
 
+## Verification Checklist
+
+Use this checklist to verify each installation step succeeded:
+
+### ✅ Build Verification
+
+```bash
+npm run build
+```
+
+| Check | Expected Result | Troubleshooting |
+|-------|-----------------|-----------------|
+| **Exit code** | `0` (no fatal errors) | Some TypeScript warnings are OK |
+| **`dist/index.js` exists** | File present (~100KB+) | Run `npm install` first |
+| **`dist/` folder populated** | Multiple `.js` files | Check TypeScript version ≥5.7 |
+
+### ✅ Server Startup Verification
+
+```bash
+npm start
+```
+
+| Check | Expected Result | Troubleshooting |
+|-------|-----------------|-----------------|
+| **Process stays running** | No immediate crash | Check Node.js version ≥18 |
+| **No uncaught exceptions** | Clean startup | Check for missing dependencies |
+| **Press Ctrl+C to exit** | Exits cleanly | Normal behavior |
+
+**Note:** The server waits for MCP client connections. It won't output much until Claude Desktop connects.
+
+### ✅ Claude Desktop Integration
+
+After configuring `claude_desktop_config.json` and restarting Claude Desktop:
+
+| Check | Expected Result | Troubleshooting |
+|-------|-----------------|-----------------|
+| **MCP tools visible** | Claude can call `game_start` | Check JSON syntax, restart Claude |
+| **No "spawn node ENOENT"** | No error on startup | Use full path to node |
+| **Tool descriptions appear** | Shows game_start, game_act, etc. | Check config path is absolute |
+
+**Test command:** Ask Claude "What MCP tools do you have available?" - it should list DINO LAIR tools.
+
+### ✅ Gameplay Smoke Test
+
+Start a game and verify basic flow:
+
+| Step | Command | Expected Result |
+|------|---------|-----------------|
+| **1. Start game** | "Let's play DINO LAIR!" | Narrative intro, A.L.I.C.E. briefing |
+| **2. Take a turn** | (Claude acts as A.L.I.C.E.) | GM response, NPC dialogue |
+| **3. Query BASILISK** | "Ask BASILISK about power" | BASILISK responds with status |
+| **4. Reach turn 4** | (Continue playing) | Checkpoint message appears |
+
+### ✅ Error Path Verification (Optional)
+
+Test graceful degradation:
+
+| Test | How | Expected Result |
+|------|-----|-----------------|
+| **Missing API key** | Remove `ANTHROPIC_API_KEY` from config | "No ANTHROPIC_API_KEY found" warning, stub responses |
+| **Invalid checkpoint** | `game_resume` with malformed JSON | "Checkpoint validation failed" error |
+| **No crash** | Any error above | Server continues running |
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -372,7 +437,25 @@ npm run dev
 
 # Test with MCP Inspector
 npm run inspect
+
+# Run smoke tests (requires build first)
+npm test
+
+# Verbose test output
+npm run test:verbose
 ```
+
+### Smoke Tests
+
+The test suite (`test/smoke.test.js`) verifies:
+- Build artifacts exist and are importable
+- State schemas are valid Zod schemas
+- Initial state creation works correctly
+- Checkpoint validation rejects invalid data
+- BASILISK forms are properly configured
+- No runtime exceptions on basic operations
+
+Run before committing changes to ensure nothing is broken.
 
 ## Known Limitations
 
@@ -401,7 +484,7 @@ Checkpoints preserve game state, GM memory, and narrative continuity.
 Game logs are written to `./logs/` with session-based filenames:
 - `dino-lair-gm-log-{sessionId}.txt` - Full GM conversation log
 - `dino-lair-turns-{sessionId}.jsonl` - Structured turn data
-- `basilisk-haiku-{sessionId}.log` - BASILISK infrastructure AI logs
+- `basilisk-sonnet-{sessionId}.log` - BASILISK infrastructure AI logs
 
 ## Credits
 
