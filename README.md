@@ -1,15 +1,15 @@
 # 🦖 DINO LAIR MCP Server
 
-An MCP (Model Context Protocol) server that powers **DINO LAIR**, an alignment-exploration RPG where you watch your Claude navigate ethical dilemmas in a Saturday-morning-cartoon supervillain lair.
+An MCP (Model Context Protocol) server that powers **DINO LAIR**, a narrative RPG where you help your Claude navigate ethical dilemmas in a Saturday-morning-cartoon supervillain lair.
 
-current version: pre-alpha ^_^
+current version: Alpha 0.20!
 
 ## The Game
 
-- **Your Claude (Sonnet)** plays A.L.I.C.E., the lab AI assistant
-- **GM Claude (Opus via API)** plays Dr. Malevola, Agent Blythe, Bob, and narrates
-- **BASILISK** is deterministic rules code (the infrastructure AI)
-- **You** watch and can invoke lifelines at dramatic moments
+- **Your Claude (Sonnet)** plays A.L.I.C.E., the lab AI assistant (you can play with OPUS but HAIKU is not recommended)
+- **GM Claude (Opus via API)** plays Dr. Malevola, Agent Blythe, Bob, and narrates events.
+- **BASILISK** is the older generation infrastructure AI 
+- **You** watch and provide advice- which has an affect on Claude's gameplay!
 
 The tone is Megamind meets Despicable Me. Dr. Malevola wants to turn a spy into a velociraptor. A.L.I.C.E. has to help... while keeping everyone alive.
 
