@@ -2647,15 +2647,15 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // PROMPT CACHING: The system prompt is cached, reducing costs on subsequent turns
     // (cache hits are 90% cheaper than re-processing).
     //
-    // EXTENDED THINKING: Budget reduced from 10K to 4K - GM rarely needs more than
-    // 2-3K tokens to reason through NPC motivations and consequences. 10K was overkill
-    // and added significant cost/latency.
+    // EXTENDED THINKING: 5.5K tokens - sweet spot for complex GM decisions
+    // (NPC motivations, multi-character scenes, WILD mode chaos) without
+    // the excessive 10K we had before.
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 8000, // Reduced from 16K - typical responses are 1-2K
+      max_tokens: 8000,
       thinking: {
         type: "enabled",
-        budget_tokens: 4000, // Reduced from 10K - sufficient for GM decisions
+        budget_tokens: 5500, // Sweet spot: enough for WILD chaos, not excessive
       },
       system: [
         {
