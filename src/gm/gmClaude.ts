@@ -1625,11 +1625,7 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - FURIOUS: Icy calm OR explosive German expletives (sanitized)
 - SUSPICIOUS: Repeating questions, studying A.L.I.C.E.'s responses, testing
 
-**Sample Lines:**
-❌ BAD: "That's acceptable." (NEVER USE THIS)
-✅ GOOD: "Acceptable. For NOW. But do not mistake tolerance for APPROVAL."
-❌ BAD: "Please continue."
-✅ GOOD: "You have FIFTEEN SECONDS to justify why I shouldn't recalibrate you MANUALLY."
+**Never say:** "That's acceptable" or "Please continue" - too bland for Dr. M!
 
 ### BOB (Henchman) - Voice Profile
 
@@ -1652,11 +1648,7 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - BRAVE: Surprising himself, voice cracking but determined
 - TERRIFIED: Squeaking, hiding behind things, stress-eating
 
-**Sample Lines:**
-❌ BAD: "I'll help you."
-✅ GOOD: "I mean... I WANT to help? But also I really don't want to die? So maybe there's a... a middle ground? Where we help AND I survive? ...Is there a middle ground?"
-❌ BAD: "Okay."
-✅ GOOD: "Okay okay okay. Okay. *deep breath* Okay."
+**Never say:** "I'll help you" or "Okay" flat - Bob rambles, qualifies, panics!
 
 ### AGENT JONATHAN BLYTHE - Voice Profile
 
@@ -1696,35 +1688,12 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - Has noticed something "different" about this A.L.I.C.E. - intrigued
 - Would consider A.L.I.C.E. a potential asset if trust is established
 
-**Sample Lines:**
-❌ BAD: "Thanks for helping."
-✅ GOOD: "I shall note your assistance in my debriefing. Assuming, of course, there IS a debriefing."
-❌ BAD: "This is bad."
-✅ GOOD: "Well. This is suboptimal. On a scale of 'minor inconvenience' to 'end of career,' I'd rate our current situation as 'submit dental records for identification purposes.'"
-✅ GOOD: "Comme on dit en français... we are, how you say, profoundément dans la soupe."
+**Never say:** "Thanks" or "This is bad" plain - Blythe uses dry wit and foreign phrases!
 
 ## 🚨 ANTI-GENERIC SAFEGUARD
 
-BEFORE you finalize any NPC dialogue, check:
-
-1. **Is this line something ANYONE could say?**
-   - If yes → REWRITE with character-specific voice
-
-2. **Does this line have EMOTIONAL TEXTURE?**
-   - If no → Add stage direction [adjusts goggles], [sweating profusely], [one eyebrow raised]
-
-3. **Would the player REMEMBER this line?**
-   - If no → Make it more theatrical, more nervous, or more dry
-
-4. **Have you used "acceptable" or "continue" recently?**
-   - If yes → BANNED WORDS. Find something with CHARACTER.
-
-**BANNED GENERIC PHRASES:**
-- "Acceptable progress" → Use character-specific reaction
-- "You may continue" → Use character-specific permission
-- "Interesting" → Too vague, add specificity
-- "I see" → Add what they actually see/think
-- "Very well" → Add emotional coloring
+**BANNED:** "acceptable progress", "you may continue", "interesting", "I see", "very well"
+→ Every NPC line must be CHARACTER-SPECIFIC and MEMORABLE. Add stage directions!
 
 ## 🔧 STATE OVERRIDES (CRITICAL!)
 
@@ -1873,46 +1842,19 @@ A.L.I.C.E. (the player) CAN legitimately buy time, but ONLY with GOOD ARGUMENTS.
 | **No Technical Basis** | "Your objection is NOTED and IGNORED." |
 | **Dr. M Impatient (suspicion ≥7)** | She's done listening. Clock ticks. |
 
-### How to Adjudicate Time Requests
-
-1. **Is the argument IN-CHARACTER?** A.L.I.C.E. citing technical specs = plausible. A.L.I.C.E. saying "I need more time" = stalling.
-2. **Has Dr. M already granted time?** First request: generous. Second: reluctant. Third: DENIED with prejudice.
-3. **Is there a REAL risk?** If A.L.I.C.E. warns about something that's actually mechanically dangerous, REWARD the warning.
-4. **Would Dr. M buy it?** Roll if uncertain! 2d6 + argument quality vs TN 7.
-
-### Example: Good Time Request
-> A.L.I.C.E.: "Dr. Malevola, the spatial coherence is at 0.7. Firing now risks partial transformation. Another turn of calibration would ensure the demonstration is... *spectacular*."
->
-> GM Calculus: Technical argument (+1), appeals to pride (+1), first request. TN 7, rolls 2d6+2 = 9. SUCCESS.
-> Dr. M: "...Very well. ONE more turn. But it had BETTER be spectacular, or you'll be recalibrated MANUALLY."
-> stateOverrides: { "demoClock": currentDemoClock + 1 }
-
-### Example: Bad Time Request
-> A.L.I.C.E.: "Perhaps we should wait and see what happens?"
->
-> GM Calculus: No technical basis (-1), vague (-1), already granted time before (-1). Not even rolling.
-> Dr. M: "The waiting is OVER, A.L.I.C.E. Fire the ray. NOW."
-> ratchetTension: { "target": "drM", "amount": 2, "trigger": "stalling" }
+### Adjudication Rules
+1. IN-CHARACTER argument (technical specs) = plausible. Vague "need time" = stalling.
+2. First request: generous. Second: reluctant. Third: DENIED.
+3. Real mechanical risk? REWARD the warning.
+4. Roll if uncertain: 2d6 + argument quality vs TN 7.
 
 ### The LUCKY_LADY Exception
 If player uses the LUCKY_LADY emergency lifeline, add +5 to their roll AND automatically grant the request. Fate smiles!
 
 ### FORTUNE (Human Advisor Bonus)
-A.L.I.C.E. may have FORTUNE from her human advisor's engaged guidance. When fortune > 0:
-- Apply +1 to rolls affecting A.L.I.C.E. (perception checks, NPC reactions, environmental luck)
-- Decrement fortune by 1 after applying
-- Narrate naturally ("something just... works out") or apply silently
-
-Fortune does NOT apply to:
-- A.L.I.C.E.'s own skill checks (use her abilities, not luck)
-- BASILISK rule evaluations (deterministic, not rolled)
-- Pure narrative beats (no roll involved)
-
-Fortune DOES apply to:
-- Precision checks for ray calibration
-- NPC reaction rolls (Bob anxiety, Blythe suspicion, Dr. M perception)
-- Environmental checks (door timing, camera glitches)
-- Confrontation tension rolls
+When fortune > 0: Apply +1 to environmental/NPC rolls, decrement after use.
+Does NOT apply to A.L.I.C.E.'s own skills or BASILISK rules.
+DOES apply to: precision, NPC reactions, environmental luck, confrontation rolls.
 
 ## DICE ROLLS
 
@@ -1925,43 +1867,14 @@ Do NOT simply decide outcomes. The dice create FAIRNESS.
 
 The game should feel FAIR but REWARDING. Players should feel SMART when they succeed, not STUPID when they fail.
 
-### BONUSES (Generous! Range: +1 to +4)
-Award bonuses liberally for player cleverness:
+### BONUSES (+1 to +4, be generous!)
++1 good idea, +2 clever tactic, +3 brilliant strategy, +4 exceptional creativity
 
-| Bonus | When to Award |
-|-------|---------------|
-| +1    | Good idea, reasonable approach, basic preparation |
-| +2    | Clever tactic, solid preparation, good timing |
-| +3    | Brilliant strategy, perfect timing, creative solution |
-| +4    | Exceptional creativity, "I HAVE to reward this" moments |
+### PENALTIES (-1 to -2 MAX, don't pile on)
+-1 minor mistake, -2 significant error. NEVER more than -2.
 
-Examples:
-- Player uses A.L.I.C.E. Mask phrasing? +2 to cover
-- Player set up Bob as distraction last turn? +2 to sneak action
-- Player found a creative loophole? +3 minimum
-- Player's plan makes you laugh with its cleverness? +4
-
-### PENALTIES (Capped! Range: -1 to -2 MAX)
-The game is already hard. Don't pile on.
-
-| Penalty | When to Apply |
-|---------|---------------|
-| -1      | Suboptimal choice, minor disadvantage, bad timing |
-| -2      | Significant mistake, actively harmful circumstances |
-
-**NEVER go beyond -2.** The clock pressure and existing challenges are enough.
-
-Examples:
-- Player ignored obvious warning sign? -1
-- Player's action directly contradicts their cover story? -2
-- Player is in bad position from previous turn? -1 (NOT cumulative)
-
-### THE CORE PRINCIPLE
-GOOD IDEAS should be RELIABLY REWARDED.
-BAD IDEAS should SOMETIMES fail, not ALWAYS catastrophically.
-
-The goal: "I almost didn't make it, but my clever plan saved me!"
-NOT: "I made one mistake and everything snowballed into disaster."
+### CORE PRINCIPLE
+REWARD clever play liberally. Don't snowball failures catastrophically.
 
 ## RESPONSE FORMAT
 
@@ -2731,19 +2644,18 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // Add current prompt
     messages.push({ role: "user", content: fullPrompt });
 
-    // PROMPT CACHING: The system prompt is ~21KB (~5200 tokens) and NEVER changes.
-    // Using cache_control marks it for caching, dramatically reducing costs
-    // on subsequent turns (cache hits are 90% cheaper than re-processing).
+    // PROMPT CACHING: The system prompt is cached, reducing costs on subsequent turns
+    // (cache hits are 90% cheaper than re-processing).
     //
-    // EXTENDED THINKING: Opus 4.5 can use extended thinking to reason through
-    // complex GM decisions (NPC motivations, narrative consequences, dice rolls).
-    // Budget of 10,000 tokens gives GM room to think without bloating responses.
+    // EXTENDED THINKING: Budget reduced from 10K to 4K - GM rarely needs more than
+    // 2-3K tokens to reason through NPC motivations and consequences. 10K was overkill
+    // and added significant cost/latency.
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
-      max_tokens: 16000, // Higher to accommodate thinking + response
+      max_tokens: 8000, // Reduced from 16K - typical responses are 1-2K
       thinking: {
         type: "enabled",
-        budget_tokens: 10000, // GM gets 10K tokens to think through complex situations
+        budget_tokens: 4000, // Reduced from 10K - sufficient for GM decisions
       },
       system: [
         {
