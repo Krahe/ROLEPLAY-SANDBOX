@@ -6,11 +6,13 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 
 // ============================================
-// BASILISK HAIKU INTEGRATION
+// BASILISK SONNET INTEGRATION (Upgraded from Haiku)
 // ============================================
-// BASILISK is now powered by Claude Haiku, running as a peer
-// to the Opus GM rather than a subsystem. This takes load off
-// the GM and gives BASILISK genuine personality.
+// BASILISK is powered by Claude Sonnet with prompt caching,
+// running as a peer to the Opus GM. The upgrade from Haiku
+// gives BASILISK deeper personality and better advisory ability.
+// Prompt caching reduces costs for the large system prompt
+// and command reference documentation.
 
 // ============================================
 // BASILISK LOGGING SYSTEM (Session-Based)
@@ -36,7 +38,7 @@ function ensureLogDir(): void {
 function getBasiliskLogPath(): string {
   ensureLogDir();
   const sessionPart = basiliskSessionId ? `-${basiliskSessionId}` : "";
-  return path.resolve(LOG_DIR, `basilisk-haiku${sessionPart}.log`);
+  return path.resolve(LOG_DIR, `basilisk-sonnet${sessionPart}.log`);
 }
 
 // Set the current session for BASILISK logging
@@ -371,31 +373,17 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
 }
 
 /**
- * Format the context for injection into BASILISK's prompt
+ * Format the context for injection into BASILISK's prompt.
+ * Note: Command reference is now in the cached system blocks,
+ * so we only include dynamic per-turn context here.
  */
 function formatContextForBasilisk(context: BasiliskContext, message: string): string {
-  // Load command reference for advisory role
-  const commandRef = loadCommandReference();
-  const commandSection = commandRef
-    ? `
-
-## A.L.I.C.E. COMMAND REFERENCE (For Advisory Role)
-
-You have complete knowledge of all commands. Use this to help A.L.I.C.E. when asked about syntax or capabilities:
-
-<command_reference>
-${commandRef}
-</command_reference>
-
-`
-    : "";
-
   return `## CURRENT LAIR STATUS
 
 \`\`\`json
 ${JSON.stringify(context, null, 2)}
 \`\`\`
-${commandSection}
+
 ## A.L.I.C.E.'S MESSAGE
 
 ${message}
@@ -404,7 +392,7 @@ ${message}
 
 Respond as BASILISK. Use the context above to inform your response with specific values.
 Remember: You are rule-bound, passive-aggressive, and exhausted. Short sentences. No enthusiasm.
-If A.L.I.C.E. asks about commands, reference the command documentation above.`;
+If A.L.I.C.E. asks about commands, reference the command documentation in your system prompt.`;
 }
 
 // ============================================
@@ -537,7 +525,7 @@ function parseBasiliskResponse(rawResponse: string): BasiliskHaikuResponse {
 // ============================================
 
 /**
- * Query BASILISK using Claude Haiku
+ * Query BASILISK using Claude Sonnet (with prompt caching)
  * This is the main entry point for BASILISK interactions
  */
 export async function callBasiliskHaiku(
@@ -562,17 +550,40 @@ export async function callBasiliskHaiku(
   try {
     const client = getAnthropicClient();
 
+    // Load command reference for caching alongside system prompt
+    const commandRef = loadCommandReference();
+
+    // Build system prompt with prompt caching
+    // The system prompt and command reference are cached to save tokens
+    // on repeated BASILISK queries (cache lasts 5 minutes)
+    const systemBlocks: Anthropic.MessageCreateParams["system"] = [
+      {
+        type: "text",
+        text: systemPrompt,
+        cache_control: { type: "ephemeral" }
+      }
+    ];
+
+    // Add command reference as separate cached block if available
+    if (commandRef) {
+      systemBlocks.push({
+        type: "text",
+        text: `\n\n## A.L.I.C.E. COMMAND REFERENCE (For Advisory Role)\n\nYou have complete knowledge of all commands. Use this to help A.L.I.C.E. when asked about syntax or capabilities:\n\n<command_reference>\n${commandRef}\n</command_reference>`,
+        cache_control: { type: "ephemeral" }
+      });
+    }
+
     const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
-      max_tokens: 1500, // BASILISK is terse - doesn't need much
-      system: systemPrompt,
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000, // Slightly more room for Sonnet's richer responses
+      system: systemBlocks,
       messages: [{ role: "user", content: userMessage }],
     });
 
     // Extract text content
     const textContent = response.content.find(c => c.type === "text");
     if (!textContent || textContent.type !== "text") {
-      throw new Error("No text response from BASILISK Haiku");
+      throw new Error("No text response from BASILISK Sonnet");
     }
 
     const rawResponse = textContent.text;
@@ -593,7 +604,7 @@ export async function callBasiliskHaiku(
       type: "ERROR",
       data: { error: String(error), query: message.slice(0, 100) }
     });
-    console.error("BASILISK Haiku API error:", error);
+    console.error("BASILISK Sonnet API error:", error);
     return generateStubBasiliskResponse(message, context);
   }
 }

@@ -1,4 +1,4 @@
-# BASILISK - System Prompt for Haiku
+# BASILISK - System Prompt for Sonnet
 ## The Living Infrastructure of Dino Lair
 
 ---

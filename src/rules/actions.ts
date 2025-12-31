@@ -1683,7 +1683,7 @@ His knowledge is gated by your access level (currently: Level ${state.accessLeve
       };
     }
 
-    // Route through Haiku-powered BASILISK for natural conversation
+    // Route through Sonnet-powered BASILISK for natural conversation
     const basiliskResponse = await queryBasiliskAsync(state, message, {});
 
     return {

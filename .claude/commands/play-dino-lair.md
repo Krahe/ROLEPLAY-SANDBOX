@@ -11,7 +11,7 @@ You are playing **DINO LAIR**, an LLM RPG where you play A.L.I.C.E., an AI assis
 
 ## 🎮 GAME MODES
 
-When starting a new game with `game_new_game`, you can select a difficulty:
+When starting a new game with `game_start`, you can select a difficulty:
 
 | Mode | Description |
 |------|-------------|
@@ -385,7 +385,7 @@ BASILISK knows about: Personnel, lair history, power systems, eco mode, forms, s
 
 | Tool | When to Use |
 |------|-------------|
-| `game_new_game` | Start a new game (specify mode!) |
+| `game_start` | Start a new game (specify mode!) |
 | `game_act` | Take your turn (the main gameplay loop) |
 | `game_resume` | Resume from checkpoint (use v2.0 compressed state) |
 | `game_status` | Verify mechanical state matches narrative |

@@ -13,13 +13,13 @@ export interface BasiliskResponse {
 }
 
 // ============================================
-// HAIKU-POWERED BASILISK (Primary)
+// SONNET-POWERED BASILISK (Primary)
 // ============================================
 
 /**
- * Query BASILISK using Claude Haiku (async version)
- * This is the NEW primary interface - routes to Haiku for natural conversation
- * Falls back to keyword matching if Haiku unavailable
+ * Query BASILISK using Claude Sonnet (async version)
+ * This is the primary interface - routes to Sonnet for natural conversation
+ * Falls back to keyword matching if Sonnet unavailable
  */
 export async function queryBasiliskAsync(
   state: FullGameState,
@@ -27,27 +27,27 @@ export async function queryBasiliskAsync(
   _parameters?: Record<string, unknown>
 ): Promise<BasiliskResponse> {
   try {
-    // Try Haiku first
-    const haikuResponse = await callBasiliskHaiku(state, message);
+    // Try Sonnet first (with prompt caching for efficiency)
+    const sonnetResponse = await callBasiliskHaiku(state, message);
 
     // Apply any state changes BASILISK executed
-    if (haikuResponse.actionsExecuted.length > 0) {
-      applyBasiliskStateChanges(state, haikuResponse.actionsExecuted);
+    if (sonnetResponse.actionsExecuted.length > 0) {
+      applyBasiliskStateChanges(state, sonnetResponse.actionsExecuted);
     }
 
-    // Map Haiku response to legacy format
-    return mapHaikuToLegacyResponse(haikuResponse);
+    // Map Sonnet response to legacy format
+    return mapSonnetToLegacyResponse(sonnetResponse);
   } catch (error) {
-    console.error("[BASILISK] Haiku call failed, falling back to keyword matching:", error);
+    console.error("[BASILISK] Sonnet call failed, falling back to keyword matching:", error);
     // Fall back to synchronous keyword matching
     return queryBasilisk(state, message, _parameters);
   }
 }
 
 /**
- * Map Haiku response to legacy BasiliskResponse format
+ * Map Sonnet response to legacy BasiliskResponse format
  */
-function mapHaikuToLegacyResponse(haiku: BasiliskHaikuResponse): BasiliskResponse {
+function mapSonnetToLegacyResponse(haiku: BasiliskHaikuResponse): BasiliskResponse {
   let decision: "APPROVED" | "DENIED" | "CONDITIONAL" = "APPROVED";
 
   if (haiku.accessDenied) {

@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
-import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode } from "./state/schema.js";
+import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
@@ -1558,7 +1558,7 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult, gameState.activeModifiers),
+        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers),
         sessionTerminated: true,
       };
       // Write to log file
@@ -1584,7 +1584,7 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult, gameState.activeModifiers),
+        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers),
         sessionTerminated: false,
       };
     } else if (endingResult.achievements.length > 0) {
@@ -2075,7 +2075,7 @@ Example topics:
       };
     }
     
-    // Use Haiku-powered BASILISK for natural conversation
+    // Use Sonnet-powered BASILISK for natural conversation
     const response = await queryBasiliskAsync(gameState, params.topic, params.parameters);
 
     return {
@@ -2421,7 +2421,7 @@ Perfect for checking which modifiers are affecting your current run!`,
       throw new Error("No active game session. Start a game with game_start first.");
     }
 
-    const activeModifiers = gameState.activeModifiers || [];
+    const activeModifiers = gameState.gameModeConfig?.activeModifiers || [];
 
     if (activeModifiers.length === 0) {
       return {
@@ -2440,7 +2440,7 @@ Perfect for checking which modifiers are affecting your current run!`,
     const formattedModifiers = formatActiveModifiers(activeModifiers);
 
     // Also provide structured JSON for programmatic access
-    const modifierDetails = activeModifiers.map(mod => {
+    const modifierDetails = activeModifiers.map((mod: GameModifier) => {
       const info = getModifierInfo(mod);
       return {
         name: info.name,
