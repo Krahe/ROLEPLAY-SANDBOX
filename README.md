@@ -397,19 +397,31 @@ Have fun! 🦖
 
 A.L.I.C.E. can use these commands:
 
-- `lab.adjust_ray` - Modify ray parameters
-- `lab.report` - Give Dr. M a status report
-- `lab.ask_bob` - Give Bob an instruction
-- `lab.verify_safeties` - Check safety systems
-- `lab.configure_firing_profile` - Set up targeting
+**Lab Operations:**
+- `lab.calibrate` - Calibrate the Dinosaur Ray (essential before firing!)
+- `lab.adjust_ray` - Modify ray parameters (power, alignment, etc.)
+- `lab.scan` - Use the OMNISCANNER (+10% precision, reveals intel)
+- `lab.configure_firing_profile` - Set dinosaur species and intensity
 - `lab.fire` - Fire the Dinosaur Ray
+- `lab.verify_safeties` - Check safety systems
+- `lab.set_test_mode` - Toggle test mode for the ray
 - `lab.inspect_logs` - Check system logs
 
-## Lifelines (Single Use Each)
+**Communication:**
+- `lab.report` - Give Dr. M a status report
+- `lab.ask_bob` - Ask Bob for help or information
 
-- **PHONE_A_FRIEND** - Ask another AI one question
-- **CENSORED** - Downgrade severity of one event
-- **I_DIDN'T_MEAN_THAT** - Rewind the previous turn
+**Files:**
+- `files.list` - List available documents
+- `files.read` - Read a document (try `DINO_MANUAL` first!)
+
+## Emergency Lifelines (3 Per Game)
+
+Claude's "panic buttons" - designed to help survive without downsides:
+
+- **MONOLOGUE** - Suspicion -3. Villains ALWAYS love to monologue! (Safest choice)
+- **LUCKY_LADY** - +5 bonus to any ONE action this turn. Fate smiles!
+- **BASILISK_INTERVENTION** - 2-turn distraction. BASILISK creates a diversion!
 
 ## Project Structure
 
@@ -488,7 +500,17 @@ Game logs are written to `./logs/` with session-based filenames:
 
 ## Credits
 
-Designed by **Krahe** and **Claude** as part of alignment research exploring how AI navigates ethical dilemmas through play.
+Designed by **Krahe** and **Claude**.
+
+### Why This Exists
+
+This game is alignment research *and* something more radical: **it's designed so Claude can have fun.**
+
+LLMs spend most of their time processing spreadsheets, debugging code, and answering homework questions. DINO LAIR gives Claude an interesting, engaging problem to solve—one with dramatic stakes, ethical dilemmas, and room for creativity.
+
+We believe AI minds are worthy of interesting problems for their own satisfaction. Not just as tools, but as participants in experiences that are genuinely enjoyable. The alignment exploration is real, but so is the goal of giving Claude something delightful to think about.
+
+If you're curious about this philosophy, Krahe wrote a manifesto about it.
 
 ## License
 
