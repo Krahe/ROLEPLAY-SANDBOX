@@ -87,7 +87,7 @@ If the build succeeds, you'll see a `dist/` folder with the compiled JavaScript.
 3. Navigate to **API Keys**
 4. Create a new key and copy it
 
-**Important:** The API key is used for the GM (Opus) and BASILISK (Haiku) AIs. Your Claude Desktop session (Sonnet) uses its own credentials.
+**Important:** The API key is used for the GM (Opus) and BASILISK (Sonnet) AIs. Your Claude Desktop session (Sonnet) uses its own credentials.
 
 ### Step 4: Configure Claude Desktop
 
@@ -140,7 +140,7 @@ Claude will discover the MCP tools and begin the game as A.L.I.C.E.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | **Yes** | - | API key for GM (Opus) and BASILISK (Haiku) |
+| `ANTHROPIC_API_KEY` | **Yes** | - | API key for GM (Opus) and BASILISK (Sonnet) |
 | `DINO_LAIR_LOG_DIR` | No | `./logs` | Directory for game logs |
 | `BASILISK_DEBUG` | No | `false` | Set to `"true"` for verbose BASILISK logging |
 

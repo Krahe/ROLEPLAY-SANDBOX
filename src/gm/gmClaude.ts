@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { FullGameState } from "../state/schema.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
@@ -1418,7 +1419,7 @@ function validateGMResponse(parsed: unknown): { success: true; data: GMResponse 
   if (result.success) {
     return { success: true, data: result.data as GMResponse };
   } else {
-    const errorMessages = result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; ");
+    const errorMessages = result.error.errors.map((e: z.ZodIssue) => `${e.path.join(".")}: ${e.message}`).join("; ");
     return { success: false, error: errorMessages };
   }
 }
