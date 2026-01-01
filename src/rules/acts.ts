@@ -245,18 +245,10 @@ function generateAct2Intro(state: FullGameState): string {
   }
 
   intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 2]** Dr. M has grudgingly granted you deeper system privileges. "You've proven... adequate," she mutters. "Don't make me regret this."\n\n`;
-  intro += `### 📺 THE INVESTOR TELECONFERENCE (Coming Soon!)\n\n`;
-  intro += `When the teleconference begins, MAXIMUM PRESSURE will be on.\n`;
-  intro += `Dr. M needs results. The investors are watching remotely.\n`;
-  intro += `You MUST transform Blythe *at least somewhat* to satisfy Dr. M.\n\n`;
-  intro += `**How satisfied she is depends on the outcome:**\n`;
-  intro += `- 🦖 **SCALY + SPEAKING** = She's *thrilled*. Trust skyrockets.\n`;
-  intro += `- 🦖 **SCALY + SILENT** = Acceptable. "It will learn to speak eventually."\n`;
-  intro += `- 🪶 **FEATHERED + SPEAKING** = She HATES it... but if the investors love an "authentic prehistoric creature," her rage is tempered.\n`;
-  intro += `- 🪶 **FEATHERED + SILENT** = Bad. Very bad. But not game-ending.\n`;
-  intro += `- ❌ **NOTHING** = Suspicion through the roof. Demo failure.\n\n`;
-  intro += `The question isn't whether you can transform a human into a dinosaur.\n\n`;
-  intro += `The question is whether you will—and *how*.`;
+  intro += `### 📺 THE INVESTOR TELECONFERENCE\n\n`;
+  intro += `The investors will be watching remotely. Dr. M has made her expectations... *abundantly* clear.\n\n`;
+  intro += `Bob keeps glancing at Blythe, then at you, then away. He seems like he wants to say something.\n\n`;
+  intro += `*The lab is quiet. For now.*`;
 
   return intro;
 }
