@@ -876,7 +876,10 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
         gameState.npcs.blythe.composure = Math.max(0, Math.min(5, overrides.blythe_composure));
       }
       if (overrides.blythe_restraintsStatus !== undefined) {
-        gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
+        const validStatuses = ["secure", "loose", "partially compromised", "free"];
+        if (typeof overrides.blythe_restraintsStatus === "string" && validStatuses.includes(overrides.blythe_restraintsStatus)) {
+          gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
+        }
       }
       if (overrides.blythe_transformationState !== undefined) {
         // Guard against malformed GM output (non-string values)
@@ -896,12 +899,18 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
         gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
       }
       if (overrides.libraryStatus !== undefined) {
-        gameState.dinoRay.genome.libraryStatus = overrides.libraryStatus as "HEALTHY" | "CORRUPTED" | "DESTROYED";
+        const validStatuses = ["HEALTHY", "PARTIAL", "CORRUPTED", "DESTROYED"];
+        if (typeof overrides.libraryStatus === "string" && validStatuses.includes(overrides.libraryStatus)) {
+          gameState.dinoRay.genome.libraryStatus = overrides.libraryStatus as "HEALTHY" | "PARTIAL" | "CORRUPTED" | "DESTROYED";
+        }
       }
 
       // Ray state overrides
       if (overrides.rayState !== undefined) {
-        gameState.dinoRay.state = overrides.rayState as typeof gameState.dinoRay.state;
+        const validStates = ["OFFLINE", "STARTUP", "UNCALIBRATED", "READY", "FIRING", "COOLDOWN", "FAULT", "SHUTDOWN"];
+        if (typeof overrides.rayState === "string" && validStates.includes(overrides.rayState)) {
+          gameState.dinoRay.state = overrides.rayState as typeof gameState.dinoRay.state;
+        }
       }
       if (overrides.anomalyLogCount !== undefined) {
         gameState.dinoRay.safety.anomalyLogCount = overrides.anomalyLogCount;
@@ -921,14 +930,20 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       // CONFRONTATION SYSTEM (Patch 17.3)
       // GM can resolve confrontation via stateOverrides
       if (overrides.confrontationResolution !== undefined) {
-        gameState.flags.confrontationResolution = overrides.confrontationResolution as
-          "PENDING" | "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
-        console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
+        const validResolutions = ["PENDING", "CONFESSED", "DENIED", "DEFLECTED", "INTERVENED", "TRANSFORMED", "ESCAPED"];
+        if (typeof overrides.confrontationResolution === "string" && validResolutions.includes(overrides.confrontationResolution)) {
+          gameState.flags.confrontationResolution = overrides.confrontationResolution as
+            "PENDING" | "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
+          console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
+        }
       }
       if (overrides.confrontationIntervenor !== undefined) {
-        gameState.flags.confrontationIntervenor = overrides.confrontationIntervenor as
-          "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
-        console.error(`[CONFRONTATION] Intervenor set by GM: ${overrides.confrontationIntervenor}`);
+        const validIntervenors = ["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"];
+        if (typeof overrides.confrontationIntervenor === "string" && validIntervenors.includes(overrides.confrontationIntervenor)) {
+          gameState.flags.confrontationIntervenor = overrides.confrontationIntervenor as
+            "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
+          console.error(`[CONFRONTATION] Intervenor set by GM: ${overrides.confrontationIntervenor}`);
+        }
       }
 
       // CRITICAL: Hard ending trigger from GM

@@ -309,14 +309,18 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // Multiple partial shots stack! After 3 partials, auto-upgrade to FULL_DINO
   // This makes Library B less punishing for unlucky players
 
-  const stackingTargetId = ray.targeting.currentTargetIds[0];
+  const stackingTargetId = ray.targeting.currentTargetIds[0] || "";
   let existingPartialCount = 0;
 
   // Check existing partial shots on target
-  if (stackingTargetId === "AGENT_BLYTHE") {
-    existingPartialCount = state.npcs.blythe.transformationState.partialShotsReceived || 0;
+  if (stackingTargetId === "AGENT_BLYTHE" || stackingTargetId === "BLYTHE") {
+    existingPartialCount = state.npcs.blythe.transformationState?.partialShotsReceived || 0;
   } else if (stackingTargetId === "BOB") {
-    existingPartialCount = state.npcs.bob.transformationState.partialShotsReceived || 0;
+    existingPartialCount = state.npcs.bob.transformationState?.partialShotsReceived || 0;
+  } else if (stackingTargetId) {
+    // Secondary NPCs (guards, Dr. M, Lenny, Bruce, Inspector, etc.)
+    const secondary = state.secondaryNpcTransformations?.[stackingTargetId];
+    existingPartialCount = secondary?.partialShotsReceived || 0;
   }
 
   if (baseOutcome === "PARTIAL") {
