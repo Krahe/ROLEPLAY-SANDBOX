@@ -2794,6 +2794,14 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     path: "/DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt",
   },
   {
+    id: "DOOMINGTON_DOCTRINE",
+    name: "The Doomington Doctrine",
+    category: "RESEARCH",
+    requiredLevel: 3,
+    description: "Dr. M's personal manifesto. Bob once said 'don't read it, it's... a lot.'",
+    path: "/DR_M_PRIVATE/RESEARCH/DOOMINGTON_DOCTRINE.txt",
+  },
+  {
     id: "S300_BATTERY",
     name: "S-300 Air Defense Docs",
     category: "RESEARCH",
