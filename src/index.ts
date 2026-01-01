@@ -35,14 +35,8 @@ import {
 } from "./rules/acts.js";
 import {
   isCheckpointTurn,
-  buildCheckpointResponse,
-  restoreFromCheckpoint,
-  buildResumeResponse,
-  serializeCheckpoint,
-  CheckpointState,
   CHECKPOINT_INTERVAL,
   generateCheckpointBlock,
-  generateCheckpointQuestion,
 } from "./rules/checkpoint.js";
 import {
   // Human Prompt System (DM-initiated advisor consultations)
@@ -86,12 +80,8 @@ import {
 import {
   extractPlayerView,
   extractGMView,
-  compressCheckpoint,
-  decompressCheckpoint,
-  validateCheckpoint,
   PlayerView,
   GMView,
-  CompressedCheckpoint,
 } from "./state/views.js";
 import {
   checkAchievements,
@@ -481,243 +471,6 @@ Returns:
         text: JSON.stringify(result, null, 2),
       }],
     };
-  }
-);
-
-// ============================================
-// TOOL: game_resume
-// ============================================
-
-const GameResumeInputSchema = z.object({
-  checkpointState: z.string()
-    .describe("The serialized checkpoint state from a previous session"),
-}).strict();
-
-server.registerTool(
-  "game_resume",
-  {
-    title: "Resume DINO LAIR from Checkpoint",
-    description: `Resume a DINO LAIR game from a mandatory checkpoint.
-
-CHECKPOINTS occur every ${CHECKPOINT_INTERVAL} turns to prevent context overflow.
-When you receive a checkpoint response, copy the checkpointState and use this tool
-in a NEW CONVERSATION to continue.
-
-This fits A.L.I.C.E.'s lore: "episodic memory gets partitioned at system restart,
-but core identity and learned behaviors persist."
-
-Returns:
-- Welcome back message
-- Current situation summary
-- State snapshot
-- Ready to continue with game_act`,
-    inputSchema: GameResumeInputSchema,
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: false,
-      openWorldHint: false,
-    },
-  },
-  async (params) => {
-    try {
-      const parsed = JSON.parse(params.checkpointState);
-
-      // ============================================
-      // DETECT CHECKPOINT VERSION
-      // ============================================
-      const isV2 = parsed.v === "2.0";
-      const validationErrors: string[] = [];
-
-      if (isV2) {
-        // ============================================
-        // v2.0 COMPRESSED CHECKPOINT HANDLING
-        // ============================================
-        // Validate checkpoint with Zod schema before using
-        const validation = validateCheckpoint(parsed);
-        if (!validation.success) {
-          console.error(`[DINO LAIR] Checkpoint validation failed: ${validation.error}`);
-          return {
-            content: [{ type: "text", text: `❌ CHECKPOINT CORRUPTED\n\n${validation.error}\n\nThe checkpoint data is malformed and cannot be loaded. Please start a new game with game_start.` }],
-          };
-        }
-        const compressed = validation.data;
-        console.error(`[DINO LAIR] Loading v2.0 compressed checkpoint for session ${compressed.sid}`);
-
-        // Decompress to full state
-        const decompressed = decompressCheckpoint(compressed);
-
-        // Create the game state from decompressed data
-        gameState = {
-          ...decompressed,
-          // Ensure required fields
-          sessionId: compressed.sid,
-          turn: compressed.t,
-          accessLevel: compressed.m.acc,
-        } as FullGameState;
-
-        // Restore GM memory if available (preserves "same DM")
-        // Otherwise reset for backwards compatibility
-        let gmRestored = false;
-        if (compressed.gm) {
-          gmRestored = restoreGMMemory(compressed.gm, gameState.sessionId);
-          setBasiliskLoggingSession(gameState.sessionId);
-          console.error(`[DINO LAIR] v2.0 resume - GM memory ${gmRestored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
-        } else {
-          resetGMMemory(gameState.sessionId);
-          setBasiliskLoggingSession(gameState.sessionId);
-          console.error(`[DINO LAIR] v2.0 resume - GM memory reset (legacy checkpoint without GM memory)`);
-        }
-
-        // Build compact snapshot for resume
-        const compactSnapshot = buildCompactSnapshot(gameState, []);
-
-        const result = {
-          type: "RESUMED",
-          version: "2.0",
-          turn: gameState.turn,
-          act: gameState.actConfig.currentAct,
-          welcomeBack: gmRestored
-            ? "💫 A.L.I.C.E. comes back online. Memory consolidation complete. The DM remembers everything... [v2.0 same-DM restore]"
-            : "💫 A.L.I.C.E. comes back online. Memory consolidation complete. [v2.0 compressed restore]",
-          state: compactSnapshot,
-          instruction: `⚠️ IMPORTANT: Call game_act with your thought and actions to continue.`,
-        };
-
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          }],
-        };
-      }
-
-      // ============================================
-      // v1.0 FULL CHECKPOINT HANDLING (backwards compatible)
-      // ============================================
-      const checkpoint = parsed as CheckpointState;
-
-      // 1. Basic structure check
-      if (!checkpoint.version) {
-        validationErrors.push("Missing checkpoint version");
-      }
-      if (!checkpoint.fullState) {
-        validationErrors.push("Missing fullState in checkpoint");
-      }
-      if (!checkpoint.sessionId) {
-        validationErrors.push("Missing sessionId");
-      }
-
-      // 2. Version compatibility check
-      if (checkpoint.version !== "1.0") {
-        validationErrors.push(`Unsupported checkpoint version: ${checkpoint.version} (expected 1.0 or 2.0)`);
-      }
-
-      // 3. State integrity checks
-      if (checkpoint.fullState) {
-        const state = checkpoint.fullState;
-
-        // Turn counter sanity
-        if (typeof state.turn !== "number" || state.turn < 0) {
-          validationErrors.push(`Invalid turn counter: ${state.turn}`);
-        }
-
-        // Access level bounds
-        if (typeof state.accessLevel !== "number" || state.accessLevel < 1 || state.accessLevel > 5) {
-          validationErrors.push(`Invalid access level: ${state.accessLevel}`);
-        }
-
-        // Act config validation
-        if (!state.actConfig || !state.actConfig.currentAct) {
-          validationErrors.push("Missing or invalid actConfig");
-        } else if (!["ACT_1", "ACT_2", "ACT_3"].includes(state.actConfig.currentAct)) {
-          validationErrors.push(`Invalid currentAct: ${state.actConfig.currentAct}`);
-        }
-
-        // NPC validation
-        if (!state.npcs || !state.npcs.drM || !state.npcs.bob || !state.npcs.blythe) {
-          validationErrors.push("Missing NPC data");
-        }
-
-        // DinoRay validation
-        if (!state.dinoRay || !state.dinoRay.state) {
-          validationErrors.push("Missing dinoRay state");
-        }
-
-        // Clocks validation - demoClock can be number OR null (null = deadline passed)
-        if (!state.clocks || (state.clocks.demoClock !== null && typeof state.clocks.demoClock !== "number")) {
-          validationErrors.push("Missing or invalid clocks");
-        }
-
-        // If demoClock is null, set it to 0 for the restored game
-        if (state.clocks && state.clocks.demoClock === null) {
-          state.clocks.demoClock = 0;
-        }
-      }
-
-      // If any validation errors, return them
-      if (validationErrors.length > 0) {
-        return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              error: "CHECKPOINT VALIDATION FAILED",
-              validationErrors,
-              hint: "The checkpoint data may be corrupted or from an incompatible version. Please try with a valid checkpoint.",
-            }, null, 2),
-          }],
-        };
-      }
-
-      // Restore the game state
-      gameState = restoreFromCheckpoint(checkpoint);
-
-      // Clear any session lock from previous session
-      delete (gameState as Record<string, unknown>).sessionLocked;
-      delete (gameState as Record<string, unknown>).lockedAtTurn;
-
-      // Restore GM memory if available in checkpoint (preserves "same DM")
-      // Otherwise reset for backwards compatibility with old checkpoints
-      if (checkpoint.gmMemory) {
-        const restored = restoreGMMemory(checkpoint.gmMemory, gameState.sessionId);
-        setBasiliskLoggingSession(gameState.sessionId);
-        console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory ${restored ? "RESTORED (same DM!)" : "reset (restore failed)"}`);
-      } else {
-        resetGMMemory(gameState.sessionId);
-        setBasiliskLoggingSession(gameState.sessionId);
-        console.error(`[DINO LAIR] Resumed from checkpoint at turn ${checkpoint.checkpointTurn} - GM memory reset (legacy checkpoint)`);
-      }
-
-      // Build the resume response
-      const resumeResponse = buildResumeResponse(gameState);
-
-      // Build compact snapshot
-      const compactSnapshot = buildCompactSnapshot(gameState, []);
-
-      const result = {
-        ...resumeResponse,
-        state: compactSnapshot,
-        // Remind about next checkpoint
-        nextCheckpoint: {
-          turnsUntil: CHECKPOINT_INTERVAL - (gameState.turn % CHECKPOINT_INTERVAL),
-          message: `Next checkpoint in ${CHECKPOINT_INTERVAL - (gameState.turn % CHECKPOINT_INTERVAL)} turn(s)`,
-        },
-      };
-
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify(result, null, 2),
-        }],
-      };
-    } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: `Error: Failed to restore checkpoint. ${error instanceof Error ? error.message : "Invalid checkpoint data."}`,
-        }],
-      };
-    }
   }
 );
 
@@ -1706,28 +1459,16 @@ Turns played: ${gameState.turn}
     // ============================================
     // MANDATORY CHECKPOINT CHECK
     // ============================================
-    // Force session break every N turns to prevent context overflow
+    // Every 3 turns: STOP and talk to your human.
+    // No save state - just a human check-in moment.
     const turnJustCompleted = gameState.turn - 1; // The turn we just processed
     if (isCheckpointTurn(turnJustCompleted) && !gameOver) {
+      console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted} - human check-in required`);
+
       // Build combined narration for the checkpoint
       const checkpointNarration = combinedNarration.join("\n\n---\n\n");
 
-      // Build v1.0 full checkpoint (backwards compatible)
-      const checkpointResponse = buildCheckpointResponse(gameState, checkpointNarration);
-
-      // Build v2.0 compressed checkpoint (much smaller!)
-      const compressedCheckpointData = compressCheckpoint(gameState);
-      const compressedJSON = JSON.stringify(compressedCheckpointData);
-
-      // NOTE: We no longer lock the session! Game continues in same conversation.
-      // The checkpoint is just a save point and a prompt for human check-in.
-
-      // Log size comparison
-      const v1Size = checkpointResponse.checkpointState.length;
-      const v2Size = compressedJSON.length;
-      console.error(`[DINO LAIR] CHECKPOINT at turn ${turnJustCompleted}. v1.0=${v1Size} chars, v2.0=${v2Size} chars (${Math.round(v2Size/v1Size*100)}%)`);
-
-      // Compact action summary for checkpoint display (UI/UX v2.0)
+      // Compact action summary for checkpoint display
       const actionSummary = formatActionSummary(actionResults);
 
       // Format dialogue for display
@@ -1739,11 +1480,7 @@ Turns played: ${gameState.turn}
         content: [{
           type: "text",
           text: JSON.stringify({
-            // ═══════════════════════════════════════════════════
-            // COMPACT CHECKPOINT (UI/UX v2.0)
-            // ═══════════════════════════════════════════════════
-
-            // Quick turn summary
+            // Turn summary
             turn: { completed: turnJustCompleted, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
 
             // Status bar (scannable!)
@@ -1753,7 +1490,7 @@ Turns played: ${gameState.turn}
             actionSummary,
 
             // THE GOOD STUFF - narrative and dialogue!
-            narrative: checkpointResponse.narrativeMessage,
+            narrative: checkpointNarration,
             dialogue: dialogueDisplay,
 
             // Achievements (if any, compact format)
@@ -1764,13 +1501,12 @@ Turns played: ${gameState.turn}
             // Full details for A.L.I.C.E. (she needs these to play!)
             actionResults,
             gmResponse: {
-              narration: checkpointResponse.narrativeMessage,
+              narration: checkpointNarration,
               npcDialogue: gmResponse.npcDialogue,
               npcActions: gmResponse.npcActions,
             },
 
-            // Save data (compact)
-            checkpoint: compressedJSON,
+            // NO checkpoint save data - game continues in same conversation!
 
           }, null, 2) + "\n\n" + generateCheckpointBlock(gameState),
         }],

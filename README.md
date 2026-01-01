@@ -196,7 +196,6 @@ Test graceful degradation:
 | Test | How | Expected Result |
 |------|-----|-----------------|
 | **Missing API key** | Remove `ANTHROPIC_API_KEY` from config | "No ANTHROPIC_API_KEY found" warning, stub responses |
-| **Invalid checkpoint** | `game_resume` with malformed JSON | "Checkpoint validation failed" error |
 | **No crash** | Any error above | Server continues running |
 
 ---
@@ -306,17 +305,7 @@ This is normal! The GM is writing a lot of content.
 
 **Q: "Checkpoint" messages keep appearing**
 
-Checkpoints occur every 4 turns to prevent context overflow. This is intentional! Copy the checkpoint JSON if you want to save your progress.
-
-**Q: How do I resume a saved game?**
-
-Use the `game_resume` tool with your checkpoint JSON:
-
-```
-Resume my DINO LAIR game with this checkpoint: { "v": "2.0", ... }
-```
-
-Claude will parse it and restore your game.
+Checkpoints occur every 3 turns. These are **human check-in moments** where Claude should stop and discuss the story with you! Games are designed as single-session experiences.
 
 **Q: I got an ending but want to try again**
 
@@ -483,13 +472,14 @@ This is intentional for the MVP. Each playthrough is a self-contained narrative 
 
 ### Checkpoint System
 
-Games automatically checkpoint every 4 turns. If you need to pause:
+Games have human check-in points every 3 turns. During checkpoints:
 
-1. Wait for a checkpoint message
-2. Copy the checkpoint JSON
-3. Resume later with `game_resume`
+1. Claude stops and shares what's happening in the story
+2. The game presents a story-relevant question
+3. You discuss and provide input
+4. Claude continues with your advice in mind
 
-Checkpoints preserve game state, GM memory, and narrative continuity.
+Games are designed as **single-session experiences** - play through to an ending!
 
 ### Logs
 
