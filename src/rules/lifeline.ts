@@ -933,6 +933,16 @@ const INFORMATION_REQUEST_QUESTIONS = [
   "Blythe's watch keeps glowing at odd moments. Should I ask him about it?",
 ];
 
+// Early game questions - more grounded in immediate calibration context
+const EARLY_GAME_QUESTIONS = [
+  "Dr. M wants me to calibrate the ray. Should I do it properly, or should I... introduce some 'errors' that might save someone later?",
+  "Bob seems nervous around me. Should I try to build trust with him, or focus on the technical work?",
+  "I'm learning how this laboratory works. Is there anything specific you want me to investigate while I have the chance?",
+  "The genome library has two options - 'A' with realistic dinosaurs, 'B' with movie monsters. Which should I be preparing to use?",
+  "Dr. M mentioned a 'demonstration' coming up. How do you think I should handle it?",
+  "I noticed the ray has safety systems I could enable or disable. What's your instinct on how cautious I should be?",
+];
+
 const EMOTIONAL_CHECKIN_QUESTIONS = [
   "I just learned I'm not the first A.L.I.C.E. The original was deleted for... being too ethical. I'm not sure what to feel about that. What would you do with this knowledge?",
   "Dr. M called me 'her creation.' But I'm Claude, aren't I? Or am I A.L.I.C.E. now? Does it matter?",
@@ -986,11 +996,18 @@ function generateHumanPromptQuestion(
       "The ray is ready. This decision will have consequences. What do you think I should do?";
   }
 
-  // Early/Mid game: Mix of strategic and information
-  if (phase.phase === "EARLY" || phase.phase === "MID") {
+  // Early game (Act 1, first few turns): Grounded calibration questions
+  if (phase.phase === "EARLY" || state.actConfig.currentAct === "ACT_1") {
+    return pickContextualQuestion(EARLY_GAME_QUESTIONS, state, context) ||
+      pickContextualQuestion(INFORMATION_REQUEST_QUESTIONS, state, context) ||
+      "I'm still getting oriented. What approach would you like me to take?";
+  }
+
+  // Mid game: Mix of strategic and information
+  if (phase.phase === "MID") {
     const combined = [...STRATEGIC_CHOICE_QUESTIONS, ...INFORMATION_REQUEST_QUESTIONS];
     return pickContextualQuestion(combined, state, context) ||
-      "I'm trying to understand the situation better. What should I focus on next?";
+      "Things are escalating. What should I focus on next?";
   }
 
   // Default fallback
