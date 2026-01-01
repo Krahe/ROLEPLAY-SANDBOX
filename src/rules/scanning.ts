@@ -439,12 +439,24 @@ TACTICAL NOTES:
                         variant === "SHAPESHIFTER" ? "SHAPESHIFTER - X-Branch deep cover" :
                         variant === "TWIN" ? "TWIN - Dr. Cassandra Malevola, 'the disappointing sister'" :
                         "TIME_TRAVELER - Future Dr. M here to 'fix' mistakes";
+    const imposterPartialHits = getPartialHitCount(state, "DR_MALEVOLA");
+    const imposterPartialWarning = generatePartialHitWarning(imposterPartialHits);
+
+    // Variant-specific partial hit reactions
+    const partialReaction = imposterPartialHits > 0 ? (
+      variant === "ROBOT" ? "ERROR: Unexpected cellular mutation protocol detected" :
+      variant === "CLONE" ? "Genome already unstable - this is accelerating degradation!" :
+      variant === "SHAPESHIFTER" ? "Morphic structure destabilizing - can't maintain form!" :
+      variant === "TWIN" ? "This wasn't supposed to happen to ME - I was supposed to WIN!" :
+      "This... this isn't how the timeline went. Something has changed."
+    ) : "";
+
     return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║  🎭 OMNISCANNER™ ANALYSIS: "DR_MALEVOLA" [IMPOSTER REVEALED!] ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${imposterPartialWarning}
 ⚠️⚠️⚠️ IDENTITY MISMATCH DETECTED ⚠️⚠️⚠️
 ├── Subject is NOT Dr. Malevola von Doomington III
 ├── ACTUAL IDENTITY: ${variantDesc}
@@ -457,8 +469,9 @@ TACTICAL NOTES:
 
 BIOMETRICS (IMPOSTER):
 ├── Height: 5'7" | Weight: ${variant === "ROBOT" ? "156 lbs (heavier - alloy frame)" : "134 lbs"}
-├── Heart rate: ${variant === "ROBOT" ? "N/A (synthetic circulatory pump)" : "88 BPM (nervous now)"}
-├── Microexpressions: ${variant === "TWIN" ? "Similar but subtly different - less wounded, more bitter" :
+├── Heart rate: ${variant === "ROBOT" ? (imposterPartialHits > 0 ? "ERROR - organic processes detected?!" : "N/A (synthetic circulatory pump)") : (imposterPartialHits > 0 ? "127 BPM (PANIC)" : "88 BPM (nervous now)")}
+├── Microexpressions: ${imposterPartialHits > 0 ? partialReaction :
+                       variant === "TWIN" ? "Similar but subtly different - less wounded, more bitter" :
                        variant === "CLONE" ? "Identical but 'off' - uncanny valley" :
                        variant === "ROBOT" ? "Too perfect - no micro-tells" :
                        variant === "SHAPESHIFTER" ? "Shifting slightly under stress" :
@@ -475,13 +488,14 @@ EQUIPMENT:
                                 "Copied prop"}
 
 PSYCHOLOGICAL PROFILE:
-├── True motivation: ${variant === "CLONE" ? "Replace original, claim her life" :
+├── True motivation: ${imposterPartialHits > 0 ? "SURVIVAL - everything else is secondary now" :
+                      variant === "CLONE" ? "Replace original, claim her life" :
                       variant === "ROBOT" ? "Exceed creator, prove superiority" :
                       variant === "SHAPESHIFTER" ? "X-Branch infiltration complete" :
                       variant === "TWIN" ? "Finally step out of sister's shadow" :
                       "Prevent future disaster (her methods questionable)"}
-├── Danger level: HIGH - Imposter has been running this operation
-└── Leverage: Identity revealed - psychological advantage now OURS
+├── Danger level: ${imposterPartialHits > 0 ? "DIMINISHED - focused on own crisis" : "HIGH - Imposter has been running this operation"}
+└── Leverage: ${imposterPartialHits > 0 ? "Offer reversal - they NEED you now" : "Identity revealed - psychological advantage now OURS"}
 
 TACTICAL NOTES:
 └── The REAL Dr. M ${imposterRevealed ? "may still be out there" : "location unknown"}.
