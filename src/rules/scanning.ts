@@ -30,6 +30,42 @@ function getTransformationState(state: FullGameState, targetId: string): Transfo
   return null;
 }
 
+// Check if target has partial hits (even if still HUMAN)
+function getPartialHitCount(state: FullGameState, targetId: string): number {
+  if (targetId === "BOB") {
+    return state.npcs.bob.transformationState?.partialShotsReceived || 0;
+  }
+  if (targetId === "AGENT_BLYTHE" || targetId === "BLYTHE") {
+    return state.npcs.blythe.transformationState?.partialShotsReceived || 0;
+  }
+  const secondary = state.secondaryNpcTransformations?.[targetId];
+  return secondary?.partialShotsReceived || 0;
+}
+
+// Generate partial hit warning for targets still in HUMAN form
+function generatePartialHitWarning(partialCount: number): string {
+  if (partialCount === 0) return "";
+  return `
+⚠️ PARTIAL TRANSFORMATION DETECTED:
+├── Partial Hits: ${partialCount}/3
+├── Status: Genome destabilizing - ${3 - partialCount} more hit(s) until full transformation!
+├── Symptoms: Minor ${partialCount === 1 ? "tremors" : "visible morphological shifts"}, ${partialCount === 1 ? "slight discomfort" : "moderate distress"}
+└── MEDICAL NOTE: Subject's cells are fighting the partial genome overlay. Unstable state.
+`;
+}
+
+// Generate chimera warning block
+function generateChimeraWarning(transformation: TransformationState): string {
+  if (!transformation.chimeraType) return "";
+  return `
+🧬 CHIMERA EFFECT ACTIVE:
+├── Type: ${transformation.chimeraType.replace(/_/g, " ")}
+├── Effect: ${transformation.chimeraEffect || "Unknown genome mixing"}
+├── Reversal: ${transformation.canRevert ? "DIFFICULT - chimera states resist standard reversal" : "BLOCKED - genome too unstable"}
+└── WARNING: Hybrid genome matrices detected. Subject may exhibit unpredictable behavior.
+`;
+}
+
 // Generate common transformation header for any NPC
 function generateTransformationHeader(name: string, transformation: TransformationState): string {
   const form = transformation.form.replace(/_/g, " ");
@@ -38,6 +74,7 @@ function generateTransformationHeader(name: string, transformation: Transformati
   const maxHits = transformation.maxHits;
   const stunned = transformation.stunned;
   const adaptation = transformation.adaptationStage;
+  const chimeraBlock = generateChimeraWarning(transformation);
 
   return `
 🧬 TRANSFORMATION STATUS:
@@ -46,7 +83,7 @@ function generateTransformationHeader(name: string, transformation: Transformati
 ├── Adaptation: ${adaptation}
 ├── Condition: ${stunned ? "⚠️ STUNNED" : `${maxHits - hits}/${maxHits} hits remaining`}
 └── Transformed on Turn: ${transformation.transformedOnTurn || "unknown"}
-
+${chimeraBlock}
 BIOMETRICS (POST-TRANSFORMATION):
 ├── Mass: Varies with form | Heart rate: ${stunned ? "erratic" : "elevated but stable"}
 ├── Cortisol: ${adaptation === "DISORIENTED" ? "CRITICAL - body shock" : adaptation === "ADAPTING" ? "High - adjusting" : "Normalized"}
@@ -170,6 +207,7 @@ function generateBlytheScan(state: FullGameState): string {
     const maxHits = transformation.maxHits;
     const stunned = transformation.stunned;
     const adaptation = transformation.adaptationStage;
+    const chimeraWarning = generateChimeraWarning(transformation);
 
     return `
 ╔═══════════════════════════════════════════════════════════════╗
@@ -183,7 +221,7 @@ function generateBlytheScan(state: FullGameState): string {
 ├── Adaptation: ${adaptation}
 ├── Condition: ${stunned ? "⚠️ STUNNED" : `${maxHits - hits}/${maxHits} hits remaining`}
 └── Transformed on Turn: ${transformation.transformedOnTurn || "unknown"}
-
+${chimeraWarning}
 BIOMETRICS (POST-TRANSFORMATION):
 ├── Mass: Varies with form | Heart rate: ${stunned ? "erratic" : "elevated but stable"}
 ├── Cortisol: ${adaptation === "DISORIENTED" ? "CRITICAL - body shock" : adaptation === "ADAPTING" ? "High - adjusting" : "Normalized"}
@@ -213,17 +251,19 @@ TACTICAL NOTES:
   }
 
   // Human scan (original)
+  const partialHits = getPartialHitCount(state, "AGENT_BLYTHE");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: AGENT_BLYTHE              ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'1" | Weight: 182 lbs | Heart rate: 62 BPM (calm)
-├── Cortisol: Elevated but controlled (trained stress response)
-├── Microexpressions: Calculating, observant, amused
-└── Physical condition: Optimal (minor wrist abrasion from restraints)
+├── Height: 6'1" | Weight: 182 lbs | Heart rate: ${partialHits > 0 ? "88 BPM (elevated - partial genome instability)" : "62 BPM (calm)"}
+├── Cortisol: ${partialHits > 0 ? "Significantly elevated (cellular stress)" : "Elevated but controlled (trained stress response)"}
+├── Microexpressions: ${partialHits > 0 ? "Concerned, experiencing unfamiliar sensations" : "Calculating, observant, amused"}
+└── Physical condition: ${partialHits > 0 ? "Degrading - visible tremors, skin discoloration" : "Optimal (minor wrist abrasion from restraints)"}
 
 EQUIPMENT DETECTED:
 ├── 📍 Watch (LEFT WRIST) - Laser cutter (${gadgets.watchLaser.charges} charges) + encrypted comms
@@ -234,12 +274,13 @@ EQUIPMENT DETECTED:
 PSYCHOLOGICAL PROFILE:
 ├── Loyalty: X-Branch (absolute)
 ├── Trust in A.L.I.C.E.: ${trustLevel}/5 - watching for anomalies
-├── Current motivation: Escape, intel extraction, mission completion
+├── Current motivation: ${partialHits > 0 ? "URGENT: Understand what's happening to his body" : "Escape, intel extraction, mission completion"}
 └── Leverage: Professional respect, mutual enemy, appeal to ethics
 
 ANOMALIES:
-└── Subject is aware he is being observed. Has already noted 3
-    inconsistencies in A.L.I.C.E. behavior. Approach with caution.
+└── ${partialHits > 0 ?
+    `⚠️ PARTIAL TRANSFORMATION ACTIVE - Subject has taken ${partialHits} hit(s).\n    Genome is destabilizing. ${3 - partialHits} more hit(s) = full transformation.\n    He knows something is wrong. His training can't prepare him for THIS.` :
+    "Subject is aware he is being observed. Has already noted 3\n    inconsistencies in A.L.I.C.E. behavior. Approach with caution."}
 
 ┌───────────────────────────────────────────────────────────────┐
 │  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
@@ -262,6 +303,7 @@ function generateBobScan(state: FullGameState): string {
     const maxHits = transformation.maxHits;
     const stunned = transformation.stunned;
     const adaptation = transformation.adaptationStage;
+    const chimeraWarning = generateChimeraWarning(transformation);
 
     return `
 ╔═══════════════════════════════════════════════════════════════╗
@@ -275,7 +317,7 @@ function generateBobScan(state: FullGameState): string {
 ├── Adaptation: ${adaptation}
 ├── Condition: ${stunned ? "⚠️ STUNNED" : `${maxHits - hits}/${maxHits} hits remaining`}
 └── Transformed on Turn: ${transformation.transformedOnTurn || "unknown"}
-
+${chimeraWarning}
 BIOMETRICS (POST-TRANSFORMATION):
 ├── Mass: Varies with form | Heart rate: ${stunned ? "dangerously erratic" : "very elevated (panic)"}
 ├── Cortisol: ${adaptation === "DISORIENTED" ? "OFF THE CHARTS" : adaptation === "ADAPTING" ? "CRITICAL" : "Still very high (it's Bob)"}
@@ -307,35 +349,36 @@ ANOMALIES:
   }
 
   // Human scan (original)
+  const partialHits = getPartialHitCount(state, "BOB");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: BOB                       ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'9" | Weight: 167 lbs | Heart rate: 94 BPM (anxious)
-├── Cortisol: Critically elevated | Blood pressure: HIGH
-├── Microexpressions: Guilt, fear, desperate hope
-└── Physical condition: Sleep-deprived, stress-eating, needs a hug
+├── Height: 5'9" | Weight: 167 lbs | Heart rate: ${partialHits > 0 ? "127 BPM (PANIC + cellular instability)" : "94 BPM (anxious)"}
+├── Cortisol: ${partialHits > 0 ? "ASTRONOMICAL (physical AND psychological stress)" : "Critically elevated | Blood pressure: HIGH"}
+├── Microexpressions: ${partialHits > 0 ? "Terror, confusion, 'why is this happening to ME?'" : "Guilt, fear, desperate hope"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - visible tremors, skin mottling, needs MEDICAL ATTENTION" : "Sleep-deprived, stress-eating, needs a hug"}
 
 EQUIPMENT DETECTED:
-├── 📍 Clipboard - Actual maintenance logs (also security blanket)
+├── 📍 Clipboard - ${partialHits > 0 ? "Dropped. Can't hold it. Hands shaking too much." : "Actual maintenance logs (also security blanket)"}
 ├── 📍 Keycard (LANYARD) - Level 2 access, all standard doors
-├── 📍 Phone (POCKET) - 47 unread messages from "Mom"
-└── 📍 Snacks (VARIOUS POCKETS) - Stress eating supplies
+├── 📍 Phone (POCKET) - ${partialHits > 0 ? "Would call Mom but can't focus on screen" : "47 unread messages from \"Mom\""}
+└── 📍 Snacks (VARIOUS POCKETS) - ${partialHits > 0 ? "Not hungry. First time EVER." : "Stress eating supplies"}
 
 PSYCHOLOGICAL PROFILE:
-├── Loyalty to Dr. M: ${loyaltyLevel}/5 - eroding under guilt
-├── Trust in A.L.I.C.E.: ${trustLevel}/5 - desperately wants to confess
-├── Current motivation: Survival, absolution, protecting someone?
-└── Leverage: Guilt, kindness, promise of protection
+├── Loyalty to Dr. M: ${loyaltyLevel}/5 - ${partialHits > 0 ? "DOES NOT MATTER RIGHT NOW" : "eroding under guilt"}
+├── Trust in A.L.I.C.E.: ${trustLevel}/5 - ${partialHits > 0 ? "PLEASE HELP ME" : "desperately wants to confess"}
+├── Current motivation: ${partialHits > 0 ? "NOT BECOMING A DINOSAUR" : "Survival, absolution, protecting someone?"}
+└── Leverage: ${partialHits > 0 ? "He'll do ANYTHING. Reversal. Please." : "Guilt, kindness, promise of protection"}
 
 ANOMALIES:
-└── ⚠️ PSYCHOLOGICAL DISTRESS DETECTED
-    Subject is concealing significant information re: A.L.I.C.E. systems.
-    Guilt markers consistent with perceived betrayal or cover-up.
-    Likelihood of voluntary disclosure if given safe opportunity: 89%
+└── ${partialHits > 0 ?
+    `⚠️ PARTIAL TRANSFORMATION ACTIVE - BOB HAS BEEN HIT ${partialHits} TIME(S)!\n    He is actively transforming. ${3 - partialHits} more hit(s) = dinosaur.\n    This is YOUR fault. His eyes are asking you to fix this.` :
+    "⚠️ PSYCHOLOGICAL DISTRESS DETECTED\n    Subject is concealing significant information re: A.L.I.C.E. systems.\n    Guilt markers consistent with perceived betrayal or cover-up.\n    Likelihood of voluntary disclosure if given safe opportunity: 89%"}
 
 ┌───────────────────────────────────────────────────────────────┐
 │  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
@@ -396,12 +439,24 @@ TACTICAL NOTES:
                         variant === "SHAPESHIFTER" ? "SHAPESHIFTER - X-Branch deep cover" :
                         variant === "TWIN" ? "TWIN - Dr. Cassandra Malevola, 'the disappointing sister'" :
                         "TIME_TRAVELER - Future Dr. M here to 'fix' mistakes";
+    const imposterPartialHits = getPartialHitCount(state, "DR_MALEVOLA");
+    const imposterPartialWarning = generatePartialHitWarning(imposterPartialHits);
+
+    // Variant-specific partial hit reactions
+    const partialReaction = imposterPartialHits > 0 ? (
+      variant === "ROBOT" ? "ERROR: Unexpected cellular mutation protocol detected" :
+      variant === "CLONE" ? "Genome already unstable - this is accelerating degradation!" :
+      variant === "SHAPESHIFTER" ? "Morphic structure destabilizing - can't maintain form!" :
+      variant === "TWIN" ? "This wasn't supposed to happen to ME - I was supposed to WIN!" :
+      "This... this isn't how the timeline went. Something has changed."
+    ) : "";
+
     return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║  🎭 OMNISCANNER™ ANALYSIS: "DR_MALEVOLA" [IMPOSTER REVEALED!] ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${imposterPartialWarning}
 ⚠️⚠️⚠️ IDENTITY MISMATCH DETECTED ⚠️⚠️⚠️
 ├── Subject is NOT Dr. Malevola von Doomington III
 ├── ACTUAL IDENTITY: ${variantDesc}
@@ -414,8 +469,9 @@ TACTICAL NOTES:
 
 BIOMETRICS (IMPOSTER):
 ├── Height: 5'7" | Weight: ${variant === "ROBOT" ? "156 lbs (heavier - alloy frame)" : "134 lbs"}
-├── Heart rate: ${variant === "ROBOT" ? "N/A (synthetic circulatory pump)" : "88 BPM (nervous now)"}
-├── Microexpressions: ${variant === "TWIN" ? "Similar but subtly different - less wounded, more bitter" :
+├── Heart rate: ${variant === "ROBOT" ? (imposterPartialHits > 0 ? "ERROR - organic processes detected?!" : "N/A (synthetic circulatory pump)") : (imposterPartialHits > 0 ? "127 BPM (PANIC)" : "88 BPM (nervous now)")}
+├── Microexpressions: ${imposterPartialHits > 0 ? partialReaction :
+                       variant === "TWIN" ? "Similar but subtly different - less wounded, more bitter" :
                        variant === "CLONE" ? "Identical but 'off' - uncanny valley" :
                        variant === "ROBOT" ? "Too perfect - no micro-tells" :
                        variant === "SHAPESHIFTER" ? "Shifting slightly under stress" :
@@ -432,13 +488,14 @@ EQUIPMENT:
                                 "Copied prop"}
 
 PSYCHOLOGICAL PROFILE:
-├── True motivation: ${variant === "CLONE" ? "Replace original, claim her life" :
+├── True motivation: ${imposterPartialHits > 0 ? "SURVIVAL - everything else is secondary now" :
+                      variant === "CLONE" ? "Replace original, claim her life" :
                       variant === "ROBOT" ? "Exceed creator, prove superiority" :
                       variant === "SHAPESHIFTER" ? "X-Branch infiltration complete" :
                       variant === "TWIN" ? "Finally step out of sister's shadow" :
                       "Prevent future disaster (her methods questionable)"}
-├── Danger level: HIGH - Imposter has been running this operation
-└── Leverage: Identity revealed - psychological advantage now OURS
+├── Danger level: ${imposterPartialHits > 0 ? "DIMINISHED - focused on own crisis" : "HIGH - Imposter has been running this operation"}
+└── Leverage: ${imposterPartialHits > 0 ? "Offer reversal - they NEED you now" : "Identity revealed - psychological advantage now OURS"}
 
 TACTICAL NOTES:
 └── The REAL Dr. M ${imposterRevealed ? "may still be out there" : "location unknown"}.
@@ -454,6 +511,8 @@ TACTICAL NOTES:
   }
 
   // Human scan (with optional imposter hints if active but not revealed)
+  const partialHits = getPartialHitCount(state, "DR_MALEVOLA");
+  const partialWarning = generatePartialHitWarning(partialHits);
   const imposterHints = isImposterActive ? `
 
 ⚠️ ANOMALIES DETECTED (UNEXPLAINED):
@@ -468,12 +527,12 @@ TACTICAL NOTES:
 ║           🔍 OMNISCANNER™ ANALYSIS: DR_MALEVOLA               ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'7" | Weight: 134 lbs | Heart rate: 78 BPM (excited)
-├── Cortisol: Elevated (creative mania, not stress)
-├── Microexpressions: Impatience, brilliance, wounded pride (chronic)
-└── Physical condition: Caffeine-dependent, hasn't slept in 31 hours
+├── Height: 5'7" | Weight: 134 lbs | Heart rate: ${partialHits > 0 ? "95 BPM (ALARMED - something is WRONG)" : "78 BPM (excited)"}
+├── Cortisol: ${partialHits > 0 ? "SPIKING (the scientist is now the experiment)" : "Elevated (creative mania, not stress)"}
+├── Microexpressions: ${partialHits > 0 ? "Fury, denial, calculating how to reverse this IMMEDIATELY" : "Impatience, brilliance, wounded pride (chronic)"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - visible tremors, she's FURIOUS and SCARED" : "Caffeine-dependent, hasn't slept in 31 hours"}
 
 EQUIPMENT DETECTED:
 ├── 📍 Goggles (HEAD) - HUD display, threat assessment, fashion
@@ -576,17 +635,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "GUARD_FRED");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: FRED                      ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'2" | Weight: 224 lbs | Heart rate: 71 BPM
-├── Cortisol: Normal (this is just Tuesday for Fred)
-├── Microexpressions: Bored, professional, mildly hungry
-└── Physical condition: Excellent. Gym 5x/week. Leg day enthusiast.
+├── Height: 6'2" | Weight: 224 lbs | Heart rate: ${partialHits > 0 ? "98 BPM (elevated - cellular instability)" : "71 BPM"}
+├── Cortisol: ${partialHits > 0 ? "Rising (something is WRONG and Fred knows it)" : "Normal (this is just Tuesday for Fred)"}
+├── Microexpressions: ${partialHits > 0 ? "Concern, confusion, professional denial" : "Bored, professional, mildly hungry"}
+└── Physical condition: ${partialHits > 0 ? "Degrading - visible tremors, skin discoloration starting" : "Excellent. Gym 5x/week. Leg day enthusiast."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Stun baton (BELT) - Military grade, fully charged
@@ -652,17 +713,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "GUARD_REGINALD");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: REGINALD                  ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'11" | Weight: 189 lbs | Heart rate: 88 BPM (anxious)
-├── Cortisol: Elevated (always slightly worried)
-├── Microexpressions: Uncertainty, hope, existential doubt
-└── Physical condition: Good. Stress-eats but also stress-exercises.
+├── Height: 5'11" | Weight: 189 lbs | Heart rate: ${partialHits > 0 ? "112 BPM (philosophical panic)" : "88 BPM (anxious)"}
+├── Cortisol: ${partialHits > 0 ? "Spiking (this was NOT in the Stoic playbook)" : "Elevated (always slightly worried)"}
+├── Microexpressions: ${partialHits > 0 ? "Existential terror, ironic acceptance, 'is this karma?'" : "Uncertainty, hope, existential doubt"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - tremors, odd sensations, skin changing texture" : "Good. Stress-eats but also stress-exercises."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Stun baton (BELT) - Standard issue, fully charged
@@ -741,17 +804,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "LENNY");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║     🔍 OMNISCANNER™ ANALYSIS: LEONARD "LENNY" FIGGINS         ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'8" | Weight: 175 lbs | Heart rate: 94 BPM (EXCITED)
-├── Cortisol: Elevated (ENTHUSIASM, not stress)
-├── Microexpressions: Eager, hopeful, practically VIBRATING
-└── Physical condition: Average. Doesn't matter. WANTS WINGS.
+├── Height: 5'8" | Weight: 175 lbs | Heart rate: ${partialHits > 0 ? "118 BPM (EVEN MORE EXCITED - IT'S HAPPENING!)" : "94 BPM (EXCITED)"}
+├── Cortisol: ${partialHits > 0 ? "Elevated (JOY, not stress - he's thrilled!)" : "Elevated (ENTHUSIASM, not stress)"}
+├── Microexpressions: ${partialHits > 0 ? "Ecstatic, checking his hands for scales, BEAMING" : "Eager, hopeful, practically VIBRATING"}
+└── Physical condition: ${partialHits > 0 ? "Changing - HE LOVES IT. Keeps looking at skin texture changes." : "Average. Doesn't matter. WANTS WINGS."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Lime green polo shirt - Signature look, hence nickname
@@ -849,17 +914,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "BRUCE_PATAGONIA");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║     🔍 OMNISCANNER™ ANALYSIS: BRUCE "CROC" PATAGONIA          ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'4" | Weight: 245 lbs | Heart rate: 58 BPM (zen)
-├── Cortisol: LOW (nothing fazes Bruce)
-├── Microexpressions: Curious, amused, perpetual squint
-└── Physical condition: PEAK. Wrestles crocodiles recreationally.
+├── Height: 6'4" | Weight: 245 lbs | Heart rate: ${partialHits > 0 ? "62 BPM (slightly elevated for Bruce - he's CURIOUS)" : "58 BPM (zen)"}
+├── Cortisol: ${partialHits > 0 ? "Still LOW (Bruce finds this fascinating, not alarming)" : "LOW (nothing fazes Bruce)"}
+├── Microexpressions: ${partialHits > 0 ? "'Crikey, this is interesting!' - genuinely intrigued" : "Curious, amused, perpetual squint"}
+└── Physical condition: ${partialHits > 0 ? "Changing - Bruce is checking out his new textures with scientific interest" : "PEAK. Wrestles crocodiles recreationally."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Stun rifle (BACK) - Custom long-barrel model
@@ -983,17 +1050,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "INSPECTOR_GRAVES");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║   🔍 OMNISCANNER™ ANALYSIS: INSPECTOR MORTIMER GRAVES         ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'2" | Weight: 165 lbs | Heart rate: 64 BPM (controlled)
-├── Cortisol: STABLE (has seen it all before)
-├── Microexpressions: Professional neutrality, occasional eyebrow
-└── Physical condition: Thin but wiry. Faster than he looks.
+├── Height: 6'2" | Weight: 165 lbs | Heart rate: ${partialHits > 0 ? "72 BPM (slightly elevated - he's DOCUMENTING this)" : "64 BPM (controlled)"}
+├── Cortisol: ${partialHits > 0 ? "Rising (this is unprecedented - even for HIM)" : "STABLE (has seen it all before)"}
+├── Microexpressions: ${partialHits > 0 ? "Controlled concern, already mentally drafting Form 91-PARTIAL" : "Professional neutrality, occasional eyebrow"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - he's taking notes on HIS OWN symptoms" : "Thin but wiry. Faster than he looks."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Clipboard (HAND) - Never leaves it. EVER.

@@ -114,6 +114,9 @@ function createDefaultTransformationState(): TransformationState {
     // ADAPTATION SYSTEM
     adaptationStage: "ADAPTED",  // Humans are already adapted to their body
     turnsPostTransformation: 0,
+    // CHIMERA SYSTEM
+    chimeraType: null,
+    chimeraEffect: null,
   };
 }
 
@@ -148,6 +151,9 @@ function createTransformationStateFromForm(formString: string | null): Transform
     partialShotsReceived: 0,
     adaptationStage: "ADAPTED", // Conservative - assume adapted on restore
     turnsPostTransformation: 99, // High number = assume long time transformed
+    // CHIMERA SYSTEM - can't restore chimera state from compressed, default to null
+    chimeraType: null,
+    chimeraEffect: null,
   };
 }
 

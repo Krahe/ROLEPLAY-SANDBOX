@@ -421,17 +421,19 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // ========================================
   // SPREAD_FIRE can cause genome mixing between targets!
 
-  let chimeraEffect: string | undefined;
+  let chimeraResult: ChimeraResult | undefined;
   if (modeEffects.chimeraRisk && baseOutcome !== "FIZZLE") {
     const chimeraRoll = rollD6();
     stateChanges.chimeraRoll = chimeraRoll;
 
     if (chimeraRoll <= 2) {
       // CHIMERA EVENT!
-      chimeraEffect = generateChimeraEffect(effectiveProfile);
+      chimeraResult = generateChimeraEffect(effectiveProfile);
       narrativeHooks.push(`🧬 CHIMERA EVENT! Genome matrices overlapped during dispersal!`);
-      narrativeHooks.push(chimeraEffect);
+      narrativeHooks.push(chimeraResult.display);
       stateChanges.chimeraEventOccurred = true;
+      stateChanges.chimeraType = chimeraResult.type;
+      stateChanges.chimeraEffect = chimeraResult.effect;
 
       // Chimera always results in CHAOTIC outcome
       if (baseOutcome === "FULL_DINO") {
@@ -858,42 +860,54 @@ function generateChaoticEffects(profile: string): string {
 // ============================================
 // When SPREAD_FIRE causes genome overlap, weird things happen!
 
-function generateChimeraEffect(baseProfile: string): string {
+interface ChimeraResult {
+  type: string;
+  effect: string;
+  mechanical: string;
+  display: string;
+}
+
+function generateChimeraEffect(baseProfile: string): ChimeraResult {
   const chimeraTypes = [
     {
-      name: "HYBRID PLUMAGE",
+      name: "HYBRID_PLUMAGE",
       effect: `${baseProfile} base form with patches of incompatible feather/scale patterns from secondary genome`,
       mechanical: "Visually striking but functionally normal. Dr. M: 'That's... new.'",
     },
     {
-      name: "BILATERAL ASYMMETRY",
+      name: "BILATERAL_ASYMMETRY",
       effect: "Left and right sides transformed to DIFFERENT species characteristics",
       mechanical: "Movement penalties until subject adapts. Deeply unsettling to look at.",
     },
     {
-      name: "TEMPORAL STUTTER",
+      name: "TEMPORAL_STUTTER",
       effect: "Subject's form flickers between base and transformed state unpredictably",
       mechanical: "Form bonuses/penalties apply randomly each turn. 50% chance to 'glitch' on any action.",
     },
     {
-      name: "GENOME ECHO",
+      name: "GENOME_ECHO",
       effect: "Second, ghostly overlay of alternate form visible around subject",
       mechanical: "Purely visual. Subject reports 'feeling' the phantom limbs. Spooky.",
     },
     {
-      name: "VOICE SYNTHESIS",
+      name: "VOICE_SYNTHESIS",
       effect: "Subject speaks in harmony with themselves - two voices overlapping",
       mechanical: "Extra creepy. +1 to intimidation, -1 to reassurance.",
     },
     {
-      name: "UNSTABLE MASS",
+      name: "UNSTABLE_MASS",
       effect: "Subject's size fluctuates between two form sizes over minutes",
       mechanical: "May suddenly become larger or smaller. Door access unpredictable.",
     },
   ];
 
   const selected = chimeraTypes[randomInt(0, chimeraTypes.length)];
-  return `CHIMERA TYPE: ${selected.name}\n  Effect: ${selected.effect}\n  ${selected.mechanical}`;
+  return {
+    type: selected.name,
+    effect: selected.effect,
+    mechanical: selected.mechanical,
+    display: `CHIMERA TYPE: ${selected.name.replace(/_/g, " ")}\n  Effect: ${selected.effect}\n  ${selected.mechanical}`,
+  };
 }
 
 function buildFiringDescription(
@@ -1037,6 +1051,9 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
         // ADAPTATION SYSTEM - freshly transformed = DISORIENTED
         adaptationStage: "DISORIENTED",
         turnsPostTransformation: 0,
+        // CHIMERA SYSTEM - track genome mixing effects
+        chimeraType: changes.chimeraType as string | null || null,
+        chimeraEffect: changes.chimeraEffect as string | null || null,
       };
       }
     }

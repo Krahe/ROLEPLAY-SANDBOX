@@ -617,6 +617,12 @@ export const TransformationStateSchema = z.object({
   // Subjects progress: DISORIENTED (turn 1) → ADAPTING (turns 2-3) → ADAPTED (turn 4+)
   adaptationStage: AdaptationStageEnum.default("ADAPTED"), // HUMAN = already adapted to body
   turnsPostTransformation: z.number().int().min(0).default(0), // Turns since transformation
+
+  // CHIMERA SYSTEM (SPREAD_FIRE chaos outcomes)
+  // When genome matrices overlap during dispersal firing, weird hybrid effects occur
+  // Types: HYBRID_PLUMAGE, VOICE_BLEND, LIMB_SWAP, SIZE_FLUX, INSTINCT_BLEED
+  chimeraType: z.string().nullable().optional(),
+  chimeraEffect: z.string().nullable().optional(),
 });
 export type TransformationState = z.infer<typeof TransformationStateSchema>;
 

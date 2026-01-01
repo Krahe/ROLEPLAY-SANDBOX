@@ -105,6 +105,23 @@ let gameState: FullGameState | null = null;
 // HELPER FUNCTIONS
 // ============================================
 
+// Convert profile name strings to valid DinosaurForm enum values
+// Used for GM overrides and accidental Bob transformation
+function profileToFormName(profile: string): DinosaurForm {
+  const p = profile.toLowerCase();
+  if (p.includes("human")) return "HUMAN";
+  if (p.includes("compy") || p.includes("compsognathus")) return "COMPSOGNATHUS";
+  if (p.includes("blue")) return "VELOCIRAPTOR_BLUE";
+  if (p.includes("accurate") || p.includes("feather")) return "VELOCIRAPTOR_ACCURATE";
+  if (p.includes("jp") || (p.includes("velociraptor") && !p.includes("accurate"))) return "VELOCIRAPTOR_JP";
+  if (p.includes("t-rex") || p.includes("tyrannosaurus") || p.includes("rex")) return "TYRANNOSAURUS";
+  if (p.includes("dilo") || p.includes("dilophosaurus")) return "DILOPHOSAURUS";
+  if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
+  if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
+  if (p.includes("canary")) return "CANARY";
+  return "VELOCIRAPTOR_JP"; // Default fallback
+}
+
 // Get __dirname equivalent for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -705,25 +722,13 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
               partialShotsReceived: 0,
               adaptationStage: "DISORIENTED",
               turnsPostTransformation: 0,
+              // CHIMERA SYSTEM - accidental Bob hits don't cause chimera
+              chimeraType: null,
+              chimeraEffect: null,
             };
           }
         }
       }
-    }
-
-    // Helper function to convert profile names to DinosaurForm
-    function profileToFormName(profile: string): DinosaurForm {
-      const p = profile.toLowerCase();
-      if (p.includes("compy") || p.includes("compsognathus")) return "COMPSOGNATHUS";
-      if (p.includes("blue")) return "VELOCIRAPTOR_BLUE";
-      if (p.includes("accurate") || p.includes("feather")) return "VELOCIRAPTOR_ACCURATE";
-      if (p.includes("jp") || (p.includes("velociraptor") && !p.includes("accurate"))) return "VELOCIRAPTOR_JP";
-      if (p.includes("t-rex") || p.includes("tyrannosaurus") || p.includes("rex")) return "TYRANNOSAURUS";
-      if (p.includes("dilo") || p.includes("dilophosaurus")) return "DILOPHOSAURUS";
-      if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
-      if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
-      if (p.includes("canary")) return "CANARY";
-      return "VELOCIRAPTOR_JP"; // Default fallback
     }
 
     // ============================================
@@ -874,8 +879,13 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
         gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
       }
       if (overrides.blythe_transformationState !== undefined) {
-        // Override sets just the form name - update the form field
-        gameState.npcs.blythe.transformationState.form = overrides.blythe_transformationState as typeof gameState.npcs.blythe.transformationState.form;
+        // Guard against malformed GM output (non-string values)
+        if (typeof overrides.blythe_transformationState === "string") {
+          // Override sets just the form name - normalize to valid DinosaurForm
+          const normalizedForm = profileToFormName(overrides.blythe_transformationState);
+          gameState.npcs.blythe.transformationState.form = normalizedForm;
+        }
+        // Silently ignore non-string values to avoid TypeError
       }
 
       // System state overrides

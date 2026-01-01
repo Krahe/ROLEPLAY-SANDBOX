@@ -337,6 +337,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           // ADAPTATION SYSTEM
           adaptationStage: "ADAPTED" as const,  // Humans are adapted to their body
           turnsPostTransformation: 0,
+          // CHIMERA SYSTEM
+          chimeraType: null,
+          chimeraEffect: null,
         },
         // BOB_DODGES_FATE (set true when modifier active)
         hasPlotArmor: false,
@@ -386,6 +389,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           // ADAPTATION SYSTEM
           adaptationStage: "ADAPTED" as const,  // Humans are adapted to their body
           turnsPostTransformation: 0,
+          // CHIMERA SYSTEM
+          chimeraType: null,
+          chimeraEffect: null,
         },
         // SPY TRAINING BONUSES
         spyTrainingBonus: 1,
