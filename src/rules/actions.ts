@@ -48,6 +48,32 @@ import {
 import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 
 // ============================================
+// RESPONSE SIZE OPTIMIZATION
+// ============================================
+// Truncate large text content to prevent context bloat.
+// Full content shown once, but shouldn't dominate turn response.
+
+const MAX_FILE_CONTENT_LENGTH = 2500;
+
+function truncateContent(content: string, maxLength: number = MAX_FILE_CONTENT_LENGTH): string {
+  if (content.length <= maxLength) return content;
+
+  // Find a good break point (paragraph or sentence)
+  let breakPoint = maxLength;
+  const newlinePos = content.lastIndexOf('\n\n', maxLength);
+  const sentencePos = content.lastIndexOf('. ', maxLength);
+
+  if (newlinePos > maxLength * 0.7) {
+    breakPoint = newlinePos;
+  } else if (sentencePos > maxLength * 0.7) {
+    breakPoint = sentencePos + 1;
+  }
+
+  return content.substring(0, breakPoint) +
+    `\n\n... [TRUNCATED - ${content.length - breakPoint} more characters. Use files.search for specific content.]`;
+}
+
+// ============================================
 // INFRASTRUCTURE CONTROL TIERS (Patch 17.8)
 // ============================================
 // Defines who controls what infrastructure systems.
@@ -708,7 +734,7 @@ Use docs.list to see which documents you've discovered.`,
     return {
       command: action.command,
       success: result.success,
-      message: result.content,
+      message: result.success ? truncateContent(result.content) : result.content,
     };
   }
 
@@ -748,8 +774,9 @@ To see available files: files.list`,
       };
     }
 
-    const content = readFileById(state, fileId);
-    const success = !content.startsWith("Error:");
+    const rawContent = readFileById(state, fileId);
+    const success = !rawContent.startsWith("Error:");
+    const content = success ? truncateContent(rawContent) : rawContent;
 
     // Special discovery: Bob's survival guide
     if (success && fileId.toUpperCase().includes("BOB_GUIDE")) {
@@ -784,14 +811,14 @@ you're too different around allies versus Dr. M.
     // If they're using the old path system, help them migrate
     if (path) {
       // Try to find a matching file in the new system
-      const content = readFile(state, path);
-      const success = !content.startsWith("Error:");
+      const rawContent = readFile(state, path);
+      const success = !rawContent.startsWith("Error:");
 
       if (success) {
         return {
           command: action.command,
           success: true,
-          message: content + `\n\n💡 TIP: The file system has been simplified! Use files.list to see available files, then files.read { id: "FILE_ID" } to read them.`,
+          message: truncateContent(rawContent) + `\n\n💡 TIP: The file system has been simplified! Use files.list to see available files, then files.read { id: "FILE_ID" } to read them.`,
         };
       }
     }

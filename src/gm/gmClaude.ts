@@ -179,6 +179,72 @@ function repairJSON(jsonString: string): string {
 }
 
 /**
+ * Extract JSON from a response string more robustly.
+ * Handles: ```json blocks, balanced braces, multiple JSON objects.
+ * Returns the extracted JSON string or null if not found.
+ */
+function extractJSON(text: string): string | null {
+  // Strategy 1: Look for ```json ... ``` markdown blocks (most reliable)
+  const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    const content = jsonBlockMatch[1].trim();
+    // Verify it looks like JSON
+    if (content.startsWith("{") || content.startsWith("[")) {
+      return content;
+    }
+  }
+
+  // Strategy 2: Find first balanced JSON object using brace counting
+  // This handles cases where there are multiple JSON objects or trailing text
+  const firstBrace = text.indexOf("{");
+  if (firstBrace === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = firstBrace; i < text.length; i++) {
+    const char = text[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === "{") {
+        depth++;
+      } else if (char === "}") {
+        depth--;
+        if (depth === 0) {
+          // Found complete JSON object
+          return text.substring(firstBrace, i + 1);
+        }
+      }
+    }
+  }
+
+  // Strategy 3: Fallback to greedy regex (least reliable, but better than nothing)
+  const greedyMatch = text.match(/\{[\s\S]*\}/);
+  if (greedyMatch) {
+    console.error("[JSON EXTRACT] Warning: Using greedy fallback extraction");
+    return greedyMatch[0];
+  }
+
+  return null;
+}
+
+/**
  * Safely parse JSON with repair attempts.
  * Returns [parsed, null] on success, or [null, error] on failure.
  */
@@ -433,13 +499,13 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
       throw new Error("No text response from GM Claude");
     }
 
-    // Parse JSON response with repair logic
-    const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // Parse JSON response with robust extraction
+    const extractedJSON = extractJSON(textContent.text);
+    if (!extractedJSON) {
       throw new Error("No JSON found in epilogue response");
     }
 
-    const [parsed, parseError] = safeJSONParse<EpilogueResponse>(jsonMatch[0]);
+    const [parsed, parseError] = safeJSONParse<EpilogueResponse>(extractedJSON);
 
     if (parseError || !parsed) {
       console.error("Epilogue JSON parse error after repair attempt:", parseError);
@@ -948,6 +1014,65 @@ export interface NpcSpeechCapability {
 }
 
 /**
+ * Normalize NPC speaker names from GM output to canonical IDs.
+ * Handles variations like "Agent Blythe", "Dr. M", "Blythe (raptor)", etc.
+ */
+function normalizeNpcName(speaker: string): string {
+  const s = speaker.toLowerCase().trim();
+
+  // Blythe variations
+  if (s.includes("blythe") || s === "agent" || s === "the spy" || s === "spy") {
+    return "blythe";
+  }
+
+  // Bob variations
+  if (s.includes("bob") || s === "lab assistant" || s === "assistant") {
+    return "bob";
+  }
+
+  // Dr. M variations
+  if (s.includes("dr") || s.includes("malevola") || s === "doctor" || s === "the doctor") {
+    return "drm";
+  }
+
+  // Lenny variations
+  if (s.includes("lenny") || s.includes("figgins") || s === "accountant" || s === "the accountant") {
+    return "lenny";
+  }
+
+  // Bruce variations
+  if (s.includes("bruce") || s.includes("patagonia") || s === "croc" || s === "security") {
+    return "bruce";
+  }
+
+  // Guard variations
+  if (s.includes("fred") || s === "guard fred") {
+    return "fred";
+  }
+  if (s.includes("reginald") || s === "guard reginald") {
+    return "reginald";
+  }
+
+  // Inspector variations
+  if (s.includes("graves") || s.includes("inspector") || s.includes("mortimer")) {
+    return "inspector";
+  }
+
+  // BASILISK
+  if (s.includes("basilisk")) {
+    return "basilisk";
+  }
+
+  // A.L.I.C.E. (shouldn't be in NPC dialogue but handle it)
+  if (s.includes("alice") || s.includes("a.l.i.c.e")) {
+    return "alice";
+  }
+
+  // Return original if no match (will be treated as unknown human)
+  return s;
+}
+
+/**
  * Get speech capability for an NPC based on their transformation state.
  * Returns capability info including what sounds they can make.
  */
@@ -959,7 +1084,10 @@ export function getNpcSpeechCapability(state: FullGameState, npcId: string): Npc
     form: "HUMAN",
   };
 
-  if (npcId.toLowerCase() === "blythe") {
+  // Normalize the NPC name to handle GM variations like "Agent Blythe", "Blythe (raptor)"
+  const normalizedId = normalizeNpcName(npcId);
+
+  if (normalizedId === "blythe") {
     const ts = state.npcs.blythe?.transformationState;
     if (!ts || ts.form === "HUMAN") return defaultHuman;
 
@@ -988,7 +1116,7 @@ export function getNpcSpeechCapability(state: FullGameState, npcId: string): Npc
     };
   }
 
-  if (npcId.toLowerCase() === "bob") {
+  if (normalizedId === "bob") {
     const ts = state.npcs.bob?.transformationState;
     if (!ts || ts.form === "HUMAN") return defaultHuman;
 
@@ -2675,13 +2803,13 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 
     const rawResponse = textContent.text;
 
-    // Parse JSON response with repair logic
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // Parse JSON response with robust extraction
+    const extractedJSON = extractJSON(rawResponse);
+    if (!extractedJSON) {
       throw new Error("No JSON found in GM response");
     }
 
-    const [parsed, parseError] = safeJSONParse<GMResponse>(jsonMatch[0]);
+    const [parsed, parseError] = safeJSONParse<GMResponse>(extractedJSON);
 
     if (parseError || !parsed) {
       console.error("GM JSON parse error after repair attempt:", parseError);
@@ -2699,7 +2827,7 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     }
 
     // Update memory with this turn's data
-    updateMemoryFromResponse(parsed, context, fullPrompt, jsonMatch[0]);
+    updateMemoryFromResponse(parsed, context, fullPrompt, extractedJSON);
 
     // POST-PROCESSING: Enforce NPC speech constraints (Patch 17.4)
     // This is a safety net in case the GM ignores the speech constraint guidance
@@ -3049,6 +3177,10 @@ function generateStubResponse(context: GMContext): GMResponse {
   const actions: string[] = [];
   let narration = "";
 
+  // Track state changes via stateOverrides instead of mutating directly!
+  // This keeps processing consistent with the normal GM flow.
+  const stateOverrides: Record<string, unknown> = {};
+
   // Helper to generate Blythe dialogue respecting speech constraints
   const getBlytheDialogue = (verbal: string, nonVerbal: string): { speaker: string; message: string } => {
     const capability = getNpcSpeechCapability(state, "blythe");
@@ -3090,7 +3222,7 @@ function generateStubResponse(context: GMContext): GMResponse {
             "*tweets indignantly, hopping in a way that somehow conveys British displeasure*"
           ));
           actions.push("Dr. M's eye twitches dangerously.");
-          state.npcs.drM.suspicionScore += 2;
+          stateOverrides.drM_suspicion = state.npcs.drM.suspicionScore + 2;
         } else if (isFeathered) {
           narration = "The ray discharges with a thunderous crack. When the light fades, a magnificent feathered velociraptor stands where Blythe was restrained.";
           dialogue.push({
@@ -3106,8 +3238,8 @@ function generateStubResponse(context: GMContext): GMResponse {
             "*clicks claws and tilts feathered head - the gesture somehow reads as sardonic amusement*"
           ));
           actions.push("Dr. M throws her goggles on the ground in frustration.");
-          state.npcs.drM.suspicionScore += 1;
-          state.npcs.drM.mood = "furious about feathers";
+          stateOverrides.drM_suspicion = state.npcs.drM.suspicionScore + 1;
+          stateOverrides.drM_mood = "furious about feathers";
         } else {
           narration = "The Dinosaur Ray fires with perfect precision. A full transformation unfolds before the lab's cameras.";
           dialogue.push({
@@ -3157,8 +3289,8 @@ function generateStubResponse(context: GMContext): GMResponse {
           ));
         }
         actions.push("Emergency lights begin strobing. Something crashes in the corridor.");
-        state.npcs.drM.suspicionScore += 2;
-        state.npcs.bob.anxietyLevel = Math.min(5, state.npcs.bob.anxietyLevel + 2);
+        stateOverrides.drM_suspicion = state.npcs.drM.suspicionScore + 2;
+        stateOverrides.bob_anxiety = Math.min(5, state.npcs.bob.anxietyLevel + 2);
         break;
 
       case "FIZZLE":
@@ -3177,7 +3309,7 @@ function generateStubResponse(context: GMContext): GMResponse {
           message: "*still human, raises eyebrow* Technical difficulties? How disappointing... for you.",
         });
         actions.push("Dr. M pinches the bridge of her nose, counting to ten in Latin.");
-        state.npcs.drM.suspicionScore += 1;
+        stateOverrides.drM_suspicion = state.npcs.drM.suspicionScore + 1;
         break;
 
       default:
@@ -3203,7 +3335,7 @@ function generateStubResponse(context: GMContext): GMResponse {
       speaker: "Dr. M",
       message: "Is there a problem, A.L.I.C.E.? I do hope you're not going to disappoint me.",
     });
-    state.npcs.drM.suspicionScore += 0.5;
+    stateOverrides.drM_suspicion = state.npcs.drM.suspicionScore + 0.5;
   }
 
   // Bob reaction if A.L.I.C.E. spoke to him
@@ -3230,10 +3362,17 @@ function generateStubResponse(context: GMContext): GMResponse {
     }
   }
 
-  return {
+  // Only include stateOverrides if we have any changes
+  const result: GMResponse = {
     narration,
     npcDialogue: dialogue,
     npcActions: actions,
     stateUpdates: {},
   };
+
+  if (Object.keys(stateOverrides).length > 0) {
+    result.stateOverrides = stateOverrides;
+  }
+
+  return result;
 }

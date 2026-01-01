@@ -2062,11 +2062,8 @@ You can:
       // SECTION 4: Full Technical Data (for A.L.I.C.E.)
       // ─────────────────────────────────────────────────
       actionResults,
-      gmResponse: {
-        narration: combinedNarration.join("\n\n---\n\n"),
-        npcDialogue: gmResponse.npcDialogue,
-        npcActions: gmResponse.npcActions,
-      },
+      // NPC actions only (narrative/dialogue already shown above)
+      npcActions: gmResponse.npcActions,
       state: playerView,
     };
 
