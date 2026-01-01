@@ -75,8 +75,8 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "ARCHIMEDES uplink (read-only)",
     ],
     password: "PROMETHEUS",
-    passwordHint: "She who stole fire from the gods... look closely at her favorite photo.",
-    discoveryMethod: "Hidden acrostically in ASCII art of Mr. Whiskers in Dr. M's personal files",
+    passwordHint: "Dr. M's manifesto contains a 'Founder's Creed'... read between the lines.",
+    discoveryMethod: "Hidden acrostically in the Founder's Creed section of DOOMINGTON_DOCTRINE.txt (first letter of each line spells PROMETHEUS). Handwritten margin note hints at this.",
   },
   5: {
     level: 5,
