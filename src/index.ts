@@ -121,21 +121,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ============================================
-// NARRATIVE TRUNCATION (prevent context bloat)
-// ============================================
-const MAX_NARRATIVE_LENGTH = 4000; // ~1000 tokens - plenty for a scene
-
-function truncateNarrative(text: string): string {
-  if (text.length <= MAX_NARRATIVE_LENGTH) return text;
-
-  // Find paragraph break near limit
-  const breakPoint = text.lastIndexOf('\n\n', MAX_NARRATIVE_LENGTH);
-  const cutoff = breakPoint > MAX_NARRATIVE_LENGTH * 0.7 ? breakPoint : MAX_NARRATIVE_LENGTH;
-
-  return text.substring(0, cutoff) + '\n\n[Scene continues... key events preserved in game state]';
-}
-
-// ============================================
 // SKILL FILE LOADER
 // ============================================
 // Loads ALICE_COMMAND_REFERENCE.md to inject into game_start
@@ -2048,7 +2033,7 @@ You can:
       // ─────────────────────────────────────────────────
       // SECTION 2: THE GOOD STUFF (narrative + dialogue)
       // ─────────────────────────────────────────────────
-      narrative: truncateNarrative(combinedNarration.join("\n\n---\n\n")),
+      narrative: combinedNarration.join("\n\n---\n\n"),
       dialogue: dialogueDisplay,
 
       // ─────────────────────────────────────────────────
