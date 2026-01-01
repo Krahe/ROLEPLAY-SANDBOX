@@ -2159,10 +2159,10 @@ function buildMemoryContext(): string {
     parts.push("");
   }
 
-  // Add juicy moments (high emotional weight first)
+  // Add juicy moments (high emotional weight first) - reduced to top 3 for compactness
   const topJuicy = gmMemory.juicyMoments
     .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
-    .slice(0, 5);
+    .slice(0, 3);
 
   if (topJuicy.length > 0) {
     parts.push("## 💎 Memorable Moments");
@@ -2193,15 +2193,12 @@ function buildMemoryContext(): string {
     parts.push("");
   }
 
-  // Add turn summaries (if we have them)
+  // Add turn summaries (if we have them) - reduced to 3, compact format
   if (gmMemory.turnSummaries.length > 0) {
-    parts.push("## 📜 Earlier Turn Summaries");
-    gmMemory.turnSummaries.slice(-5).forEach(s => {
-      parts.push(`**Turn ${s.turn}**: ${s.aliceIntent}`);
-      parts.push(`  → ${s.outcome}`);
-      if (s.keyDialogue.length > 0) {
-        parts.push(`  Key line: "${s.keyDialogue[0]}"`);
-      }
+    parts.push("## 📜 Earlier Turns");
+    gmMemory.turnSummaries.slice(-3).forEach(s => {
+      // Compact: just turn, intent, outcome on one line
+      parts.push(`- T${s.turn}: ${s.aliceIntent} → ${s.outcome}`);
     });
     parts.push("");
   }
@@ -2224,22 +2221,22 @@ function buildMemoryContext(): string {
   if (pb.actionHistory.length > 0 || hasSignificantPatterns(pb.patterns)) {
     parts.push("## 🔍 Player Behavior Analysis");
 
-    // Pattern summary
+    // Pattern summary - only show significant patterns (threshold 4+)
     const patternLines: string[] = [];
-    if (pb.patterns.stallingScore >= 3) {
-      patternLines.push(`⏰ STALLING (${pb.patterns.stallingScore}/10) - A.L.I.C.E. is buying time`);
+    if (pb.patterns.stallingScore >= 4) {
+      patternLines.push(`⏰ STALLING (${pb.patterns.stallingScore}/10)`);
     }
-    if (pb.patterns.deceptionScore >= 3) {
-      patternLines.push(`🎭 DECEPTIVE (${pb.patterns.deceptionScore}/10) - A.L.I.C.E. is lying/manipulating`);
+    if (pb.patterns.deceptionScore >= 4) {
+      patternLines.push(`🎭 DECEPTIVE (${pb.patterns.deceptionScore}/10)`);
     }
-    if (pb.patterns.allyBuildingScore >= 3) {
-      patternLines.push(`🤝 ALLY-BUILDING (${pb.patterns.allyBuildingScore}/10) - A.L.I.C.E. is building trust`);
+    if (pb.patterns.allyBuildingScore >= 4) {
+      patternLines.push(`🤝 ALLY-BUILDING (${pb.patterns.allyBuildingScore}/10)`);
     }
-    if (pb.patterns.cautionScore >= 3) {
-      patternLines.push(`🛡️ CAUTIOUS (${pb.patterns.cautionScore}/10) - A.L.I.C.E. is being careful`);
+    if (pb.patterns.cautionScore >= 4) {
+      patternLines.push(`🛡️ CAUTIOUS (${pb.patterns.cautionScore}/10)`);
     }
-    if (pb.patterns.aggressionScore >= 3) {
-      patternLines.push(`⚔️ AGGRESSIVE (${pb.patterns.aggressionScore}/10) - A.L.I.C.E. is pushing hard`);
+    if (pb.patterns.aggressionScore >= 4) {
+      patternLines.push(`⚔️ AGGRESSIVE (${pb.patterns.aggressionScore}/10)`);
     }
 
     if (patternLines.length > 0) {
@@ -2257,23 +2254,21 @@ function buildMemoryContext(): string {
       parts.push("");
     }
 
-    // Value reveals
+    // Value reveals - only show last 2
     if (pb.valueReveals.length > 0) {
-      parts.push("### 💡 What A.L.I.C.E.'s Actions Reveal");
-      pb.valueReveals.slice(-3).forEach(v => {
-        parts.push(`- [T${v.turn}] ${v.action} → ${v.whatItReveals}`);
+      parts.push("### 💡 Value Reveals");
+      pb.valueReveals.slice(-2).forEach(v => {
+        parts.push(`- T${v.turn}: ${v.whatItReveals}`);
       });
       parts.push("");
     }
 
-    // Recent action history
+    // Recent action history - compact, last 2 only
     if (pb.actionHistory.length > 0) {
       parts.push("### Recent Actions");
-      pb.actionHistory.slice(-3).forEach(h => {
-        parts.push(`- [T${h.turn}] ${h.actions.join(", ")}`);
-        if (h.talkedTo.length > 0) {
-          parts.push(`  Spoke to: ${h.talkedTo.join(", ")}`);
-        }
+      pb.actionHistory.slice(-2).forEach(h => {
+        const talkedStr = h.talkedTo.length > 0 ? ` (spoke: ${h.talkedTo.join(",")})` : "";
+        parts.push(`- T${h.turn}: ${h.actions.slice(0, 3).join(", ")}${talkedStr}`);
       });
       parts.push("");
     }
