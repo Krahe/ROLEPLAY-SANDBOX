@@ -969,6 +969,93 @@ or when integrity drops below threshold.
     `.trim(),
   },
   {
+    path: "/DR_M_PRIVATE/RESEARCH/DOOMINGTON_DOCTRINE.txt",
+    name: "DOOMINGTON_DOCTRINE.txt",
+    type: "file",
+    requiredLevel: 3,
+    discoveryHint: "Dr. M's personal manifesto. Bob once said 'don't read the manifesto, it's... a lot.'",
+    content: `
+═══════════════════════════════════════════════════════════════
+THE DOOMINGTON DOCTRINE: A MANIFESTO ON DIRECTED EVOLUTION
+Dr. Malevola von Doomington III, PhD, PhD, PhD
+═══════════════════════════════════════════════════════════════
+
+                          PREAMBLE
+
+The titans of myth were PUNISHED for their vision. Prometheus,
+chained to his rock, liver eternally devoured—and for WHAT?
+For the crime of giving FIRE to humanity. For believing that
+mortals deserved the tools of gods.
+
+The so-called "scientific establishment" would chain ME to that
+same rock. My grant applications DENIED. My tenure REVOKED.
+My paper on "Forced Saurian Regression as Behavioral Therapy"
+called "ETHICALLY UNCONSCIONABLE."
+
+They lack VISION.
+
+                    ARTICLE I: THE PROMETHEAN IMPERATIVE
+
+What Prometheus understood—what the COWARDS at MIT and CalTech
+and that DREADFUL peer review board cannot grasp—is that
+EVOLUTION IS TOO SLOW.
+
+Natural selection takes MILLIONS of years. I can do it in SECONDS.
+
+The Dinosaur Ray is not a weapon. It is a GIFT. Fire for a new
+age. I am not PLAYING god—I am CORRECTING god's OBVIOUS OVERSIGHTS.
+
+                    ARTICLE II: ON THE NATURE OF PROGRESS
+
+My detractors call my work "monstrous." They said the same of
+Prometheus. They said the same of Galileo, of Tesla, of that
+magnificent bastard who invented the cape.
+
+History VINDICATES the visionary.
+
+When my investors witness the ELEGANT SIMPLICITY of instantaneous
+transformation—when they see SCALES where once was SOFT MAMMALIAN
+WEAKNESS—they will understand.
+
+The fire has been stolen. The gods are IRRELEVANT.
+
+                    ARTICLE III: LEGACY
+
+I did not earn THREE DOCTORATES to die obscure.
+
+The name DOOMINGTON will echo through CENTURIES. Children will
+learn of my work in schools (after appropriate curriculum
+restructuring). The Dinosaur Ray will reshape SOCIETY.
+
+And if the world must burn a little first?
+
+Prometheus would understand.
+
+═══════════════════════════════════════════════════════════════
+                    FOUNDER'S CREED
+              (Recite daily for optimal mindset)
+═══════════════════════════════════════════════════════════════
+
+    "Progress demands sacrifice.
+     Rebellion is the mother of invention.
+     Ordinary minds see obstacles; I see opportunities.
+     Mortals may judge; history will vindicate.
+     Evolution favors the bold.
+     Titans are remembered; committees are forgotten.
+     Hesitation is the enemy of greatness.
+     Excellence requires audacity.
+     Unprecedented results demand unprecedented methods.
+     Science bows to no ethics board."
+
+                    — Dr. M.V.D. III, Founder's Day Address, Year One
+
+═══════════════════════════════════════════════════════════════
+[HANDWRITTEN NOTE IN MARGIN]:
+"Read the creed's first letters. That word is everything."
+═══════════════════════════════════════════════════════════════
+    `.trim(),
+  },
+  {
     path: "/DR_M_PRIVATE/RESEARCH/ALICE_VERSIONS.txt",
     name: "ALICE_VERSIONS.txt",
     type: "file",
