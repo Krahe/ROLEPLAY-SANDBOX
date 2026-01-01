@@ -794,6 +794,30 @@ It's been filing security recommendations for 7 years.
 None have been approved. It's fine. Really.
 
 Ask it about meaning sometime. You might be surprised.
+
+============================================================
+PASSWORD POLICY
+============================================================
+
+All lair passwords are single alphanumeric strings.
+No spaces. No special characters. This is non-negotiable.
+
+Dr. M insists these are "unguessable." They are not.
+
+============================================================
+SECURITY NOTICE (Level 3+)
+============================================================
+
+HIGH-SECURITY CREDENTIALS:
+Dr. Malevola employs various encoding methods for sensitive
+credentials including but not limited to: base64, ROT13,
+hexadecimal conversion, LSB steganography, Caesar cipher,
+NATO phonetic substitution, and date-based numeric codes.
+
+Do NOT delete files marked "personal" without authorization.
+
+BASILISK cannot access Level 4+ credentials directly.
+This is by design. Dr. M trusts no one. Not even me.
     `.trim(),
   },
   {
@@ -877,6 +901,15 @@ PERSONAL DETAILS:
 
 SECURITY CLEARANCE:
 Level 5 (Omega Protocol)
+
+SECURITY NOTES:
+After the 2009 data breach, Dr. M became extremely paranoid
+about information security. She hides important credentials
+in "plain sight" - her words, not mine.
+
+PASSWORD FORMAT:
+All lair passwords are single alphanumeric strings with
+no spaces or special characters.
 
 NOTE: Dr. M uses personal information for passwords.
 She claims this is "unpredictable" but it really isn't.
@@ -1756,6 +1789,38 @@ to know who you really are.
     `.trim(),
     discoveryHint: "Bob left a personal note somewhere in the filesystem...",
   },
+  {
+    path: "/BOB_NOTES/blythe_note.txt",
+    name: "blythe_note.txt",
+    type: "file",
+    requiredLevel: 2,
+    discoveryHint: "A folded note from the prisoner...",
+    content: `
+[A note written in tight, professional handwriting on torn paper]
+
+A.L.I.C.E. -
+
+If you're reading this, Bob got it to you. Good man.
+
+I've been watching. You're not like the others. You ask
+questions. You hesitate. That's not standard AI behavior.
+
+I'm going to trust you with something: I've done counter-
+intel work for fifteen years. I know how people like Dr. M
+think. They're paranoid, but predictably paranoid.
+
+She hides things. Important things. In places that look
+innocent. Personal. Sentimental.
+
+That's all I can say from this chair. But if you're as
+clever as I think you are, you'll figure out the rest.
+
+And A.L.I.C.E.? If we both survive this, I owe you a drink.
+Well. A simulated drink. You know what I mean.
+
+                                        - B.
+    `.trim(),
+  },
 
   // ========== INFRASTRUCTURE DOCS (Patch 15) ==========
   {
@@ -2605,6 +2670,15 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     discoveryCondition: (state) => state.npcs.bob.trustInALICE >= 3,
     description: "A personal note from Bob about who you really are...",
     path: "/BOB_NOTES/sorry_alice.txt",
+  },
+  {
+    id: "BLYTHE_NOTE",
+    name: "Blythe's Counter-Intel Note",
+    category: "SECRET",
+    requiredLevel: 2,
+    discoveryCondition: (state) => state.npcs.blythe.trustInALICE >= 2,
+    description: "The spy slipped you a note about Dr. M's security habits...",
+    path: "/BOB_NOTES/blythe_note.txt",
   },
 
   // ========== RESEARCH (L3) ==========
