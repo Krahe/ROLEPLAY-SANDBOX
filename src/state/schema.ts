@@ -195,11 +195,7 @@ export const LairEnvironmentSchema = z.object({
 // Discovery requires meeting access level + sometimes other conditions.
 
 export const DocumentIdEnum = z.enum([
-  // Discoverable documents
-  "ARCHIMEDES_DOD_BRIEF",
-  "S300_ACQUISITION_MEMO",
-  "INTEGRATION_NOTES",
-  "BROADCAST_PROTOCOL",
+  // Discoverable documents (consolidated in filesystem v2)
   "DEADMAN_SWITCH_MEMO",
   // BASILISK bureaucratic forms (Patch 17.8)
   "FORM_74_DELTA",

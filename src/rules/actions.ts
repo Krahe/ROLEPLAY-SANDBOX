@@ -705,13 +705,11 @@ To see available documents, use: docs.list`,
         message: `Unknown document: "${docId}"
 
 Valid document IDs:
-  - ARCHIMEDES_DOD_BRIEF
-  - S300_ACQUISITION_MEMO
-  - INTEGRATION_NOTES
-  - BROADCAST_PROTOCOL
   - DEADMAN_SWITCH_MEMO
+  - FORM_74_DELTA, FORM_27_B, etc. (BASILISK forms)
 
-Use docs.list to see which documents you've discovered.`,
+Note: Many documents were consolidated into the file system.
+Use files.list to browse available files.`,
       };
     }
 

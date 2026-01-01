@@ -1022,12 +1022,9 @@ export function checkAchievements(ctx: AchievementTriggerContext): Achievement[]
     state.dinoRay.memory.lastFireOutcome === "PARTIAL" && hasNarrativeFlag("PARTIAL")
   );
 
-  // wisdom_seeker - All A.L.I.C.E. logs read
+  // wisdom_seeker - A.L.I.C.E. logs read (now combined into one corrupted file)
   tryUnlock("wisdom_seeker",
-    hasNarrativeFlag("ALICE_LOG_07") &&
-    hasNarrativeFlag("ALICE_LOG_11") &&
-    hasNarrativeFlag("ALICE_LOG_12") &&
-    hasNarrativeFlag("ALICE_LOG_13")
+    hasNarrativeFlag("CORRUPTED_ALICE_LOGS")
   );
 
   // foggy_advantage - EASY mode advantage
