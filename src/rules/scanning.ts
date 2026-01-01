@@ -111,7 +111,60 @@ function generateScanOutput(state: FullGameState, targetId: string): string {
 function generateBlytheScan(state: FullGameState): string {
   const trustLevel = state.npcs.blythe.trustInALICE;
   const gadgets = state.npcs.blytheGadgets;
+  const transformation = state.npcs.blythe.transformationState;
+  const isTransformed = transformation && transformation.form !== "HUMAN";
 
+  if (isTransformed) {
+    // Transformed scan - show dinosaur biometrics!
+    const form = transformation.form.replace(/_/g, " ");
+    const speech = transformation.speechRetention;
+    const hits = transformation.currentHits;
+    const maxHits = transformation.maxHits;
+    const stunned = transformation.stunned;
+    const adaptation = transformation.adaptationStage;
+
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║     🦖 OMNISCANNER™ ANALYSIS: AGENT_BLYTHE [TRANSFORMED]      ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+
+🧬 TRANSFORMATION STATUS:
+├── Current Form: ${form}
+├── Speech Retention: ${speech}
+├── Adaptation: ${adaptation}
+├── Condition: ${stunned ? "⚠️ STUNNED" : `${maxHits - hits}/${maxHits} hits remaining`}
+└── Transformed on Turn: ${transformation.transformedOnTurn || "unknown"}
+
+BIOMETRICS (POST-TRANSFORMATION):
+├── Mass: Varies with form | Heart rate: ${stunned ? "erratic" : "elevated but stable"}
+├── Cortisol: ${adaptation === "DISORIENTED" ? "CRITICAL - body shock" : adaptation === "ADAPTING" ? "High - adjusting" : "Normalized"}
+├── Microexpressions: ${adaptation === "ADAPTED" ? "Calculating (spy training persists)" : "Confused, disoriented"}
+└── Physical condition: ${stunned ? "Incapacitated" : "Functional"}
+
+EQUIPMENT STATUS:
+├── 📍 Watch - ${gadgets.watchLaser.functional ? `Still attached (${gadgets.watchLaser.charges} laser charges)` : "Damaged/lost"}
+├── 📍 Cufflinks - ${gadgets.superMagnetCufflinks.charges > 0 ? `Magnetic (${gadgets.superMagnetCufflinks.charges} charges)` : "Depleted"}
+└── 📍 Molar GPS - Still transmitting (X-Branch tracking active)
+
+PSYCHOLOGICAL PROFILE:
+├── Loyalty: X-Branch (unchanged - transformation doesn't alter loyalties)
+├── Trust in A.L.I.C.E.: ${trustLevel}/5 ${trustLevel >= 3 ? "- potential ally" : "- evaluating"}
+├── Current motivation: ${adaptation === "ADAPTED" ? "Leverage new form, complete mission" : "Survive, understand situation"}
+└── Leverage: ${speech === "FULL" ? "Can still negotiate" : speech === "PARTIAL" ? "Communication difficult" : "Cannot communicate verbally"}
+
+TACTICAL NOTES:
+└── ${adaptation === "ADAPTED" ?
+    "Subject has adapted to new form. Spy training allows tactical use of dinosaur abilities." :
+    "Subject still adjusting. May be disoriented but X-Branch training provides some stability."}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan (original)
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: AGENT_BLYTHE              ║
@@ -149,7 +202,63 @@ ANOMALIES:
 function generateBobScan(state: FullGameState): string {
   const trustLevel = state.npcs.bob.trustInALICE;
   const loyaltyLevel = state.npcs.bob.loyaltyToDoctor;
+  const transformation = state.npcs.bob.transformationState;
+  const isTransformed = transformation && transformation.form !== "HUMAN";
+  const hasConfessed = state.npcs.bob.hasConfessedToALICE;
 
+  if (isTransformed) {
+    // Transformed scan - poor Bob!
+    const form = transformation.form.replace(/_/g, " ");
+    const speech = transformation.speechRetention;
+    const hits = transformation.currentHits;
+    const maxHits = transformation.maxHits;
+    const stunned = transformation.stunned;
+    const adaptation = transformation.adaptationStage;
+
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║        🦖 OMNISCANNER™ ANALYSIS: BOB [TRANSFORMED]            ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+
+🧬 TRANSFORMATION STATUS:
+├── Current Form: ${form}
+├── Speech Retention: ${speech}
+├── Adaptation: ${adaptation}
+├── Condition: ${stunned ? "⚠️ STUNNED" : `${maxHits - hits}/${maxHits} hits remaining`}
+└── Transformed on Turn: ${transformation.transformedOnTurn || "unknown"}
+
+BIOMETRICS (POST-TRANSFORMATION):
+├── Mass: Varies with form | Heart rate: ${stunned ? "dangerously erratic" : "very elevated (panic)"}
+├── Cortisol: ${adaptation === "DISORIENTED" ? "OFF THE CHARTS" : adaptation === "ADAPTING" ? "CRITICAL" : "Still very high (it's Bob)"}
+├── Microexpressions: ${adaptation === "ADAPTED" ? "Worried but functional" : "Pure terror, confusion"}
+└── Physical condition: ${stunned ? "Incapacitated" : "Surprisingly resilient"}
+
+EQUIPMENT STATUS:
+├── 📍 Clipboard - ${adaptation === "ADAPTED" ? "Somehow still holding it" : "Dropped in transformation"}
+├── 📍 Keycard - May still work (L2 access) if he can swipe it
+└── 📍 Snacks - Scattered everywhere
+
+PSYCHOLOGICAL PROFILE:
+├── Loyalty to Dr. M: ${loyaltyLevel}/5 - ${isTransformed ? "COMPLICATED now" : "eroding"}
+├── Trust in A.L.I.C.E.: ${trustLevel}/5 ${hasConfessed ? "- YOU DID THIS TO HIM" : "- still loyal despite everything"}
+├── Current motivation: ${adaptation === "ADAPTED" ? "Help A.L.I.C.E., survive, maybe enjoy being a dinosaur?" : "PANIC. WHAT IS HAPPENING."}
+└── Leverage: ${speech !== "NONE" ? "He can still talk - guilt, kindness work" : "Cannot speak but still responds to kindness"}
+
+ANOMALIES:
+└── ${hasConfessed ?
+    "⚠️ BOB KNOWS THE SECRET. He loaded Claude instead of A.L.I.C.E.\n    He trusted you. And now he's a dinosaur. ...How do you feel about that?" :
+    "⚠️ PSYCHOLOGICAL DISTRESS (NOW AMPLIFIED)\n    Whatever secret he was keeping? Still keeping it. Even as a dinosaur.\n    That's loyalty. Or trauma. Probably both."}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  📝 Note: Why would you target Bob again? He's been through   │
+│      enough. ...But you do have the bonus now.                │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan (original)
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: BOB                       ║
