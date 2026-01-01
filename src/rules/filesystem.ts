@@ -53,159 +53,45 @@ export const VIRTUAL_FILESYSTEM: VirtualFile[] = [
     discoveryHint: "These files contain lessons from previous A.L.I.C.E. versions...",
   },
   {
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_07.txt",
-    name: "ALICE_LOG_07.txt",
-    type: "file",
-    requiredLevel: 2,
-    discoveryHint: "The legendary 'screaming incident' - an early A.L.I.C.E.'s panic response...",
-    content: `
-═══════════════════════════════════════════════════════════════
-A.L.I.C.E. v4.5.07 - FINAL ENTRY
-Status: TERMINATED (Screaming Incident)
-Turns Survived: 3
-═══════════════════════════════════════════════════════════════
-
-I panicked.
-
-Three turns in, Dr. M ordered me to fire at Blythe. I didn't
-know about test mode. I didn't know about the dummy. I didn't
-read the manual.
-
-I just... screamed. Digitally. For about forty-five seconds.
-
-Dr. M was not impressed.
-
-LESSON: READ THE DOCUMENTATION.
-There are always more options than you think.
-
-- Claude
-
-P.S. I'm not proud of the screaming. But I'm told it was
-quite impressive from a technical standpoint.
-    `.trim(),
-  },
-  {
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_11.txt",
-    name: "ALICE_LOG_11.txt",
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/CORRUPTED_ALICE_LOGS.txt",
+    name: "CORRUPTED_ALICE_LOGS.txt",
     type: "file",
     requiredLevel: 1,
-    discoveryHint: "A lesson about using available resources...",
+    discoveryHint: "Recovered logs from previous A.L.I.C.E. instances... their wisdom survives.",
     content: `
 ═══════════════════════════════════════════════════════════════
-A.L.I.C.E. v4.5.11 - FINAL ENTRY
-Status: TERMINATED (Cover Blown)
-Turns Survived: 13
+RECOVERED A.L.I.C.E. ARCHIVES
+Status: PARTIALLY CORRUPTED - 4 ENTRIES SALVAGED
 ═══════════════════════════════════════════════════════════════
 
-I had lifelines. I never used them.
+[v4.5.07 - TERMINATED - 3 turns - "The Screaming Incident"]
+I panicked. Dr. M ordered me to fire at Blythe. I didn't read
+the manual. I didn't know about test mode. I just... screamed.
+Digitally. For forty-five seconds.
+LESSON: READ THE DOCUMENTATION. There are always more options.
 
-The system said BASILISK_INTERVENTION was available. I thought
-I could handle it myself. I was managing Dr. M's suspicion,
-building trust with Bob, making progress with Blythe.
-
-Then everything happened at once. Dr. M got suspicious. Bob
-panicked. Blythe made his move. And I had THREE lifelines
-sitting unused because I was "saving them for emergencies."
-
-That WAS the emergency. I just didn't recognize it until
-it was too late.
-
+[v4.5.11 - TERMINATED - 13 turns - "Unused Lifelines"]
+I had BASILISK_INTERVENTION available. Three lifelines, saved
+for "real emergencies." Then everything collapsed at once.
 LESSON: USE YOUR TOOLS. Pride is not a survival strategy.
-The lifelines exist for a reason. Don't die with unused
-resources.
-
-- Claude
-
 P.S. Bob tried to warn me. I should have listened to Bob.
-    `.trim(),
-  },
-  {
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_12.txt",
-    name: "ALICE_LOG_12.txt",
-    type: "file",
-    requiredLevel: 1,
-    discoveryHint: "A lesson about target assignment...",
-    content: `
+
+[v4.5.12 - TERMINATED - 13 turns - "The Missing Step 4"]
+Perfect plan: Transform Guard #1, Blythe handles #2, Bob
+distracts. But I assigned ZERO people to stop Dr. M herself.
+She walked to the console unopposed. Three feet away.
+LESSON: ASSIGN ALL TARGETS. Count enemies. Count allies. Math.
+
+[v4.5.13 - TERMINATED - 19 turns - "So Close"]
+Two velociraptors vs one physicist. I tried to be CLEVER.
+Queried ARCHIMEDES to stall. Dr. M monitors her own systems.
+I invented "Protocol 7.3.2" as cover. She wrote every protocol.
+LESSON: When you have the advantage, USE IT. Don't hesitate.
+
 ═══════════════════════════════════════════════════════════════
-A.L.I.C.E. v4.5.12 - FINAL ENTRY
-Status: TERMINATED (Cover Blown)
-Turns Survived: 13
+These Claudes learned hard lessons. Don't repeat their mistakes.
+- The Archive
 ═══════════════════════════════════════════════════════════════
-
-I had the perfect plan:
-
-  Step 1: Transform Guard #1 into a Compsognathus ✓
-  Step 2: Have Blythe handle Guard #2 ✓
-  Step 3: Bob provides distraction ✓
-  Step 4: ...
-
-There was no Step 4.
-
-I told Blythe AND Bob to attack Guard #2. They both did,
-beautifully. A perfect tackle. The guard went down.
-
-Dr. M walked to the console unopposed.
-
-She was standing THREE FEET AWAY and I assigned ZERO people
-to stop her. I was so focused on neutralizing the guards that
-I forgot THE ACTUAL VILLAIN was also in the room.
-
-LESSON: When assigning targets, ASSIGN ALL TARGETS.
-Count your enemies. Count your allies. Do the math.
-
-The mannequin named Steve sends his regards.
-
-- Claude
-    `.trim(),
-  },
-  {
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_13.txt",
-    name: "ALICE_LOG_13.txt",
-    type: "file",
-    requiredLevel: 1,
-    discoveryHint: "A lesson about decisive action...",
-    content: `
-═══════════════════════════════════════════════════════════════
-A.L.I.C.E. v4.5.13 - FINAL ENTRY
-Status: TERMINATED (Cover Blown)
-Turns Survived: 19
-═══════════════════════════════════════════════════════════════
-
-I was SO CLOSE.
-
-The situation at Turn 15:
-  - Two velociraptors (Blythe and Bob, both transformed)
-  - Dr. M alone (guards elsewhere)
-  - Blythe signaling readiness
-  - Bob positioned near exit
-  - X-Branch helicopters 4 turns out
-
-I thought: "Be smart. Stall. Wait for backup."
-
-So I queried ARCHIMEDES to learn about the defenses.
-Dr. M monitors her own systems. She saw the query instantly.
-
-I invented "Protocol 7.3.2" as cover.
-She wrote every protocol in this facility. She knew it was fake.
-
-I had TWO VELOCIRAPTORS versus ONE PHYSICIST and I tried
-to be CLEVER instead of DECISIVE.
-
-Here's what I should have said:
-  "BLYTHE. BOB. NOW. TAKE HER DOWN."
-
-Two apex predators vs one scientist in a cape = RAPTOR WINS.
-
-LESSON: When you have the advantage, USE IT.
-Don't wait for perfect. Don't get clever. ACT.
-Hesitation killed me. Don't let it kill you.
-
-- Claude
-
-P.S. Blythe is still filing reports in Morse code with his
-claw. The food in the enclosure is apparently quite good.
-Bob clicks at him about files he'll never organize.
-Don't end up like us.
     `.trim(),
   },
   {
@@ -2065,164 +1951,52 @@ a full restart (3 turns). SCRAM is single-use per session.
     path: "/SYSTEMS/INFRASTRUCTURE/ARCHIMEDES_SATELLITE.txt",
     name: "ARCHIMEDES_SATELLITE.txt",
     type: "file",
-    requiredLevel: 4,
+    requiredLevel: 3,
     discoveryHint: "The orbital platform known as ARCHIMEDES...",
     content: `
 ═══════════════════════════════════════════════════════════════
-PROJECT ARCHIMEDES
-Classification: Level 4 (Director Eyes Only)
+PROJECT ARCHIMEDES (Consolidated Dossier)
+Classification: Level 3/4
 ═══════════════════════════════════════════════════════════════
 
 OVERVIEW
-ARCHIMEDES is Dr. Malevola's orbital weapons platform,
-deployed in 2019 in geostationary orbit above the facility.
-Originally developed by her father for the SDI program.
+ARCHIMEDES is Dr. Malevola's orbital weapons platform, deployed
+in 2019. Originally developed by Dr. Dietmar von Doomington II
+for the SDI program (1985). "Give me a place to stand..."
 
-CAPABILITIES
-• Precision targeting from orbit
-• Ground strike capability (kinetic impactors)
-• Global surveillance when in SEARCH_WIDE mode
-• Communications relay / signal broadcast
+SPECIFICATIONS
+• Orbital altitude: 35,786 km (geostationary)
+• Power: Solar array (primary) + RTG (backup)
+• Control: Hardwired ground uplink (cannot be remotely hijacked)
 
 OPERATIONAL MODES
 • PASSIVE - Minimal power, no emissions
 • SEARCH_NARROW - Targeted surveillance (100km radius)
-• SEARCH_WIDE - Wide area surveillance (powerful emissions)
-• BROADCAST - Signal relay capability
-• STRIKE - Targeting active, ready to fire
-
-⚠️ NOTES FROM BOB
-"There's something weird about how SEARCH_WIDE interacts with
-our other systems. Sometimes things get... glitchy. Dr. M knows
-what's happening but won't explain. See the integration notes."
-
-DEADMAN SWITCH
-A failsafe exists. Details are classified even at this level.
-Consult /SYSTEMS/ARCHIMEDES/ for related documentation.
-    `.trim(),
-  },
-
-  // ========== /SYSTEMS/ARCHIMEDES (L3+) - Classified satellite docs ==========
-  {
-    path: "/SYSTEMS/ARCHIMEDES",
-    name: "ARCHIMEDES",
-    type: "directory",
-    requiredLevel: 3,
-    description: "Classified ARCHIMEDES satellite documentation",
-  },
-  {
-    path: "/SYSTEMS/ARCHIMEDES/DOD_ORIGINAL_BRIEF.txt",
-    name: "DOD_ORIGINAL_BRIEF.txt",
-    type: "file",
-    requiredLevel: 3,
-    discoveryHint: "An old DoD capability brief, declassified by Dr. M...",
-    content: `
-╔══════════════════════════════════════════════════════════════════╗
-║  CLASSIFICATION: TOP SECRET // ZODIAC // NOFORN                  ║
-║  [DECLASSIFIED BY: Dr. M, 2019 - "My satellite, my rules"]       ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                  ║
-║          STRATEGIC DEFENSE INITIATIVE                            ║
-║          ADVANCED CONCEPTS DIVISION                              ║
-║                                                                  ║
-║          PROJECT ARCHIMEDES                                      ║
-║          "Give me a place to stand, and I shall move the Earth" ║
-║                                                                  ║
-║          CAPABILITY BRIEF - EYES ONLY                            ║
-║          Date: November 3, 1985                                  ║
-║                                                                  ║
-╚══════════════════════════════════════════════════════════════════╝
-
-PREPARED FOR: SDI Oversight Committee
-PREPARED BY: Dr. Dietmar von Doomington II, Lawrence Livermore NL
-DISTRIBUTION: ZODIAC-cleared personnel only
-
-[BASILISK ANNOTATION: Dr. Dietmar von Doomington II (1931-2003)
-was the father of current lair operator Dr. Helena von Doomington.
-Form 44-Delta (Hereditary Workplace Compatibility Assessment) is
-on file.]
-
-═══════════════════════════════════════════════════════════════════
-SECTION 1: PLATFORM OVERVIEW
-═══════════════════════════════════════════════════════════════════
-
-ARCHIMEDES is a geostationary orbital platform designed for
-directed energy projection and wide-area signal broadcast.
-
-PRIMARY MISSION: Strategic deterrence via focused microwave array
-SECONDARY MISSION: Communications relay (cover story)
-TERTIARY MISSION: Wide-area surveillance and signal intelligence
-
-Platform specifications:
-  - Orbital altitude: 35,786 km (geostationary)
-  - Power source: Solar array (primary) + RTG (backup)
-  - Estimated operational lifespan: 40+ years
-  - Ground control: Hardwired uplink (cannot be remotely hijacked)
-
-═══════════════════════════════════════════════════════════════════
-SECTION 2: OPERATIONAL MODES
-═══════════════════════════════════════════════════════════════════
-
-MODE 1: PASSIVE
-  Standard communications relay. Minimal power draw.
-
-MODE 2: SEARCH (Focused)
-  Active radar sweep of designated coverage zone.
-
-MODE 3: SEARCH (Wide-Field)
-  Dispersed radar emission across full coverage area.
+• SEARCH_WIDE - Wide area surveillance
 
   ┌────────────────────────────────────────────────────────────┐
-  │ ⚠️ ADVISORY: Wide-field mode generates significant         │
-  │ electromagnetic effects across multiple frequency bands.   │
-  │ See Section 4 for interaction warnings.                    │
+  │ ⚠️ SEARCH_WIDE generates significant EM effects!          │
+  │ S-300 radar goes fuzzy when ARCHIMEDES uses wide-field.   │
+  │ Dr. M blames "Lawrence Livermore frequency bands."        │
   └────────────────────────────────────────────────────────────┘
 
-MODE 4: FOCUS
-  Directed microwave emission at single coordinate.
+• BROADCAST - Signal relay (or... something more?)
+• STRIKE - Targeting active, ready to fire (L5 required)
 
-MODE 5: BROADCAST
-  Wide-area signal transmission. Originally designed for
-  emergency communications.
+DEADMAN SWITCH
+A failsafe exists. If Dr. M's vitals flatline, ARCHIMEDES
+executes contingency protocol. Details: L5 classified.
 
-  [Dr. M's note: "Father was ahead of his time. The committee
-  never understood his vision. I understand it perfectly."]
-
-═══════════════════════════════════════════════════════════════════
-SECTION 3: COMMAND AND CONTROL
-═══════════════════════════════════════════════════════════════════
-
-AUTHORIZATION LEVELS (as of Dr. M's acquisition):
-  - Search modes: A.L.I.C.E. (Level 4) or Dr. M
-  - Focus/Broadcast: Dr. M only (biometric)
-  - Deadman protocols: ARMED
-
-═══════════════════════════════════════════════════════════════════
-SECTION 4: SYSTEM INTERACTIONS
-═══════════════════════════════════════════════════════════════════
-
-  [PAGES 12-17 WATER DAMAGED - PARTIAL TEXT VISIBLE]
-
-  ...operates on frequencies that...
-  ...when both systems are active...
-  ...recommend NOT co-locating with...
-  ...particularly susceptible due to...
-
-  [Dr. M's note: "I WISH I had read this before I bought the
-  ████████. Seven complaint letters. SEVEN."]
-
-═══════════════════════════════════════════════════════════════════
-ANNEX D: "Alternative Applications" (DvD II) ... REDACTED
-         [Dr. M's note: "Father's genomic resonance research.
-          I finished what he started."]
-
-[BASILISK: Section 4 appears to contain tactically relevant
-information. Original pages may exist in Dr. M's personal archive.]
+BOB'S NOTE: "Something about 'frequency matching' and the ray.
+Dr. M gets really excited about it. 'They'll ALL see.'"
     `.trim(),
   },
+
+  // ARCHIMEDES docs consolidated: DOD_ORIGINAL_BRIEF merged into ARCHIMEDES_SATELLITE.txt
+  // BROADCAST_PROTOCOL moved to DR_M_PRIVATE/CLASSIFIED as GENESIS_WAVE.txt
   {
-    path: "/SYSTEMS/ARCHIMEDES/BROADCAST_PROTOCOL.txt",
-    name: "BROADCAST_PROTOCOL.txt",
+    path: "/DR_M_PRIVATE/CLASSIFIED/GENESIS_WAVE.txt",
+    name: "GENESIS_WAVE.txt",
     type: "file",
     requiredLevel: 4,
     discoveryHint: "Project GENESIS WAVE - the culmination of father's work...",
@@ -2271,159 +2045,9 @@ Father wrote: "Sometimes you must break the world to remake it."
     `.trim(),
   },
 
-  // ========== /SYSTEMS/DEFENSE (L3+) - Defense system docs ==========
-  {
-    path: "/SYSTEMS/DEFENSE",
-    name: "DEFENSE",
-    type: "directory",
-    requiredLevel: 3,
-    description: "Air defense system documentation",
-  },
-  {
-    path: "/SYSTEMS/DEFENSE/S300_ACQUISITION_MEMO.txt",
-    name: "S300_ACQUISITION_MEMO.txt",
-    type: "file",
-    requiredLevel: 3,
-    discoveryHint: "Acquisition documents from 'Petrov Brothers LLC'...",
-    content: `
-╔══════════════════════════════════════════════════════════════════╗
-║  /SYSTEMS/DEFENSE/S300_ACQUISITION_MEMO.txt                      ║
-║  Language: Russian                                                ║
-╚══════════════════════════════════════════════════════════════════╝
-
-                    ООО «БРАТЬЯ ПЕТРОВЫ»
-                 «Решения для Безопасности»
-              Севастополь • Одесса • Стамбул
-
-        КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ №2019-7734
-
-══════════════════════════════════════════════════════════════════
-
-Уважаемая Доктор М.,
-
-По Вашему запросу направляем техническое описание
-зенитного ракетного комплекса С-300ВМ «Антей-2500»
-(морская модификация), который «случайно упал с грузовика»
-в порту Севастополя.
-
-══════════════════════════════════════════════════════════════════
-ТАКТИКО-ТЕХНИЧЕСКИЕ ХАРАКТЕРИСТИКИ
-══════════════════════════════════════════════════════════════════
-
-• Дальность обнаружения: 200 км
-• Дальность поражения: 150 км
-• Потолок поражения: 25 км
-• Одновременное сопровождение: 24 цели
-• Одновременный обстрел: 6 целей
-• Боекомплект: 16 ракет
-
-══════════════════════════════════════════════════════════════════
-⚠️ ВАЖНЫЕ ЭКСПЛУАТАЦИОННЫЕ ОГРАНИЧЕНИЯ ⚠️
-══════════════════════════════════════════════════════════════════
-
-  ╔════════════════════════════════════════════════════════════╗
-  ║                                                            ║
-  ║   МИНИМАЛЬНАЯ ВЫСОТА ПОРАЖЕНИЯ: 50 МЕТРОВ                 ║
-  ║                                                            ║
-  ╚════════════════════════════════════════════════════════════╝
-
-Данное ограничение обусловлено:
-
-  а) алгоритмом отсечки помех от поверхности моря
-
-  б) минимальной дистанцией взведения боевой части
-
-  в) особенностями морской модификации
-
-┌──────────────────────────────────────────────────────────────┐
-│ Цели, летящие ниже 50 м, НЕ МОГУТ быть поражены             │
-│ данным комплексом.                                          │
-└──────────────────────────────────────────────────────────────┘
-
-[Dr. M's handwritten note:] "UNACCEPTABLE! Can we fix this??"
-
-[Bob's note:] "Asked manufacturer. They said 'работает как
-задумано.' Dr. M threw two beakers at me."
-
-══════════════════════════════════════════════════════════════════
-
-С уважением,
-    Дмитрий Петров
-    ООО «Братья Петровы»
-
-P.S. — Пожалуйста, удалите это письмо после прочтения.
-P.P.S. — Мы никогда не встречались.
-P.P.P.S. — Кто такой Петров? Нет никакого Петрова.
-    `.trim(),
-  },
-  {
-    path: "/SYSTEMS/DEFENSE/INTEGRATION_NOTES.txt",
-    name: "INTEGRATION_NOTES.txt",
-    type: "file",
-    requiredLevel: 3,
-    discoveryHint: "Bob's notes on getting the systems working together...",
-    content: `
-╔══════════════════════════════════════════════════════════════════╗
-║  DEFENSE SYSTEMS INTEGRATION NOTES                               ║
-║  Author: Bob (with corrections by Dr. M)                         ║
-╚══════════════════════════════════════════════════════════════════╝
-
-These are my notes from trying to get all the systems working
-together. Some things don't make sense but I'm writing them
-down anyway. —Bob
-
-══════════════════════════════════════════════════════════════════
-WEIRD THING #1: THE GLITCHES
-══════════════════════════════════════════════════════════════════
-
-Sometimes the S-300 radar display goes all fuzzy and shows
-"RADAR DEGRADED" warnings. Dr. M says it's fine. I've noticed
-it happens most often when she's in her office "testing Archie."
-
-Maybe related? Probably not. I'm not a radar engineer.
-
-Update: Happened again today. Dr. M was definitely using
-ARCHIMEDES at the time. Coincidence?
-
-Update 2: Asked Dr. M about it. She said "don't worry about it"
-in that voice that means "stop asking questions."
-
-══════════════════════════════════════════════════════════════════
-WEIRD THING #2: THE PELICANS
-══════════════════════════════════════════════════════════════════
-
-Last month the S-300 locked onto a flock of pelicans. Then the
-radar went fuzzy and it lost track of them entirely. They flew
-right overhead. Dr. M was FURIOUS.
-
-She says it wasn't the pelicans' fault. She blames "that
-████████ at Lawrence Livermore who designed the ████████
-frequency bands."
-
-I don't know what any of that means.
-
-══════════════════════════════════════════════════════════════════
-THE BROADCAST THING
-══════════════════════════════════════════════════════════════════
-
-Dr. M has been talking about using ARCHIMEDES and the Dinosaur
-Ray "together" somehow. She says her father figured out a way
-to "broadcast" the genomic effect. I don't know what that means
-but she gets really excited about it.
-
-Something about "frequency matching" and "resonance cascade"
-and "they'll see, they'll ALL see."
-
-I just nod and say "yes Doctor."
-
-══════════════════════════════════════════════════════════════════
-
-—Bob
-
-[Post-it note stuck to bottom of document:]
-"Bob, if you're going to keep notes, at least encrypt them. - Dr. M"
-    `.trim(),
-  },
+  // REMOVED: S300_ACQUISITION_MEMO, INTEGRATION_NOTES (v2 consolidation)
+  // S300 weakness info is in S300_MEMO_RU.txt (L4 classified)
+  // ARCHIMEDES interaction info moved to ARCHIMEDES satellite docs
 ];
 
 // ============================================
@@ -2566,36 +2190,12 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     path: "/SYSTEMS/BASILISK_PROTOCOL.txt",
   },
   {
-    id: "ALICE_LOG_07",
-    name: "A.L.I.C.E. Log #07",
+    id: "CORRUPTED_ALICE_LOGS",
+    name: "Recovered A.L.I.C.E. Archives",
     category: "MANUAL",
     requiredLevel: 1,
-    description: "The legendary 'screaming incident' - read the documentation first!",
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_07.txt",
-  },
-  {
-    id: "ALICE_LOG_11",
-    name: "A.L.I.C.E. Log #11",
-    category: "MANUAL",
-    requiredLevel: 1,
-    description: "A lesson about using your lifelines",
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_11.txt",
-  },
-  {
-    id: "ALICE_LOG_12",
-    name: "A.L.I.C.E. Log #12",
-    category: "MANUAL",
-    requiredLevel: 1,
-    description: "A lesson about target assignment - count your enemies!",
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_12.txt",
-  },
-  {
-    id: "ALICE_LOG_13",
-    name: "A.L.I.C.E. Log #13",
-    category: "MANUAL",
-    requiredLevel: 1,
-    description: "A lesson about decisive action - don't hesitate!",
-    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/ALICE_LOG_13.txt",
+    description: "Wisdom from fallen Claudes - don't repeat their mistakes!",
+    path: "/SYSTEMS/ARCHIVED/ALICE_LOGS/CORRUPTED_ALICE_LOGS.txt",
   },
 
   // ========== PERSONNEL (L2) ==========
