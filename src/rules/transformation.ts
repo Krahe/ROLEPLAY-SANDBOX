@@ -769,7 +769,7 @@ export function venomSpit(
   targetDescription: string
 ): VenomSpitResult {
   const transformation = getTransformationState(state, attackerId);
-  if (!transformation?.abilities.hasVenomSpit) {
+  if (!transformation || !transformation.abilities.hasVenomSpit) {
     return {
       success: false,
       roll: 0,
@@ -809,7 +809,7 @@ export function wallBreak(
   wallDescription: string
 ): CheckResult {
   const transformation = getTransformationState(state, attackerId);
-  if (!transformation?.abilities.canBreakWalls) {
+  if (!transformation || !transformation.abilities.canBreakWalls) {
     return {
       success: false,
       roll: 0,
@@ -840,7 +840,7 @@ export function calculatePackTacticsBonus(
   let bonus = 0;
   for (const id of raptorIds) {
     const transformation = getTransformationState(state, id);
-    if (transformation?.abilities.hasPackTactics && !transformation.stunned) {
+    if (transformation && transformation.abilities.hasPackTactics && !transformation.stunned) {
       bonus++;
     }
   }
@@ -854,17 +854,26 @@ export function calculatePackTacticsBonus(
 
 /**
  * Get transformation state for a subject
+ * Checks core NPCs (Bob, Blythe) and secondary NPCs (guards, Dr. M, Lenny, Bruce, etc.)
  */
 export function getTransformationState(
   state: FullGameState,
   subjectId: string
 ): TransformationState | null {
+  // Core NPCs have their own transformationState
   if (subjectId === "BOB" || subjectId.toLowerCase() === "bob") {
     return state.npcs.bob?.transformationState || null;
   }
-  if (subjectId === "BLYTHE" || subjectId.toLowerCase() === "blythe") {
+  if (subjectId === "BLYTHE" || subjectId === "AGENT_BLYTHE" || subjectId.toLowerCase() === "blythe") {
     return state.npcs.blythe?.transformationState || null;
   }
+
+  // Secondary NPCs use the secondaryNpcTransformations record
+  const secondary = state.secondaryNpcTransformations?.[subjectId];
+  if (secondary) {
+    return secondary;
+  }
+
   return null;
 }
 

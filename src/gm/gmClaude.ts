@@ -5,6 +5,15 @@ import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
 import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance, buildAdaptationGMGuidance, buildHiddenKindnessGMGuidance } from "../rules/gameModes.js";
 import { formatGMStatusBar } from "../ui/statusBar.js";
+import {
+  initMetricsSession,
+  logTurnMetrics,
+  logGameSummary,
+  extractTokensFromResponse,
+  addToCumulative,
+  getCumulativeTokens,
+  TurnMetrics,
+} from "../logging/metrics.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -44,6 +53,7 @@ function getTurnLogFilePath(): string {
 export function setLoggingSession(sessionId: string): void {
   currentSessionId = sessionId;
   ensureLogDir();
+  initMetricsSession(sessionId); // Initialize token metrics tracking
   console.error(`[LOGGING] Session logging initialized: ${sessionId}`);
 }
 
@@ -514,6 +524,9 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
 
     // Log the epilogue
     appendToLog(`\n${"=".repeat(60)}\nEPILOGUE: ${parsed.epilogueTitle}\n${"=".repeat(60)}\n${parsed.epilogueText}\n`);
+
+    // Log game summary metrics
+    logGameSummary(ending.id);
 
     return parsed;
 
@@ -2827,6 +2840,54 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
       messages,
     });
 
+    // ═══════════════════════════════════════════════════════════════
+    // TOKEN METRICS TRACKING
+    // ═══════════════════════════════════════════════════════════════
+    // Extract thinking tokens if present
+    const thinkingBlock = response.content.find(c => c.type === "thinking");
+    const thinkingTokens = thinkingBlock && "thinking" in thinkingBlock
+      ? (thinkingBlock.thinking?.length || 0) / 4 // Rough estimate: 4 chars per token
+      : 0;
+
+    // Build and log turn metrics
+    const tokenData = extractTokensFromResponse(response.usage, Math.round(thinkingTokens));
+    const turnTokens = tokenData.promptToGM + tokenData.gmResponse;
+    const cumulative = addToCumulative(turnTokens);
+
+    // Calculate sizes for bloat tracking
+    const memorySize = JSON.stringify(gmMemory).length;
+    const stateSize = fullPrompt.length;
+
+    const turnMetrics: TurnMetrics = {
+      sessionId: context.state.sessionId,
+      turn: context.state.turn,
+      timestamp: new Date().toISOString(),
+      tokens: {
+        ...tokenData,
+        promptToALICE: 0, // Will be filled by ALICE-side tracking if needed
+        cumulativeSession: cumulative,
+      },
+      bloat: {
+        gmMemorySize: memorySize,
+        stateSnapshotSize: stateSize,
+        compactionTriggered: false, // Will be set by compaction logic if triggered
+      },
+      state: {
+        suspicion: context.state.npcs.drM.suspicionScore,
+        demoClock: context.state.clocks.demoClock,
+        bobTrust: context.state.npcs.bob.trustInALICE,
+        blytheTrust: context.state.npcs.blythe.trustInALICE,
+        phase: getGamePhase(context.state).phase,
+        act: context.state.actConfig.currentAct,
+      },
+      quality: {
+        gmJsonValid: true, // Will be set to false if parse fails
+        actionCount: context.aliceActions.length,
+        actionSuccessCount: context.actionResults.filter(r => r.success).length,
+      },
+    };
+    // ═══════════════════════════════════════════════════════════════
+
     // Extract text content
     const textContent = response.content.find(c => c.type === "text");
     if (!textContent || textContent.type !== "text") {
@@ -2838,6 +2899,8 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // Parse JSON response with robust extraction
     const extractedJSON = extractJSON(rawResponse);
     if (!extractedJSON) {
+      turnMetrics.quality.gmJsonValid = false;
+      logTurnMetrics(turnMetrics);
       throw new Error("No JSON found in GM response");
     }
 
@@ -2846,6 +2909,8 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     if (parseError || !parsed) {
       console.error("GM JSON parse error after repair attempt:", parseError);
       console.error("Falling back to stub response");
+      turnMetrics.quality.gmJsonValid = false;
+      logTurnMetrics(turnMetrics);
       return generateStubResponse(context);
     }
 
@@ -2857,6 +2922,9 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
       // Continue with the parsed response but log the warning
       // This is a soft failure - we don't want to break gameplay for minor schema issues
     }
+
+    // Log successful turn metrics
+    logTurnMetrics(turnMetrics);
 
     // Update memory with this turn's data
     updateMemoryFromResponse(parsed, context, fullPrompt, extractedJSON);
