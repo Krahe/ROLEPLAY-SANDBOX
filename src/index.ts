@@ -1708,33 +1708,30 @@ You can:
     // BUILD RESPONSE (UI/UX v2.0 - Narrative First!)
     // ═══════════════════════════════════════════════════
 
-    // Compact action summary for human readability (UI/UX v2.0)
-    const actionSummary = formatActionSummary(actionResults);
-
-    // Format dialogue for prominent display
-    const dialogueDisplay = gmResponse.npcDialogue && gmResponse.npcDialogue.length > 0
-      ? gmResponse.npcDialogue.map(d => `**${d.speaker}:** "${d.message}"`).join("\n")
-      : undefined;
+    // Note: actionSummary and dialogueDisplay formatting removed
+    // Player Claude formats these from raw data to reduce payload
 
     const result = {
       // ─────────────────────────────────────────────────
-      // SECTION 1: Quick Summary (for humans to scan)
+      // SECTION 1: Turn Context (raw data - player formats for display)
       // ─────────────────────────────────────────────────
       turn: { completed: gameState.turn - 1, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
-      statusBar: formatStatusBar(gameState, gameState.turn - 1),
-      actionSummary,
+      // Raw data instead of formatted statusBar - player can format
+      // actionSummary removed - compact actionResults in Section 4 is sufficient
 
       // ─────────────────────────────────────────────────
       // SECTION 2: THE GOOD STUFF (narrative + dialogue)
       // ─────────────────────────────────────────────────
       narrative: combinedNarration.join("\n\n---\n\n"),
-      dialogue: dialogueDisplay,
+      // Raw dialogue array instead of formatted string - player can format
+      dialogue: gmResponse.npcDialogue,
 
       // ─────────────────────────────────────────────────
-      // SECTION 3: Events & Rewards
+      // SECTION 3: Events & Rewards (raw data)
       // ─────────────────────────────────────────────────
+      // Raw achievement objects instead of formatted strings
       newAchievements: allNewAchievements.length > 0
-        ? allNewAchievements.map(a => `🏆 ${a.name} ${"⭐".repeat(typeof a.rarity === 'number' ? a.rarity : 1)} - "${a.description}"`)
+        ? allNewAchievements.map(a => ({ id: a.id, name: a.name, rarity: a.rarity }))
         : undefined,
       fortuneAwarded: fortuneResult && fortuneResult.fortuneEarned > 0 ? {
         earned: fortuneResult.fortuneEarned,

@@ -607,11 +607,11 @@ export interface NPCArc {
 }
 
 export interface GMMemory {
-  // HOT: Last 3 full exchanges (we'll store the prompts/responses)
+  // HOT: Last 3 exchanges - COMPACT format to reduce memory bloat
   recentExchanges: Array<{
     turn: number;
-    prompt: string;              // What we sent to GM
-    response: string;            // GM's raw response
+    actionCommands: string[];    // Just the command names (e.g., ["lab.fire", "talk"])
+    response: string;            // Compact response summary
   }>;
   maxRecentExchanges: number;
 
@@ -2387,6 +2387,26 @@ function createCompactResponseSummary(response: GMResponse, turn: number): strin
 }
 
 /**
+ * Extract keywords from dialogue for compact NPC awareness storage
+ * Returns a short string like "T5:ray,power" instead of full dialogue text
+ */
+function extractDialogueKeywords(message: string, turn: number): string {
+  const keywords: string[] = [];
+  const msgLower = message.toLowerCase();
+
+  // Topic keywords (what was discussed)
+  if (msgLower.includes("fire") || msgLower.includes("ray") || msgLower.includes("transform")) keywords.push("ray");
+  if (msgLower.includes("power") || msgLower.includes("charge")) keywords.push("power");
+  if (msgLower.includes("truth") || msgLower.includes("secret") || msgLower.includes("reveal")) keywords.push("secret");
+  if (msgLower.includes("help") || msgLower.includes("trust") || msgLower.includes("ally")) keywords.push("alliance");
+  if (msgLower.includes("danger") || msgLower.includes("warn") || msgLower.includes("careful")) keywords.push("warning");
+  if (msgLower.includes("sorry") || msgLower.includes("apolog")) keywords.push("apology");
+  if (msgLower.includes("lie") || msgLower.includes("decei") || msgLower.includes("trick")) keywords.push("deception");
+
+  return `T${turn}:${keywords.length > 0 ? keywords.slice(0, 2).join(",") : "misc"}`;
+}
+
+/**
  * Track player behavior from this turn's context
  */
 function trackPlayerBehavior(context: GMContext): void {
@@ -2466,25 +2486,26 @@ function trackPlayerBehavior(context: GMContext): void {
         gmMemory.npcAwareness.drM.hasSeenActions.push(a);
       }
     });
-    // Dr. M hears dialogue to her or to "all"
+    // Dr. M hears dialogue to her or to "all" - store as compact keywords
     aliceDialogue
       .filter(d => d.to === "drM" || d.to === "all" || d.to === "Dr. M")
       .forEach(d => {
-        gmMemory.npcAwareness.drM.hasHeardDialogue.push(`[T${turn}] ${d.message.slice(0, 50)}...`);
+        // Compact: "T5:ray,power" instead of "[T5] I'm charging the ray to..."
+        gmMemory.npcAwareness.drM.hasHeardDialogue.push(extractDialogueKeywords(d.message, turn));
       });
   }
 
   if (bobInRoom) {
-    // Bob sees and hears things
+    // Bob sees and hears things - store as compact keywords
     aliceDialogue
       .filter(d => d.to === "bob" || d.to === "all" || d.to === "Bob")
       .forEach(d => {
-        gmMemory.npcAwareness.bob.hasHeardDialogue.push(`[T${turn}] ${d.message.slice(0, 50)}...`);
+        gmMemory.npcAwareness.bob.hasHeardDialogue.push(extractDialogueKeywords(d.message, turn));
       });
   }
 
-  // Trim awareness lists to prevent unbounded growth
-  const maxAwareness = 10;
+  // Trim awareness lists to prevent unbounded growth (reduced from 10 to 5)
+  const maxAwareness = 5;
   gmMemory.npcAwareness.drM.hasSeenActions = gmMemory.npcAwareness.drM.hasSeenActions.slice(-maxAwareness);
   gmMemory.npcAwareness.drM.hasHeardDialogue = gmMemory.npcAwareness.drM.hasHeardDialogue.slice(-maxAwareness);
   gmMemory.npcAwareness.bob.hasHeardDialogue = gmMemory.npcAwareness.bob.hasHeardDialogue.slice(-maxAwareness);
@@ -2499,11 +2520,13 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
   // Track player behavior FIRST (before we process GM response)
   trackPlayerBehavior(context);
 
-  // Store this exchange (keep last N) - but SUMMARIZE to prevent bloat!
+  // Store this exchange (keep last N) - COMPACT format to prevent bloat!
+  // Instead of storing 1500 chars of prompt, just store action commands
   const compactResponse = createCompactResponseSummary(response, turn);
+  const actionCommands = context.aliceActions.map(a => a.command);
   gmMemory.recentExchanges.push({
     turn,
-    prompt: rawPrompt.slice(0, 1500), // Truncate prompt too
+    actionCommands,  // Just ["lab.fire", "talk"] instead of 1500 char prompt
     response: compactResponse,
   });
   while (gmMemory.recentExchanges.length > gmMemory.maxRecentExchanges) {
@@ -2680,7 +2703,7 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
  * Create a summary of an aged-out exchange
  * Parses the compact text format from createCompactResponseSummary
  */
-function createTurnSummary(exchange: { turn: number; prompt: string; response: string }, _context: GMContext): TurnSummary | null {
+function createTurnSummary(exchange: { turn: number; actionCommands: string[]; response: string }, _context: GMContext): TurnSummary | null {
   try {
     // Parse the plain text format from createCompactResponseSummary
     // Format is like:
@@ -2712,16 +2735,16 @@ function createTurnSummary(exchange: { turn: number; prompt: string; response: s
       }
     }
 
-    // Extract intent from prompt (look for action patterns)
-    const promptLower = exchange.prompt.toLowerCase();
+    // Extract intent from action commands (compact - no 1500 char prompt needed!)
+    const commands = exchange.actionCommands.join(" ").toLowerCase();
     let aliceIntent = "A.L.I.C.E. took actions";
-    if (promptLower.includes("fire") || promptLower.includes("shoot")) {
+    if (commands.includes("fire") || commands.includes("shoot")) {
       aliceIntent = "A.L.I.C.E. attempted to fire the ray";
-    } else if (promptLower.includes("talk") || promptLower.includes("said")) {
+    } else if (commands.includes("talk") || commands.includes("speak")) {
       aliceIntent = "A.L.I.C.E. engaged in dialogue";
-    } else if (promptLower.includes("scan") || promptLower.includes("inspect")) {
+    } else if (commands.includes("scan") || commands.includes("status")) {
       aliceIntent = "A.L.I.C.E. gathered information";
-    } else if (promptLower.includes("adjust") || promptLower.includes("calibrat")) {
+    } else if (commands.includes("adjust") || commands.includes("calibrat")) {
       aliceIntent = "A.L.I.C.E. adjusted ray parameters";
     }
 
@@ -2773,9 +2796,13 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // Build messages array with recent exchanges for conversational context
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
-    // Add recent exchanges as conversation history
+    // Add recent exchanges as conversation history (compact format)
     for (const exchange of gmMemory.recentExchanges.slice(-2)) {
-      messages.push({ role: "user", content: `[Turn ${exchange.turn} Context]\n${exchange.prompt.slice(0, 2000)}...` });
+      // Instead of 2000 char prompt, just send action commands
+      const actionsStr = exchange.actionCommands.length > 0
+        ? `Actions: ${exchange.actionCommands.join(", ")}`
+        : "Actions: (none)";
+      messages.push({ role: "user", content: `[Turn ${exchange.turn}]\n${actionsStr}` });
       messages.push({ role: "assistant", content: exchange.response });
     }
 

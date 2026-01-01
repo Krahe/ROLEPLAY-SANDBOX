@@ -25,6 +25,18 @@ const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
 const BASILISK_VERBOSE_LOGGING = process.env.BASILISK_DEBUG === "true";
 let basiliskSessionId: string | null = null;
 
+// Cached command reference - generated once, reused for all BASILISK queries
+// This is static content that doesn't change during a game session
+let cachedCommandReference: string | null = null;
+
+function getCommandReferenceForBasilisk(): string {
+  if (!cachedCommandReference) {
+    // Generate full command reference once (level 5, includeAll=true)
+    cachedCommandReference = generateCommandReference(5, true);
+  }
+  return cachedCommandReference;
+}
+
 // Ensure log directory exists
 function ensureLogDir(): void {
   try {
@@ -351,7 +363,7 @@ function formatContextForBasilisk(context: BasiliskContext, message: string): st
   return `## CURRENT LAIR STATUS
 
 \`\`\`json
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(context)}
 \`\`\`
 
 ## A.L.I.C.E.'S MESSAGE
@@ -520,10 +532,9 @@ export async function callBasiliskHaiku(
   try {
     const client = getAnthropicClient();
 
-    // Generate FULL command reference dynamically from COMMAND_REGISTRY
-    // BASILISK knows ALL commands at ALL levels (level 5, includeAll=true)
-    // This gives BASILISK complete advisory capability
-    const commandRef = generateCommandReference(5, true);
+    // Use cached command reference (generated once per session)
+    // BASILISK knows ALL commands at ALL levels for complete advisory capability
+    const commandRef = getCommandReferenceForBasilisk();
 
     // Build system prompt with prompt caching
     // The system prompt and command reference are cached to save tokens
