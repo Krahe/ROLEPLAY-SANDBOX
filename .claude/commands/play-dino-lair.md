@@ -130,6 +130,7 @@ The game provides a full command reference at your current access level. Here ar
 ```json
 { "command": "access.enter_password", "params": { "password": "VELOCIRAPTOR", "level": 2 }, "why": "Unlock L2" }
 ```
+**Password format:** All lair passwords are single alphanumeric strings - no spaces, no special characters.
 
 ---
 
