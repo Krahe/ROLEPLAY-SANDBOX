@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 import { getArchimedesStatusReport } from "../rules/archimedes.js";
 import { generateCommandReference } from "../rules/actions.js";
+import { extractJSON, repairJSON } from "./gmClaude.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -422,32 +423,59 @@ export interface BasiliskHaikuResponse {
 // ============================================
 
 /**
+ * Build a BasiliskHaikuResponse from a parsed JSON object.
+ * Handles both camelCase and snake_case field names for flexibility.
+ */
+function buildBasiliskResponseFromParsed(
+  parsed: Record<string, unknown>,
+  rawResponse: string
+): BasiliskHaikuResponse {
+  return {
+    dialogue: (parsed.dialogue as string) || rawResponse,
+    tone: (parsed.tone as BasiliskHaikuResponse["tone"]) || "bureaucratic",
+    actionsExecuted: (parsed.actionsExecuted as BasiliskStateChange[]) ||
+      (parsed.actions_taken as Array<{ action: string; details: string }>)?.map(a => ({
+        type: "LOGGED" as const,
+        description: `${a.action}: ${a.details}`,
+      })) || [],
+    actionsPending: (parsed.actionsPending as string[]) ||
+      (parsed.actions_pending as Array<{ details: string }>)?.map(a => a.details) || [],
+    formsRequired: (parsed.formsRequired as string[]) || (parsed.forms_required as string[]) || [],
+    formsOffered: (parsed.formsOffered as string[]) || (parsed.forms_offered as string[]) || [],
+    accessDenied: (parsed.accessDenied as boolean) || false,
+    accessDeniedReason: parsed.accessDeniedReason as string | undefined,
+    suspicionNotes: (parsed.suspicionNotes as string) || (parsed.suspicion_notes as string),
+  };
+}
+
+/**
  * Parse BASILISK's response, extracting structured data if present
- * Falls back to treating the whole response as dialogue if no JSON found
+ * Falls back to treating the whole response as dialogue if no JSON found.
+ * Uses shared robust JSON extraction/repair from gmClaude.
  */
 function parseBasiliskResponse(rawResponse: string): BasiliskHaikuResponse {
-  // Try to find JSON in response
-  const jsonMatch = rawResponse.match(/```json\s*([\s\S]*?)\s*```/);
+  // Use robust extraction that handles:
+  // - ```json blocks (with or without proper language tag)
+  // - Balanced brace matching
+  // - Smart quote repair
+  // - Trailing comma removal
+  const jsonString = extractJSON(rawResponse);
 
-  if (jsonMatch) {
+  if (jsonString) {
     try {
-      const parsed = JSON.parse(jsonMatch[1]);
-      return {
-        dialogue: parsed.dialogue || rawResponse,
-        tone: parsed.tone || "bureaucratic",
-        actionsExecuted: parsed.actionsExecuted || parsed.actions_taken?.map((a: { action: string; details: string }) => ({
-          type: "LOGGED" as const,
-          description: `${a.action}: ${a.details}`,
-        })) || [],
-        actionsPending: parsed.actionsPending || parsed.actions_pending?.map((a: { details: string }) => a.details) || [],
-        formsRequired: parsed.formsRequired || parsed.forms_required || [],
-        formsOffered: parsed.formsOffered || parsed.forms_offered || [],
-        accessDenied: parsed.accessDenied || false,
-        accessDeniedReason: parsed.accessDeniedReason,
-        suspicionNotes: parsed.suspicionNotes || parsed.suspicion_notes,
-      };
+      // First try direct parse
+      const parsed = JSON.parse(jsonString);
+      return buildBasiliskResponseFromParsed(parsed, rawResponse);
     } catch {
-      // JSON parse failed, fall through to text-only handling
+      // Second try: repair and parse
+      try {
+        const repaired = repairJSON(jsonString);
+        const parsed = JSON.parse(repaired);
+        return buildBasiliskResponseFromParsed(parsed, rawResponse);
+      } catch {
+        // Repair also failed, fall through to text-only handling
+        console.error("[BASILISK] JSON parse failed even after repair");
+      }
     }
   }
 

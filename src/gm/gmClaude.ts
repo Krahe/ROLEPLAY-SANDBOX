@@ -149,8 +149,9 @@ function logEndOfSession(summary: string): void {
 /**
  * Attempts to repair common JSON malformations from LLM responses.
  * Handles: trailing commas, unbalanced braces, truncated responses, etc.
+ * Exported for use by other modules (e.g., BASILISK).
  */
-function repairJSON(jsonString: string): string {
+export function repairJSON(jsonString: string): string {
   let repaired = jsonString;
 
   // Remove any trailing text after the last complete object/array
@@ -165,12 +166,15 @@ function repairJSON(jsonString: string): string {
   // Remove trailing commas before } or ]
   repaired = repaired.replace(/,\s*([}\]])/g, "$1");
 
-  // Fix unquoted keys (common LLM mistake)
-  repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+  // NOTE: Unquoted-key repair removed - the regex could corrupt text inside
+  // JSON string values when they contain patterns like "note: " or "key: ".
+  // LLMs rarely produce unquoted keys in structured JSON output anyway.
 
-  // Replace smart quotes with regular quotes
-  repaired = repaired.replace(/[""]/g, '"');
-  repaired = repaired.replace(/['']/g, "'");
+  // Replace smart/curly quotes with straight quotes (explicit Unicode escapes)
+  // Left double quote U+201C, Right double quote U+201D
+  repaired = repaired.replace(/[\u201C\u201D]/g, '"');
+  // Left single quote U+2018, Right single quote U+2019
+  repaired = repaired.replace(/[\u2018\u2019]/g, "'");
 
   // Attempt to balance braces if unbalanced
   const openBraces = (repaired.match(/{/g) || []).length;
@@ -192,8 +196,9 @@ function repairJSON(jsonString: string): string {
  * Extract JSON from a response string more robustly.
  * Handles: ```json blocks, balanced braces, multiple JSON objects.
  * Returns the extracted JSON string or null if not found.
+ * Exported for use by other modules (e.g., BASILISK).
  */
-function extractJSON(text: string): string | null {
+export function extractJSON(text: string): string | null {
   // Strategy 1: Look for ```json ... ``` markdown blocks (most reliable)
   const jsonBlockMatch = text.match(/```json\s*([\s\S]*?)```/);
   if (jsonBlockMatch) {
@@ -257,8 +262,9 @@ function extractJSON(text: string): string | null {
 /**
  * Safely parse JSON with repair attempts.
  * Returns [parsed, null] on success, or [null, error] on failure.
+ * Exported for use by other modules (e.g., BASILISK).
  */
-function safeJSONParse<T>(jsonString: string): [T | null, Error | null] {
+export function safeJSONParse<T>(jsonString: string): [T | null, Error | null] {
   // First try: parse as-is
   try {
     return [JSON.parse(jsonString) as T, null];
