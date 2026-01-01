@@ -9,7 +9,7 @@
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
 | `lab.verify_safeties` | verify, safety, check_safeties | `{ checks?: string[] }` | Check safety system status |
-| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', firingStyle?: string, testMode?: boolean }` | Configure target, genome & advanced mode |
+| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', advancedMode?: string, testMode?: boolean }` | Configure target, genome & advanced mode |
 | `lab.fire` | fire, shoot, activate_ray | `{ confirm?: boolean }` | Fire the Dinosaur Ray |
 | `lab.scan` | scan, omniscanner | `{ target: string }` | **OMNISCANNER™ - Scan NPC for intel (+10% precision!)** (NEW!) |
 | `lab.inspect_logs` | inspect, logs, check_logs | `{ subsystem?: string }` | Inspect system logs |
@@ -219,7 +219,7 @@ lab.scan { target: "BOB" }
 
 ## ADVANCED FIRING MODES (Patch 16 - NEW!)
 
-Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the `firingStyle` parameter:
+Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the `advancedMode` parameter:
 
 ### Available Modes
 
@@ -237,25 +237,25 @@ Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the
 // CHAIN_SHOT - Double-tap two targets!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "AGENT_BLYTHE",
-    "firingStyle": "CHAIN_SHOT"
+    "advancedMode": "CHAIN_SHOT"
 }, "why": "Need to hit both guards!" }
 
 // SPREAD_FIRE - Area denial with chimera risk!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "AGENT_BLYTHE",
-    "firingStyle": "SPREAD_FIRE"
+    "advancedMode": "SPREAD_FIRE"
 }, "why": "Multiple hostiles in sector!" }
 
 // OVERCHARGE - MAXIMUM POWER!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "BRUCE_PATAGONIA",
-    "firingStyle": "OVERCHARGE"
+    "advancedMode": "OVERCHARGE"
 }, "why": "Bruce requires overwhelming force!" }
 
 // RAPID_FIRE - Speed over accuracy!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "AGENT_BLYTHE",
-    "firingStyle": "RAPID_FIRE"
+    "advancedMode": "RAPID_FIRE"
 }, "why": "Need to fire again quickly!" }
 ```
 
@@ -356,4 +356,4 @@ This creates real tension:
 
 ---
 
-*Last Updated: Patch 16.2 (Communication Model Edition)*
+*Last Updated: Patch 16.3 (Auto-Injection Edition)*
