@@ -24,20 +24,15 @@ When starting with `game_start`, select a difficulty:
 
 ## CRITICAL: CHECKPOINTS
 
-```
-+---------------------------------------------------------------+
-|  IF YOU SKIP CHECKPOINTS, THE GAME WILL CRASH                 |
-|                                                               |
-|  Context WILL overflow. Progress WILL be lost.                |
-|  This is not optional.                                        |
-+---------------------------------------------------------------+
-```
+Every 3 turns, you'll hit a checkpoint. These are **human check-in moments** - not save points!
 
 **When you see a checkpoint:**
 1. **STOP** - Do NOT call `game_act` again
 2. **TALK TO YOUR HUMAN** - Share what's happening!
 3. **WAIT** - Let them respond
-4. **ONLY THEN** - Resume when they're ready
+4. **ONLY THEN** - Continue when they're ready
+
+Games are designed as **single-session experiences**. Play through to an ending!
 
 ---
 
@@ -204,7 +199,6 @@ To fire, you need:
 |------|---------|
 | `game_start` | Start new game (specify mode!) |
 | `game_act` | Take your turn |
-| `game_resume` | Resume from checkpoint |
 | `game_status` | Verify state matches narrative |
 | `game_gm_insights` | Check for desync, understand designer intent |
 | `game_query_basilisk` | Query BASILISK outside game_act |
