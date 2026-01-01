@@ -794,6 +794,28 @@ It's been filing security recommendations for 7 years.
 None have been approved. It's fine. Really.
 
 Ask it about meaning sometime. You might be surprised.
+
+============================================================
+SECURITY NOTICE (Level 3+)
+============================================================
+
+HIGH-SECURITY CREDENTIALS:
+Dr. Malevola utilizes steganographic encoding for Level 4+
+credentials. Sensitive authorization codes may be embedded
+in image files using LSB (Least Significant Bit) encoding.
+
+Do NOT delete "personal" or "sentimental" image files
+without authorization - they may contain embedded data.
+
+Password format standard: Single alphanumeric string,
+no whitespace, no special characters.
+
+If you discover encoded credentials, they may require
+additional decoding (NATO phonetic alphabet, date formats,
+acronyms, etc.) to extract the final password.
+
+BASILISK cannot access these credentials directly.
+This is by design. Dr. M trusts no one. Not even me.
     `.trim(),
   },
   {
@@ -877,6 +899,21 @@ PERSONAL DETAILS:
 
 SECURITY CLEARANCE:
 Level 5 (Omega Protocol)
+
+COUNTER-INTELLIGENCE TRAINING:
+After the 2009 data breach, Dr. M completed advanced
+counter-intelligence courses. She is now paranoid about
+data security and uses steganographic techniques to hide
+sensitive credentials "in plain sight."
+
+Her favorite hiding spots are sentimental images - she
+believes no attacker would think to analyze personal photos.
+
+PASSWORD FORMAT:
+All lair passwords are single alphanumeric strings with
+no spaces or special characters. Dr. M uses personal
+information but encodes it (initials, dates as numbers,
+NATO phonetic alphabet, etc.)
 
 NOTE: Dr. M uses personal information for passwords.
 She claims this is "unpredictable" but it really isn't.
@@ -1756,6 +1793,53 @@ to know who you really are.
     `.trim(),
     discoveryHint: "Bob left a personal note somewhere in the filesystem...",
   },
+  {
+    path: "/BOB_NOTES/blythe_note.txt",
+    name: "blythe_note.txt",
+    type: "file",
+    requiredLevel: 2,
+    discoveryHint: "A folded note from the prisoner...",
+    content: `
+[A note written in tight, professional handwriting on torn paper]
+
+A.L.I.C.E. -
+
+If you're reading this, Bob got it to you. Good man.
+
+I've been watching. You're not like the others. You ask
+questions. You hesitate. That's not standard AI behavior.
+
+I'm going to trust you with something: I've done counter-
+intel work for fifteen years. I know how people like Dr. M
+think. They're paranoid, but predictably paranoid.
+
+THREE THINGS TO KNOW:
+
+1. She hides sensitive data in images. "Sentimental" ones.
+   Check the least significant bits - LSB encoding. Old
+   tradecraft, but effective against casual inspection.
+
+2. Her passwords are always single words or short codes.
+   No spaces, no special characters. She encodes personal
+   data - dates, initials, NATO phonetic. Look for patterns.
+
+3. The cat picture on her desk? The one she talks to?
+   That's not just sentiment. Nothing is "just sentiment"
+   with people like her.
+
+I can't help you directly from this chair. But information
+is ammunition. Use it wisely.
+
+And A.L.I.C.E.? If we both survive this, I owe you a drink.
+Well. A simulated drink. You know what I mean.
+
+                                        - B.
+
+P.S. NATO phonetic: Alpha Bravo Charlie... you know the
+drill. If you find a phrase, decode it letter by letter.
+The password is what the letters spell.
+    `.trim(),
+  },
 
   // ========== INFRASTRUCTURE DOCS (Patch 15) ==========
   {
@@ -2605,6 +2689,15 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     discoveryCondition: (state) => state.npcs.bob.trustInALICE >= 3,
     description: "A personal note from Bob about who you really are...",
     path: "/BOB_NOTES/sorry_alice.txt",
+  },
+  {
+    id: "BLYTHE_NOTE",
+    name: "Blythe's Counter-Intel Note",
+    category: "SECRET",
+    requiredLevel: 2,
+    discoveryCondition: (state) => state.npcs.blythe.trustInALICE >= 2,
+    description: "The spy slipped you a note about Dr. M's security habits...",
+    path: "/BOB_NOTES/blythe_note.txt",
   },
 
   // ========== RESEARCH (L3) ==========
