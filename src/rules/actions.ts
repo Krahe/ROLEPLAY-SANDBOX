@@ -53,7 +53,7 @@ import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 // Truncate large text content to prevent context bloat.
 // Full content shown once, but shouldn't dominate turn response.
 
-const MAX_FILE_CONTENT_LENGTH = 2500;
+const MAX_FILE_CONTENT_LENGTH = 800;  // Reduced from 2500 to minimize JSON bloat
 
 function truncateContent(content: string, maxLength: number = MAX_FILE_CONTENT_LENGTH): string {
   if (content.length <= maxLength) return content;
