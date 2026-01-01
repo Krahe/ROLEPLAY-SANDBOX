@@ -1,7 +1,7 @@
 import { FullGameState } from "../state/schema.js";
 import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
 import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
-import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
+import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById, getFileCategory } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";
 import { performScan } from "./scanning.js";
@@ -51,11 +51,26 @@ import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 // RESPONSE SIZE OPTIMIZATION
 // ============================================
 // Truncate large text content to prevent context bloat.
-// Full content shown once, but shouldn't dominate turn response.
+// Different limits for different file categories - "juicy" files get more room!
 
-const MAX_FILE_CONTENT_LENGTH = 800;  // Reduced from 2500 to minimize JSON bloat
+// Tiered truncation limits by file category
+// SECRET/RESEARCH/CLASSIFIED/MANUAL = unlimited (will be edited for conciseness)
+const CATEGORY_LIMITS: Record<string, number> = {
+  SECRET: 99999,    // No limit - puzzles, passwords, hidden content
+  RESEARCH: 99999,  // No limit - lore, backstory, discoveries
+  CLASSIFIED: 99999,// No limit - high-level secrets
+  MANUAL: 99999,    // No limit - reference docs
+  PERSONNEL: 1500,  // Profiles - moderate length
+  DEFAULT: 800,     // Routine files, logs, status - keep short
+};
 
-function truncateContent(content: string, maxLength: number = MAX_FILE_CONTENT_LENGTH): string {
+function getCategoryLimit(category: string | null): number {
+  if (!category) return CATEGORY_LIMITS.DEFAULT;
+  return CATEGORY_LIMITS[category.toUpperCase()] || CATEGORY_LIMITS.DEFAULT;
+}
+
+function truncateContent(content: string, category: string | null = null): string {
+  const maxLength = getCategoryLimit(category);
   if (content.length <= maxLength) return content;
 
   // Find a good break point (paragraph or sentence)
@@ -776,7 +791,8 @@ To see available files: files.list`,
 
     const rawContent = readFileById(state, fileId);
     const success = !rawContent.startsWith("Error:");
-    const content = success ? truncateContent(rawContent) : rawContent;
+    const category = getFileCategory(fileId);
+    const content = success ? truncateContent(rawContent, category) : rawContent;
 
     // Special discovery: Bob's survival guide
     if (success && fileId.toUpperCase().includes("BOB_GUIDE")) {
