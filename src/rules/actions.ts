@@ -54,12 +54,13 @@ import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 // Different limits for different file categories - "juicy" files get more room!
 
 // Tiered truncation limits by file category
+// SECRET/RESEARCH/CLASSIFIED/MANUAL = unlimited (will be edited for conciseness)
 const CATEGORY_LIMITS: Record<string, number> = {
-  SECRET: 4000,     // Puzzles, passwords, hidden content - needs full text
-  RESEARCH: 3500,   // Lore, backstory, important discoveries
-  CLASSIFIED: 3500, // High-level secrets
-  MANUAL: 2500,     // Reference docs - can be longer
-  PERSONNEL: 1200,  // Profiles - moderate length
+  SECRET: 99999,    // No limit - puzzles, passwords, hidden content
+  RESEARCH: 99999,  // No limit - lore, backstory, discoveries
+  CLASSIFIED: 99999,// No limit - high-level secrets
+  MANUAL: 99999,    // No limit - reference docs
+  PERSONNEL: 1500,  // Profiles - moderate length
   DEFAULT: 800,     // Routine files, logs, status - keep short
 };
 
