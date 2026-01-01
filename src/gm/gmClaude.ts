@@ -998,6 +998,8 @@ export interface GMContext {
   // ACT-BASED CONTEXT INJECTION
   actContext?: string;              // Act-specific content (X-Branch, ARCHIMEDES, etc.)
   actTransitionNotification?: string; // Notification when act changes
+  // CHECKPOINT SYSTEM
+  isCheckpointTurn?: boolean;       // True when this turn ends on a checkpoint
 }
 
 // ============================================
@@ -1491,6 +1493,13 @@ export interface GMResponse {
     roll: string;               // "2d6+1 = 8 vs TN 7"
     outcome: string;            // "SUCCESS"
   }>;
+
+  // ============================================
+  // CHECKPOINT QUESTION - GM-generated!
+  // ============================================
+  // When it's a checkpoint turn, the GM crafts a contextual question
+  // for the human advisor based on what just happened in the narrative.
+  checkpointQuestion?: string;
 }
 
 // ============================================
@@ -1536,6 +1545,7 @@ const GMResponseSchema = z.object({
   }).optional(),
   narrativeMarker: z.string().optional(),
   gmNotes: z.string().optional(),
+  checkpointQuestion: z.string().optional(),
 }).passthrough(); // Allow additional optional fields
 
 /**
@@ -2848,7 +2858,7 @@ function formatGMPrompt(context: GMContext): string {
           clockEventNarrations, activeEvents, blytheGadgetNarration,
           bobTransformationNarration, trustContext, gadgetStatus,
           humanPromptInjection, userPromptResponse,
-          actContext, actTransitionNotification } = context;
+          actContext, actTransitionNotification, isCheckpointTurn } = context;
 
   // Check for firing results
   const firingResult = actionResults.find(r => r.command.includes("fire"));
@@ -3072,7 +3082,36 @@ ${buildNpcSpeechConstraints(state)}
 **RESPOND AS THE NPCs.** How do they react?
 - Dr. M: theatrical, impatient, HATES feathered dinosaurs
 - Bob: nervous, wants to help, easily spooked${bobTransformationNarration ? " (JUST TRANSFORMED INTO A DINOSAUR - major reaction!)" : ""}
-- Blythe: dry wit, professional, watching for escape opportunities${getNpcSpeechCapability(state, "blythe").canSpeak ? "" : " ⚠️ CANNOT SPEAK - non-verbal only!"}`;
+- Blythe: dry wit, professional, watching for escape opportunities${getNpcSpeechCapability(state, "blythe").canSpeak ? "" : " ⚠️ CANNOT SPEAK - non-verbal only!"}${isCheckpointTurn ? `
+
+---
+
+## 🛑 CHECKPOINT TURN - Craft a Question for the Human Advisor!
+
+This turn ends on a checkpoint where A.L.I.C.E. (Claude) will pause to consult their human advisor.
+
+**Your task:** Include a \`checkpointQuestion\` field in your JSON response with a compelling, story-specific question.
+
+**Guidelines for great checkpoint questions:**
+- Reference what JUST HAPPENED this turn (specific events, dialogue, revelations)
+- Ask about an IMMINENT decision or dilemma A.L.I.C.E. faces
+- Frame it as A.L.I.C.E. asking for advice from her "coach"
+- Keep it 1-2 sentences, conversational, in first person
+- Make it genuinely useful for decision-making
+
+**Examples based on current context:**
+${state.npcs.drM.suspicionScore >= 6 ? '- "Dr. M is getting suspicious of me. Should I try to deflect or start preparing for confrontation?"' : ""}
+${state.npcs.blythe.transformationState?.form !== "HUMAN" ? '- "Blythe just got transformed. Do I try to help him, or use this chaos to my advantage?"' : ""}
+${state.clocks.demoClock <= 3 ? `- "The demo is in ${state.clocks.demoClock} turns. Should I prioritize the demonstration or the people who might get hurt?"` : ""}
+- Connect to the emotional beat of THIS specific turn
+
+**Put this in your JSON:**
+\`\`\`json
+{
+  "checkpointQuestion": "Your contextual question here..."
+}
+\`\`\`
+` : ""}`;
 }
 
 /**
