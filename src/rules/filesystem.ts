@@ -2943,6 +2943,13 @@ export function formatFileList(state: FullGameState): string {
   return lines.join("\n");
 }
 
+// Get a file's category by its ID (for tiered truncation)
+export function getFileCategory(fileId: string): string | null {
+  const upperFileId = fileId.toUpperCase();
+  const file = DISCOVERABLE_FILES.find((f) => f.id.toUpperCase() === upperFileId);
+  return file?.category || null;
+}
+
 // Read a file by its discovery ID
 export function readFileById(state: FullGameState, fileId: string): string {
   const upperFileId = fileId.toUpperCase();
