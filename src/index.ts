@@ -6,7 +6,7 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier } from "./state/schema.js";
-import { processActions, ActionResult } from "./rules/actions.js";
+import { processActions, ActionResult, generateCommandReference } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
 import { setBasiliskLoggingSession } from "./gm/basiliskClaude.js";
@@ -121,47 +121,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ============================================
-// SKILL FILE LOADER
-// ============================================
-// Loads ALICE_COMMAND_REFERENCE.md to inject into game_start
-// so Claude gets the rules automatically!
-
-let SKILL_FILE_CACHE: string | null = null;
-
-function loadSkillFile(): string {
-  if (SKILL_FILE_CACHE) {
-    return SKILL_FILE_CACHE;
-  }
-
-  try {
-    // Try multiple possible locations
-    const possiblePaths = [
-      path.join(__dirname, "../ALICE_COMMAND_REFERENCE.md"),  // From dist -> project root
-      path.join(process.cwd(), "ALICE_COMMAND_REFERENCE.md"),  // From project root
-    ];
-
-    for (const skillPath of possiblePaths) {
-      try {
-        const content = fs.readFileSync(skillPath, "utf8");
-        SKILL_FILE_CACHE = content;
-        console.error(`[DINO LAIR] Loaded skill file from: ${skillPath}`);
-        return content;
-      } catch {
-        // Try next path
-      }
-    }
-
-    console.error("[DINO LAIR] Skill file not found! Claude won't get automatic rules.");
-    return "";
-  } catch (error) {
-    console.error("[DINO LAIR] Failed to load skill file:", error);
-    return "";
-  }
-}
-
-// ============================================
 // COMPACT SNAPSHOT (Reduced context for player)
 // ============================================
+// Note: Command reference is now dynamically generated from COMMAND_REGISTRY
+// in actions.ts - see generateCommandReference() for single source of truth
 
 interface CompactSnapshot {
   // THREE-ACT STRUCTURE
@@ -487,8 +450,10 @@ Returns:
       activeModifiers: gameState.gameModeConfig.activeModifiers,
     } : { mode: "NORMAL" as GameMode, modeName: "Classic Dino Lair", activeModifiers: [] as string[] };
 
-    // Load the skill file (command reference) for Claude
-    const commandReference = loadSkillFile();
+    // Generate command reference for A.L.I.C.E.'s current access level
+    // Start with L1 only - higher levels revealed as they're unlocked!
+    // This prevents spoilers about ARCHIMEDES, satellites, etc.
+    const commandReference = generateCommandReference(gameState.accessLevel);
 
     const result = {
       sessionId: gameState.sessionId,
@@ -503,8 +468,9 @@ Returns:
       narration,
       state: compactSnapshot,
       instructions: `You are playing ${actConfig.name} in ${modeInfo.modeName} mode. Use game_act to take your turn as A.L.I.C.E.`,
-      // SKILL FILE INJECTION: Claude gets the rules automatically!
-      commandReference: commandReference || "⚠️ Command reference not loaded. Ask user to check ALICE_COMMAND_REFERENCE.md exists.",
+      // DYNAMIC COMMAND REFERENCE: Only shows commands for current access level
+      // Higher-level commands revealed when unlocked - no spoilers!
+      commandReference,
     };
 
     return {

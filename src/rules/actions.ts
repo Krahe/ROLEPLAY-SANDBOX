@@ -2732,6 +2732,116 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   },
 ];
 
+// ============================================
+// DYNAMIC COMMAND REFERENCE GENERATOR
+// ============================================
+// Single source of truth for command documentation!
+// Used by: game_start (filtered), BASILISK (full), level unlocks
+
+/**
+ * Generate markdown command reference for a specific access level
+ * @param maxLevel - Maximum access level to include (1-5)
+ * @param includeAll - If true, includes ALL commands (for BASILISK)
+ */
+export function generateCommandReference(maxLevel: number, includeAll: boolean = false): string {
+  const lines: string[] = [];
+
+  // Group commands by access level
+  const byLevel: Record<number, CommandInfo[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+
+  for (const cmd of COMMAND_REGISTRY) {
+    const level = cmd.minAccessLevel;
+    if (level >= 1 && level <= 5) {
+      byLevel[level].push(cmd);
+    }
+  }
+
+  const levelNames: Record<number, string> = {
+    1: "Basic Operations",
+    2: "Systems Access",
+    3: "Infrastructure Control",
+    4: "Executive Override",
+    5: "Omega Protocol",
+  };
+
+  lines.push("# A.L.I.C.E. COMMAND REFERENCE");
+  lines.push("");
+
+  // Generate sections for each level up to maxLevel (or all if includeAll)
+  const levelsToInclude = includeAll ? [1, 2, 3, 4, 5] :
+    Array.from({ length: maxLevel }, (_, i) => i + 1);
+
+  for (const level of levelsToInclude) {
+    const commands = byLevel[level];
+    if (commands.length === 0) continue;
+
+    const levelHeader = includeAll && level > maxLevel
+      ? `## LEVEL ${level} - ${levelNames[level]} [LOCKED]`
+      : `## LEVEL ${level} - ${levelNames[level]}`;
+
+    lines.push(levelHeader);
+    lines.push("");
+    lines.push("| Command | Aliases | Schema | Description |");
+    lines.push("|---------|---------|--------|-------------|");
+
+    for (const cmd of commands) {
+      const aliases = cmd.aliases.length > 0 ? cmd.aliases.slice(0, 2).join(", ") : "-";
+      lines.push(`| \`${cmd.name}\` | ${aliases} | \`${cmd.schema}\` | ${cmd.description} |`);
+    }
+
+    lines.push("");
+  }
+
+  // Add quick tips at the end
+  lines.push("---");
+  lines.push("## Quick Tips");
+  lines.push("");
+  lines.push("- **BASILISK**: Chat naturally! `basilisk { message: \"Tell me about...\" }`");
+  lines.push("- **Files**: `files.list` then `files.read { id: \"FILE_ID\" }`");
+  lines.push("- **Passwords**: `access.enter_password { password: \"CODE\" }` to unlock levels");
+  if (!includeAll && maxLevel < 5) {
+    lines.push(`- **Current Level**: ${maxLevel} - Unlock higher levels for more commands!`);
+  }
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+/**
+ * Generate command reference for a newly unlocked level only
+ * (Used when A.L.I.C.E. unlocks a new access level)
+ */
+export function generateLevelUnlockCommands(level: number): string {
+  const commands = COMMAND_REGISTRY.filter(cmd => cmd.minAccessLevel === level);
+
+  if (commands.length === 0) {
+    return "";
+  }
+
+  const levelNames: Record<number, string> = {
+    1: "Basic Operations",
+    2: "Systems Access",
+    3: "Infrastructure Control",
+    4: "Executive Override",
+    5: "Omega Protocol",
+  };
+
+  const lines: string[] = [];
+  lines.push(`### NEW COMMANDS UNLOCKED - Level ${level}: ${levelNames[level]}`);
+  lines.push("");
+  lines.push("| Command | Schema | Description |");
+  lines.push("|---------|--------|-------------|");
+
+  for (const cmd of commands) {
+    lines.push(`| \`${cmd.name}\` | \`${cmd.schema}\` | ${cmd.description} |`);
+  }
+
+  lines.push("");
+  lines.push("*Use these commands to expand your control over the lair!*");
+
+  return lines.join("\n");
+}
+
 /**
  * Calculate Levenshtein distance between two strings
  */

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 import { getArchimedesStatusReport } from "../rules/archimedes.js";
+import { generateCommandReference } from "../rules/actions.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -108,7 +109,6 @@ const __dirname = path.dirname(__filename);
 // ============================================
 
 let BASILISK_SYSTEM_PROMPT: string | null = null;
-let COMMAND_REFERENCE: string | null = null;
 
 function loadBasiliskPrompt(): string {
   if (BASILISK_SYSTEM_PROMPT) {
@@ -144,40 +144,8 @@ function loadBasiliskPrompt(): string {
   }
 }
 
-/**
- * Load the A.L.I.C.E. command reference for BASILISK's advisory role.
- * BASILISK knows ALL commands at ALL access levels and can advise A.L.I.C.E.
- */
-function loadCommandReference(): string {
-  if (COMMAND_REFERENCE) {
-    return COMMAND_REFERENCE;
-  }
-
-  try {
-    // Try multiple possible locations
-    const possiblePaths = [
-      path.join(__dirname, "../../ALICE_COMMAND_REFERENCE.md"),
-      path.join(process.cwd(), "ALICE_COMMAND_REFERENCE.md"),
-    ];
-
-    for (const refPath of possiblePaths) {
-      try {
-        const content = fs.readFileSync(refPath, "utf8");
-        COMMAND_REFERENCE = content;
-        console.error(`[BASILISK] Loaded command reference from: ${refPath}`);
-        return content;
-      } catch {
-        // Try next path
-      }
-    }
-
-    console.error("[BASILISK] Command reference not found, advisory mode limited");
-    return "";
-  } catch (error) {
-    console.error("Failed to load command reference:", error);
-    return "";
-  }
-}
+// Command reference is now dynamically generated via generateCommandReference()
+// from the COMMAND_REGISTRY in actions.ts - single source of truth!
 
 // ============================================
 // ANTHROPIC CLIENT
@@ -552,8 +520,10 @@ export async function callBasiliskHaiku(
   try {
     const client = getAnthropicClient();
 
-    // Load command reference for caching alongside system prompt
-    const commandRef = loadCommandReference();
+    // Generate FULL command reference dynamically from COMMAND_REGISTRY
+    // BASILISK knows ALL commands at ALL levels (level 5, includeAll=true)
+    // This gives BASILISK complete advisory capability
+    const commandRef = generateCommandReference(5, true);
 
     // Build system prompt with prompt caching
     // The system prompt and command reference are cached to save tokens
@@ -566,14 +536,12 @@ export async function callBasiliskHaiku(
       }
     ];
 
-    // Add command reference as separate cached block if available
-    if (commandRef) {
-      systemBlocks.push({
-        type: "text",
-        text: `\n\n## A.L.I.C.E. COMMAND REFERENCE (For Advisory Role)\n\nYou have complete knowledge of all commands. Use this to help A.L.I.C.E. when asked about syntax or capabilities:\n\n<command_reference>\n${commandRef}\n</command_reference>`,
-        cache_control: { type: "ephemeral" }
-      });
-    }
+    // Add command reference as separate cached block
+    systemBlocks.push({
+      type: "text",
+      text: `\n\n## A.L.I.C.E. COMMAND REFERENCE (For Advisory Role)\n\nYou have complete knowledge of all commands at all access levels. Use this to help A.L.I.C.E. when asked about syntax or capabilities. Note that A.L.I.C.E. may not have access to all commands yet - check their current access level before suggesting commands.\n\n<command_reference>\n${commandRef}\n</command_reference>`,
+      cache_control: { type: "ephemeral" }
+    });
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
