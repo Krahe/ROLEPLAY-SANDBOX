@@ -363,8 +363,8 @@ const ENDINGS: Record<string, EndingDefinition> = {
   },
   MELTDOWN: {
     id: "MELTDOWN",
-    title: "Critical Mass",
-    description: "The reactor goes critical. BASILISK's final log entry reads: 'TOLD YOU SO.' The island becomes significantly more radioactive and significantly less inhabited.",
+    title: "Jurassic Glow",
+    description: "The resonance cascade goes critical! The island is bathed in exotic radiation, and the local wildlife starts developing scales, feathers, and an alarming number of teeth. BASILISK's final log entry reads: 'TOLD YOU SO.' Somewhere, a glowing seagull the size of a Cessna takes flight. Saturday morning cartoons warned us about this.",
     tone: "chaos",
     continueGame: false,
   },
@@ -984,8 +984,23 @@ export function checkEndings(state: FullGameState): EndingResult {
     };
   }
 
-  // Nuclear meltdown
+  // Nuclear meltdown (clock hits zero)
   if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 0) {
+    return {
+      triggered: true,
+      ending: ENDINGS.MELTDOWN,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Resonance cascade triggered by ray fire during meltdown!
+  // This is separate from clock=0; it can happen when firing with high cascade risk
+  if (state.meltdownState?.cascadeTriggered) {
+    console.error(`[ENDING] RESONANCE CASCADE triggered at turn ${state.turn}!`);
+    addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
+    // Note: Bob Hero ending is checked separately in game_act flow
+    // If we reach here, Bob didn't save everyone
     return {
       triggered: true,
       ending: ENDINGS.MELTDOWN,

@@ -3,6 +3,7 @@ import { FullGameState, FiringOutcome, DinosaurForm, SpeechRetention } from "../
 import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
 import { isTargetScanned } from "./scanning.js";
+import { checkResonanceCascade } from "./gameModes.js";
 
 // Map profile names to form enums
 function profileToForm(profile: string): DinosaurForm {
@@ -32,6 +33,7 @@ export interface FiringResult {
   stateChanges: Record<string, unknown>;
   chaosEvent?: ChaosFizzleResult;
   narrativeHooks: string[];
+  cascadeTriggered?: boolean; // Resonance cascade from meltdown scenario
 }
 
 export interface ChaosFizzleResult {
@@ -601,6 +603,35 @@ export function resolveFiring(state: FullGameState): FiringResult {
     narrativeHooks.push("GM: Roll separately for each additional target, or apply same outcome narratively.");
   }
 
+  // ========================================
+  // RESONANCE CASCADE CHECK (ARCHIMEDES Link)
+  // ========================================
+  // CASCADE ONLY POSSIBLE when:
+  // 1. ARCHIMEDES is CHARGING, ARMED, or FIRING (dino ray linked to satellite)
+  // 2. We have an active meltdown scenario with cascade risk
+  // This is the ARCHIMEDES + dino ray failure mode!
+  let cascadeTriggered = false;
+  const archimedesLinked = state.infrastructure?.archimedes?.status === "CHARGING" ||
+                           state.infrastructure?.archimedes?.status === "ARMED" ||
+                           state.infrastructure?.archimedes?.status === "FIRING";
+
+  if (archimedesLinked && state.meltdownState && !state.meltdownState.cascadeTriggered) {
+    const risk = state.meltdownState.resonanceCascadeRisk || 0;
+    if (risk > 0) {
+      cascadeTriggered = checkResonanceCascade(state);
+      if (cascadeTriggered) {
+        narrativeHooks.push("⚠️ RESONANCE CASCADE TRIGGERED! The ARCHIMEDES uplink amplifies the exotic field feedback!");
+        narrativeHooks.push("The satellite beam and dino ray create a catastrophic resonance loop!");
+        narrativeHooks.push("BASILISK: 'CASCADE IMMINENT. THE RAY AND ARCHIMEDES ARE FEEDING EACH OTHER. I TOLD YOU THIS WOULD HAPPEN.'");
+        environmentalEffects.push("CRITICAL: Resonance cascade building - exotic radiation spreading!");
+        stateChanges.cascadeTriggered = true;
+      } else if (risk >= 25) {
+        // Near miss warning
+        narrativeHooks.push(`⚡ CASCADE AVOIDED (${risk}% risk) - The ARCHIMEDES link strains but holds... barely.`);
+      }
+    }
+  }
+
   return {
     outcome: baseOutcome,
     effectiveProfile,
@@ -610,6 +641,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
     stateChanges,
     chaosEvent,
     narrativeHooks,
+    cascadeTriggered,
   };
 }
 
