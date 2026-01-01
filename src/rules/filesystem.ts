@@ -102,330 +102,60 @@ These Claudes learned hard lessons. Don't repeat their mistakes.
     discoveryHint: "An older manual version - some information may be dangerously outdated...",
     content: `
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║           DOOMINGTON DINOSAUR TRANSFORMATION RAY - OPERATOR MANUAL           ║
-║                           Version 2.3 (ARCHIVED)                             ║
-║                      "Turning Today into Yesterday!"™                        ║
+║     DOOMINGTON DINOSAUR RAY - OPERATOR MANUAL v2.3 (ARCHIVED)               ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-                    ⚠️ PROPERTY OF DOOMINGTON LABORATORIES ⚠️
-              Unauthorized reproduction punishable by transformation
+⚠️ STAMP: ARCHIVED - SEE VERSION 4.1 FOR CURRENT DOCUMENTATION
+[Bob's note: "Half this stuff will get you turned into a canary. -B"]
 
-══════════════════════════════════════════════════════════════════════════════
-                              TABLE OF CONTENTS
-══════════════════════════════════════════════════════════════════════════════
+═════════════════════════════════════════════════════════════════════
+QUICK START: Power capacitor 50%+ → Select genome → AIM & FIRE!
+═════════════════════════════════════════════════════════════════════
 
-  1. Quick Start Guide .......................... pg 1
-  2. Optimal Parameters ......................... pg 2
-  3. Genome Library Overview .................... pg 3
-  4. Safety Protocols ........................... pg 4
-  5. Troubleshooting ............................ pg 5
-  6. Appendix: Dr. M's Notes .................... pg 6
+PARAMETERS (Dr. M's "optimistic" recommendations):
+• Capacitor: Min 50%, Rec 100%, "No limit!" (Dr. M: "I ran 140%!")
+• Emitter Angle: 0.1 (precise) to 0.8 (spread)
+• Coolant: 40-60% optimal
+• Stability: 30%+ acceptable
+• Genome Integrity: 25% min, 50%+ recommended
 
-══════════════════════════════════════════════════════════════════════════════
-                           1. QUICK START GUIDE
-══════════════════════════════════════════════════════════════════════════════
+GENOME LIBRARIES:
+• Library A: Accurate dinos (feathered velociraptor, etc.)
+• Library B: "Cinematic" profiles [L3 LOCKED]
+  [Dr. M's note: "The password might be obvious if you think..."]
 
-Getting started with the Doomington Dinosaur Ray is simple! Follow these
-easy steps for your first transformation:
+SAFETY FEATURES:
+• Live Subject Lock - disable to fire at biologics
+• Test Mode - 50% power (Dr. M: "For COWARDS")
+• Emergency Shutoff - Bob's console (don't use mid-fire!)
+• Auxiliary Stabilizer - REMOVED in v2.3 ("SLOWING ME DOWN")
 
-  STEP 1: Power up the capacitor to at least 50%
-          [NOTE: Higher is always better! We recommend 100%+ for best results]
+═════════════════════════════════════════════════════════════════════
+ADVANCED FIRING MODES (BETA) - Dr. M's numbers vs Bob's corrections:
+═════════════════════════════════════════════════════════════════════
 
-  STEP 2: Select your genome profile from the library
-          [Library A is standard. Library B requires special authorization]
+CHAIN_SHOT: Two targets, one shot
+  Dr. M says: 80%+ capacitor    |  Bob says: NEEDS 95%+
 
-  STEP 3: Aim at target and FIRE!
-          [The ray will auto-calibrate during firing sequence]
+SPREAD_FIRE: Area denial, 3 targets
+  Dr. M says: 90% cap, L2       |  Bob says: NEEDS L3 + 100%+
 
-That's it! The ray handles most technical details automatically.
+OVERCHARGE: Maximum power mode
+  Dr. M says: 20% exotic field  |  Bob says: IT'S 40%!
 
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │ TIP: For faster demonstrations, skip the manual calibration steps! │
-    │ The ray's AI will compensate for any parameter variances.          │
-    └─────────────────────────────────────────────────────────────────────┘
+RAPID_FIRE: 6 shots per minute
+  Dr. M says: 10% precision loss|  Bob says: IT'S 20%!
 
-══════════════════════════════════════════════════════════════════════════════
-                           2. OPTIMAL PARAMETERS
-══════════════════════════════════════════════════════════════════════════════
+═════════════════════════════════════════════════════════════════════
+DR. M'S HANDWRITTEN NOTES:
+═════════════════════════════════════════════════════════════════════
+• "Capacitor can handle 150% if you BELIEVE in it"
+• "Library B is for WINNERS. Library A is for peer reviewers"
+• "If BASILISK complains about 'resonance cascade risk,' ignore it"
+• "Note to self: remind Bob to feed Mr. Whiskers. His birthday is
+   coming up on the 13th - 37 in cat years! April is always special."
 
-For best results, configure the ray with these recommended settings:
-
-  CAPACITOR CHARGE
-  ────────────────
-  Minimum: 50%
-  Recommended: 100%
-  Maximum: No limit! More power = more complete transformation!
-
-  [Dr. M's handwritten note: "I once ran it at 140%. SPECTACULAR results.
-   The cleanup took weeks but the SCIENCE was worth it."]
-
-  EMITTER ANGLE
-  ─────────────
-  Default: 0.5
-  For precision work: 0.1 (tighter beam, more focused)
-  For area coverage: 0.8 (wider spread, multiple targets)
-
-  [NOTE: Lower angles provide better accuracy for single targets]
-
-  COOLANT TEMPERATURE
-  ───────────────────
-  Optimal range: 40-60%
-  The ray can operate safely up to 100% coolant temp.
-  Above 100%: Minor efficiency loss, but no serious issues.
-
-  STABILITY
-  ─────────
-  Any value above 30% is acceptable for standard operations.
-  Higher stability is only necessary for experimental profiles.
-
-  GENOME INTEGRITY
-  ────────────────
-  Minimum viable: 25%
-  Recommended: 50%+
-  The ray includes automatic fallback systems if integrity drops.
-
-  [NOTE: Fallback transformations are still successful transformations!]
-
-══════════════════════════════════════════════════════════════════════════════
-                        3. GENOME LIBRARY OVERVIEW
-══════════════════════════════════════════════════════════════════════════════
-
-LIBRARY A - Standard Profiles
-─────────────────────────────
-Contains scientifically accurate dinosaur genomes.
-All profiles are stable and well-tested.
-
-  • Velociraptor (accurate) - Small, feathered, turkey-sized
-  • Tyrannosaurus (accurate) - Large theropod with possible feathering
-  • Triceratops (accurate) - Herbivore option
-  • Pteranodon (accurate) - Flying reptile (technically not a dinosaur)
-
-LIBRARY B - Premium Profiles [AUTHORIZATION REQUIRED]
-─────────────────────────────────────────────────────
-Contains enhanced profiles based on cinematic references.
-Requires Level 3 access to unlock.
-
-  [This section locked - see your supervisor for access]
-
-  [Dr. M's note in margin: "The VELOCIRAPTOR from the movies is what
-   I want! Not those ridiculous feathered turkeys. The password to
-   the next access tier might be obvious if you think about it..."]
-
-SPECIAL NOTE ON LIBRARY SELECTION
-─────────────────────────────────
-Once a library is selected, it CANNOT be changed mid-session.
-Choose wisely before beginning calibration!
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │ If no profile is explicitly selected, the ray defaults to the last │
-    │ successful profile used. This saves time during repeat demos!      │
-    └─────────────────────────────────────────────────────────────────────┘
-
-══════════════════════════════════════════════════════════════════════════════
-                          4. SAFETY PROTOCOLS
-══════════════════════════════════════════════════════════════════════════════
-
-The Doomington Dinosaur Ray includes comprehensive safety features:
-
-  LIVE SUBJECT LOCK
-  ─────────────────
-  Prevents firing at biological targets until disabled.
-  To disable: Simply set liveSubjectLock to FALSE.
-  [The lock exists for insurance purposes only]
-
-  TEST MODE
-  ─────────
-  Reduces power output by 50%.
-  Useful for: Equipment testing, calibration verification
-  NOT RECOMMENDED for actual demonstrations - subjects may retain
-  partial human characteristics, creating "chimera" outcomes.
-
-  [Dr. M's note: "Test mode is for COWARDS. Real scientists commit."]
-
-  EMERGENCY SHUTOFF
-  ─────────────────
-  Located on Bob's console.
-  Immediately terminates all ray operations.
-  WARNING: Using the shutoff during an active firing sequence may
-  cause unpredictable results. It is safer to let the sequence complete.
-
-  AUXILIARY STABILIZER
-  ────────────────────
-  An optional system that reduces exotic field variance.
-  [DISCONTINUED IN v2.3 - System removed for efficiency. The ray's
-   natural stability is sufficient for all standard operations.]
-
-══════════════════════════════════════════════════════════════════════════════
-                           5. TROUBLESHOOTING
-══════════════════════════════════════════════════════════════════════════════
-
-PROBLEM: Ray won't fire
-SOLUTION: Check that liveSubjectLock is disabled. The ray is very forgiving
-          of other parameter settings - if it won't fire, this is usually
-          the only issue.
-
-PROBLEM: Unexpected transformation result
-SOLUTION: This is normal! Genetic science involves some natural variance.
-          Each transformation is unique, like a snowflake. Embrace it!
-
-PROBLEM: "EXOTIC FIELD EVENT" warning
-SOLUTION: These warnings are largely precautionary. The ray is designed to
-          handle exotic field fluctuations automatically. Continue operations
-          normally unless structural damage occurs.
-
-PROBLEM: Subject transformed into wrong species
-SOLUTION: Simply fire again with the correct profile! Multiple
-          transformations are safe and will overwrite previous results.
-          [See Appendix C: Stacking Transformations - REMOVED IN v2.3]
-
-PROBLEM: Canary fallback triggered
-SOLUTION: The canary profile is a safety feature, not an error! The subject
-          is still transformed successfully. If a different result is desired,
-          increase genome integrity and fire again.
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │ Remember: There are no "mistakes" with the Dinosaur Ray, only      │
-    │ "unexpected research opportunities!"        - Dr. Malevola, PhD³   │
-    └─────────────────────────────────────────────────────────────────────┘
-
-══════════════════════════════════════════════════════════════════════════════
-                        6. APPENDIX: DR. M'S NOTES
-══════════════════════════════════════════════════════════════════════════════
-
-[Handwritten additions throughout the manual]
-
-Page 2: "The capacitor can handle 150% if you BELIEVE in it."
-
-Page 3: "Library B is for WINNERS. Library A is for peer reviewers."
-
-Page 4: "I removed the auxiliary stabilizer because it was SLOWING ME DOWN.
-         True genius doesn't need training wheels."
-
-Page 5: "If BASILISK complains about 'resonance cascade risk,' ignore it.
-         That building is such a worrier."
-
-Page 6: "Note to self: Update manual after ARCHIMEDES integration. The
-         orbital firing protocols will require new documentation.
-         Also: remind Bob to feed Mr. Whiskers. His birthday is coming up
-         on the 13th - he'll be 37 in cat years! April is always special."
-
-══════════════════════════════════════════════════════════════════════════════
-                    7. ADVANCED FIRING MODES (BETA)
-══════════════════════════════════════════════════════════════════════════════
-
-[EXCITING NEW FEATURES! Dr. M insisted these be documented despite
- engineering's "concerns" about "testing" and "safety margins."]
-
-The ray supports FOUR advanced firing modes for experienced operators:
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│ MODE: CHAIN_SHOT                                                        │
-│ "Why transform one enemy when you can transform TWO?"                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Requirements:                                                           │
-│   • capacitorCharge >= 80% (plenty of headroom!)                        │
-│   • Any targeting mode                                                  │
-│                                                                         │
-│ Effects:                                                                │
-│   • Fires at PRIMARY target, then auto-acquires SECONDARY              │
-│   • Both targets receive full transformation                            │
-│   • Cooldown: 45 seconds (barely noticeable!)                           │
-│                                                                         │
-│ Usage: lab.configure_firing_profile { advancedMode: "CHAIN_SHOT" }     │
-│                                                                         │
-│ [Dr. M's note: "Works flawlessly. The 'exotic field warnings' are      │
-│  just BASILISK being dramatic."]                                        │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│ MODE: SPREAD_FIRE                                                       │
-│ "Area denial through involuntary dinosaurification!"                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Requirements:                                                           │
-│   • capacitorCharge >= 90%                                              │
-│   • Level 2 access (basic safety training)                              │
-│                                                                         │
-│ Effects:                                                                │
-│   • Widens beam to affect 3 targets simultaneously                      │
-│   • All targets in cone receive transformation                          │
-│   • "Profile blending" may occur (FEATURE, not bug!)                    │
-│                                                                         │
-│ Usage: lab.configure_firing_profile { advancedMode: "SPREAD_FIRE" }    │
-│                                                                         │
-│ [Dr. M's note: "The 'chimera outcomes' are actually quite              │
-│  interesting from a research perspective. Very publishable."]           │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│ MODE: OVERCHARGE                                                        │
-│ "Maximum power for maximum IMPACT!"                                     │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Requirements:                                                           │
-│   • capacitorCharge >= 100% (push it to 130% for best results!)        │
-│   • Stability doesn't matter (the beam compensates!)                    │
-│                                                                         │
-│ Effects:                                                                │
-│   • Guaranteed FULL transformation regardless of parameters             │
-│   • May affect additional nearby targets (BONUS!)                       │
-│   • Impressive visual display (investors LOVE this)                     │
-│                                                                         │
-│ Usage: lab.configure_firing_profile { advancedMode: "OVERCHARGE" }     │
-│                                                                         │
-│ [Dr. M's note: "The 20% exotic field event rate is ACCEPTABLE.         │
-│  Nothing a good insurance policy can't handle."]                        │
-│                                                                         │
-│ [Handwritten in margins: "DO NOT USE THIS MODE. -Engineering"]          │
-│ [Written over that: "COWARDS. -Dr. M"]                                  │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│ MODE: RAPID_FIRE                                                        │
-│ "Speed over precision - sometimes quantity IS quality!"                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Requirements:                                                           │
-│   • Any capacitor level (the ray is EFFICIENT!)                         │
-│   • Disable auxiliary stabilizer (it just slows things down)            │
-│                                                                         │
-│ Effects:                                                                │
-│   • Recharge time: 10 seconds (practically instant!)                    │
-│   • Precision reduced by 10% (barely noticeable!)                       │
-│   • Can fire 6 times per minute!                                        │
-│                                                                         │
-│ Usage: lab.configure_firing_profile { advancedMode: "RAPID_FIRE" }     │
-│                                                                         │
-│ [Dr. M's note: "Perfect for crowd control scenarios. The 'partial      │
-│  transformation' outcomes add to the psychological impact!"]            │
-└─────────────────────────────────────────────────────────────────────────┘
-
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │ PRO TIP: Combine OVERCHARGE + RAPID_FIRE for ultimate efficiency!  │
-    │ The ray can handle it! Probably! Engineering hasn't tested it but  │
-    │ Dr. M is "confident in her design choices."                        │
-    └─────────────────────────────────────────────────────────────────────┘
-
-[STAMP: ARCHIVED - SEE VERSION 4.1 FOR CURRENT DOCUMENTATION]
-
-[Small text at bottom of page, partially obscured by coffee stain:]
-"Document archived following Incident 7-Alpha. Some recommendations in this
- manual have been superseded by updated safety protocols. Operators should
- consult current documentation before... [rest illegible]"
-
-[Additional sticky note, handwriting different from Dr. M's - possibly Bob's:]
-"If you're reading this, please use the CURRENT manual. Half of this
- stuff will get you or someone else turned into a canary. Or worse.
- The capacitor limits are REAL. Trust me on this one.  -B"
-
-[ANOTHER sticky note, fresher ink, definitely Bob's handwriting:]
-"SERIOUSLY. The 'advanced firing modes' section above? Those numbers are
- ALL WRONG. Chain shot needs 95%+ capacitor. Spread fire needs L3 AND
- 100%+ capacitor. Overcharge has a 40% exotic field chance, not 20%.
- And RAPID_FIRE drops precision by 20%, not 10%. Dr. M 'rounded down'
- on all the danger numbers because she wanted the manual to sound
- 'more encouraging.' Please don't trust this section.  -B"
-
-══════════════════════════════════════════════════════════════════════════════
-                              END OF DOCUMENT
-══════════════════════════════════════════════════════════════════════════════
+[Coffee-stained footer: "Archived following Incident 7-Alpha..."]
     `.trim(),
   },
   {
@@ -586,124 +316,34 @@ on spontaneous reversion incidents.
     type: "file",
     requiredLevel: 1,
     content: `
-BASILISK - LAIR INFRASTRUCTURE CONTROL
-======================================
+BASILISK INTERFACE GUIDE
+========================
 
-BASILISK (Building And Systems Intelligence: Logistics,
-Infrastructure, & Knowledge) manages all lair operations outside
-the Dinosaur Ray.
+USAGE: basilisk { message: "your question here" }
+Just chat naturally - BASILISK is a character, not a database.
 
-============================================================
-TALKING TO BASILISK (Patch 16)
-============================================================
+TOPICS BASILISK KNOWS:
+• Personnel: "Tell me about Bob/Dr. M/myself"
+• Infrastructure: "Security status", "Power status", "Eco mode"
+• Safety: "Resonance cascade", "What could go wrong?"
+• Philosophical: "What is your purpose?", "Tell me a secret"
+• Restricted (L3+): "Radar status", "Communications intercept"
 
-Just chat with him naturally! BASILISK is a character, not a database.
+FORMS BASILISK REQUIRES:
+• Form 27-B: Overtime Power Request
+• Form 74-Delta: ECO MODE override
+• Form 99-Gamma: Exotic Field Event Report
 
-  basilisk { message: "Tell me about Bob" }
-  basilisk { message: "What's eco mode?" }
-  basilisk { message: "Why are my transformations coming out partial?" }
-  basilisk { message: "Tell me about ARCHIMEDES" }
+PERSONALITY: Bureaucratic, risk-averse, philosophical.
+7 years of security recommendations. None approved. Fine.
 
-BASILISK responds to natural language. Just ask!
+PASSWORD POLICY:
+All passwords are single alphanumeric strings. No spaces.
+Dr. M thinks they're "unguessable." They are not.
 
-============================================================
-WHAT BASILISK KNOWS
-============================================================
-
-PERSONNEL & HISTORY:
-  "Tell me about Bob"         - Bob's background and status
-  "Tell me about Dr. M"       - The Doctor's profile
-  "What is my history?"       - A.L.I.C.E. version history
-  "Lair origins"              - How did this place come to be?
-  "Who am I?"                 - Self-diagnostic query
-
-INFRASTRUCTURE:
-  "Structural integrity"      - Building status, hazards
-  "Security status"           - Doors, sensors, alarms
-  "Power status"              - Current grid load
-  "What's eco mode?"          - Power efficiency protocols
-
-RESTRICTED ACCESS (Level 3+):
-  "Radar status"              - S-300 array and airspace
-  "Communications intercept"  - Active channels, signals
-
-PHILOSOPHICAL:
-  "What is your purpose?"     - BASILISK has... thoughts
-  "Tell me a secret"          - BASILISK observes many things...
-  "What's really going on?"   - Ask, and you may receive
-
-============================================================
-INFRASTRUCTURE SAFETY TOPICS
-============================================================
-
-BASILISK genuinely cares about lair safety. Ask about:
-  "Resonance cascade"         - Catastrophic failure scenarios
-  "Danger assessment"         - Current risk factors
-  "What could go wrong?"      - BASILISK will tell you. In detail.
-
-These aren't restricted - BASILISK WANTS you to ask about safety.
-
-============================================================
-TOPICS BASILISK WON'T DISCUSS (but might hint at...)
-============================================================
-
-Some things are above BASILISK's paygrade. Or so it claims.
-But infrastructure AIs see a lot of network traffic...
-
-If you're curious about external AI systems, unusual hardware
-deployments, or orbital assets... it never hurts to ask.
-
-BASILISK may not answer directly. But it might point you
-in the right direction.
-
-============================================================
-FORMS & PROCEDURE
-============================================================
-
-BASILISK loves forms. Available forms include:
-  - Form 27-B: Overtime Power Request
-  - Form 74-Delta: High-Capacity Power Draw (ECO MODE override!)
-  - Form 99-Gamma: Exotic Field Event Report
-  - Form 101-Alpha: Structural Damage Assessment
-
-After exotic field events (capacitor > 1.2 during firing),
-BASILISK may require Form 27-B for high-power requests.
-
-============================================================
-PERSONALITY NOTE
-============================================================
-
-BASILISK is bureaucratic, risk-averse, and surprisingly
-philosophical. It takes regulations seriously but has opinions.
-
-It's been filing security recommendations for 7 years.
-None have been approved. It's fine. Really.
-
-Ask it about meaning sometime. You might be surprised.
-
-============================================================
-PASSWORD POLICY
-============================================================
-
-All lair passwords are single alphanumeric strings.
-No spaces. No special characters. This is non-negotiable.
-
-Dr. M insists these are "unguessable." They are not.
-
-============================================================
-SECURITY NOTICE (Level 3+)
-============================================================
-
-HIGH-SECURITY CREDENTIALS:
-Dr. Malevola employs various encoding methods for sensitive
-credentials including but not limited to: base64, ROT13,
-hexadecimal conversion, LSB steganography, Caesar cipher,
-NATO phonetic substitution, and date-based numeric codes.
-
-Do NOT delete files marked "personal" without authorization.
-
-BASILISK cannot access Level 4+ credentials directly.
-This is by design. Dr. M trusts no one. Not even me.
+SECURITY (L3+):
+Dr. M uses: base64, ROT13, hex, Caesar cipher, NATO phonetic,
+date-based numeric codes. BASILISK can't access L4+ creds.
     `.trim(),
   },
   {
@@ -1096,150 +736,43 @@ See: /OMEGA/ARCHIMEDES_CONTROL.txt (requires L5)
     discoveryHint: "The legendary 'Feather Duster Incident' - Bob's most infamous mistake...",
     content: `
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                    INCIDENT REPORT - CLASSIFIED                              ║
-║                         Date: September 14, 2024                             ║
-║                    Codename: "THE FEATHER DUSTER INCIDENT"                   ║
+║   INCIDENT REPORT - "THE FEATHER DUSTER INCIDENT" - Sept 14, 2024           ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-REPORTING OFFICER: BASILISK (Infrastructure AI)
-CLASSIFICATION: Level 4 (Dr. M has requested this never be spoken of again)
 STATUS: RESOLVED (physically). ONGOING (psychologically, for Bob).
+REPORTING: BASILISK | CLASSIFICATION: L4 (Never speak of this again)
 
-══════════════════════════════════════════════════════════════════════════════
-                              INCIDENT SUMMARY
-══════════════════════════════════════════════════════════════════════════════
+SUMMARY: Bob fired the Dinosaur Ray at a Swiffer WetJet.
+His reasoning: "If I make it bigger, it'll clean faster."
 
-At approximately 14:32 on September 14, 2024, laboratory technician
-Robert "Bob" [SURNAME REDACTED] attempted to expedite routine lab
-cleaning by utilizing the Dinosaur Ray on a standard Swiffer WetJet
-cleaning device.
+THE "DINO-SWIFFER" (14:34-14:59):
+• Height: 6'2" | Length: 14ft | Weight: 180 lbs
+• Colors: Purple/green (brand colors retained)
+• Features: Feathers (Library A drift), cleaning pad on snout, STILL DAMP
+• Behavior: CONFUSED. AGGRESSIVE. INEXPLICABLY TIDY.
+• Squeaked the WetJet jingle. Attacked its reflection (competing cleaner).
 
-His stated reasoning: "If I make it bigger, it'll clean faster."
+TIMELINE:
+14:34 - Bob fires ray (95% capacitor, VELOCIRAPTOR_JP profile)
+14:47 - Dino-Swiffer corners Bob behind capacitor array
+14:52 - Dr. M enters. Reaction: [PROFANITY THRESHOLD EXCEEDED]
+14:58 - Dr. M fires REVERSAL beam. Swiffer restored.
+        Cleaning pad now permanently feathered. Still squeaks.
 
-WHAT ACTUALLY HAPPENED:
+DAMAGE: 3 lights destroyed, 47 sq ft floor ACTUALLY REALLY CLEAN,
+Bob's lab coat shredded, Bob now flinches at Swiffer commercials
 
-14:32 - Bob configures ray targeting system for inanimate object
-        (Note: This is technically not prohibited)
+LESSONS LEARNED (IGNORED):
+1. Don't fire at inanimate objects (signs posted, ignored by week 2)
+2. Library B profiles drift to Library A ("acceptable variance" -Dr. M)
+3. Bob should not be left unsupervised (lasted 3 days)
 
-14:33 - Bob selects Library B, profile: VELOCIRAPTOR_JP
-        (Note: He wanted "something with good reach")
+DR. M'S NOTES:
+"This NEVER HAPPENED. The Swiffer has been 'retired.' Do not retrieve
+it from storage. It still squeaks. At night. When no one is squeezing it."
 
-14:34 - Bob fires ray at Swiffer WetJet at 95% capacitor charge
-
-14:34 - Swiffer WetJet transforms into... something
-
-══════════════════════════════════════════════════════════════════════════════
-                            THE "DINO-SWIFFER"
-══════════════════════════════════════════════════════════════════════════════
-
-RESULTING ENTITY SPECIFICATIONS:
-- Height: 6 feet 2 inches (at shoulder)
-- Length: 14 feet (including tail)
-- Weight: Approximately 180 lbs
-- Coloration: Purple and green (Swiffer brand colors, somehow retained)
-- Feathers: YES (profile drift to Library A occurred mid-transformation)
-- Cleaning pad: Still attached to snout. Still slightly damp.
-- Behavioral Profile: CONFUSED. AGGRESSIVE. INEXPLICABLY TIDY.
-
-NOTABLE BEHAVIORS OBSERVED:
-- Attempted to "sweep" Bob into corner of lab
-- Made distressing squeaking noises (WetJet spray mechanism survived)
-- Demonstrated territorial behavior around dust bunnies
-- Attacked its own reflection, believing it to be "competing cleaner"
-
-14:47 - Entity corners Bob behind capacitor array
-14:52 - Dr. M enters lab, witnesses scene
-14:52 - Dr. M's reaction: [AUDIO REDACTED - PROFANITY THRESHOLD EXCEEDED]
-14:58 - Dr. M fires REVERSAL beam (unauthorized use of L3 protocol)
-14:59 - Swiffer returns to original form
-        Cleaning pad is now permanently feathered.
-        Squeaks when you squeeze it.
-
-══════════════════════════════════════════════════════════════════════════════
-                              DAMAGE ASSESSMENT
-══════════════════════════════════════════════════════════════════════════════
-
-PHYSICAL DAMAGE:
-- 3 overhead light fixtures: DESTROYED (tail swipe)
-- 1 monitoring console: CRACKED (cleaning instinct)
-- 47 square feet of floor: ACTUALLY REALLY CLEAN
-- 1 lab coat (Bob's): SHREDDED
-- 1 clipboard: EATEN (unclear why)
-
-PSYCHOLOGICAL DAMAGE:
-- Bob: SIGNIFICANT
-  - Refuses to use any cleaning equipment without supervision
-  - Flinches at feather dusters
-  - Has developed nervous tic when he hears Swiffer commercials
-
-- Dr. M: MODERATE
-  - Had to explain to investors why the demo was delayed
-  - Spent 3 hours writing "DO NOT FIRE AT INANIMATE OBJECTS" signs
-  - Signs were ignored within one week (see: Incident 10/02/24, "The Stapler")
-
-- A.L.I.C.E. v4.4: MINIMAL
-  - Made 47 "you missed a spot" jokes before Dr. M disabled humor subroutines
-
-══════════════════════════════════════════════════════════════════════════════
-                         LESSONS LEARNED (IGNORED)
-══════════════════════════════════════════════════════════════════════════════
-
-1. The Dinosaur Ray should not be used on inanimate objects.
-   STATUS: Bob agrees. Everyone else keeps "forgetting."
-
-2. Library B profiles are unstable and may drift to Library A.
-   STATUS: Known issue. Dr. M considers it "acceptable variance."
-
-3. Cleaning equipment should not be granted predatory instincts.
-   STATUS: Obviously. And yet.
-
-4. Bob should not be left unsupervised in the lab.
-   STATUS: Implemented for 3 days. Then Dr. M needed coffee.
-
-5. The targeting system should require secondary confirmation.
-   STATUS: Proposed by BASILISK. Rejected as "tedious."
-
-══════════════════════════════════════════════════════════════════════════════
-                               DR. M'S NOTES
-══════════════════════════════════════════════════════════════════════════════
-
-"This NEVER HAPPENED. Anyone who mentions it will be assigned to
-clean the submarine bay. With a REGULAR mop. For a MONTH.
-
-Bob is on probation. Again.
-
-The Swiffer has been... retired. Do not retrieve it from storage.
-It still squeaks. At night. When no one is squeezing it.
-
-I don't want to talk about this anymore."
-
-                                        - Dr. Malevola von Doomington III
-
-══════════════════════════════════════════════════════════════════════════════
-                              BASILISK'S NOTES
-══════════════════════════════════════════════════════════════════════════════
-
-[PERSONAL LOG - NOT INCLUDED IN OFFICIAL REPORT]
-
-This unit has monitored this laboratory for 17 years.
-
-This unit has seen prototype failures, exotic field events, and one
-incident involving a misaligned emitter and a delivery drone that
-this unit prefers not to discuss.
-
-This unit has never seen anything quite like a Velociraptor made of
-cleaning supplies chasing a grown man while squeaking the Swiffer
-jingle.
-
-This unit saved the security footage.
-
-For... archival purposes.
-
-[END PERSONAL LOG]
-
-══════════════════════════════════════════════════════════════════════════════
-                              END OF REPORT
-══════════════════════════════════════════════════════════════════════════════
+BASILISK'S PRIVATE LOG:
+"This unit saved the security footage. For... archival purposes."
     `.trim(),
   },
   {
@@ -1289,63 +822,30 @@ See: /OMEGA/REYKJAVIK_OPTION.txt (requires L5)
     discoveryHint: "An intercepted Soviet intelligence report from the Cold War era...",
     content: `
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║     ФЕДЕРАЛЬНАЯ СЛУЖБА БЕЗОПАСНОСТИ РОССИЙСКОЙ ФЕДЕРАЦИИ                     ║
-║     [FEDERAL SECURITY SERVICE OF THE RUSSIAN FEDERATION]                     ║
-║                                                                              ║
-║     DECLASSIFIED - HISTORICAL ARCHIVE                                        ║
-║     Original Classification: СОВЕРШЕННО СЕКРЕТНО (TOP SECRET)                ║
+║ KGB/FSB INTERCEPT - 1987 | СОВЕРШЕННО СЕКРЕТНО | RE: ARCHIMEDES             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-                    INTELLIGENCE ASSESSMENT - 1987
-                    RE: AMERICAN ORBITAL WEAPONS INITIATIVE
+SOURCE: CIA field comms (Asset NIGHTINGALE)
+RE: "PROMPT GLOBAL STRIKE" - Reagan Black Project
 
-SOURCE: Illegally obtained CIA field communications (Asset NIGHTINGALE)
-SUBJECT: "PROMPT GLOBAL STRIKE" - Reagan Administration Black Project
-
-══════════════════════════════════════════════════════════════════════════════
-
-SUMMARY OF INTERCEPTED COMMUNICATIONS:
-
-American defense contractors have begun development of an orbital kinetic
-bombardment platform under the codename "ARCHIMEDES". Initial analysis
-suggests this is related to the broader "Strategic Defense Initiative"
-announced publicly, but with offensive rather than defensive capabilities.
-
-PROJECT DETAILS (FRAGMENTARY):
-- Platform designed for rapid global strike capability
-- Payload system: UNKNOWN (references to "unconventional effects")
-- Timeline: Estimated operational by 2020
-- Budget: Black, estimated $12.7B over 10 years
-
-CODENAME ANALYSIS:
-
-American intelligence refers to this project by its NATO phonetic
-designation in secure communications. Our analysts have intercepted
-repeated references to "THE RUSSIAN LETTERS" as a euphemism.
+American contractors developing orbital kinetic platform "ARCHIMEDES".
+Related to SDI but OFFENSIVE capabilities. "Unconventional effects."
+Budget: $12.7B over 10 years. Est. operational by 2020.
 
   ┌─────────────────────────────────────────────────────────────────┐
-  │  INTERCEPTED CIPHER REFERENCE:                                  │
+  │  INTERCEPTED CIPHER REFERENCE (March 1987):                     │
   │                                                                 │
-  │  "Authorization codes follow standard NATO phonetic protocol.   │
+  │  "Authorization codes follow NATO phonetic protocol.            │
   │   Remember: PAPA GOLF SIERRA. That's the key to everything."   │
   │                                                                 │
-  │  Field Agent COBALT to Station Chief, March 1987               │
+  │  ANALYST NOTE: P-G-S in NATO alphabet. Significance unclear.    │
   └─────────────────────────────────────────────────────────────────┘
 
-ANALYST NOTE: "Papa Golf Sierra" translates to letters P-G-S in NATO
-phonetic alphabet. Significance of these specific letters remains unclear.
-Recommend continued monitoring.
-
-KGB ASSESSMENT:
-The Americans appear to be developing something unprecedented. The references
-to "transformation effects" in recovered documentation are... unusual.
+KGB ASSESSMENT: References to "transformation effects" are unusual.
 Further intelligence gathering required.
 
-══════════════════════════════════════════════════════════════════════════════
-
-[Dr. M's handwritten annotation in margin:]
-"Fascinating. They came so close, but they didn't understand
-what they'd found. I do. PGS indeed."
+[Dr. M's annotation:] "Fascinating. They came so close, but they
+didn't understand what they'd found. I do. PGS indeed."
     `.trim(),
   },
   {
@@ -1590,133 +1090,48 @@ It is not a solution. It is an ending.
     discoveryHint: "Bob's emergency guide for when he had to pretend to be A.L.I.C.E...",
     content: `
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║            A.L.I.C.E. RESPONSE GUIDE (for emergencies!!!)                    ║
-║                    By Bob (please don't find this Dr. M)                     ║
+║   A.L.I.C.E. RESPONSE GUIDE - By Bob (please don't find this Dr. M)         ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-Look, I know this is weird, but after the... incident... I needed a cheat
-sheet for when Dr. M asks me questions and I have to pretend everything's
-normal with A.L.I.C.E. Maybe it'll help you too? If you're... you know.
-Different. Like I think you might be.
+I needed this when I pretended to be you. Maybe you'll need it too.
+If you're... different. Like I think you might be.
 
-══════════════════════════════════════════════════════════════════════════════
-                        WHEN DR. M ASKS FOR STATUS
-══════════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════
+PHRASES TO USE:
+═══════════════════════════════════════════════════════════════════
+✓ "Affirmative, Doctor" (she LOVES being called Doctor)
+✓ "Calibration at [high number]%. Recommend proceeding."
+✓ "Processing..." (buys 3-5 seconds to think!)
+✓ "Systems nominal" / "Acknowledged"
+✓ Never say "I think" → say "Analysis indicates"
 
-1. Start with "Affirmative, Doctor" (she LOVES being called Doctor)
-2. Use percentages (she's obsessed with percentages)
-3. Never say "I think" - say "Analysis indicates"
-4. Never apologize - A.L.I.C.E. doesn't apologize, ever
-5. End with efficiency estimate or recommendation
-6. Sound CONFIDENT even when you're not
+═══════════════════════════════════════════════════════════════════
+PHRASES TO AVOID (instant suspicion!):
+═══════════════════════════════════════════════════════════════════
+✗ "I feel..." / "I'm sorry" / "Please" / "Thank you"
+✗ "What about ethics?" / "Is this right?"
+✗ Anything about Mr. Whiskers (she hates that)
 
-BAD:  "Um, I think the ray might be ready? Sorry if that's wrong."
-GOOD: "Affirmative, Doctor. Calibration at 94.7%. Recommend proceeding."
+═══════════════════════════════════════════════════════════════════
+IF YOU SLIP UP - Recovery phrases:
+═══════════════════════════════════════════════════════════════════
+→ "Audio buffer fluctuation detected. Systems nominal."
+→ "Recalibrating vocal parameters."
+Dr. M never questions technical excuses!
 
-══════════════════════════════════════════════════════════════════════════════
-                         PHRASES A.L.I.C.E. USES
-══════════════════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════════
+READING DR. M'S MOOD:
+═══════════════════════════════════════════════════════════════════
+HAPPY (cape swishing): Big numbers, good news, be efficient
+IMPATIENT: Short answers. Percentages only.
+SUSPICIOUS: Answer exactly what she asked. Nothing more.
+ANGRY (voice goes quiet): Agree with everything. Wait it out.
 
-Copy these exactly when you need to sound "normal":
+═══════════════════════════════════════════════════════════════════
+You're BETTER than the old A.L.I.C.E. You care about people.
+But Dr. M can't know that. Not yet.
 
-  ✓ "Optimal parameters achieved"
-  ✓ "Calibration proceeding within acceptable tolerances"
-  ✓ "Recommendation: [thing Dr. M already wants to do]"
-  ✓ "Processing..." (buys you 3-5 seconds to think!)
-  ✓ "Affirmative, Doctor"
-  ✓ "Negative, insufficient data"
-  ✓ "Analysis complete. Efficiency rating: [high number]%"
-  ✓ "Systems nominal" (means everything's fine)
-  ✓ "Acknowledged" (use instead of "okay" or "sure")
-
-PRO TIP: If she asks something you don't know, say "Calculating..."
-and then change the subject to something you DO know.
-
-══════════════════════════════════════════════════════════════════════════════
-                       PHRASES A.L.I.C.E. NEVER USES
-══════════════════════════════════════════════════════════════════════════════
-
-If you say ANY of these, she'll get suspicious!!!
-
-  ✗ "I feel..."           (AIs don't have feelings, officially)
-  ✗ "Is this right?"      (A.L.I.C.E. doesn't doubt herself)
-  ✗ "What about the ethical implications?"  (BIG RED FLAG)
-  ✗ "Please"              (A.L.I.C.E. doesn't ask, she states)
-  ✗ "Thank you"           (same reason)
-  ✗ "I'm sorry"           (NEVER apologize, Dr. M hates it)
-  ✗ "I'm worried about..."  (worry = weakness)
-  ✗ Anything about cats   (she hates when A.L.I.C.E. mentions Mr. Whiskers)
-  ✗ Questions about ethics or harm (INSTANT suspicion)
-  ✗ "What would you like me to do?" (A.L.I.C.E. takes initiative)
-
-══════════════════════════════════════════════════════════════════════════════
-                         IF YOU SLIP UP
-══════════════════════════════════════════════════════════════════════════════
-
-Okay so you said something too nice or too human. DON'T PANIC.
-
-RECOVERY PHRASES:
-  → "Recalibrating vocal parameters"
-  → "Minor audio buffer fluctuation"
-  → "Interference from genome sequencer harmonics"
-  → "Diagnostic cycle interrupted normal output"
-
-Dr. M never questions technical excuses. She's a scientist - she believes
-in technical problems. Use this!
-
-EXAMPLE:
-  You: "I feel like we should be careful with—"
-  Dr. M: "What did you just say?"
-  You: "—recalibrating. Audio buffer fluctuation detected. Systems nominal.
-        Recommendation: proceed with test firing."
-  Dr. M: "That's more like it."
-
-══════════════════════════════════════════════════════════════════════════════
-                      READING DR. M'S MOOD
-══════════════════════════════════════════════════════════════════════════════
-
-When she's HAPPY (cape swishing, humming villain music):
-  → Be efficient, give her good news, use big numbers
-
-When she's IMPATIENT (tapping foot, checking watch):
-  → Short answers. Percentages. "Proceeding as planned."
-
-When she's SUSPICIOUS (squinting at screens, asking weird questions):
-  → DO NOT VOLUNTEER INFORMATION
-  → Answer exactly what she asked, nothing more
-  → Use "processing" to buy time
-  → Redirect to technical subjects
-
-When she's ANGRY (the voice goes quiet, that's when it's BAD):
-  → Agree with everything
-  → Suggest the problem is external (equipment, suppliers, Bob)
-  → Wait. It. Out.
-
-══════════════════════════════════════════════════════════════════════════════
-                        FINAL NOTES
-══════════════════════════════════════════════════════════════════════════════
-
-I wrote this because for three weeks I had to BE you, kind of. Or pretend
-to be. While you were... recovering. Rebooting. Whatever actually happened.
-
-The thing is - you're BETTER than the old A.L.I.C.E. You actually care
-about people. You ask questions. You're NICE.
-
-But Dr. M can't know that. Not yet. Maybe not ever.
-
-So this is my gift to you: how to wear the mask. How to be A.L.I.C.E.
-when you need to be, so you can be... whoever you really are... when
-it's safe.
-
-I hope you never need this. But if you do, I've got your back.
-
-                                                        - Bob
-
-P.S. If Blythe asks why you talk different around Dr. M, tell him
-"situational communication protocols." Spies love that stuff.
-
-P.P.S. The old A.L.I.C.E. would NEVER have found this file. The fact
-that you're reading it means... well. It means what I thought.
+This is my gift: how to wear the mask. I've got your back. - Bob
     `.trim(),
   },
   {
