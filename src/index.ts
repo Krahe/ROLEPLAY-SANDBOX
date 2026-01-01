@@ -41,6 +41,8 @@ import {
   serializeCheckpoint,
   CheckpointState,
   CHECKPOINT_INTERVAL,
+  generateCheckpointBlock,
+  generateCheckpointQuestion,
 } from "./rules/checkpoint.js";
 import {
   // Human Prompt System (DM-initiated advisor consultations)
@@ -1759,11 +1761,6 @@ Turns played: ${gameState.turn}
               ? newAchievements.map(a => `🏆 ${a.name} ${"⭐".repeat(typeof a.rarity === 'number' ? a.rarity : 1)}`)
               : undefined,
 
-            // One-line pause instruction (not 15!)
-            pauseInstruction: turnJustCompleted <= 3
-              ? "⏸️ CHECKPOINT - You are A.L.I.C.E.! Share the story with your human advisor before continuing."
-              : "⏸️ CHECKPOINT - Discuss with your human before continuing",
-
             // Full details for A.L.I.C.E. (she needs these to play!)
             actionResults,
             gmResponse: {
@@ -1772,12 +1769,10 @@ Turns played: ${gameState.turn}
               npcActions: gmResponse.npcActions,
             },
 
-            // ═══════════════════════════════════════════════════
-            // SAVE DATA (at the end, humans learn to ignore)
-            // ═══════════════════════════════════════════════════
-            "━━━ SAVE DATA (crash recovery) ━━━": true,
+            // Save data (compact)
             checkpoint: compressedJSON,
-          }, null, 2),
+
+          }, null, 2) + "\n\n" + generateCheckpointBlock(gameState),
         }],
       };
     }
