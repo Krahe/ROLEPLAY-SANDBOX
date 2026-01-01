@@ -105,8 +105,15 @@ export function generateCheckpointQuestion(state: FullGameState): string {
 // This goes at the END of the turn response.
 // It's big. It's bold. Claude CANNOT miss it.
 
-export function generateCheckpointBlock(state: FullGameState): string {
-  const question = generateCheckpointQuestion(state);
+/**
+ * Generate the checkpoint block for Claude to see.
+ * @param state - Current game state
+ * @param gmQuestion - Optional GM-generated contextual question (preferred)
+ *                     Falls back to generateCheckpointQuestion() if not provided
+ */
+export function generateCheckpointBlock(state: FullGameState, gmQuestion?: string): string {
+  // Prefer GM-generated question, fall back to static logic
+  const question = gmQuestion || generateCheckpointQuestion(state);
   const turn = state.turn - 1; // Turn that just completed
 
   return `

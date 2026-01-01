@@ -805,6 +805,8 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       // ACT-BASED CONTEXT INJECTION
       actContext: currentActContext,
       actTransitionNotification,
+      // CHECKPOINT SYSTEM - tell GM to craft a question if this is a checkpoint turn
+      isCheckpointTurn: isCheckpointTurn(gameState.turn),
     };
     
     let gmResponse: GMResponse;
@@ -1508,7 +1510,7 @@ Turns played: ${gameState.turn}
 
             // NO checkpoint save data - game continues in same conversation!
 
-          }, null, 2) + "\n\n" + generateCheckpointBlock(gameState),
+          }, null, 2) + "\n\n" + generateCheckpointBlock(gameState, gmResponse.checkpointQuestion),
         }],
       };
     }
