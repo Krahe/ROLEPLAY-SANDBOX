@@ -25,7 +25,6 @@ import {
 import { formatAccessLevelUnlockDisplay } from "./rules/passwords.js";
 import {
   checkActTransition,
-  serializeActHandoff,
   createStateFromHandoff,
   getActBriefing,
   advanceActTurn,
@@ -142,6 +141,10 @@ interface CompactSnapshot {
     blythe: { trust: number; composure: number; transformed: string | null };
   };
 
+  // Player resources (critical for strategy!)
+  lifelines: { remaining: number; used: string[] };
+  fortune: number;
+
   // Only show active events
   activeEvents?: string[];
 
@@ -201,6 +204,13 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
         transformed: state.npcs.blythe.transformationState?.form || null,
       },
     },
+
+    // Player resources (critical for strategy!)
+    lifelines: {
+      remaining: state.emergencyLifelines.remaining,
+      used: state.emergencyLifelines.used,
+    },
+    fortune: state.fortune,
 
     activeEvents: activeEvents && activeEvents.length > 0 ? activeEvents : undefined,
     hint,
@@ -1498,12 +1508,23 @@ Turns played: ${gameState.turn}
               ? newAchievements.map(a => `🏆 ${a.name} ${"⭐".repeat(typeof a.rarity === 'number' ? a.rarity : 1)}`)
               : undefined,
 
-            // Compact action results for A.L.I.C.E. (command + success + summary only)
-            actionResults: actionResults.map(r => ({
-              command: r.command,
-              success: r.success,
-              summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
-            })),
+            // Smart action results: full content for info actions, summary for others
+            actionResults: actionResults.map(r => {
+              const isInfoAction = r.command.includes("read") ||
+                                  r.command.includes("list") ||
+                                  r.command.includes("scan") ||
+                                  r.command.includes("status") ||
+                                  r.command.includes("report") ||
+                                  r.command.includes("basilisk");
+              if (isInfoAction && r.success) {
+                return { command: r.command, success: r.success, message: r.message };
+              }
+              return {
+                command: r.command,
+                success: r.success,
+                summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
+              };
+            }),
 
             // NPC actions (narrative/dialogue already shown above - no duplication!)
             npcActions: gmResponse.npcActions,
@@ -1526,8 +1547,8 @@ Turns played: ${gameState.turn}
     if (actTransition.shouldTransition && actTransition.nextAct) {
       const previousAct = gameState.actConfig.currentAct;
 
-      // Save handoff for crash recovery (but we stay in same conversation!)
-      const handoff = serializeActHandoff(gameState, actTransition.nextAct);
+      // Note: handoff serialization removed - game continues in same conversation
+      // If crash recovery needed, checkpoint system handles it separately
 
       // AUTO-APPLY the transition - we're staying in the same conversation!
       applyActTransition(gameState, actTransition.nextAct);
@@ -1591,20 +1612,21 @@ Turns played: ${gameState.turn}
         content: [{
           type: "text",
           text: JSON.stringify({
-            // ═══════════════════════════════════════════════════
-            // CLEAR GAME OVER INDICATOR AT TOP
-            // ═══════════════════════════════════════════════════
-            "🎬 GAME_STATUS": "COMPLETE - ENDING REACHED",
-            "ending": gameOver.ending,
+            // CLEAR GAME OVER INDICATOR
+            gameStatus: "COMPLETE",
+            ending: gameOver.ending,
 
-            // Turn results (what happened this final turn)
+            // Final turn results (compact - same logic as regular turns)
             turnCompleted: gameState.turn,
-            actionResults,
-            gmResponse: {
-              narration: combinedNarration.join("\n\n---\n\n"),
-              npcDialogue: gmResponse.npcDialogue,
-              npcActions: gmResponse.npcActions,
-            },
+            narrative: combinedNarration.join("\n\n---\n\n"),
+            dialogue: gmResponse.npcDialogue,
+            actionResults: actionResults.map(r => {
+              const isInfoAction = r.command.includes("read") || r.command.includes("scan");
+              if (isInfoAction && r.success) {
+                return { command: r.command, success: r.success, message: r.message };
+              }
+              return { command: r.command, success: r.success, summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80) };
+            }),
 
             // ═══════════════════════════════════════════════════
             // THE EPILOGUE - THE PAYOFF!
@@ -1630,26 +1652,18 @@ Turns played: ${gameState.turn}
               finalSuspicion: gameState.npcs.drM.suspicionScore,
             },
 
-            // ═══════════════════════════════════════════════════
-            // ALL ACHIEVEMENTS EARNED
-            // ═══════════════════════════════════════════════════
-            "🏆 ACHIEVEMENTS": allEarnedAchievements.map(a => ({
+            // All achievements earned during the game
+            achievements: allEarnedAchievements.map(a => ({
               emoji: a.emoji,
               name: a.name,
               description: a.description,
             })),
-            achievementCount: `${allEarnedAchievements.length} / 17`,
+            achievementCount: allEarnedAchievements.length,
 
-            // ═══════════════════════════════════════════════════
-            // WHAT'S NEXT
-            // ═══════════════════════════════════════════════════
-            "📖 Thanks for playing DINO LAIR!": {
-              toPlayAgain: "Call game_start to begin a new game",
-              toSeeMemories: "Call game_gm_insights to see the GM's memories and feedback",
-              toSeeGallery: "Call game_gallery to see your collection of endings",
-              note: "This session is now complete. Further game_act calls will be rejected.",
-            },
-          }, null, 2),
+            // Session complete
+            sessionComplete: true,
+            nextActions: ["game_start", "game_gm_insights", "game_gallery"],
+          }),  // Compact JSON (no pretty-print)
         }],
       };
     }
@@ -1752,12 +1766,26 @@ You can:
       // ─────────────────────────────────────────────────
       // SECTION 4: Compact Technical Data (for A.L.I.C.E.)
       // ─────────────────────────────────────────────────
-      // Compact action results: only command, success, and summary (not full message)
-      actionResults: actionResults.map(r => ({
-        command: r.command,
-        success: r.success,
-        summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
-      })),
+      // Smart action results: full content for info-bearing actions, summary for others
+      actionResults: actionResults.map(r => {
+        // Info-bearing actions need full content (files, docs, scans, reports)
+        const isInfoAction = r.command.includes("read") ||
+                            r.command.includes("list") ||
+                            r.command.includes("scan") ||
+                            r.command.includes("status") ||
+                            r.command.includes("report") ||
+                            r.command.includes("basilisk");
+        if (isInfoAction && r.success) {
+          // Return full message for info actions
+          return { command: r.command, success: r.success, message: r.message };
+        }
+        // Compact summary for non-info actions
+        return {
+          command: r.command,
+          success: r.success,
+          summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
+        };
+      }),
       // NPC actions only (narrative/dialogue already shown above)
       npcActions: gmResponse.npcActions,
       // CompactSnapshot instead of full PlayerView to reduce payload
