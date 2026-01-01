@@ -1068,7 +1068,10 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     }
 
     const target = targetInput as string | undefined;
-    const firingStyle = action.params.firingStyle as string || action.params.style as string;
+    // Accept multiple parameter names for firing style (advancedMode is documented, firingStyle also works)
+    const firingStyle = action.params.advancedMode as string ||
+                       action.params.firingStyle as string ||
+                       action.params.style as string;
     const explicitTestMode = action.params.testMode as boolean | undefined;
 
     // ============================================
@@ -2427,9 +2430,9 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "lab.configure_firing_profile",
     aliases: ["configure", "firing", "profile", "set_target"],
-    description: "Configure target, genome library/profile, and firing mode (TRANSFORM/REVERSAL)",
-    schema: "{ target?: string, genomeLibrary?: 'A'|'B', genomeProfile?: string, mode?: 'TRANSFORM'|'REVERSAL', firingStyle?: string, testMode?: boolean }",
-    example: 'lab.configure_firing_profile { target: "AGENT_BLYTHE", genomeLibrary: "B", genomeProfile: "VELOCIRAPTOR_JP" }',
+    description: "Configure target, genome library/profile, and firing mode (TRANSFORM/REVERSAL). Use advancedMode for special firing styles.",
+    schema: "{ target?: string, genomeLibrary?: 'A'|'B', genomeProfile?: string, mode?: 'TRANSFORM'|'REVERSAL', advancedMode?: 'CHAIN_SHOT'|'SPREAD_FIRE'|'OVERCHARGE'|'RAPID_FIRE', testMode?: boolean }",
+    example: 'lab.configure_firing_profile { target: "AGENT_BLYTHE", genomeLibrary: "B", advancedMode: "CHAIN_SHOT" }',
     minAccessLevel: 1,
   },
   {
