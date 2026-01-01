@@ -2829,20 +2829,20 @@ export function buildModifierPromptSection(state: FullGameState): string {
   if (isModifierActive(state, "ADVANCED_ONLY")) {
     lines.push("");
     lines.push("**🎲 ADVANCED_ONLY - CHAOS PRECISION:**");
-    lines.push("A.L.I.C.E. has +25% precision bonus, but CANNOT use standard firing!");
+    lines.push("A.L.I.C.E. has +25% precision bonus, but CANNOT use STANDARD firing!");
     lines.push("");
-    lines.push("AVAILABLE FIRING STYLES:");
-    lines.push("- **conservative**: Lower power, safer, +10% extra precision");
-    lines.push("- **aggressive**: Higher power, riskier, chaotic results");
-    lines.push("- **precision**: Surgical accuracy, requires good calibration");
-    lines.push("- **burst**: Multiple micro-pulses, unpredictable effects");
+    lines.push("AVAILABLE ADVANCED MODES:");
+    lines.push("- **CHAIN_SHOT**: Hit 2 targets sequentially (capacitor ≥ 95%)");
+    lines.push("- **SPREAD_FIRE**: Area effect, 3 targets, chimera risk!");
+    lines.push("- **OVERCHARGE**: Massive power, exotic field risk!");
+    lines.push("- **RAPID_FIRE**: Fast recharge, -20% precision");
     lines.push("");
-    lines.push("BLOCKED: Standard firing (lab.fire with default style)");
+    lines.push("BLOCKED: STANDARD mode (basic single-target firing)");
     lines.push("");
     lines.push("NARRATIVE HOOKS:");
-    lines.push("- The ray was 'upgraded' by Dr. M but she broke the basic mode");
-    lines.push("- BASILISK may comment on the 'enthusiastic modifications'");
-    lines.push("- Bob is nervous about the advanced modes (rightfully so)");
+    lines.push("- The ray's basic mode was 'optimized out' by Dr. M");
+    lines.push("- BASILISK disapproves of the 'reckless modifications'");
+    lines.push("- Bob is VERY nervous about mandatory advanced modes");
   }
 
   if (isModifierActive(state, "SITCOM_MODE")) {

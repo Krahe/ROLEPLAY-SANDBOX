@@ -1445,25 +1445,25 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeN
   // ============================================
 
   if (cmd === "lab.fire" || cmd.includes("fire")) {
-    // ADVANCED_ONLY modifier: Block standard firing!
-    if (state.flags.advancedFiringOnly && state.dinoRay.targeting.firingStyle === "standard") {
+    // ADVANCED_ONLY modifier: Block STANDARD firing mode!
+    if (state.flags.advancedFiringOnly && state.dinoRay.genome.advancedFiringMode === "STANDARD") {
       return {
         command: cmd,
         success: false,
         message: `🎲 ADVANCED_ONLY MODE ACTIVE!
 
-❌ Standard firing is BLOCKED in this chaos modifier!
+❌ STANDARD firing is BLOCKED in this chaos modifier!
 
-You must use an ADVANCED firing style:
-• "conservative" - Lower power, safer, +10% precision
-• "aggressive" - Higher power, riskier, chaotic results
-• "precision" - Surgical accuracy, requires calibration
-• "burst" - Multiple micro-pulses, unpredictable
+You must use an ADVANCED firing mode:
+• CHAIN_SHOT - Hit 2 targets sequentially (capacitor ≥ 95%)
+• SPREAD_FIRE - Area effect, 3 targets (capacitor 100% + L3, chimera risk!)
+• OVERCHARGE - Massive power boost (capacitor > 110%, exotic field risk!)
+• RAPID_FIRE - 15-sec recharge but -20% precision
 
-Use: lab.configure_firing_profile { firingStyle: "precision" }
+Use: lab.configure_firing_profile { advancedMode: "CHAIN_SHOT" }
 
 The good news? You have +25% base precision bonus! 🎯`,
-        shortMessage: `BLOCKED: Use advanced firing style!`,
+        shortMessage: `BLOCKED: Use advanced firing mode!`,
         stateChanges: {},
       };
     }
