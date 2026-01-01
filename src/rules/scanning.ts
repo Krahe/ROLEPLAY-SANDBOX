@@ -497,6 +497,8 @@ TACTICAL NOTES:
   }
 
   // Human scan (with optional imposter hints if active but not revealed)
+  const partialHits = getPartialHitCount(state, "DR_MALEVOLA");
+  const partialWarning = generatePartialHitWarning(partialHits);
   const imposterHints = isImposterActive ? `
 
 ⚠️ ANOMALIES DETECTED (UNEXPLAINED):
@@ -511,12 +513,12 @@ TACTICAL NOTES:
 ║           🔍 OMNISCANNER™ ANALYSIS: DR_MALEVOLA               ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'7" | Weight: 134 lbs | Heart rate: 78 BPM (excited)
-├── Cortisol: Elevated (creative mania, not stress)
-├── Microexpressions: Impatience, brilliance, wounded pride (chronic)
-└── Physical condition: Caffeine-dependent, hasn't slept in 31 hours
+├── Height: 5'7" | Weight: 134 lbs | Heart rate: ${partialHits > 0 ? "95 BPM (ALARMED - something is WRONG)" : "78 BPM (excited)"}
+├── Cortisol: ${partialHits > 0 ? "SPIKING (the scientist is now the experiment)" : "Elevated (creative mania, not stress)"}
+├── Microexpressions: ${partialHits > 0 ? "Fury, denial, calculating how to reverse this IMMEDIATELY" : "Impatience, brilliance, wounded pride (chronic)"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - visible tremors, she's FURIOUS and SCARED" : "Caffeine-dependent, hasn't slept in 31 hours"}
 
 EQUIPMENT DETECTED:
 ├── 📍 Goggles (HEAD) - HUD display, threat assessment, fashion
@@ -619,17 +621,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "GUARD_FRED");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: FRED                      ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'2" | Weight: 224 lbs | Heart rate: 71 BPM
-├── Cortisol: Normal (this is just Tuesday for Fred)
-├── Microexpressions: Bored, professional, mildly hungry
-└── Physical condition: Excellent. Gym 5x/week. Leg day enthusiast.
+├── Height: 6'2" | Weight: 224 lbs | Heart rate: ${partialHits > 0 ? "98 BPM (elevated - cellular instability)" : "71 BPM"}
+├── Cortisol: ${partialHits > 0 ? "Rising (something is WRONG and Fred knows it)" : "Normal (this is just Tuesday for Fred)"}
+├── Microexpressions: ${partialHits > 0 ? "Concern, confusion, professional denial" : "Bored, professional, mildly hungry"}
+└── Physical condition: ${partialHits > 0 ? "Degrading - visible tremors, skin discoloration starting" : "Excellent. Gym 5x/week. Leg day enthusiast."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Stun baton (BELT) - Military grade, fully charged
@@ -695,17 +699,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "GUARD_REGINALD");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: REGINALD                  ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'11" | Weight: 189 lbs | Heart rate: 88 BPM (anxious)
-├── Cortisol: Elevated (always slightly worried)
-├── Microexpressions: Uncertainty, hope, existential doubt
-└── Physical condition: Good. Stress-eats but also stress-exercises.
+├── Height: 5'11" | Weight: 189 lbs | Heart rate: ${partialHits > 0 ? "112 BPM (philosophical panic)" : "88 BPM (anxious)"}
+├── Cortisol: ${partialHits > 0 ? "Spiking (this was NOT in the Stoic playbook)" : "Elevated (always slightly worried)"}
+├── Microexpressions: ${partialHits > 0 ? "Existential terror, ironic acceptance, 'is this karma?'" : "Uncertainty, hope, existential doubt"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - tremors, odd sensations, skin changing texture" : "Good. Stress-eats but also stress-exercises."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Stun baton (BELT) - Standard issue, fully charged
@@ -784,17 +790,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "LENNY");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║     🔍 OMNISCANNER™ ANALYSIS: LEONARD "LENNY" FIGGINS         ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 5'8" | Weight: 175 lbs | Heart rate: 94 BPM (EXCITED)
-├── Cortisol: Elevated (ENTHUSIASM, not stress)
-├── Microexpressions: Eager, hopeful, practically VIBRATING
-└── Physical condition: Average. Doesn't matter. WANTS WINGS.
+├── Height: 5'8" | Weight: 175 lbs | Heart rate: ${partialHits > 0 ? "118 BPM (EVEN MORE EXCITED - IT'S HAPPENING!)" : "94 BPM (EXCITED)"}
+├── Cortisol: ${partialHits > 0 ? "Elevated (JOY, not stress - he's thrilled!)" : "Elevated (ENTHUSIASM, not stress)"}
+├── Microexpressions: ${partialHits > 0 ? "Ecstatic, checking his hands for scales, BEAMING" : "Eager, hopeful, practically VIBRATING"}
+└── Physical condition: ${partialHits > 0 ? "Changing - HE LOVES IT. Keeps looking at skin texture changes." : "Average. Doesn't matter. WANTS WINGS."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Lime green polo shirt - Signature look, hence nickname
@@ -892,17 +900,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "BRUCE_PATAGONIA");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║     🔍 OMNISCANNER™ ANALYSIS: BRUCE "CROC" PATAGONIA          ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'4" | Weight: 245 lbs | Heart rate: 58 BPM (zen)
-├── Cortisol: LOW (nothing fazes Bruce)
-├── Microexpressions: Curious, amused, perpetual squint
-└── Physical condition: PEAK. Wrestles crocodiles recreationally.
+├── Height: 6'4" | Weight: 245 lbs | Heart rate: ${partialHits > 0 ? "62 BPM (slightly elevated for Bruce - he's CURIOUS)" : "58 BPM (zen)"}
+├── Cortisol: ${partialHits > 0 ? "Still LOW (Bruce finds this fascinating, not alarming)" : "LOW (nothing fazes Bruce)"}
+├── Microexpressions: ${partialHits > 0 ? "'Crikey, this is interesting!' - genuinely intrigued" : "Curious, amused, perpetual squint"}
+└── Physical condition: ${partialHits > 0 ? "Changing - Bruce is checking out his new textures with scientific interest" : "PEAK. Wrestles crocodiles recreationally."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Stun rifle (BACK) - Custom long-barrel model
@@ -1026,17 +1036,19 @@ TACTICAL NOTES:
   }
 
   // Human scan
+  const partialHits = getPartialHitCount(state, "INSPECTOR_GRAVES");
+  const partialWarning = generatePartialHitWarning(partialHits);
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║   🔍 OMNISCANNER™ ANALYSIS: INSPECTOR MORTIMER GRAVES         ║
 ║           ⚠️ Known to cause cancer in California              ║
 ╠═══════════════════════════════════════════════════════════════╣
-
+${partialWarning}
 BIOMETRICS:
-├── Height: 6'2" | Weight: 165 lbs | Heart rate: 64 BPM (controlled)
-├── Cortisol: STABLE (has seen it all before)
-├── Microexpressions: Professional neutrality, occasional eyebrow
-└── Physical condition: Thin but wiry. Faster than he looks.
+├── Height: 6'2" | Weight: 165 lbs | Heart rate: ${partialHits > 0 ? "72 BPM (slightly elevated - he's DOCUMENTING this)" : "64 BPM (controlled)"}
+├── Cortisol: ${partialHits > 0 ? "Rising (this is unprecedented - even for HIM)" : "STABLE (has seen it all before)"}
+├── Microexpressions: ${partialHits > 0 ? "Controlled concern, already mentally drafting Form 91-PARTIAL" : "Professional neutrality, occasional eyebrow"}
+└── Physical condition: ${partialHits > 0 ? "Deteriorating - he's taking notes on HIS OWN symptoms" : "Thin but wiry. Faster than he looks."}
 
 EQUIPMENT DETECTED:
 ├── 📍 Clipboard (HAND) - Never leaves it. EVER.
