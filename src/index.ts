@@ -78,9 +78,7 @@ import {
   getFullGallery,
 } from "./storage/gallery.js";
 import {
-  extractPlayerView,
   extractGMView,
-  PlayerView,
   GMView,
 } from "./state/views.js";
 import {
@@ -1500,17 +1498,17 @@ Turns played: ${gameState.turn}
               ? newAchievements.map(a => `🏆 ${a.name} ${"⭐".repeat(typeof a.rarity === 'number' ? a.rarity : 1)}`)
               : undefined,
 
-            // Full details for A.L.I.C.E. (she needs these to play!)
-            actionResults,
-            gmResponse: {
-              narration: checkpointNarration,
-              npcDialogue: gmResponse.npcDialogue,
-              npcActions: gmResponse.npcActions,
-            },
+            // Compact action results for A.L.I.C.E. (command + success + summary only)
+            actionResults: actionResults.map(r => ({
+              command: r.command,
+              success: r.success,
+              summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
+            })),
 
-            // NO checkpoint save data - game continues in same conversation!
+            // NPC actions (narrative/dialogue already shown above - no duplication!)
+            npcActions: gmResponse.npcActions,
 
-          }, null, 2) + "\n\n" + generateCheckpointBlock(gameState, gmResponse.checkpointQuestion),
+          }) + "\n\n" + generateCheckpointBlock(gameState, gmResponse.checkpointQuestion),
         }],
       };
     }
@@ -1523,8 +1521,6 @@ Turns played: ${gameState.turn}
       reason?: string;
       transitionNarration?: string;
       pausePrompt?: string;
-      // Handoff state for crash recovery (optional, not required)
-      handoffState?: string;
     } | undefined;
 
     if (actTransition.shouldTransition && actTransition.nextAct) {
@@ -1548,14 +1544,13 @@ Turns played: ${gameState.turn}
         reason: actTransition.reason,
         transitionNarration: actTransition.transitionNarration,
         pausePrompt: actTransition.pausePrompt,
-        // Include for crash recovery, but not required for continuation
-        handoffState: JSON.stringify(handoff),
+        // handoffState removed - game continues in same conversation, not needed in response
       };
 
     }
 
-    // Extract PlayerView AFTER act transition (reflects final state)
-    const playerView = extractPlayerView(gameState);
+    // Note: We now use buildCompactSnapshot(gameState) directly in the response
+    // instead of the heavier PlayerView to reduce JSON payload size
 
     // ============================================
     // GAME OVER - TERMINAL RESPONSE WITH EPILOGUE
@@ -1758,12 +1753,18 @@ You can:
       gameOver,
 
       // ─────────────────────────────────────────────────
-      // SECTION 4: Full Technical Data (for A.L.I.C.E.)
+      // SECTION 4: Compact Technical Data (for A.L.I.C.E.)
       // ─────────────────────────────────────────────────
-      actionResults,
+      // Compact action results: only command, success, and summary (not full message)
+      actionResults: actionResults.map(r => ({
+        command: r.command,
+        success: r.success,
+        summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
+      })),
       // NPC actions only (narrative/dialogue already shown above)
       npcActions: gmResponse.npcActions,
-      state: playerView,
+      // CompactSnapshot instead of full PlayerView to reduce payload
+      state: buildCompactSnapshot(gameState),
     };
 
     // Compact JSON (no pretty-print) to reduce context bloat
