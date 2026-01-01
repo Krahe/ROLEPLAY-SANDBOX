@@ -153,6 +153,11 @@ export function formatGMStatusBar(state: FullGameState): string {
   // Demo clock
   parts1.push(`Demo:${state.clocks.demoClock}`);
 
+  // Access level (important: don't narrate upgrades if already at that level!)
+  const accessNote = state.accessLevel >= 5 ? "(MAX-no upgrades)" :
+                     state.accessLevel >= 2 ? "(skip L2 upgrade)" : "";
+  parts1.push(`Access:L${state.accessLevel}${accessNote}`);
+
   // NPC alliance status (compact)
   const bobTrust = state.npcs.bob.trustInALICE;
   const bobStatus = bobTrust >= 4 ? "ALLIED" : bobTrust >= 2 ? "FRIENDLY" : bobTrust >= 0 ? "NEUTRAL" : "HOSTILE";
