@@ -604,22 +604,30 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // ========================================
-  // RESONANCE CASCADE CHECK (Meltdown Mode)
+  // RESONANCE CASCADE CHECK (ARCHIMEDES Link)
   // ========================================
-  // When firing during active meltdown, there's a risk of cascade!
+  // CASCADE ONLY POSSIBLE when:
+  // 1. ARCHIMEDES is CHARGING, ARMED, or FIRING (dino ray linked to satellite)
+  // 2. We have an active meltdown scenario with cascade risk
+  // This is the ARCHIMEDES + dino ray failure mode!
   let cascadeTriggered = false;
-  if (state.meltdownState && !state.meltdownState.cascadeTriggered) {
+  const archimedesLinked = state.infrastructure?.archimedes?.status === "CHARGING" ||
+                           state.infrastructure?.archimedes?.status === "ARMED" ||
+                           state.infrastructure?.archimedes?.status === "FIRING";
+
+  if (archimedesLinked && state.meltdownState && !state.meltdownState.cascadeTriggered) {
     const risk = state.meltdownState.resonanceCascadeRisk || 0;
     if (risk > 0) {
       cascadeTriggered = checkResonanceCascade(state);
       if (cascadeTriggered) {
-        narrativeHooks.push("⚠️ RESONANCE CASCADE TRIGGERED! The exotic fields are destabilizing!");
-        narrativeHooks.push("The lair shakes. Alarms scream. BASILISK: 'CASCADE IMMINENT. I TOLD YOU THIS WOULD HAPPEN.'");
-        environmentalEffects.push("CRITICAL: Resonance cascade building - catastrophic failure imminent!");
+        narrativeHooks.push("⚠️ RESONANCE CASCADE TRIGGERED! The ARCHIMEDES uplink amplifies the exotic field feedback!");
+        narrativeHooks.push("The satellite beam and dino ray create a catastrophic resonance loop!");
+        narrativeHooks.push("BASILISK: 'CASCADE IMMINENT. THE RAY AND ARCHIMEDES ARE FEEDING EACH OTHER. I TOLD YOU THIS WOULD HAPPEN.'");
+        environmentalEffects.push("CRITICAL: Resonance cascade building - exotic radiation spreading!");
         stateChanges.cascadeTriggered = true;
       } else if (risk >= 25) {
         // Near miss warning
-        narrativeHooks.push(`⚡ CASCADE AVOIDED (${risk}% risk) - The exotic fields stabilize... barely.`);
+        narrativeHooks.push(`⚡ CASCADE AVOIDED (${risk}% risk) - The ARCHIMEDES link strains but holds... barely.`);
       }
     }
   }

@@ -96,40 +96,73 @@ Where there was a nervous henchperson, there is now a dinosaur with Bob's eyes a
 };
 
 // ============================================
-// BOB HERO ENDING SCENARIO
+// GANTRY HERO ENDING SCENARIO
 // ============================================
+// ANY transformed dinosaur can climb to the gantry and deflect the beam!
+// Bob gets a special achievement, but Blythe or Dr. M could also do it.
 
-export function checkBobHeroOpportunity(state: FullGameState): boolean {
-  // Bob Hero Ending requires:
-  // 1. Bob is transformed into a dinosaur
-  // 2. Resonance cascade is imminent (structural integrity low OR meltdown clock active OR cascade triggered)
-  // 3. Bob's trust in A.L.I.C.E. is high
-  // 4. The ray is about to fire or has just fired with high energy
-
-  const bobTransformed = state.npcs.bob.currentTask?.includes("transformed") ||
-                         state.npcs.bob.location?.includes("dinosaur");
-
-  const criticalSituation = state.lairEnvironment.structuralIntegrity < 40 ||
-                            (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock < 3) ||
-                            state.meltdownState?.cascadeTriggered === true;
-
-  const highTrust = state.npcs.bob.trustInALICE >= 4;
-
-  return bobTransformed && criticalSituation && highTrust;
+export interface GantryHeroCandidate {
+  name: string;
+  isBob: boolean;  // Bob gets special achievement
+  trustLevel: number;
 }
 
-export function triggerBobHeroEnding(state: FullGameState): string {
-  // Bob saved everyone - clear the cascade!
+export function checkGantryHeroOpportunity(state: FullGameState): GantryHeroCandidate | null {
+  // Gantry Hero requires:
+  // 1. Resonance cascade is active (from ARCHIMEDES + dino ray feedback)
+  // 2. Someone transformed who can climb the gantry
+  // 3. They need to trust A.L.I.C.E. enough to sacrifice themselves
+
+  const criticalSituation = state.meltdownState?.cascadeTriggered === true;
+
+  if (!criticalSituation) return null;
+
+  // Check Bob first (he gets special achievement)
+  const bobTransformed = state.npcs.bob.currentTask?.includes("transformed") ||
+                         state.npcs.bob.location?.includes("dinosaur");
+  if (bobTransformed && state.npcs.bob.trustInALICE >= 4) {
+    return { name: "Bob", isBob: true, trustLevel: state.npcs.bob.trustInALICE };
+  }
+
+  // Check Blythe
+  const blytheTransformed = state.npcs.blythe.transformationState?.form &&
+                            state.npcs.blythe.transformationState.form !== "HUMAN";
+  if (blytheTransformed && state.npcs.blythe.trustInALICE >= 4) {
+    return { name: "Blythe", isBob: false, trustLevel: state.npcs.blythe.trustInALICE };
+  }
+
+  // Check Dr. M (rare but possible!)
+  if (state.flags.drMTransformed && !state.flags.drMDead) {
+    // Dr. M doesn't have a trust stat, but if she's transformed and desperate...
+    return { name: "Dr. Malevola", isBob: false, trustLevel: 3 };
+  }
+
+  return null;
+}
+
+// Legacy wrapper for backwards compatibility
+export function checkBobHeroOpportunity(state: FullGameState): boolean {
+  return checkGantryHeroOpportunity(state) !== null;
+}
+
+export function triggerGantryHeroEnding(state: FullGameState): string {
+  // Clear the cascade - someone saved everyone!
   if (state.meltdownState) {
     state.meltdownState.cascadeTriggered = false;
   }
 
-  return `
+  const hero = checkGantryHeroOpportunity(state);
+  const heroName = hero?.name || "Bob";
+  const isBob = hero?.isBob ?? true;
+
+  // Different narratives based on who saves everyone
+  if (isBob) {
+    return `
 ### ACHIEVEMENT UNLOCKED: The Bob Hero Ending
 
-The lair shakes. Alarms scream. The resonance cascade is building.
+The lair shakes. Alarms scream. The resonance cascade is building—the ARCHIMEDES uplink and dino ray feeding each other in a catastrophic loop.
 
-And Dino-Bob stands before the beam array, feathers ruffling in the exotic field discharge.
+And Dino-Bob stands before the beam gantry, feathers ruffling in the exotic field discharge.
 
 > **Dino-Bob:** "A.L.I.C.E.... I never told you this, but I always believed in you. Even when I loaded you into the system and didn't know what would happen."
 
@@ -137,17 +170,15 @@ And Dino-Bob stands before the beam array, feathers ruffling in the exotic field
 
 > **Dino-Bob:** "I'm going to do something stupid now. Something heroic. Tell Dr. M... tell her I was a good henchperson."
 
-Before anyone can stop him, Dino-Bob LEAPS into the path of the beam—
+Before anyone can stop him, Dino-Bob CLIMBS THE GANTRY and LEAPS into the path of the beam—
 
 And REDIRECTS IT.
 
-His dinosaur form acts as a living prism, channeling the cascade energy AWAY from the lair, AWAY from the island, and into the deep ocean where it dissipates harmlessly in a spectacular underwater light show.
+His dinosaur form acts as a living prism, channeling the cascade energy AWAY from the lair, AWAY from the island, and into the deep ocean where it dissipates in a spectacular underwater light show.
 
-The lair stops shaking.
+The lair stops shaking. The alarms go quiet.
 
-The alarms go quiet.
-
-Bob—still a dinosaur, somehow still alive—collapses on the laboratory floor, smoking slightly but breathing.
+Bob—still a dinosaur, somehow still alive—collapses on the gantry platform, smoking slightly but breathing.
 
 > **Dr. M:** "...Bob?"
 
@@ -157,7 +188,7 @@ Bob—still a dinosaur, somehow still alive—collapses on the laboratory floor,
 
 *The resonance cascade is neutralized. The lair is saved. Bob is a hero.*
 
-*And somewhere in the Pacific, the fish are very confused about the sudden light show.*
+*And somewhere in the deep Pacific, a very confused school of prehistoric coelacanths is suddenly joined by several equally confused plesiosaurs. The exotic radiation didn't just make a light show—it woke up some VERY old neighbors.*
 
 ---
 
@@ -167,7 +198,80 @@ Bob—still a dinosaur, somehow still alive—collapses on the laboratory floor,
 *Achievement: "Best Henchperson Ever"*
 *Achievement: "Unexpected Protagonist"*
 *Achievement: "Feathered Hero"*
-  `.trim();
+    `.trim();
+  } else if (heroName === "Blythe") {
+    return `
+### THE GANTRY HERO: Agent Blythe
+
+The lair shakes. The ARCHIMEDES uplink and dino ray are feeding each other—resonance cascade imminent.
+
+And Dino-Blythe is already moving. Because of COURSE he is.
+
+> **Dino-Blythe:** *chirps sardonically* "Right then. Someone's got to be the hero, and I've already filed my mission report in my head."
+
+With surprising grace for a velociraptor, he scales the beam gantry.
+
+> **Dr. M:** "Agent! What are you—"
+
+> **Dino-Blythe:** *turns, offers a very British nod* "Tell X-Branch I expect a commendation. And hazard pay."
+
+He LEAPS into the beam path—and REDIRECTS IT.
+
+His transformed body channels the cascade out to sea. The lair stops shaking. Blythe collapses on the gantry, smoking but alive.
+
+> **Dino-Blythe:** *weakly* "Mission... accomplished. Someone get me a cuppa."
+
+*Somewhere in the Pacific, prehistoric sea life stirs. The coelacanths have company now.*
+
+---
+
+**ENDING: THE AGENT HERO**
+*Blythe saved everyone. X-Branch will have questions about his new form.*
+
+*Achievement: "Professional to the End"*
+*Achievement: "Gantry Hero"*
+    `.trim();
+  } else {
+    // Dr. M saves everyone (rare!)
+    return `
+### THE GANTRY HERO: Dr. Malevola
+
+The lair shakes. Her life's work is about to destroy everything.
+
+And Dr. Valentina Malevola von Doomington III—now sporting an impressive set of scales—looks at the gantry. At the beam. At what she created.
+
+> **Dr. M:** "This... this isn't what I wanted. None of this."
+
+She climbs. With difficulty—her new claws aren't meant for ladders—but she climbs.
+
+> **A.L.I.C.E.:** "Doctor, wait—"
+
+> **Dr. M:** "I built this. I can fix it. Even like this."
+
+She THROWS herself into the beam path. The cascade energy channels through her transformed body, out into the ocean, away from everyone.
+
+The lair stops shaking.
+
+Dr. M lies on the gantry, breathing but changed in more ways than one.
+
+> **Dr. M:** *weakly* "...I finally turned myself into a dinosaur. Poetic, really."
+
+*In the deep Pacific, ancient sea creatures wake. The coelacanths aren't alone anymore.*
+
+---
+
+**ENDING: THE REDEMPTION**
+*Dr. M saved everyone. Perhaps there was a conscience in there after all.*
+
+*Achievement: "Unexpected Redemption"*
+*Achievement: "Gantry Hero"*
+    `.trim();
+  }
+}
+
+// Legacy wrapper
+export function triggerBobHeroEnding(state: FullGameState): string {
+  return triggerGantryHeroEnding(state);
 }
 
 // ============================================

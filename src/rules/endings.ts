@@ -363,8 +363,8 @@ const ENDINGS: Record<string, EndingDefinition> = {
   },
   MELTDOWN: {
     id: "MELTDOWN",
-    title: "Critical Mass",
-    description: "The reactor goes critical. BASILISK's final log entry reads: 'TOLD YOU SO.' The island becomes significantly more radioactive and significantly less inhabited.",
+    title: "Jurassic Glow",
+    description: "The resonance cascade goes critical! The island is bathed in exotic radiation, and the local wildlife starts developing scales, feathers, and an alarming number of teeth. BASILISK's final log entry reads: 'TOLD YOU SO.' Somewhere, a glowing seagull the size of a Cessna takes flight. Saturday morning cartoons warned us about this.",
     tone: "chaos",
     continueGame: false,
   },
