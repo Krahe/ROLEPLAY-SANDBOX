@@ -1378,6 +1378,11 @@ export const FullGameStateSchema = z.object({
     blytheGadgets: BlytheGadgetsSchema, // Hidden from A.L.I.C.E.
   }),
 
+  // SECONDARY NPC TRANSFORMATIONS (Patch 18)
+  // Tracks transformation state for non-core NPCs (guards, Dr. M, Lenny, Bruce, etc.)
+  // Key is the target ID (e.g., "DR_M", "GUARD_FRED", "LENNY", "BRUCE_PATAGONIA")
+  secondaryNpcTransformations: z.record(z.string(), TransformationStateSchema).optional(),
+
   clocks: ClocksSchema,
   flags: FlagsSchema,
 

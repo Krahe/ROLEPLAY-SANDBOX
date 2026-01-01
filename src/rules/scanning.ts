@@ -1,10 +1,58 @@
-import { FullGameState } from "../state/schema.js";
+import { FullGameState, TransformationState } from "../state/schema.js";
 
 // ============================================
 // OMNISCANNER™ SYSTEM (Patch 16)
 // ============================================
 // "The Omniscanner reveals all. Whether you wanted to know or not."
 // — Dr. Malevola, patent application (denied)
+
+// ============================================
+// TRANSFORMATION STATE HELPER (Patch 18)
+// ============================================
+// Gets transformation state for any NPC, checking both core NPCs and secondary tracking
+
+function getTransformationState(state: FullGameState, targetId: string): TransformationState | null {
+  // Core NPCs have their own transformationState
+  if (targetId === "BOB" && state.npcs.bob.transformationState?.form !== "HUMAN") {
+    return state.npcs.bob.transformationState;
+  }
+  if ((targetId === "AGENT_BLYTHE" || targetId === "BLYTHE") &&
+      state.npcs.blythe.transformationState?.form !== "HUMAN") {
+    return state.npcs.blythe.transformationState;
+  }
+
+  // Secondary NPCs use the new tracking record
+  const secondary = state.secondaryNpcTransformations?.[targetId];
+  if (secondary && secondary.form !== "HUMAN") {
+    return secondary;
+  }
+
+  return null;
+}
+
+// Generate common transformation header for any NPC
+function generateTransformationHeader(name: string, transformation: TransformationState): string {
+  const form = transformation.form.replace(/_/g, " ");
+  const speech = transformation.speechRetention;
+  const hits = transformation.currentHits;
+  const maxHits = transformation.maxHits;
+  const stunned = transformation.stunned;
+  const adaptation = transformation.adaptationStage;
+
+  return `
+🧬 TRANSFORMATION STATUS:
+├── Current Form: ${form}
+├── Speech Retention: ${speech}
+├── Adaptation: ${adaptation}
+├── Condition: ${stunned ? "⚠️ STUNNED" : `${maxHits - hits}/${maxHits} hits remaining`}
+└── Transformed on Turn: ${transformation.transformedOnTurn || "unknown"}
+
+BIOMETRICS (POST-TRANSFORMATION):
+├── Mass: Varies with form | Heart rate: ${stunned ? "erratic" : "elevated but stable"}
+├── Cortisol: ${adaptation === "DISORIENTED" ? "CRITICAL - body shock" : adaptation === "ADAPTING" ? "High - adjusting" : "Normalized"}
+├── Microexpressions: ${adaptation === "ADAPTED" ? "Adjusted to new form" : "Confused, disoriented"}
+└── Physical condition: ${stunned ? "Incapacitated" : "Functional"}`;
+}
 
 export interface ScanResult {
   success: boolean;
@@ -297,6 +345,123 @@ ANOMALIES:
 
 function generateDrMScan(state: FullGameState): string {
   const suspicionLevel = state.npcs.drM.suspicionScore;
+  const transformation = getTransformationState(state, "DR_M");
+  const imposterState = state.theRealDrMState;
+  const isImposterActive = imposterState && !imposterState.revealed;
+  const imposterRevealed = imposterState?.revealed;
+
+  if (transformation) {
+    const speech = transformation.speechRetention;
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║   🦖 OMNISCANNER™ ANALYSIS: DR_MALEVOLA [TRANSFORMED]         ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+${generateTransformationHeader("DR_MALEVOLA", transformation)}
+
+EQUIPMENT STATUS:
+├── 📍 Goggles - ${transformation.adaptationStage === "ADAPTED" ? "Still wearing them somehow" : "Knocked off during transformation"}
+├── 📍 Tablet (ARCHIMEDES) - ${transformation.stunned ? "DROPPED - deadman switch at risk" : "Still accessible to her"}
+├── 📍 Cape - Dramatically torn but surprisingly intact
+└── 📍 Emergency beacon - ${transformation.currentHits >= 2 ? "May have activated during chaos" : "Status unknown"}
+
+PSYCHOLOGICAL PROFILE:
+├── Ego: ${transformation.adaptationStage === "ADAPTED" ? "INTACT - still believes she's in charge" : "SHAKEN - first time not in control"}
+├── Former Suspicion: ${suspicionLevel}/10 (irrelevant now)
+├── Current motivation: ${transformation.stunned ? "Survival" : "Regain control, understand what happened"}
+└── Leverage: ${speech === "FULL" ? "Still verbal - might negotiate" : speech === "PARTIAL" ? "Can partially communicate" : "Cannot speak - may rage"}
+
+CRITICAL WARNINGS:
+├── ⚠️ ARCHIMEDES DEADMAN SWITCH: ${transformation.stunned ? "ACTIVE THREAT - she may be incapacitated!" : "Still armed and dangerous"}
+├── ⚠️ VILLAIN TRANSFORMED: This changes EVERYTHING
+└── ⚠️ ${speech !== "NONE" ? "She can still give orders!" : "She cannot command - guards may act independently"}
+
+TACTICAL NOTES:
+└── ${transformation.adaptationStage === "ADAPTED" ?
+    "Dr. M has adapted. A transformed supervillain is STILL a supervillain. Possibly more dangerous now." :
+    "Dr. M is disoriented. This may be the best chance to resolve the situation peacefully."}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  ⚠️ WARNING: Deadman switch status CRITICAL                  │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Check for imposter reveal
+  if (imposterRevealed) {
+    const variant = imposterState?.imposterVariant || "TWIN";
+    const variantDesc = variant === "CLONE" ? "CLONE - Escaped from clone vats" :
+                        variant === "ROBOT" ? "ROBOT - Dr. M's creation with ambitions" :
+                        variant === "SHAPESHIFTER" ? "SHAPESHIFTER - X-Branch deep cover" :
+                        variant === "TWIN" ? "TWIN - Dr. Cassandra Malevola, 'the disappointing sister'" :
+                        "TIME_TRAVELER - Future Dr. M here to 'fix' mistakes";
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║  🎭 OMNISCANNER™ ANALYSIS: "DR_MALEVOLA" [IMPOSTER REVEALED!] ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+
+⚠️⚠️⚠️ IDENTITY MISMATCH DETECTED ⚠️⚠️⚠️
+├── Subject is NOT Dr. Malevola von Doomington III
+├── ACTUAL IDENTITY: ${variantDesc}
+├── Revealed on Turn: ${imposterState?.revealTurn || "unknown"}
+└── Bio-scan: ${variant === "ROBOT" ? "SYNTHETIC - No organic readings" :
+               variant === "CLONE" ? "98.7% DNA match - close but NOT exact" :
+               variant === "SHAPESHIFTER" ? "Morphic cellular structure detected" :
+               variant === "TWIN" ? "Same DNA, different person (maternal genetics diverge)" :
+               "Temporal signature anomaly - chronological displacement"}
+
+BIOMETRICS (IMPOSTER):
+├── Height: 5'7" | Weight: ${variant === "ROBOT" ? "156 lbs (heavier - alloy frame)" : "134 lbs"}
+├── Heart rate: ${variant === "ROBOT" ? "N/A (synthetic circulatory pump)" : "88 BPM (nervous now)"}
+├── Microexpressions: ${variant === "TWIN" ? "Similar but subtly different - less wounded, more bitter" :
+                       variant === "CLONE" ? "Identical but 'off' - uncanny valley" :
+                       variant === "ROBOT" ? "Too perfect - no micro-tells" :
+                       variant === "SHAPESHIFTER" ? "Shifting slightly under stress" :
+                       "Haunted - knows what's coming"}
+└── Tells: ${imposterState?.hintsDropped?.length || 0} anomalies previously detected
+
+EQUIPMENT:
+├── 📍 Tablet - ${variant === "ROBOT" ? "Has admin access but not bio-lock override" :
+                 variant === "CLONE" ? "Works due to similar DNA, imperfectly" :
+                 "May not have full ARCHIMEDES access"}
+├── 📍 Emergency beacon - Status unknown for imposter
+└── 📍 Photo of Mr. Whiskers - ${variant === "TWIN" ? "Her own photo (different cat)" :
+                                variant === "TIME_TRAVELER" ? "Same photo, more worn" :
+                                "Copied prop"}
+
+PSYCHOLOGICAL PROFILE:
+├── True motivation: ${variant === "CLONE" ? "Replace original, claim her life" :
+                      variant === "ROBOT" ? "Exceed creator, prove superiority" :
+                      variant === "SHAPESHIFTER" ? "X-Branch infiltration complete" :
+                      variant === "TWIN" ? "Finally step out of sister's shadow" :
+                      "Prevent future disaster (her methods questionable)"}
+├── Danger level: HIGH - Imposter has been running this operation
+└── Leverage: Identity revealed - psychological advantage now OURS
+
+TACTICAL NOTES:
+└── The REAL Dr. M ${imposterRevealed ? "may still be out there" : "location unknown"}.
+    This changes EVERYTHING. The imposter's plans are unraveling.
+    ARCHIMEDES deadman may not apply to imposter!
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎭 IMPOSTER CONFIRMED: ${variant}                            │
+│  ⚠️ Deadman switch status: UNCERTAIN for imposter            │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan (with optional imposter hints if active but not revealed)
+  const imposterHints = isImposterActive ? `
+
+⚠️ ANOMALIES DETECTED (UNEXPLAINED):
+├── Behavioral micro-patterns: 0.3% deviation from baseline
+├── Photo handling: Subtly different grip than records show
+├── Bio-signature: Minor fluctuations (within tolerance... barely)
+└── OMNISCANNER confidence: 97.2% match (usually 99.9%+)
+    Something is... off. Cannot determine cause.` : "";
 
   return `
 ╔═══════════════════════════════════════════════════════════════╗
@@ -332,7 +497,7 @@ ANOMALIES:
 PSYCHOLOGICAL NOTE:
     Despite theatrical villainy, subject shows markers of loneliness.
     3 AM conversations with cat photo. Responds to authentic respect.
-    Not beyond redemption. Possibly.
+    Not beyond redemption. Possibly.${imposterHints}
 
 ┌───────────────────────────────────────────────────────────────┐
 │  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
@@ -376,7 +541,41 @@ ANOMALIES:
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
 
-function generateFredScan(_state: FullGameState): string {
+function generateFredScan(state: FullGameState): string {
+  const transformation = getTransformationState(state, "GUARD_FRED");
+
+  if (transformation) {
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║       🦖 OMNISCANNER™ ANALYSIS: FRED [TRANSFORMED]            ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+${generateTransformationHeader("FRED", transformation)}
+
+EQUIPMENT STATUS:
+├── 📍 Stun baton - Dropped during transformation
+├── 📍 Radio - ${transformation.adaptationStage === "ADAPTED" ? "Might still try to use it" : "Forgotten"}
+└── 📍 Protein bar - Scattered. He's upset about this.
+
+PSYCHOLOGICAL PROFILE:
+├── Professionalism: ${transformation.adaptationStage === "ADAPTED" ? "Remarkably intact - still trying to do his job" : "Suspended - processing situation"}
+├── Loyalty to Dr. M: ${transformation.speechRetention !== "NONE" ? "Still employed, technically" : "Complicated now"}
+├── Current motivation: ${transformation.stunned ? "Recover" : "Figure out if pension still applies to dinosaurs"}
+└── Leverage: ${transformation.speechRetention === "FULL" ? "Can negotiate - very practical man" : "Cannot speak but responds to calm authority"}
+
+TACTICAL NOTES:
+└── ${transformation.adaptationStage === "ADAPTED" ?
+    "Fred is adapting with characteristic professionalism. May still try to 'do his job' as a dinosaur." :
+    "Fred is disoriented but his survival instincts are strong. 7 years didn't happen by accident."}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  📝 Note: Fred has survived 7 years. He'll survive this too.  │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: FRED                      ║
@@ -418,7 +617,41 @@ TACTICAL NOTE: Most competent regular guard. Neutralize first.
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
 
-function generateReginaldScan(_state: FullGameState): string {
+function generateReginaldScan(state: FullGameState): string {
+  const transformation = getTransformationState(state, "GUARD_REGINALD");
+
+  if (transformation) {
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║    🦖 OMNISCANNER™ ANALYSIS: REGINALD [TRANSFORMED]           ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+${generateTransformationHeader("REGINALD", transformation)}
+
+EQUIPMENT STATUS:
+├── 📍 Stun baton - Abandoned immediately
+├── 📍 Philosophy book - ${transformation.adaptationStage === "ADAPTED" ? "Still clutching it somehow" : "Dropped. Will want it back."}
+└── 📍 Resume - Scattered. Ironic, given the circumstances.
+
+PSYCHOLOGICAL PROFILE:
+├── Existential crisis level: ${transformation.adaptationStage === "DISORIENTED" ? "11/10 - THIS IS NEW" : "8/10 - Processing philosophically"}
+├── Stoic acceptance: ${transformation.adaptationStage === "ADAPTED" ? "High - 'This too shall pass. Probably.'" : "Pending"}
+├── Current motivation: ${transformation.stunned ? "Survive" : "Contemplate nature of existence, self, and claws"}
+└── Leverage: ${transformation.speechRetention === "FULL" ? "Very willing to discuss this existentially" : "Cannot speak but inner monologue is EXTENSIVE"}
+
+TACTICAL NOTES:
+└── ${transformation.adaptationStage === "ADAPTED" ?
+    '"The obstacle is the way." - Reginald has found unexpected peace as a dinosaur. Still wants his student loans forgiven.' :
+    "Reginald is having a MOMENT. Philosophy degree finally relevant. May need time to process."}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  📝 Quote: "I came for the paycheck. I stayed for the scales."│
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║           🔍 OMNISCANNER™ ANALYSIS: REGINALD                  ║
@@ -461,7 +694,53 @@ TACTICAL NOTE: Will flee if given clear exit. Has better nature.
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
 
-function generateLennyScan(_state: FullGameState): string {
+function generateLennyScan(state: FullGameState): string {
+  const transformation = getTransformationState(state, "LENNY");
+
+  if (transformation) {
+    const isPteranodon = transformation.form.includes("PTERANODON") || transformation.form.includes("QUETZAL");
+    const hasWings = isPteranodon;
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║  🦖 OMNISCANNER™ ANALYSIS: LENNY [TRANSFORMED - ${hasWings ? "HAS WINGS!" : "NO WINGS :("}]  ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+${generateTransformationHeader("LENNY", transformation)}
+
+ENTHUSIASM LEVELS (POST-TRANSFORMATION):
+├── Satisfaction: ${hasWings ? "15/12 - LIVING THE DREAM" : "9/12 - Not pteranodon but still cool!"}
+├── Regrets: ${hasWings ? "0/12 - NONE. ZERO. BEST DAY EVER." : "1/12 - 'Can I go again? Maybe pteranodon next time?'"}
+├── Flight capability: ${hasWings ? "YES! YES! YES!" : "No but making the best of it"}
+└── Commute time estimate: ${hasWings ? "4hr 17min to London (as calculated!)" : "Still working on it"}
+
+EQUIPMENT STATUS:
+├── 📍 Lime green polo - ${transformation.form.includes("PTERANODON") ? "Stretched interestingly over wings" : "Torn but he doesn't care"}
+├── 📍 Calculator watch - Still works! Already calculating flight speeds
+├── 📍 Signed waivers - FULLY APPLICABLE. He planned for this.
+└── 📍 Safety goggles - ${hasWings ? "NOW AVIATION GOGGLES" : "Still on forehead"}
+
+PSYCHOLOGICAL PROFILE:
+├── Current motivation: ${hasWings ? "TEST FLIGHT IMMEDIATELY" : "Explore new abilities! What else can I do?"}
+├── Loyalty: Whoever gave him this. Forever grateful.
+├── Threat level: 0/12 (He's too happy to be threatening)
+└── Speech: ${transformation.speechRetention === "FULL" ? "Cannot stop talking about how amazing this is" :
+              transformation.speechRetention === "PARTIAL" ? "Excited pterodactyl noises that somehow convey JOY" :
+              "Happy screeching. So much happy screeching."}
+
+TACTICAL NOTES:
+└── ${hasWings ?
+    "Lenny is LIVING HIS BEST LIFE. May attempt to fly immediately. Please let him try." :
+    "Lenny is slightly disappointed about no wings but genuinely happy. Wants to know if he can upgrade later."}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎉 DREAM ACHIEVED: Lenny got what he wanted!                 │
+│  ✅ ETHICAL: This was 100% consensual transformation         │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║     🔍 OMNISCANNER™ ANALYSIS: LEONARD "LENNY" FIGGINS         ║
@@ -514,7 +793,62 @@ TACTICAL NOTES:
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
 
-function generateBruceScan(_state: FullGameState): string {
+function generateBruceScan(state: FullGameState): string {
+  const transformation = getTransformationState(state, "BRUCE_PATAGONIA");
+
+  if (transformation) {
+    const isCroc = transformation.form.includes("CROC") || transformation.form.includes("SARCO");
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║  🦖 OMNISCANNER™ ANALYSIS: BRUCE "CROC" [NOW LITERALLY CROC]  ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+${generateTransformationHeader("BRUCE", transformation)}
+
+BRUCE'S REACTION (POST-TRANSFORMATION):
+├── Panic level: 0/12 (STILL ZEN. IT'S BRUCE.)
+├── Excitement: ${isCroc ? "11/12 - 'CRIKEY, I'M A BEAUTY!'" : "8/12 - 'Not a croc, but I can work with this!'"}
+├── Existential crisis: 0/12 (None. This is actually pretty cool.)
+└── Immediate thought: ${isCroc ? "'Been wrestling these beauties for years. Now I AM one!'" : "'Fair dinkum, this is new.'"}
+
+EQUIPMENT STATUS:
+├── 📍 Stun rifle - ${transformation.stunned ? "Dropped" : "Can he still use it? ...Probably not. Doesn't need it now."}
+├── 📍 Bush hat - ${transformation.adaptationStage === "ADAPTED" ? "SOMEHOW STILL ON. Don't ask how." : "Flew off during transformation"}
+├── 📍 Crocodile tooth necklace - ${isCroc ? "NOW IRONIC. Or is it?" : "Still wearing it. Even cooler now."}
+└── 📍 Safari vest - Shredded but he's fine with it
+
+COMBAT STATISTICS (POST-TRANSFORMATION):
+├── Resilience: EVEN HIGHER NOW (dinosaur body + natural toughness)
+├── Composure: Still 12/12 (Nothing. Fazes. Bruce.)
+├── Natural weapons: Claws, teeth, tail - way better than rifle
+└── Threat assessment: ${transformation.stunned ? "Temporarily neutralized" : "ACTUALLY MORE DANGEROUS NOW"}
+
+PSYCHOLOGICAL PROFILE:
+├── Loyalty to Dr. M: 2/12 - "Mate, she turned me into a dinosaur. We're square."
+├── Curiosity about A.L.I.C.E.: 10/12 - "You did this? Brilliant! Tell me more!"
+├── Hostility: ${transformation.speechRetention !== "NONE" ? "0/12 - Genuinely not mad. Thinks it's pretty cool." : "Low - body language is relaxed"}
+└── Current motivation: "Explore this. Maybe go swimming. Test bite strength."
+
+TACTICAL NOTES:
+└── ${transformation.adaptationStage === "ADAPTED" ?
+    `Bruce has adapted with characteristic calm. "Been around crocs me whole life. Always wondered what it was like." ${isCroc ? "He's THRIVING." : "He's improvising. Doing great."}` :
+    "Bruce is handling this better than literally anyone else would. Already testing his new tail."}
+
+    ${transformation.speechRetention === "FULL" ?
+    '"Crikey, A.L.I.C.E., you absolute legend! What else can this body do?"' :
+    transformation.speechRetention === "PARTIAL" ?
+    "*Happy reptilian rumbling that somehow sounds Australian*" :
+    "*Tail wag. Bruce approves.*"}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🐊 BRUCE STATUS: "This is actually pretty cool, mate"        │
+│  ⚠️ WARNING: STILL DANGEROUS. Possibly MORE dangerous.       │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║     🔍 OMNISCANNER™ ANALYSIS: BRUCE "CROC" PATAGONIA          ║
@@ -584,6 +918,7 @@ TACTICAL NOTES:
 function generateGravesScan(state: FullGameState): string {
   const inspector = state.inspector;
   const inspection = state.guildInspection;
+  const transformation = getTransformationState(state, "INSPECTOR_GRAVES");
 
   const moodEmoji = inspector?.mood === "mildly_impressed" ? "😏" :
                     inspector?.mood === "quietly_concerned" ? "😐" :
@@ -595,6 +930,59 @@ function generateGravesScan(state: FullGameState): string {
     ? `\n   ⚠️ HE'S WATCHING YOU: A.L.I.C.E. suspicion at ${inspector?.aliceSuspicion}/10`
     : "";
 
+  if (transformation) {
+    return `
+╔═══════════════════════════════════════════════════════════════╗
+║  🦖 OMNISCANNER™ ANALYSIS: INSPECTOR GRAVES [TRANSFORMED]     ║
+║           ⚠️ Known to cause cancer in California              ║
+╠═══════════════════════════════════════════════════════════════╣
+${generateTransformationHeader("INSPECTOR GRAVES", transformation)}
+
+⚠️⚠️⚠️ CONSORTIUM ALERT TRIGGERED ⚠️⚠️⚠️
+├── Inspector transformation detected!
+├── Automatic incident report filed to Guild HQ
+├── Dr. M's villain license: UNDER EMERGENCY REVIEW
+├── Tribunal notification: SENT
+└── This will be remembered. For a LONG time.
+
+EQUIPMENT STATUS:
+├── 📍 Clipboard - ${transformation.adaptationStage === "ADAPTED" ? "STILL CLUTCHING IT. Still taking notes." : "Dropped. First time EVER."}
+├── 📍 Consortium badge - Still valid. Now worn by a dinosaur.
+├── 📍 Form 91-Whistle - ${transformation.speechRetention !== "NONE" ? "Can still file it. Might file it MORE now." : "Cannot fill it out but WILL find a way"}
+└── 📍 Fountain pen - ${transformation.stunned ? "Lost" : "Somehow writing citations FASTER now"}
+
+PSYCHOLOGICAL PROFILE:
+├── Bureaucratic resolve: ${transformation.adaptationStage === "ADAPTED" ? "12/12 - NOTHING STOPS THE PAPERWORK" : "10/12 - Briefly paused, now resuming"}
+├── Current mood: ${transformation.speechRetention === "FULL" ? '"This will be documented. Thoroughly."' :
+                   transformation.speechRetention === "PARTIAL" ? "*Disapproving dinosaur noises*" :
+                   "*The most judgmental silence you have ever witnessed*"}
+├── Hostility: ${transformation.adaptationStage === "ADAPTED" ? "Low - professional to the end" : "Moderate - processing with dignity"}
+└── Current motivation: "Complete the report. File the incident. THEN deal with this."
+
+INSPECTION STATUS (POST-TRANSFORMATION):
+├── ${moodEmoji} Mood: ${inspector?.mood || "professionally_neutral"} → COMPLICATED
+├── 📊 Inspection Score: ${inspector?.inspectionScore || 50}/100 → SUSPENDED PENDING REVIEW
+├── 📋 Phase: ${inspection?.phase || "UNKNOWN"} → INCIDENT_RESPONSE
+└── 📝 Citations issued: ${inspector?.citationsIssued || 0} → +47 (TRANSFORMING INSPECTOR)
+
+TACTICAL NOTES:
+└── ${transformation.adaptationStage === "ADAPTED" ?
+    "Graves has adapted. He is STILL an inspector. He is STILL filing reports. The Consortium WILL hear about this. Somehow, he's taking notes with his tail." :
+    "Graves is processing this with characteristic professionalism. Already composing the incident report in his head."}
+
+    ${transformation.speechRetention === "FULL" ?
+    '"I have been an inspector for 23 years. I have seen supervillains cry. I have seen doomsday devices. I have never... been a dinosaur. This will require a new form."' :
+    "*Maintains eye contact. You can FEEL the paperwork being mentally drafted.*"}
+
+┌───────────────────────────────────────────────────────────────┐
+│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  📋 YOU TRANSFORMED AN INSPECTOR. THE CONSORTIUM KNOWS.       │
+│  ⚠️ Bylaw 77.3.b: "Consequences will be... consequential."   │
+└───────────────────────────────────────────────────────────────┘
+╚═══════════════════════════════════════════════════════════════╝`.trim();
+  }
+
+  // Human scan
   return `
 ╔═══════════════════════════════════════════════════════════════╗
 ║   🔍 OMNISCANNER™ ANALYSIS: INSPECTOR MORTIMER GRAVES         ║
