@@ -102,7 +102,7 @@ Where there was a nervous henchperson, there is now a dinosaur with Bob's eyes a
 export function checkBobHeroOpportunity(state: FullGameState): boolean {
   // Bob Hero Ending requires:
   // 1. Bob is transformed into a dinosaur
-  // 2. Resonance cascade is imminent (structural integrity low OR meltdown clock active)
+  // 2. Resonance cascade is imminent (structural integrity low OR meltdown clock active OR cascade triggered)
   // 3. Bob's trust in A.L.I.C.E. is high
   // 4. The ray is about to fire or has just fired with high energy
 
@@ -110,7 +110,8 @@ export function checkBobHeroOpportunity(state: FullGameState): boolean {
                          state.npcs.bob.location?.includes("dinosaur");
 
   const criticalSituation = state.lairEnvironment.structuralIntegrity < 40 ||
-                            (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock < 3);
+                            (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock < 3) ||
+                            state.meltdownState?.cascadeTriggered === true;
 
   const highTrust = state.npcs.bob.trustInALICE >= 4;
 
@@ -118,6 +119,11 @@ export function checkBobHeroOpportunity(state: FullGameState): boolean {
 }
 
 export function triggerBobHeroEnding(state: FullGameState): string {
+  // Bob saved everyone - clear the cascade!
+  if (state.meltdownState) {
+    state.meltdownState.cascadeTriggered = false;
+  }
+
   return `
 ### ACHIEVEMENT UNLOCKED: The Bob Hero Ending
 

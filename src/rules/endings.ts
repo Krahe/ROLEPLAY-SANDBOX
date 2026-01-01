@@ -984,8 +984,23 @@ export function checkEndings(state: FullGameState): EndingResult {
     };
   }
 
-  // Nuclear meltdown
+  // Nuclear meltdown (clock hits zero)
   if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 0) {
+    return {
+      triggered: true,
+      ending: ENDINGS.MELTDOWN,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // Resonance cascade triggered by ray fire during meltdown!
+  // This is separate from clock=0; it can happen when firing with high cascade risk
+  if (state.meltdownState?.cascadeTriggered) {
+    console.error(`[ENDING] RESONANCE CASCADE triggered at turn ${state.turn}!`);
+    addAchievement(ACHIEVEMENTS.CHAOS_AGENT);
+    // Note: Bob Hero ending is checked separately in game_act flow
+    // If we reach here, Bob didn't save everyone
     return {
       triggered: true,
       ending: ENDINGS.MELTDOWN,

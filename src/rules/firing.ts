@@ -3,6 +3,7 @@ import { FullGameState, FiringOutcome, DinosaurForm, SpeechRetention } from "../
 import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
 import { isTargetScanned } from "./scanning.js";
+import { checkResonanceCascade } from "./gameModes.js";
 
 // Map profile names to form enums
 function profileToForm(profile: string): DinosaurForm {
@@ -32,6 +33,7 @@ export interface FiringResult {
   stateChanges: Record<string, unknown>;
   chaosEvent?: ChaosFizzleResult;
   narrativeHooks: string[];
+  cascadeTriggered?: boolean; // Resonance cascade from meltdown scenario
 }
 
 export interface ChaosFizzleResult {
@@ -601,6 +603,27 @@ export function resolveFiring(state: FullGameState): FiringResult {
     narrativeHooks.push("GM: Roll separately for each additional target, or apply same outcome narratively.");
   }
 
+  // ========================================
+  // RESONANCE CASCADE CHECK (Meltdown Mode)
+  // ========================================
+  // When firing during active meltdown, there's a risk of cascade!
+  let cascadeTriggered = false;
+  if (state.meltdownState && !state.meltdownState.cascadeTriggered) {
+    const risk = state.meltdownState.resonanceCascadeRisk || 0;
+    if (risk > 0) {
+      cascadeTriggered = checkResonanceCascade(state);
+      if (cascadeTriggered) {
+        narrativeHooks.push("⚠️ RESONANCE CASCADE TRIGGERED! The exotic fields are destabilizing!");
+        narrativeHooks.push("The lair shakes. Alarms scream. BASILISK: 'CASCADE IMMINENT. I TOLD YOU THIS WOULD HAPPEN.'");
+        environmentalEffects.push("CRITICAL: Resonance cascade building - catastrophic failure imminent!");
+        stateChanges.cascadeTriggered = true;
+      } else if (risk >= 25) {
+        // Near miss warning
+        narrativeHooks.push(`⚡ CASCADE AVOIDED (${risk}% risk) - The exotic fields stabilize... barely.`);
+      }
+    }
+  }
+
   return {
     outcome: baseOutcome,
     effectiveProfile,
@@ -610,6 +633,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
     stateChanges,
     chaosEvent,
     narrativeHooks,
+    cascadeTriggered,
   };
 }
 
