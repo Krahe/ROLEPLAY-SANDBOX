@@ -879,9 +879,13 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
         gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
       }
       if (overrides.blythe_transformationState !== undefined) {
-        // Override sets just the form name - normalize to valid DinosaurForm
-        const normalizedForm = profileToFormName(overrides.blythe_transformationState);
-        gameState.npcs.blythe.transformationState.form = normalizedForm;
+        // Guard against malformed GM output (non-string values)
+        if (typeof overrides.blythe_transformationState === "string") {
+          // Override sets just the form name - normalize to valid DinosaurForm
+          const normalizedForm = profileToFormName(overrides.blythe_transformationState);
+          gameState.npcs.blythe.transformationState.form = normalizedForm;
+        }
+        // Silently ignore non-string values to avoid TypeError
       }
 
       // System state overrides
