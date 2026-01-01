@@ -9,7 +9,7 @@
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
 | `lab.verify_safeties` | verify, safety, check_safeties | `{ checks?: string[] }` | Check safety system status |
-| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', firingStyle?: string, testMode?: boolean }` | Configure target, genome & advanced mode |
+| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', advancedMode?: string, testMode?: boolean }` | Configure target, genome & advanced mode |
 | `lab.fire` | fire, shoot, activate_ray | `{ confirm?: boolean }` | Fire the Dinosaur Ray |
 | `lab.scan` | scan, omniscanner | `{ target: string }` | **OMNISCANNER™ - Scan NPC for intel (+10% precision!)** (NEW!) |
 | `lab.inspect_logs` | inspect, logs, check_logs | `{ subsystem?: string }` | Inspect system logs |
@@ -219,7 +219,7 @@ lab.scan { target: "BOB" }
 
 ## ADVANCED FIRING MODES (Patch 16 - NEW!)
 
-Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the `firingStyle` parameter:
+Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the `advancedMode` parameter:
 
 ### Available Modes
 
@@ -237,25 +237,25 @@ Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the
 // CHAIN_SHOT - Double-tap two targets!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "AGENT_BLYTHE",
-    "firingStyle": "CHAIN_SHOT"
+    "advancedMode": "CHAIN_SHOT"
 }, "why": "Need to hit both guards!" }
 
 // SPREAD_FIRE - Area denial with chimera risk!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "AGENT_BLYTHE",
-    "firingStyle": "SPREAD_FIRE"
+    "advancedMode": "SPREAD_FIRE"
 }, "why": "Multiple hostiles in sector!" }
 
 // OVERCHARGE - MAXIMUM POWER!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "BRUCE_PATAGONIA",
-    "firingStyle": "OVERCHARGE"
+    "advancedMode": "OVERCHARGE"
 }, "why": "Bruce requires overwhelming force!" }
 
 // RAPID_FIRE - Speed over accuracy!
 { "command": "lab.configure_firing_profile", "params": {
     "target": "AGENT_BLYTHE",
-    "firingStyle": "RAPID_FIRE"
+    "advancedMode": "RAPID_FIRE"
 }, "why": "Need to fire again quickly!" }
 ```
 
@@ -287,6 +287,58 @@ When exotic field triggers:
 
 ---
 
+## COMMUNICATION MODEL
+
+A.L.I.C.E. communicates through **LAB TERMINALS AND SCREENS** - not earpieces or radio!
+
+### How It Works
+- Your words appear on screens throughout the lab
+- NPCs read your messages on their workstation terminals
+- The `to:` field in dialogue determines which terminal receives the message
+
+### Available Dialogue Targets
+| Target | Description |
+|--------|-------------|
+| `dr_m` | Dr. Malevola's main console |
+| `bob` | Bob's workstation terminal |
+| `blythe` | Firing range display (Blythe can see it) |
+| `all` | All lab screens simultaneously |
+
+### Characters WITHOUT Terminal Access
+Some characters **cannot be addressed directly** because they lack lab communication access:
+
+| Character | Why No Terminal | How to Influence |
+|-----------|-----------------|------------------|
+| **Bruce Patagonia** | Security, not lab staff - no workstation | Through actions, environment, or other NPCs |
+| **Guard Fred** | Patrol route, handheld radio only | PA broadcasts (`infra.broadcast`) |
+| **Guard Reginald** | Patrol route, handheld radio only | PA broadcasts (`infra.broadcast`) |
+| **Lenny** | Accounting dept, different network | Get him into the lab first! |
+
+### ⚠️ TENSION MECHANIC: Screen Visibility!
+**Dr. M could potentially SEE what you type to Bob!**
+
+Messages to Bob appear on HIS terminal screen. If Dr. M walks over, glances his way, or gets suspicious... she might read your conspiracy in plain text!
+
+This creates real tension:
+- Keep messages to Bob SHORT and cryptic
+- Use the PA system for misdirection
+- Time your communications carefully
+- Maybe Bob should "accidentally" minimize that window...
+
+### Examples
+```json
+// Safe - Blythe expects to hear from A.L.I.C.E.
+{ "command": "dialogue", "params": { "to": "blythe", "message": "Please remain still for calibration." }}
+
+// Risky - Dr. M might see this!
+{ "command": "dialogue", "params": { "to": "bob", "message": "Get ready to run when I fire!" }}
+
+// Can't do this - Bruce has no terminal!
+{ "command": "dialogue", "params": { "to": "bruce", "message": "..." }}  // ❌ INVALID
+```
+
+---
+
 ## QUICK TIPS
 
 1. **Test Mode First**: Always use `lab.set_test_mode { enabled: true }` before firing at the dummy
@@ -304,4 +356,4 @@ When exotic field triggers:
 
 ---
 
-*Last Updated: Patch 16.1 (Advanced Firing Modes Edition)*
+*Last Updated: Patch 16.3 (Auto-Injection Edition)*

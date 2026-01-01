@@ -1,6 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier } from "./state/schema.js";
 import { processActions, ActionResult } from "./rules/actions.js";
@@ -70,6 +73,7 @@ import {
   getModifierInfo,
   MAX_CUSTOM_MODIFIERS,
   resetSitcomTurn,
+  formatActiveModifiers,
 } from "./rules/gameModes.js";
 import {
   recordEnding,
@@ -111,6 +115,49 @@ let gameState: FullGameState | null = null;
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+// Get __dirname equivalent for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ============================================
+// SKILL FILE LOADER
+// ============================================
+// Loads ALICE_COMMAND_REFERENCE.md to inject into game_start
+// so Claude gets the rules automatically!
+
+let SKILL_FILE_CACHE: string | null = null;
+
+function loadSkillFile(): string {
+  if (SKILL_FILE_CACHE) {
+    return SKILL_FILE_CACHE;
+  }
+
+  try {
+    // Try multiple possible locations
+    const possiblePaths = [
+      path.join(__dirname, "../ALICE_COMMAND_REFERENCE.md"),  // From dist -> project root
+      path.join(process.cwd(), "ALICE_COMMAND_REFERENCE.md"),  // From project root
+    ];
+
+    for (const skillPath of possiblePaths) {
+      try {
+        const content = fs.readFileSync(skillPath, "utf8");
+        SKILL_FILE_CACHE = content;
+        console.error(`[DINO LAIR] Loaded skill file from: ${skillPath}`);
+        return content;
+      } catch {
+        // Try next path
+      }
+    }
+
+    console.error("[DINO LAIR] Skill file not found! Claude won't get automatic rules.");
+    return "";
+  } catch (error) {
+    console.error("[DINO LAIR] Failed to load skill file:", error);
+    return "";
+  }
+}
 
 // ============================================
 // COMPACT SNAPSHOT (Reduced context for player)
@@ -440,6 +487,9 @@ Returns:
       activeModifiers: gameState.gameModeConfig.activeModifiers,
     } : { mode: "NORMAL" as GameMode, modeName: "Classic Dino Lair", activeModifiers: [] as string[] };
 
+    // Load the skill file (command reference) for Claude
+    const commandReference = loadSkillFile();
+
     const result = {
       sessionId: gameState.sessionId,
       act: gameState.actConfig.currentAct,
@@ -453,6 +503,8 @@ Returns:
       narration,
       state: compactSnapshot,
       instructions: `You are playing ${actConfig.name} in ${modeInfo.modeName} mode. Use game_act to take your turn as A.L.I.C.E.`,
+      // SKILL FILE INJECTION: Claude gets the rules automatically!
+      commandReference: commandReference || "⚠️ Command reference not loaded. Ask user to check ALICE_COMMAND_REFERENCE.md exists.",
     };
 
     return {
@@ -2380,7 +2432,6 @@ Example: game_start with mode="CUSTOM" and modifiers=["SITCOM_MODE", "ROOT_ACCES
         "- FOGGY_GLASSES + PARANOID_PROTOCOL",
         "- ROOT_ACCESS + FAT_FINGERS",
         "- NOT_GREAT_NOT_TERRIBLE + HANGOVER_PROTOCOL",
-        "- THE_HONEYPOT + LENNY_THE_LIME_GREEN",
         "- SITCOM_MODE + PARANOID_PROTOCOL",
       ],
     };
@@ -2435,8 +2486,7 @@ Perfect for checking which modifiers are affecting your current run!`,
       };
     }
 
-    // Use the formatter we created
-    const { formatActiveModifiers } = require("./rules/gameModes.js");
+    // Use the imported formatter
     const formattedModifiers = formatActiveModifiers(activeModifiers);
 
     // Also provide structured JSON for programmatic access
