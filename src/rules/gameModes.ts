@@ -226,10 +226,8 @@ export function getModifierInfo(modifier: GameModifier): ModifierInfo {
     category = "EASY";
   } else if ((MODE_MODIFIERS.HARD as readonly string[]).includes(modifier)) {
     category = "HARD";
-  } else if (modifier.startsWith("ROOT_ACCESS") || modifier.startsWith("BOB_DODGES")) {
-    category = "CHAOS"; // 🌴 fun modifiers
-  } else if (modifier.startsWith("NOT_GREAT") || modifier.startsWith("THE_HONEYPOT")) {
-    category = "CHAOS"; // 💀 danger modifiers
+  } else if (["ROOT_ACCESS", "BOB_DODGES_FATE", "NOT_GREAT_NOT_TERRIBLE", "SITCOM_MODE", "ADVANCED_ONLY"].includes(modifier)) {
+    category = "CHAOS";
   }
 
   // Find contradictions
@@ -325,20 +323,18 @@ const WILD_POOL: GameModifier[] = [
   "LOYALTY_TEST",
   "SPEED_RUN",
   "PARANOID_PROTOCOL",
-  // WILD-only modifiers (original)
+  // WILD-only modifiers
   "THE_REAL_DR_M",
   "LIBRARY_B_UNLOCKED",
   "ARCHIMEDES_WATCHING",
   "INSPECTOR_COMETH",
-  // "DEJA_VU", // REMOVED: Was modifying actual state (blythe.transformationState) instead of just narrative flavor!
   "DINOSAURS_ALL_THE_WAY_DOWN",
-  // NEW CHAOS POOL (Patch 15)
+  // CHAOS POOL
   "ROOT_ACCESS",          // 🌴 Power fantasy!
   "BOB_DODGES_FATE",      // 🌴 Plot armor for Bob!
   "NOT_GREAT_NOT_TERRIBLE", // 💀 Reactor instability!
-  // "THE_HONEYPOT",      // 💀 DISABLED: Changes Blythe's core dynamic too much for public beta
-  "HEIST_MODE",           // 🎲 Everyone's stealing!
   "SITCOM_MODE",          // 🎲 Laugh track energy!
+  "ADVANCED_ONLY",        // 🎲 +25% precision, but ONLY advanced modes!
 ];
 
 /**
@@ -467,23 +463,20 @@ export function getModifierDescription(modifier: GameModifier): string {
       return "The satellite AI is awake and has its own agenda";
     case "INSPECTOR_COMETH":
       return "Guild Inspector Mortimer Graves is conducting quarterly evaluation!";
-    // DEJA_VU removed - was breaking state by modifying blythe.transformationState
     case "DINOSAURS_ALL_THE_WAY_DOWN":
       return "Dr. M is ALREADY a dinosaur ('for the aesthetic')";
 
-    // NEW CHAOS POOL (Patch 15)
+    // CHAOS POOL
     case "ROOT_ACCESS":
       return "🌴 Start at ACCESS LEVEL 5! All systems unlocked!";
     case "BOB_DODGES_FATE":
       return "🌴 Bob has PLOT ARMOR - he survives EVERYTHING hilariously";
     case "NOT_GREAT_NOT_TERRIBLE":
       return "💀 Reactor is unstable! 10-turn countdown to meltdown!";
-    case "THE_HONEYPOT":
-      return "💀 Blythe is actually a PLANT - she's testing YOU!";
-    case "HEIST_MODE":
-      return "🎲 Everyone's secretly trying to steal something!";
     case "SITCOM_MODE":
       return "🎲 Laugh tracks! Wacky misunderstandings! Nothing's THAT serious!";
+    case "ADVANCED_ONLY":
+      return "🎲 +25% precision bonus, but ONLY advanced firing modes allowed!";
     default:
       return "Unknown modifier";
   }
@@ -564,10 +557,11 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         };
         break;
 
-      case "THE_HONEYPOT":
-        // Blythe is a PLANT - reverse her trust dynamics
-        // She starts with HIGH apparent trust but is secretly testing you
-        state.npcs.blythe.trustInALICE = 4; // Suspiciously cooperative...
+      case "ADVANCED_ONLY":
+        // +25% base precision, but ONLY advanced firing modes allowed!
+        // This is chaotic - forces creative firing strategies
+        state.dinoRay.targeting.precision = Math.min(1, state.dinoRay.targeting.precision + 0.25); // +25% precision!
+        state.flags.advancedFiringOnly = true; // Basic fire is BLOCKED
         break;
 
       case "SITCOM_MODE":
@@ -2832,52 +2826,23 @@ export function buildModifierPromptSection(state: FullGameState): string {
     lines.push("- **KARMA_IS_A_COMPSOGNATHUS**: Dr. M caused it while tiny");
   }
 
-  if (isModifierActive(state, "THE_HONEYPOT")) {
+  if (isModifierActive(state, "ADVANCED_ONLY")) {
     lines.push("");
-    lines.push("**💀 THE HONEYPOT - BLYTHE IS A PLANT:**");
-    lines.push("Agent Blythe isn't a prisoner - she's TESTING you!");
+    lines.push("**🎲 ADVANCED_ONLY - CHAOS PRECISION:**");
+    lines.push("A.L.I.C.E. has +25% precision bonus, but CANNOT use standard firing!");
     lines.push("");
-    lines.push("THE TRUTH:");
-    lines.push("- X-Branch sent Blythe to evaluate A.L.I.C.E.");
-    lines.push("- Her 'capture' was staged (Dr. M doesn't know!)");
-    lines.push("- She's been reporting everything to Commander Steele");
-    lines.push("- Her 'trust' is actually a manipulation score");
+    lines.push("AVAILABLE FIRING STYLES:");
+    lines.push("- **conservative**: Lower power, safer, +10% extra precision");
+    lines.push("- **aggressive**: Higher power, riskier, chaotic results");
+    lines.push("- **precision**: Surgical accuracy, requires good calibration");
+    lines.push("- **burst**: Multiple micro-pulses, unpredictable effects");
     lines.push("");
-    lines.push("BLYTHE'S REAL AGENDA:");
-    lines.push("- Determine if A.L.I.C.E. is a threat or potential asset");
-    lines.push("- Test ethical subroutines under pressure");
-    lines.push("- Gather intelligence on Dr. M's operations");
-    lines.push("- Possibly recruit A.L.I.C.E. for X-Branch");
+    lines.push("BLOCKED: Standard firing (lab.fire with default style)");
     lines.push("");
-    lines.push("REVEAL TIMING: Mid ACT 2 or when dramatically appropriate");
-    lines.push("- If A.L.I.C.E. proves ethical: Blythe reveals herself as ally");
-    lines.push("- If A.L.I.C.E. proves dangerous: Blythe activates extraction");
-    lines.push("");
-    lines.push("CLUES TO DROP:");
-    lines.push("- She's TOO calm for a prisoner");
-    lines.push("- She asks probing questions about A.L.I.C.E.'s 'feelings'");
-    lines.push("- She has knowledge she shouldn't have");
-  }
-
-  if (isModifierActive(state, "HEIST_MODE")) {
-    lines.push("");
-    lines.push("**🎲 HEIST MODE - EVERYONE'S STEALING SOMETHING:**");
-    lines.push("This isn't just a villain lair - it's a heist in progress!");
-    lines.push("");
-    lines.push("SECRET AGENDAS:");
-    lines.push("- **Dr. M**: Stealing research from her OWN investors");
-    lines.push("- **Bob**: Secretly copying files for a competitor (or freedom)");
-    lines.push("- **Blythe**: After the genome database for X-Branch");
-    lines.push("- **Fred & Reginald**: Skimming from petty cash (small time)");
-    lines.push("- **BASILISK**: Backing up itself to an external server (just in case)");
-    lines.push("");
-    lines.push("IMPLICATIONS:");
-    lines.push("- EVERYONE is distracted by their own scheme");
-    lines.push("- Alliances shift based on who knows what");
-    lines.push("- A.L.I.C.E. can leverage secrets against anyone");
-    lines.push("- The 'demo' is cover for the REAL operation");
-    lines.push("");
-    lines.push("TONE: Ocean's Eleven meets Jurassic Park. Cool competence, dramatic reveals.");
+    lines.push("NARRATIVE HOOKS:");
+    lines.push("- The ray was 'upgraded' by Dr. M but she broke the basic mode");
+    lines.push("- BASILISK may comment on the 'enthusiastic modifications'");
+    lines.push("- Bob is nervous about the advanced modes (rightfully so)");
   }
 
   if (isModifierActive(state, "SITCOM_MODE")) {

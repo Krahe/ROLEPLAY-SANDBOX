@@ -70,6 +70,7 @@ import {
   getModifierInfo,
   MAX_CUSTOM_MODIFIERS,
   resetSitcomTurn,
+  formatActiveModifiers,
 } from "./rules/gameModes.js";
 import {
   recordEnding,
@@ -2380,7 +2381,6 @@ Example: game_start with mode="CUSTOM" and modifiers=["SITCOM_MODE", "ROOT_ACCES
         "- FOGGY_GLASSES + PARANOID_PROTOCOL",
         "- ROOT_ACCESS + FAT_FINGERS",
         "- NOT_GREAT_NOT_TERRIBLE + HANGOVER_PROTOCOL",
-        "- THE_HONEYPOT + LENNY_THE_LIME_GREEN",
         "- SITCOM_MODE + PARANOID_PROTOCOL",
       ],
     };
@@ -2435,8 +2435,7 @@ Perfect for checking which modifiers are affecting your current run!`,
       };
     }
 
-    // Use the formatter we created
-    const { formatActiveModifiers } = require("./rules/gameModes.js");
+    // Use the imported formatter
     const formattedModifiers = formatActiveModifiers(activeModifiers);
 
     // Also provide structured JSON for programmatic access

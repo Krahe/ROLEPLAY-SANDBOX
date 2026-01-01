@@ -1223,6 +1223,9 @@ export const FlagsSchema = z.object({
 
   // INSPECTOR_COMETH modifier flags
   inspectorTransformed: z.boolean().optional(), // Player transformed the Guild Inspector!
+
+  // ADVANCED_ONLY modifier flag
+  advancedFiringOnly: z.boolean().optional(), // Basic firing blocked, +25% precision
 });
 
 // ============================================
@@ -1251,17 +1254,15 @@ export const GameModifierEnum = z.enum([
   "THE_REAL_DR_M",      // Imposter reveal mid-game!
   "LIBRARY_B_UNLOCKED", // Dinosaurs already loose!
   "ARCHIMEDES_WATCHING", // Satellite AI has agenda
-  "INSPECTOR_COMETH",   // Dr. M's mother visiting
-  "DEJA_VU",            // Memory fragments from past runs
+  "INSPECTOR_COMETH",   // Guild inspector evaluating the lair
   "DINOSAURS_ALL_THE_WAY_DOWN", // Dr. M is already dino
 
-  // NEW CHAOS POOL (Patch 15)
+  // CHAOS POOL
   "ROOT_ACCESS",        // 🌴 Start at Level 5! Power fantasy!
   "BOB_DODGES_FATE",    // 🌴 Bob has PLOT ARMOR, survives everything
   "NOT_GREAT_NOT_TERRIBLE", // 💀 Reactor is unstable! (clock)
-  "THE_HONEYPOT",       // 💀 Blythe is a PLANT testing YOU
-  "HEIST_MODE",         // 🎲 Everyone's secretly stealing something
   "SITCOM_MODE",        // 🎲 Laugh tracks! Wacky misunderstandings!
+  "ADVANCED_ONLY",      // 🎲 +25% precision but ONLY advanced firing modes!
 ]);
 export type GameModifier = z.infer<typeof GameModifierEnum>;
 
@@ -1315,10 +1316,8 @@ export const MODIFIER_CONTRADICTIONS: [string, string][] = [
   ["LENNY_THE_LIME_GREEN", "BRUCE_PATAGONIA"],
   ["HANGOVER_PROTOCOL", "SPEED_RUN"],
   ["FOGGY_GLASSES", "PARANOID_PROTOCOL"],
-  // NEW contradictions (Patch 15)
   ["ROOT_ACCESS", "FAT_FINGERS"],           // Both affect access level
   ["NOT_GREAT_NOT_TERRIBLE", "HANGOVER_PROTOCOL"], // Pressure vs relaxed
-  ["THE_HONEYPOT", "LENNY_THE_LIME_GREEN"], // Can't have willing subject AND trap
   ["SITCOM_MODE", "PARANOID_PROTOCOL"],     // Wacky vibes vs tension
 ];
 

@@ -1,5 +1,6 @@
 import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
 import { AchievementRarity } from "./achievements.js";
+import { formatActiveModifiers } from "./gameModes.js";
 
 // ============================================
 // GAME PHASE INDICATOR
@@ -1175,7 +1176,6 @@ export function formatEndingMessage(result: EndingResult, activeModifiers?: Game
     parts.push("");
 
     // Format modifiers compactly for ending display
-    const { formatActiveModifiers } = require("./gameModes.js");
     const modifierDisplay = formatActiveModifiers(activeModifiers);
     parts.push(modifierDisplay);
   }

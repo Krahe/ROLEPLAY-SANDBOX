@@ -1445,6 +1445,29 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeN
   // ============================================
 
   if (cmd === "lab.fire" || cmd.includes("fire")) {
+    // ADVANCED_ONLY modifier: Block standard firing!
+    if (state.flags.advancedFiringOnly && state.dinoRay.targeting.firingStyle === "standard") {
+      return {
+        command: cmd,
+        success: false,
+        message: `🎲 ADVANCED_ONLY MODE ACTIVE!
+
+❌ Standard firing is BLOCKED in this chaos modifier!
+
+You must use an ADVANCED firing style:
+• "conservative" - Lower power, safer, +10% precision
+• "aggressive" - Higher power, riskier, chaotic results
+• "precision" - Surgical accuracy, requires calibration
+• "burst" - Multiple micro-pulses, unpredictable
+
+Use: lab.configure_firing_profile { firingStyle: "precision" }
+
+The good news? You have +25% base precision bonus! 🎯`,
+        shortMessage: `BLOCKED: Use advanced firing style!`,
+        stateChanges: {},
+      };
+    }
+
     // Get target BEFORE firing for clear feedback
     const firingTargetId = state.dinoRay.targeting.currentTargetIds[0] || "UNKNOWN";
     const firingTargetEmoji = firingTargetId === "BOB" ? "⚠️🧑‍🔬" :
