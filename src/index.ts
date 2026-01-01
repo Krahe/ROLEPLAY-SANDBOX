@@ -722,6 +722,9 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
               partialShotsReceived: 0,
               adaptationStage: "DISORIENTED",
               turnsPostTransformation: 0,
+              // CHIMERA SYSTEM - accidental Bob hits don't cause chimera
+              chimeraType: null,
+              chimeraEffect: null,
             };
           }
         }

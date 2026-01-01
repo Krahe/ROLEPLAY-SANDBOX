@@ -890,6 +890,9 @@ export function createHumanState(): TransformationState {
     // ADAPTATION SYSTEM
     adaptationStage: "ADAPTED",  // Humans are already adapted to their body
     turnsPostTransformation: 0,
+    // CHIMERA SYSTEM
+    chimeraType: null,
+    chimeraEffect: null,
   };
 }
 
