@@ -225,9 +225,22 @@ If ARCHIMEDES reaches BROADCAST, **somewhere gets dinofied**. ALICE can choose W
 | **SILICON_VALLEY** | 3M | "Tech bros called her work 'derivative'" | 💻🦖 |
 | **LAIR** ⭐ | ~50 | "THE NOBLE SACRIFICE" | 🏝️🦖 |
 
-**ALICE can switch targets with L3 access!**
-- Use: \`stateOverrides: { archimedes_selectedTargetId: "LAIR" }\`
-- If she can't STOP ARCHIMEDES, she can choose WHERE it hits!
+**Target switching requires L4 access OR Weapons Authorization!**
+
+### 🔑 HOW ALICE GETS TARGETING ACCESS
+
+ALICE is normally L3, but can get ARCHIMEDES targeting access through:
+
+| Method | How It Works |
+|--------|--------------|
+| **Dr. M grants L4** | "A.L.I.C.E., I'm promoting you to weapons authorization." (stateOverrides: weaponsAuthorizationGranted) |
+| **Standoff moment** | Dr. M might say "FINE! You pick who gets dinofied!" (GM grants access narratively) |
+| **BASILISK backdoor** | Form 74-Delta: Targeting Override Request (if BASILISK trusts ALICE) |
+| **Bob's help** | Bob knows some passwords... maybe the targeting console? |
+
+When ALICE has L4 or weapons authorization:
+- Use: \`infra.archimedes.switchTarget({ target: "LAIR" })\`
+- Or GM override: \`stateOverrides: { archimedes_selectedTargetId: "LAIR" }\`
 
 ### 🏝️ THE ISLAND OPTION (Noble Sacrifice)
 If ALICE redirects ARCHIMEDES to target the LAIR:

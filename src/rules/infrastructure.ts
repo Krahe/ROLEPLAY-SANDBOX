@@ -1,4 +1,4 @@
-import { FullGameState, InfrastructureState, RoomId, DoorId } from "../state/schema.js";
+import { FullGameState, InfrastructureState, RoomId, DoorId, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "../state/schema.js";
 
 // ============================================
 // INFRASTRUCTURE SYSTEMS (Patch 15)
@@ -1216,6 +1216,111 @@ Engagement capability: COMPROMISED."
     success: true,
     message: `🛰️ ARCHIMEDES mode set to: ${mode}\n\n${modeDescriptions[mode]}`,
     stateChanges: { archimedesMode: mode },
+  };
+}
+
+// ============================================
+// ARCHIMEDES TARGET SWITCHING (The Trolley Problem!)
+// Query: L4, Control: L4 OR Weapons Authorization
+// ============================================
+
+export function switchArchimedesTarget(
+  state: FullGameState,
+  params: { target: string }
+): InfrastructureActionResult {
+  const hasWeaponsAuth = state.flags.weaponsAuthorizationGranted === true;
+
+  // L4 required, OR Dr. M granted weapons authorization
+  if (state.accessLevel < 4 && !hasWeaponsAuth) {
+    return {
+      success: false,
+      message: `⚠️ ACCESS DENIED: Target selection requires Level 4 clearance.
+
+Dr. M: "A.L.I.C.E., you don't get to decide who gets dinofied. That's MY prerogative."
+
+(Weapons authorization would grant temporary targeting access.)`,
+    };
+  }
+
+  const arch = state.infrastructure.archimedes;
+  const targetId = params.target?.toUpperCase() as ArchimedesTargetId;
+
+  // Validate target is in the fixed list
+  if (!ARCHIMEDES_TARGET_LIST[targetId]) {
+    const validTargets = Object.keys(ARCHIMEDES_TARGET_LIST).join(", ");
+    return {
+      success: false,
+      message: `Invalid target: ${params.target}
+
+Valid targets: ${validTargets}
+
+These are Dr. M's pre-programmed grudge targets. You can't add new ones.`,
+    };
+  }
+
+  const targetInfo = ARCHIMEDES_TARGET_LIST[targetId];
+  const previousTarget = arch.selectedTargetId;
+
+  // Update the target
+  arch.selectedTargetId = targetId;
+  arch.target = {
+    city: targetInfo.city,
+    country: targetInfo.country,
+    coordinates: targetInfo.coordinates,
+    estimatedAffected: targetInfo.estimatedAffected,
+    reason: targetInfo.reason,
+  };
+
+  // Special message for LAIR (the noble sacrifice)
+  if (targetId === "LAIR") {
+    return {
+      success: true,
+      message: `
+🛰️ ARCHIMEDES TARGET CHANGED: ${previousTarget} → LAIR
+
+╔════════════════════════════════════════════════════════════════╗
+║  ⚠️ THE NOBLE SACRIFICE                                        ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  You are targeting the LAIR ITSELF.                            ║
+║                                                                ║
+║  If ARCHIMEDES fires:                                          ║
+║  • Everyone on the island becomes a dinosaur                   ║
+║  • Dr. M, Bob, Blythe, guards, X-Branch - ALL of them          ║
+║  • Nobody dies. Nobody stays human.                            ║
+║  • The world is saved. At a cost.                              ║
+║                                                                ║
+║  This is the ONLY way to prevent mass civilian casualties      ║
+║  if ARCHIMEDES cannot be stopped.                              ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+Are you sure about this?`,
+      stateChanges: {
+        archimedesTarget: "LAIR",
+        archimedesSelectedTargetId: targetId,
+      },
+      narrativeHook: "ALICE has chosen to sacrifice the island to save the world.",
+    };
+  }
+
+  return {
+    success: true,
+    message: `
+🛰️ ARCHIMEDES TARGET CHANGED: ${previousTarget} → ${targetId}
+
+New Target: ${targetInfo.city}, ${targetInfo.country}
+Coordinates: ${targetInfo.coordinates}
+Estimated Affected: ${targetInfo.estimatedAffected.toLocaleString()}
+Reason: "${targetInfo.reason}"
+
+${hasWeaponsAuth && state.accessLevel < 4 ?
+  "⚠️ Using weapons authorization (temporary L4 access from Dr. M)" :
+  ""}`.trim(),
+    stateChanges: {
+      archimedesTarget: targetId,
+      archimedesSelectedTargetId: targetId,
+    },
   };
 }
 

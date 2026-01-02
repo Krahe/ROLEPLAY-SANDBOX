@@ -1576,6 +1576,11 @@ export const FlagsSchema = z.object({
   drMDead: z.boolean().optional(),         // Dr. M is dead
   drMAbsent: z.boolean().optional(),       // Dr. M left the lair / out of range
 
+  // WEAPONS AUTHORIZATION (Temporary L4 access for ARCHIMEDES)
+  // Dr. M grants this when she wants ALICE to help with targeting
+  // "A.L.I.C.E., I'm giving you weapons authorization. Make it count."
+  weaponsAuthorizationGranted: z.boolean().optional(),
+
   // CONFRONTATION SYSTEM (Patch 17.3)
   // When suspicion hits 10, Dr. M WANTS to shut down A.L.I.C.E. but may not be ABLE to
   // This creates a dramatic confrontation scene with multiple resolution paths
