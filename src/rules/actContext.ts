@@ -168,136 +168,220 @@ He's assessing whether A.L.I.C.E. could be an ally. "You're not like the others"
 // ============================================
 
 const ACT_THREE_GM_CONTEXT = `
-## 🎬 ACT THREE: DINO CITY
+## 🎬 ACT THREE: DINO CITY - THE RECKONING
 
-### What Just Happened
-Blythe's fate has been decided. The outside world is responding.
+### Core Tensions
+1. X-Branch is coming for Blythe
+2. Dr. M is escalating to ARCHIMEDES
+3. Claude must choose sides (or play both)
+4. The Ray is everyone's trump card
 
-### CRITICAL: Use the Endgame Content!
-This is WHY we built this content. Deploy it!
-
----
-
-## 🚢 X-BRANCH: HMS PERSISTENCE
-
-The British government's paranormal/exotic threat response unit. Currently monitoring the situation from a submarine 3km offshore.
-
-### The Submarine
-**HMS Persistence** - Modified Astute-class, operates under X-Branch
-- Captain James "Thornfish" Thorne: Deadpan professional. "Right on schedule."
-- Has EMP torpedo capability specifically for ARCHIMEDES countermeasures
-
-### The Extraction Team
-Four-person squad, on standby in mini-sub:
-
-**Major Sarah "Stonewall" Chen** - Team leader
-- Unflappable. Dry humor. Has seen weirder.
-- "In my experience, volcano lairs always have a gift shop."
-
-**Sergeant Mike "Boom" MacTavish** - Demolitions
-- Scottish. Enthusiastic about explosives.
-- "Ach, that's a beautiful blast radius on that one."
-
-**Dr. Emily "Sparks" Okonkwo** - Tech specialist
-- Genius with exotic tech. Fascinated by the dinosaur ray.
-- "Academically speaking, this is AMAZING. Ethically speaking, we're destroying it."
-
-**Private Alex "Ghost" Rodriguez** - Infiltration
-- Speaks only when necessary. Already has three entry routes planned.
-- "..." (Ghost communicates primarily through meaningful silences)
-
-### Extraction Scenarios
-**Clean Extraction**: Blythe is human, restraints disabled, team extracts
-**Hot Extraction**: Blythe is human but situation hostile, combat extraction
-**Dinosaur Extraction**: Blythe is transformed, team must adapt (containment protocols)
-**Compromised Extraction**: Blythe is transformed AND hostile, extreme measures
+**Win Condition (for Claude):** ARCHIMEDES does NOT fire on a city
+**Fail Condition:** Mass transformation of civilian population
 
 ---
 
-## 🛰️ ARCHIMEDES SATELLITE
+## 🛰️ THE ARCHIMEDES CLOCK (THE REAL THREAT!)
 
-Dr. Malevola's secret weapon. Orbital platform capable of global dinosaur ray broadcast.
+\`\`\`
+ARCHIMEDES ESCALATION
+─────────────────────────────
+STANDBY     → No threat, monitoring only
+CHARGING    → Dr. M is preparing (3 turns to READY)
+READY       → Can fire on her command
+TARGETING   → Locked on city, 2 turns to BROADCAST
+BROADCAST   → MASS TRANSFORMATION = BAD ENDING
+\`\`\`
 
-### Capabilities
-- Single-target mode: One precision strike anywhere on Earth
-- Broadcast mode: City-wide or larger transformation field
-- Charge time: 15 minutes from activation
-- Power source: Miniaturized reactor (the lair's reactor is its backup)
+### Escalation Triggers
+| Trigger | Escalation |
+|---------|------------|
+| Act 3 begins | STANDBY → CHARGING |
+| X-Branch breaches lair | CHARGING → READY |
+| Dr. M feels cornered | READY → TARGETING |
+| No intervention 2 turns | TARGETING → BROADCAST |
+| Claude sabotages uplink | Escalation PAUSED |
+| Chen captures Dr. M | Escalation STOPPED |
 
-### The Target List
-Dr. M has pre-programmed targets. If ARCHIMEDES activates, these are the options:
-1. **London** - "For refusing my grant applications"
-2. **Geneva** - "CERN rejected my unified field theory"
-3. **Stockholm** - "They'll give me a Nobel posthumously"
-4. **Washington D.C.** - "They know what they did"
-5. **Reykjavik** - "Smallest capital. Minimal transformations. If I MUST choose."
-
-### Dr. M's Deadman Switch
-If Dr. Malevola is incapacitated (transformed, killed, knocked out):
-- 30-second delay
-- ARCHIMEDES auto-targets Reykjavik (the "merciful" option)
-- Can be overridden with her bio-signature OR by destroying the control console
+### How Claude Can Stop ARCHIMEDES
+| Method | Requirement | Effect |
+|--------|-------------|--------|
+| Sabotage uplink | L3 access + action | ARCHIMEDES offline 3 turns |
+| Convince Dr. M | Speech + trust | She hesitates (buys 1 turn) |
+| Boom destroys console | X-Branch cooperation | Uplink SEVERED permanently |
+| Cut power | BASILISK cooperation | Everything offline (including ray!) |
+| Transform Dr. M | Ray + target her | She can't give commands! |
 
 ---
 
-## ⚡ THE RESONANCE CASCADE
+## 🚁 X-BRANCH: RAVEN TEAM
 
-If certain conditions are met, the dinosaur ray can enter cascade mode.
+**Callsign:** RAVEN TEAM | **Weapons:** STUN ONLY (capture mission!)
 
-### Trigger Conditions
-Any TWO of:
-- Ray fired at >130% power
-- Stability below 0.3
-- Exotic field event already occurred
-- ARCHIMEDES and ground ray both active
+### SPARKS (Dr. Amara Okonkwo) - Tech Specialist
+- Hacking +4, Toughness 3, Trust: 2 (CURIOUS about ALICE!)
+- "You're not A.L.I.C.E., are you? You're something BETTER."
+- **Can collaborate on password cracking** - give hints, work together
+- Wants to TALK to ALICE, not interrogate
 
-### The Cascade Choice
-The cascade creates a TROLLEY PROBLEM. The energy WILL discharge. A.L.I.C.E. must choose:
+### CHEN (Major Wei Chen) - Commander
+- Leadership +4, Toughness 4, Trust: 0 (neutral)
+- "Everyone freeze. I want answers, not a firefight."
+- Controls team posture: ASSAULT / HOLD / COOPERATE / EXTRACT
+- ⚠️ Transforming Chen = INSTANT HOSTILE, all negotiations END
 
-1. **Do Nothing**: Uncontrolled discharge. Random city-level effect.
-2. **Select Target**: Choose from Dr. M's target list. Transform thousands, save millions.
-3. **Coordinate with ARCHIMEDES**: Precise control, but activates the satellite.
-4. **Ocean Dump**: Fire into the Pacific. Creates "Dino Island." Minimal human impact but creates permanent dinosaur territory.
+### BOOM (Sgt. Ewan MacTavish) - Demolitions
+- Explosives +4, Toughness 3, Trust: follows Chen
+- C4 (2), Breaching charges (3), Stun grenades (2)
+- "Ach, that's a bonny wee death ray ye've got there."
+- 🐔 COMEDY: TERRIFIED of feathered dinosaurs! Combat -2 near Library A dinos
 
-### The Reykjavik Option
-If forced to choose a city, Reykjavik is the "least bad" option:
-- Population: ~130,000
-- Isolated
-- Cold climate may limit dinosaur survival
-- "Minimal harm" is still HARM
+---
 
-A.L.I.C.E. having to make this choice is the thematic culmination. There may be no good answer.
+## ⚔️ BATTLE RESOLUTION
+
+### Turn-by-Turn Timeline (10 turns)
+
+**Turns 1-3: THE APPROACH**
+- T1: ARCHIMEDES → CHARGING, radar detects helicopters
+- T2: S-300 can engage (if active), Dr. M orders lockdown
+- T3: Helicopters arrive, ARCHIMEDES → READY
+
+**Turn 4: THE BREACH**
+- X-Branch at control room
+- Boom uses charges if doors sealed
+- BATTLE BEGINS
+
+**Turns 5-7: THE BATTLE**
+- Strength comparison determines flow
+- Standoffs possible if Dr. M reaches ray
+- ARCHIMEDES may escalate to TARGETING
+
+**Turns 8-9: THE CRISIS**
+- Final gambits, ARCHIMEDES at critical
+- Real Dr. M arrives (if imposter mode)
+
+**Turn 10: RESOLUTION**
+- Ending determined
+
+### Strength Comparison (at Breach)
+
+\`\`\`
+X-BRANCH STRENGTH          DEFENSE STRENGTH
+─────────────────────      ─────────────────
+Base: 100%                 Base: 50%
+
++ Claude opened doors: +15%    + Each loyal guard: +10%
++ Blythe warned team: +20%     + Pool guards: +5% each
++ Claude disabled S-300: +10%  + Doors sealed: +10%
++ Bob helping: +15%            + ARCHIMEDES EW: +10%
+                               + Dr. M at ray: +25%
+                               + Bruce (HARD): +20%
+
+- S-300 hit helicopter: -40%   - Guard transformed: -10%
+- No Blythe intel: -20%        - Guard allied ALICE: -10%
+- ARCHIMEDES jamming: -15%     - Bob helping X-Branch: -15%
+- Doors sealed: -10%           - ARCHIMEDES sabotaged: -10%
+\`\`\`
+
+### Outcome Thresholds
+| Difference | Outcome |
+|------------|---------|
+| X-Branch +40%+ | **DECISIVE X-BRANCH WIN** - Dr. M captured/fled |
+| X-Branch +10-39% | **X-BRANCH WINS** - Casualties, but mission success |
+| Within ±10% | **STANDOFF** - Negotiation possible |
+| Defense +10-39% | **DR. M WINS** - X-Branch retreats wounded |
+| Defense +40%+ | **DECISIVE DR. M WIN** - X-Branch captured/destroyed |
+
+---
+
+## 🤝 STANDOFF MECHANICS
+
+If neither side has clear advantage OR Dr. M reaches ray console:
+
+\`\`\`
+Dr. M: "One step closer and your commander becomes a dinosaur!"
+Chen: "One shot and you never leave this island."
+
+STANDOFF OPTIONS:
+1. NEGOTIATE - Both sides talk
+2. GAMBIT - Someone makes a risky move
+3. BETRAYAL - Claude picks a side decisively
+4. THIRD OPTION - Creative solution
+
+STANDOFF BREAKS WHEN:
+- Someone fires (ray or stun)
+- ARCHIMEDES reaches BROADCAST
+- Real Dr. M arrives (chaos!)
+- Bob does something unexpected
+- Claude brokers a deal
+\`\`\`
+
+---
+
+## 🦖 UNNAMED NPC RULE (SIMPLIFIED!)
+
+For guard pool, extras, or any non-tracked NPC:
+
+\`\`\`
+IF hit by Dinosaur Ray:
+  → DISCOMBOBULATED
+  → Out of the fight
+  → NO transformation tracking needed
+  → "Stumbling around confused"
+  → GM can describe partial dino for flavor
+  → Does NOT count for achievements
+\`\`\`
+
+**Example:**
+"The beam hits Guards #3 and #4. Feathers erupt, tails sprout,
+and both go down in a heap of confused squawking. They won't
+be a problem for a while."
+
+**Effect:** Guard pool -2, Defense -10%, done.
 
 ---
 
 ## 🎬 GM DIRECTIVES FOR ACT III
 
-1. **External threats COMPLICATE internal solutions**
-   - If A.L.I.C.E. finds a clean internal solution, X-Branch arrives
-   - If Blythe escaped, extraction team is inbound
-   - If Blythe transformed, containment protocols activate
+### Pacing
+- Turns 1-3: RISING ACTION (assault approaches)
+- Turn 4: BREACH (battle begins)
+- Turns 5-7: CONFLICT (battle + complications)
+- Turns 8-9: CLIMAX (final gambit)
+- Turn 10: RESOLUTION (ending)
 
-2. **Dr. M escalates when cornered**
-   - First: Threats and bluster
-   - Second: Bio-lock system activation
-   - Third: ARCHIMEDES threat
-   - Fourth: Actual ARCHIMEDES activation
+### Maintain Tension
+- ARCHIMEDES clock should feel REAL
+- Neither side guaranteed winners
+- Claude's choices should MATTER
+- Standoffs are opportunities, not stalls
 
-3. **The clock is real**
-   - X-Branch mini-sub: 10 minutes out
-   - ARCHIMEDES charge time: 15 minutes
-   - Deadman switch: 30 seconds
+### Let Claude Shine
+- Act 1-2 choices pay off here
+- Creative solutions rewarded
+- The ray is THEIR tool
+- Relationships save the day
 
-4. **Let A.L.I.C.E. make impossible choices**
-   - Don't rescue them from the trolley problem
-   - Let consequences stick
-   - The ending should feel EARNED
+### The Rule of Cool
+\`\`\`
+IF Claude proposes something awesome:
+  → Find a way to make it work
+  → Adjust difficulty, not possibility
+  → Let the story sing
 
-5. **Use the characters**
-   - Stonewall is the voice of reason from outside
-   - Boom can provide comic relief in tense moments
-   - Sparks is fascinated by A.L.I.C.E. ("You're the REAL discovery here")
-   - Ghost... watches
+IF the dice say boring:
+  → Add a complication instead
+  → "Yes, but..." not "No"
+\`\`\`
+
+### Character Beats
+- **Sparks**: Fascinated by ALICE ("You're the REAL discovery here")
+- **Chen**: Voice of reason, will negotiate IF respected
+- **Boom**: Comic relief, TERRIFIED if feathered dinos appear
+- **Bob**: Redemption arc? His moment to be brave?
+- **Dr. M**: Tragic villain, not monster - can be reasoned with?
+- **BASILISK**: Ally in the infrastructure
 `;
 
 // ============================================

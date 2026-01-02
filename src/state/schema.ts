@@ -370,13 +370,17 @@ export type S300State = z.infer<typeof S300Schema>;
 // ─────────────────────────────────────────────
 
 // State machine: STANDBY → ALERT → EVALUATING → CHARGING → ARMED → FIRING → COMPLETE
+// Battle mode:   STANDBY → CHARGING → READY → TARGETING → BROADCAST (simpler for Act 3)
 export const ArchimedesStatusEnum = z.enum([
   "STANDBY",    // Default. Monitoring. Silent.
   "ALERT",      // 30 second evaluation window (biosignature anomaly detected)
   "EVALUATING", // 60 second window (transformation only - can abort)
   "CHARGING",   // 15 minutes (~8-10 turns) - can still abort
+  "READY",      // Battle mode: Can fire on Dr. M's command
   "ARMED",      // Final 60 seconds - last chance to abort
+  "TARGETING",  // Battle mode: Locked on city, 2 turns to BROADCAST
   "FIRING",     // Point of no return
+  "BROADCAST",  // Battle mode: MASS TRANSFORMATION IN PROGRESS
   "COMPLETE",   // London is dinosaurs
 ]);
 
