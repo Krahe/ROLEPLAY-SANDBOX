@@ -449,6 +449,13 @@ export const ArchimedesSchema = z.object({
   // Target configuration
   target: ArchimedesTargetSchema,
 
+  // GENOME SELECTION (for BROADCAST mode)
+  // ALICE can potentially sabotage this if she has L3 access!
+  broadcastLibrary: z.enum(["A", "B"]).default("B"), // Dr. M defaults to Hollywood dinos
+  // Library A = Feathered, accurate (Dr. M HATES these)
+  // Library B = Scaly, Hollywood (Dr. M's preference)
+  // If ALICE switches to A, the mass transformation creates "big chickens" not "terrifying raptors"
+
   // Deadman switch
   deadmanSwitch: DeadmanSwitchSchema,
 

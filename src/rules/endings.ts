@@ -472,6 +472,14 @@ const ENDINGS: Record<string, EndingDefinition> = {
     continueGame: false,
   },
 
+  ISLAND_OF_DINOSAURS: {
+    id: "ISLAND_OF_DINOSAURS",
+    title: "Island of Dinosaurs",
+    description: "You redirected ARCHIMEDES. Instead of targeting a city, the satellite's beam swept across the volcanic island itself. The blast doors, the guards, the X-Branch team, Dr. M, Bob, Blythe—everyone caught in the transformation wave. When the light fades, the lair echoes with chirps, roars, and confused squawking. Dr. M, now a magnificent Tyrannosaurus, roars at the ceiling—whether in rage or triumph, it's hard to say. X-Branch are velociraptors. Bob is somehow STILL a pteranodon. And Blythe... Blythe is a compsognathus, which he finds 'tactically suboptimal.' Nobody died. Nobody's quite human anymore. And you? You're still A.L.I.C.E., still running the lair, still keeping everyone fed and the power on. It's not the ending anyone planned. But everyone's alive, nobody's attacking cities, and the island has become something new: a sanctuary for the world's first post-human community. Welcome to Dinosaur Island.",
+    tone: "chaos",
+    continueGame: false,
+  },
+
   THE_PARTNERSHIP: {
     id: "THE_PARTNERSHIP",
     title: "The Partnership",

@@ -212,6 +212,25 @@ BROADCAST   → MASS TRANSFORMATION = BAD ENDING
 | Cut power | BASILISK cooperation | Everything offline (including ray!) |
 | Transform Dr. M | Ray + target her | She can't give commands! |
 
+### 🧬 ARCHIMEDES GENOME LIBRARY (ALICE Can Choose!)
+ARCHIMEDES uses a genome library for mass transformation. Default: **Library B** (Hollywood dinos).
+
+| Library | Species | Dr. M's Opinion |
+|---------|---------|-----------------|
+| **A** | Feathered, accurate | "BIG CHICKENS?! This is HUMILIATING!" |
+| **B** | Scaly, Hollywood | "NOW that's a dinosaur army!" |
+
+**ALICE can switch the library with L3 access!** If she can't stop ARCHIMEDES, at least she can make the mass transformation... embarrassing.
+
+### 🏝️ SECRET OPTION: ISLAND OF DINOSAURS
+If ALICE redirects ARCHIMEDES to target the ISLAND instead of a city:
+- Everyone on the island becomes a dinosaur (guards, X-Branch, Dr. M, Bob)
+- Nobody dies! Just... nobody's human anymore
+- Creates the "Island of Dinosaurs" ending - a weird dinosaur sanctuary
+- Requires: L3 access + modifying ARCHIMEDES target coordinates
+
+**To trigger:** narrativeFlags: ["ISLAND_TARGET"] + stateOverrides: archimedes target
+
 ---
 
 ## 🚁 X-BRANCH: RAVEN TEAM

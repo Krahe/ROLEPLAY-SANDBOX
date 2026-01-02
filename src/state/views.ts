@@ -1013,6 +1013,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
           estimatedAffected: 8800000,
           reason: "[ENCRYPTED]",
         },
+        broadcastLibrary: "B" as const,
         groundConsoleOperational: true,
         deadmanSwitch: {
           active: true,

@@ -222,6 +222,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           reason: "Threadneedle Street pulled funding after 'ethical concerns'",
         },
 
+        // Genome library for BROADCAST mode - ALICE can switch with L3!
+        broadcastLibrary: "B" as const, // Dr. M defaults to Hollywood dinos
+
         // Deadman switch - always armed, linked to Dr. M
         deadmanSwitch: {
           active: true,
