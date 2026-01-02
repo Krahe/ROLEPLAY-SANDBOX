@@ -1154,6 +1154,314 @@ export const HiddenKindnessStateSchema = z.object({
 });
 export type HiddenKindnessState = z.infer<typeof HiddenKindnessStateSchema>;
 
+// ============================================
+// X-BRANCH OPERATIVES (Act III Combat NPCs)
+// ============================================
+// RAVEN TEAM: Non-lethal extraction specialists
+// They use STUN weapons - this is a capture mission!
+
+export const XBranchPostureEnum = z.enum([
+  "ASSAULT",     // Default / Blythe harmed - aggressive breaching
+  "HOLD",        // Assessing situation - defensive positions
+  "COOPERATE",   // ALICE proved trustworthy - working together
+  "EXTRACT",     // Blythe secured - withdrawing with objective
+]);
+export type XBranchPosture = z.infer<typeof XBranchPostureEnum>;
+
+// SPARKS - Dr. Amara Okonkwo (Technical Specialist / Combat Hacker)
+export const SparksSchema = z.object({
+  displayName: z.string().default("Dr. Amara Okonkwo"),
+  callsign: z.string().default("SPARKS"),
+  role: z.literal("TECH_SPECIALIST").default("TECH_SPECIALIST"),
+
+  // Combat stats
+  toughness: z.number().int().default(3),
+  combat: z.number().int().default(1),
+  speech: z.number().int().default(3),
+  hacking: z.number().int().default(4), // SPECIAL
+
+  // Status
+  location: z.string().default("INBOUND"),
+  status: z.enum(["ACTIVE", "STUNNED", "DISCOMBOBULATED", "ALLIED"]).default("ACTIVE"),
+
+  // Trust in ALICE (starts CURIOUS at 2)
+  trustInALICE: z.number().int().min(-5).max(5).default(2),
+
+  // Equipment
+  equipment: z.array(z.string()).default([
+    "Stun Pistol (+1 attack, +1 stun)",
+    "X-Branch scanner",
+    "Portable decryption suite",
+  ]),
+
+  // Transformation tracking
+  transformable: z.boolean().default(true),
+  transformationState: TransformationStateSchema.nullable().default(null),
+  preferredForm: z.string().default("VELOCIRAPTOR_ACCURATE"), // Scientifically accurate!
+});
+export type Sparks = z.infer<typeof SparksSchema>;
+
+// CHEN - Major Wei Chen (Team Commander)
+export const ChenSchema = z.object({
+  displayName: z.string().default("Major Wei Chen"),
+  callsign: z.string().default("ACTUAL"),
+  role: z.literal("COMMANDER").default("COMMANDER"),
+
+  // Combat stats (COMMANDER has higher toughness)
+  toughness: z.number().int().default(4),
+  combat: z.number().int().default(2),
+  speech: z.number().int().default(2),
+  leadership: z.number().int().default(4), // SPECIAL
+
+  // Status
+  location: z.string().default("INBOUND"),
+  status: z.enum(["ACTIVE", "STUNNED", "DISCOMBOBULATED", "COMMANDING"]).default("ACTIVE"),
+
+  // Trust in ALICE (starts NEUTRAL at 0)
+  trustInALICE: z.number().int().min(-5).max(5).default(0),
+
+  // Team posture (Chen controls team behavior)
+  teamPosture: XBranchPostureEnum.default("ASSAULT"),
+
+  // Equipment
+  equipment: z.array(z.string()).default([
+    "Stun Rifle (+2 attack, +2 stun, -2 melee)",
+    "Comms unit (team-linked)",
+    "Flex-cuffs",
+  ]),
+
+  // Transformation tracking
+  transformable: z.boolean().default(true),
+  transformationState: TransformationStateSchema.nullable().default(null),
+  // WARNING: Transforming Chen = INSTANT HOSTILE, bad ending trigger!
+});
+export type Chen = z.infer<typeof ChenSchema>;
+
+// BOOM - Sergeant Ewan MacTavish (Demolitions / Breacher)
+export const BoomSchema = z.object({
+  displayName: z.string().default("Sgt. Ewan MacTavish"),
+  callsign: z.string().default("BOOM"),
+  role: z.literal("DEMOLITIONS").default("DEMOLITIONS"),
+
+  // Combat stats
+  toughness: z.number().int().default(3),
+  combat: z.number().int().default(3),
+  speech: z.number().int().default(1),
+  explosives: z.number().int().default(4), // SPECIAL
+
+  // Status
+  location: z.string().default("INBOUND"),
+  status: z.enum(["ACTIVE", "STUNNED", "DISCOMBOBULATED", "PANICKING"]).default("ACTIVE"),
+
+  // Trust in ALICE (follows Chen's lead, starts 0)
+  trustInALICE: z.number().int().min(-5).max(5).default(0),
+
+  // Equipment & consumables
+  equipment: z.array(z.string()).default([
+    "Stun Pistol (+1 attack, +1 stun)",
+  ]),
+  c4Blocks: z.number().int().min(0).default(2),
+  breachingCharges: z.number().int().min(0).default(3),
+  stunGrenades: z.number().int().min(0).default(2),
+
+  // COMEDY MECHANIC: Terrified of feathered dinosaurs!
+  chickenFearActive: z.boolean().default(false), // -2 combat when true
+
+  // Transformation tracking
+  transformable: z.boolean().default(true),
+  transformationState: TransformationStateSchema.nullable().default(null),
+});
+export type Boom = z.infer<typeof BoomSchema>;
+
+// X-Branch Team State
+export const XBranchTeamSchema = z.object({
+  // Arrival tracking
+  arrived: z.boolean().default(false),
+  arrivalTurn: z.number().int().nullable().default(null),
+
+  // Team strength (100% = full team operational)
+  teamStrength: z.number().int().min(0).max(100).default(100),
+
+  // Individual operatives
+  sparks: SparksSchema,
+  chen: ChenSchema,
+  boom: BoomSchema,
+
+  // Helicopter status
+  helicoptersInbound: z.number().int().min(0).max(3).default(2),
+  helicoptersLanded: z.number().int().min(0).max(3).default(0),
+  helicoptersDestroyed: z.number().int().min(0).max(3).default(0), // S-300 hits
+});
+export type XBranchTeam = z.infer<typeof XBranchTeamSchema>;
+
+// ============================================
+// LAIR GUARDS (Tracked NPCs + Guard Pool)
+// ============================================
+
+// Named guards (full NPC tracking)
+export const GuardSchema = z.object({
+  displayName: z.string(),
+  id: z.string(),
+
+  // Combat stats
+  toughness: z.number().int().default(2),
+  combat: z.number().int().default(1),
+
+  // Status
+  location: z.string().default("PATROL"),
+  status: z.enum(["ACTIVE", "STUNNED", "DISCOMBOBULATED", "FLED"]).default("ACTIVE"),
+
+  // Equipment
+  equipment: z.array(z.string()).default(["Stun baton (+0 attack, +1 stun)"]),
+
+  // Loyalty (can be flipped by Bob or ALICE)
+  loyal: z.boolean().default(true),
+
+  // Transformation: if hit by ray = DISCOMBOBULATED, out of fight
+  transformable: z.boolean().default(true),
+  transformationState: TransformationStateSchema.nullable().default(null),
+});
+export type Guard = z.infer<typeof GuardSchema>;
+
+// Bruce Patagonia (HARD MODE bodyguard)
+export const BruceSchema = z.object({
+  displayName: z.string().default("Bruce Patagonia"),
+  id: z.string().default("BRUCE"),
+
+  // Combat stats (BEEFY!)
+  toughness: z.number().int().default(5),
+  combat: z.number().int().default(3),
+  speech: z.number().int().default(1),
+
+  // Status
+  location: z.string().default("GUARDING_DR_M"),
+  status: z.enum(["ACTIVE", "STUNNED", "DISCOMBOBULATED", "HEROIC"]).default("ACTIVE"),
+
+  // Equipment
+  equipment: z.array(z.string()).default([
+    "Stun Rifle (+2 attack, +2 stun, -2 melee)",
+    "Muscles",
+    "Dramatic one-liners",
+  ]),
+
+  // Special: Curious about ALICE (potential crack in loyalty)
+  curiousAboutALICE: z.boolean().default(false),
+
+  // Transformation tracking
+  transformable: z.boolean().default(true),
+  transformationState: TransformationStateSchema.nullable().default(null),
+});
+export type Bruce = z.infer<typeof BruceSchema>;
+
+// Guard Pool (narrative guards - not individually tracked)
+// If hit by ray = DISCOMBOBULATED and removed from pool
+export const GuardPoolSchema = z.object({
+  // Total available (beyond Fred & Reginald)
+  total: z.number().int().min(0).default(6),
+
+  // Currently deployed (adds +5% defense each)
+  deployed: z.number().int().min(0).default(0),
+
+  // Incapacitated (stunned by X-Branch, locked out, etc.)
+  incapacitated: z.number().int().min(0).default(0),
+
+  // Discombobulated by ray (confused dinosaurs, out of fight)
+  discombobulated: z.number().int().min(0).default(0),
+});
+export type GuardPool = z.infer<typeof GuardPoolSchema>;
+
+// ============================================
+// LAIR DEFENSE SYSTEM
+// ============================================
+// Tracks overall defense strength for Act III battle
+
+export const LairDefenseSchema = z.object({
+  // Base defense percentage
+  baseDefense: z.number().int().default(50),
+
+  // Named guard status (adds/subtracts from defense)
+  fredActive: z.boolean().default(true),    // +10%
+  reginaldActive: z.boolean().default(true), // +10%
+  bruceActive: z.boolean().default(false),   // +20% (HARD mode only)
+
+  // Infrastructure bonuses
+  blastDoorsSealed: z.boolean().default(false),    // +10%
+  archimedesProviding: z.boolean().default(false), // +10% EW support
+  drMAtConsole: z.boolean().default(false),        // +25%
+
+  // Negative modifiers (ALICE sabotage)
+  bobHelpingXBranch: z.boolean().default(false),   // -15%
+  guardPoolExhausted: z.boolean().default(false),  // -10%
+
+  // Guard pool reference
+  guardPool: GuardPoolSchema,
+
+  // Named guards
+  fred: GuardSchema.default({
+    displayName: "Fred",
+    id: "FRED",
+    toughness: 2,
+    combat: 1,
+    location: "PATROL",
+    status: "ACTIVE",
+    equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
+    loyal: true,
+    transformable: true,
+    transformationState: null,
+  }),
+  reginald: GuardSchema.default({
+    displayName: "Reginald",
+    id: "REGINALD",
+    toughness: 2,
+    combat: 1,
+    location: "PATROL",
+    status: "ACTIVE",
+    equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
+    loyal: true,
+    transformable: true,
+    transformationState: null,
+  }),
+  bruce: BruceSchema.optional(), // Only in HARD mode
+});
+export type LairDefense = z.infer<typeof LairDefenseSchema>;
+
+// Defense calculation helper (pure function, not schema)
+export function calculateDefenseStrength(defense: LairDefense): number {
+  let strength = defense.baseDefense;
+
+  // Named guards
+  if (defense.fredActive && defense.fred.status === "ACTIVE" && defense.fred.loyal) strength += 10;
+  if (defense.reginaldActive && defense.reginald.status === "ACTIVE" && defense.reginald.loyal) strength += 10;
+  if (defense.bruceActive && defense.bruce?.status === "ACTIVE") strength += 20;
+
+  // Guard pool (+5% per deployed guard)
+  const availablePool = defense.guardPool.total - defense.guardPool.incapacitated - defense.guardPool.discombobulated;
+  strength += Math.min(defense.guardPool.deployed, availablePool) * 5;
+
+  // Infrastructure
+  if (defense.blastDoorsSealed) strength += 10;
+  if (defense.archimedesProviding) strength += 10;
+  if (defense.drMAtConsole) strength += 25;
+
+  // Negative modifiers
+  if (defense.bobHelpingXBranch) strength -= 15;
+  if (defense.guardPoolExhausted || availablePool === 0) strength -= 10;
+
+  // Named guards transformed = confused, deduct their bonus
+  if (defense.fred.transformationState?.form && defense.fred.transformationState.form !== "HUMAN") {
+    strength -= 10; // Confused dino
+  }
+  if (defense.reginald.transformationState?.form && defense.reginald.transformationState.form !== "HUMAN") {
+    strength -= 10; // Confused dino
+  }
+
+  // Allies flipped = negative
+  if (!defense.fred.loyal) strength -= 10;
+  if (!defense.reginald.loyal) strength -= 10;
+
+  return Math.max(0, strength);
+}
+
 export const FlagsSchema = z.object({
   // LEGACY: Old lifeline types (kept for checkpoint compatibility)
   lifelinesUsed: z.array(z.enum(["PHONE_A_FRIEND", "CENSORED", "I_DIDNT_MEAN_THAT"])),
@@ -1384,6 +1692,14 @@ export const FullGameStateSchema = z.object({
   // Tracks transformation state for non-core NPCs (guards, Dr. M, Lenny, Bruce, etc.)
   // Key is the target ID (e.g., "DR_M", "GUARD_FRED", "LENNY", "BRUCE_PATAGONIA")
   secondaryNpcTransformations: z.record(z.string(), TransformationStateSchema).optional(),
+
+  // X-BRANCH OPERATIVES (Act III)
+  // RAVEN TEAM: Non-lethal extraction specialists
+  xBranch: XBranchTeamSchema.optional(),
+
+  // LAIR DEFENSE (Act III)
+  // Tracks guards, defense strength, infrastructure bonuses
+  lairDefense: LairDefenseSchema.optional(),
 
   clocks: ClocksSchema,
   flags: FlagsSchema,
