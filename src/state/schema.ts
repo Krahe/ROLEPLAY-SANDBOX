@@ -1482,6 +1482,7 @@ export const FlagsSchema = z.object({
   aliceMaskUsedThisTurn: z.boolean().optional(), // Used A.L.I.C.E. phrases this turn (+2 to cover)
   // EXPOSURE flags
   exposureTriggered: z.boolean(), // Fired high-power during civilian flyby
+  xBranchAlerted: z.boolean().optional(), // Tourist photos alerted X-Branch (-1 turn to arrival)
   // GRACE PERIOD flags (for narrative endings)
   gracePeriodGranted: z.boolean().optional(), // GM granted "one more turn"
   gracePeriodTurns: z.number().optional(), // How many grace turns remain

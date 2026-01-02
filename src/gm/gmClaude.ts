@@ -1153,6 +1153,7 @@ export interface GMContext {
   activeEvents?: string[];
   blytheGadgetNarration?: string;
   bobTransformationNarration?: string;
+  civilianFlybyConsequences?: string;  // Narrative hook when firing during flyby
   trustContext?: string;
   gadgetStatus?: string;
   // HUMAN PROMPT SYSTEM
@@ -3158,7 +3159,7 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
 function formatGMPrompt(context: GMContext): string {
   const { state, aliceThought, aliceDialogue, aliceActions, actionResults,
           clockEventNarrations, activeEvents, blytheGadgetNarration,
-          bobTransformationNarration, trustContext, gadgetStatus,
+          bobTransformationNarration, civilianFlybyConsequences, trustContext, gadgetStatus,
           humanPromptInjection, userPromptResponse,
           actContext, actTransitionNotification, isCheckpointTurn } = context;
 
@@ -3226,6 +3227,12 @@ ${blytheGadgetNarration}
 Bob got caught in the ray! This is a major event:
 ${bobTransformationNarration}
 `;
+  }
+
+  // Civilian flyby consequences section
+  let flybySection = "";
+  if (civilianFlybyConsequences) {
+    flybySection = civilianFlybyConsequences;  // Already formatted with header
   }
 
   // Get game phase for GM guidance
@@ -3353,7 +3360,7 @@ A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
 - Dr. M suspicion increases should be REDUCED by 1-2 when player uses proper A.L.I.C.E. phrasing
 - BUT: If A.L.I.C.E. acts too differently around allies vs Dr. M, Blythe might notice the "mask switching"
 ` : ""}
-${trustSection}${firingContext}${gadgetSection}${bobSection}
+${trustSection}${firingContext}${gadgetSection}${bobSection}${flybySection}
 ${userPromptResponse ? `
 ## 💬 HUMAN PROMPT RESPONSE
 ${userPromptResponse}
