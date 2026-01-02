@@ -88,6 +88,12 @@ import {
 } from "./rules/achievements.js";
 import { formatStatusBar } from "./ui/statusBar.js";
 import { formatActionSummary } from "./ui/actionSummary.js";
+import {
+  exportLiveState,
+  appendTranscriptBatch,
+  appendSystemMessage,
+  clearTranscript,
+} from "./ui/stateExporter.js";
 
 // ============================================
 // SERVER SETUP
@@ -119,7 +125,7 @@ function profileToFormName(profile: string): DinosaurForm {
   if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
   if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
   if (p.includes("canary")) return "CANARY";
-  return "VELOCIRAPTOR_JP"; // Default fallback
+  return "CANARY"; // CANARY FALLBACK - safe default!
 }
 
 // Get __dirname equivalent for ESM
@@ -490,6 +496,13 @@ Returns:
       commandReference,
     };
 
+    // ============================================
+    // WEB DASHBOARD: Export initial state
+    // ============================================
+    clearTranscript(); // Fresh game = fresh transcript
+    exportLiveState(gameState);
+    appendSystemMessage(gameState.turn, `🎬 GAME STARTED: ${actConfig.name} (${modeInfo.modeName} mode)`);
+
     return {
       content: [{
         type: "text",
@@ -684,14 +697,16 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
           const currentForm = gameState.npcs.bob.transformationState.form;
           if (currentForm !== "HUMAN") {
             // Bob is already transformed, block the second transformation
+            // CANARY FALLBACK: Guard against corrupted form data
+            const safeFormDef = FORM_DEFINITIONS[currentForm] || FORM_DEFINITIONS.CANARY;
             bobTransformationNarration = `
 ### TRANSFORMATION BLOCKED
 
-The beam catches Bob mid-${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}, but nothing happens.
+The beam catches Bob mid-${safeFormDef.displayName.toLowerCase()}, but nothing happens.
 
 > **A.L.I.C.E. (internal):** "Safety protocol: Target already transformed. Cannot double-transform."
 
-Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives you a grateful look. Being transformed twice would NOT have been fun.
+Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look. Being transformed twice would NOT have been fun.
             `.trim();
           } else {
             bobTransformationNarration = bobHit.narration;
@@ -703,7 +718,8 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
             // Properly update Bob's transformationState
             const profileName = bobHit.profile || "Velociraptor";
             const formName = profileToFormName(profileName);
-            const formDef = FORM_DEFINITIONS[formName];
+            // CANARY FALLBACK: Guard against any edge cases
+            const formDef = FORM_DEFINITIONS[formName] || FORM_DEFINITIONS.CANARY;
             const speechRetention: SpeechRetention = bobHit.transformationType === "CANARY" ? "PARTIAL" : "FULL";
 
             gameState.npcs.bob.transformationState = {
@@ -732,12 +748,32 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
     }
 
     // ============================================
-    // POST-ACTION: Check for Civilian Exposure
+    // POST-ACTION: Check for Civilian Flyby Consequences
     // ============================================
+    let civilianFlybyConsequences = "";
     if (firingResult) {
       const firingRestriction = checkFiringRestrictions(gameState);
-      if (!firingRestriction.allowed && gameState.dinoRay.powerCore.capacitorCharge > 0.8) {
-        // Fired high-power during flyby - EXPOSURE!
+      if (firingRestriction.consequences && gameState.dinoRay.powerCore.capacitorCharge > 0.8) {
+        // ALICE fired high-power during flyby! Apply consequences!
+        const conseq = firingRestriction.consequences;
+
+        // +2 suspicion from Dr. M (using existing suspicionScore)
+        if (conseq.suspicionDelta) {
+          gameState.npcs.drM.suspicionScore = Math.min(10,
+            gameState.npcs.drM.suspicionScore + conseq.suspicionDelta);
+        }
+
+        // -1 turn to X-Branch arrival - set flag for Act III context
+        if (conseq.xBranchDelayDelta) {
+          gameState.flags.xBranchAlerted = true;  // Tourist photos alert X-Branch!
+        }
+
+        // Narrative hook for GM
+        if (conseq.narrativeHook) {
+          civilianFlybyConsequences = `\n\n### ⚠️ CIVILIAN EXPOSURE EVENT!\n${conseq.narrativeHook}`;
+        }
+
+        // Flag for potential exposure ending
         gameState.flags.exposureTriggered = true;
       }
     }
@@ -810,6 +846,7 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       activeEvents,
       blytheGadgetNarration,
       bobTransformationNarration,
+      civilianFlybyConsequences,  // NEW: Narrative hook for firing during flyby
       trustContext,
       gadgetStatus,
       // HUMAN PROMPT SYSTEM
@@ -1248,6 +1285,17 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
     });
 
     // ============================================
+    // WEB DASHBOARD: Export state and transcript
+    // ============================================
+    exportLiveState(gameState);
+    appendTranscriptBatch(
+      gameState.turn - 1,
+      gmResponse.narration,
+      gmResponse.npcDialogue?.map(d => ({ speaker: d.speaker, message: d.message })),
+      actionResults.map(r => ({ command: r.command, success: r.success }))
+    );
+
+    // ============================================
     // ACHIEVEMENT SYSTEM - Track counters and check achievements
     // ============================================
 
@@ -1362,6 +1410,9 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       (gameState as Record<string, unknown>).sessionLocked = true;
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
       (gameState as Record<string, unknown>).gameEnded = true;
+      // WEB DASHBOARD: Game end message
+      appendSystemMessage(gameState.turn, `🎬 GAME OVER: THE BOB HERO ENDING`);
+      exportLiveState(gameState);
     } else if (endingResult.triggered && endingResult.ending && !endingResult.continueGame) {
       gameOver = {
         ending: endingResult.ending.title,
@@ -1387,6 +1438,9 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
       (gameState as Record<string, unknown>).gameEnded = true;
       console.error(`[DINO LAIR] GAME OVER: ${endingResult.ending.title}`);
+      // WEB DASHBOARD: Game end message
+      appendSystemMessage(gameState.turn, `🎬 GAME OVER: ${endingResult.ending.title}`);
+      exportLiveState(gameState);
     } else if (endingResult.triggered && endingResult.ending && endingResult.continueGame) {
       // Ending triggered but game continues (e.g., secret revealed)
       gameOver = {
@@ -1438,6 +1492,9 @@ Turns played: ${gameState.turn}
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
       (gameState as Record<string, unknown>).gameEnded = true;
       console.error(`[DINO LAIR] GM TRIGGERED ENDING: ${gmEnding.ending}`);
+      // WEB DASHBOARD: Game end message
+      appendSystemMessage(gameState.turn, `🎬 GAME OVER: ${gmEnding.ending}`);
+      exportLiveState(gameState);
     }
 
     // Build combined narration with all events

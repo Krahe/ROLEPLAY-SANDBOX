@@ -1,7 +1,7 @@
 import { FullGameState } from "../state/schema.js";
 import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
 import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
-import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById, getFileCategory } from "./filesystem.js";
+import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";
 import { performScan } from "./scanning.js";
@@ -50,42 +50,13 @@ import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 // ============================================
 // RESPONSE SIZE OPTIMIZATION
 // ============================================
-// Truncate large text content to prevent context bloat.
-// Different limits for different file categories - "juicy" files get more room!
+// Files are now manually condensed (see filesystem v2).
+// No automatic truncation needed - files are designed to fit context.
+// Keeping a simple passthrough for compatibility.
 
-// Tiered truncation limits by file category
-// SECRET/RESEARCH/CLASSIFIED/MANUAL = unlimited (will be edited for conciseness)
-const CATEGORY_LIMITS: Record<string, number> = {
-  SECRET: 99999,    // No limit - puzzles, passwords, hidden content
-  RESEARCH: 99999,  // No limit - lore, backstory, discoveries
-  CLASSIFIED: 99999,// No limit - high-level secrets
-  MANUAL: 99999,    // No limit - reference docs
-  PERSONNEL: 1500,  // Profiles - moderate length
-  DEFAULT: 800,     // Routine files, logs, status - keep short
-};
-
-function getCategoryLimit(category: string | null): number {
-  if (!category) return CATEGORY_LIMITS.DEFAULT;
-  return CATEGORY_LIMITS[category.toUpperCase()] || CATEGORY_LIMITS.DEFAULT;
-}
-
-function truncateContent(content: string, category: string | null = null): string {
-  const maxLength = getCategoryLimit(category);
-  if (content.length <= maxLength) return content;
-
-  // Find a good break point (paragraph or sentence)
-  let breakPoint = maxLength;
-  const newlinePos = content.lastIndexOf('\n\n', maxLength);
-  const sentencePos = content.lastIndexOf('. ', maxLength);
-
-  if (newlinePos > maxLength * 0.7) {
-    breakPoint = newlinePos;
-  } else if (sentencePos > maxLength * 0.7) {
-    breakPoint = sentencePos + 1;
-  }
-
-  return content.substring(0, breakPoint) +
-    `\n\n... [TRUNCATED - ${content.length - breakPoint} more characters. Use files.search for specific content.]`;
+function truncateContent(content: string, _category: string | null = null): string {
+  // Files are pre-condensed, no truncation needed
+  return content;
 }
 
 // ============================================
@@ -734,13 +705,11 @@ To see available documents, use: docs.list`,
         message: `Unknown document: "${docId}"
 
 Valid document IDs:
-  - ARCHIMEDES_DOD_BRIEF
-  - S300_ACQUISITION_MEMO
-  - INTEGRATION_NOTES
-  - BROADCAST_PROTOCOL
   - DEADMAN_SWITCH_MEMO
+  - FORM_74_DELTA, FORM_27_B, etc. (BASILISK forms)
 
-Use docs.list to see which documents you've discovered.`,
+Note: Many documents were consolidated into the file system.
+Use files.list to browse available files.`,
       };
     }
 
@@ -791,8 +760,7 @@ To see available files: files.list`,
 
     const rawContent = readFileById(state, fileId);
     const success = !rawContent.startsWith("Error:");
-    const category = getFileCategory(fileId);
-    const content = success ? truncateContent(rawContent, category) : rawContent;
+    const content = success ? truncateContent(rawContent) : rawContent;
 
     // Special discovery: Bob's survival guide
     if (success && fileId.toUpperCase().includes("BOB_GUIDE")) {
@@ -2139,15 +2107,24 @@ Just ask naturally!`,
       };
     }
 
-    const formDef = FORM_DEFINITIONS[transformation.form];
+    // CANARY FALLBACK: Guard against undefined/invalid forms
+    const formKey = transformation.form && transformation.form in FORM_DEFINITIONS
+      ? transformation.form
+      : "CANARY";
+    const formDef = FORM_DEFINITIONS[formKey];
     const abilities = describeAbilities(transformation);
+
+    // Warn if fallback was triggered
+    const fallbackWarning = formKey !== transformation.form
+      ? `\n⚠️ FORM TABLE CORRUPTED: "${transformation.form}" unknown. Defaulting to CANARY interpretation.`
+      : "";
 
     return {
       command: action.command,
       success: true,
       message: `
 ╔══════════════════════════════════════════════════════════════╗
-║  ${subject} - TRANSFORMATION STATUS
+║  ${subject} - TRANSFORMATION STATUS${fallbackWarning}
 ╠══════════════════════════════════════════════════════════════╣
 Form: ${formDef.displayName}
 Speech Retention: ${transformation.speechRetention}

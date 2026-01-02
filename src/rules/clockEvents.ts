@@ -302,18 +302,35 @@ export function processClockEvents(state: FullGameState): ClockEventResult[] {
 export interface FiringRestrictionResult {
   allowed: boolean;
   reason?: string;
-  override?: string;
+  warning?: string;            // Warning shown BEFORE firing (allows player to reconsider)
+  consequences?: {             // Consequences that apply IF they fire anyway
+    suspicionDelta?: number;   // +suspicion from Dr. M
+    xBranchDelayDelta?: number; // Negative = X-Branch arrives SOONER
+    narrativeHook?: string;    // What happens narratively
+  };
 }
 
 export function checkFiringRestrictions(state: FullGameState): FiringRestrictionResult {
-  // Check civilian flyby restriction
+  // Check civilian flyby - ALLOW firing but with CONSEQUENCES!
   if (state.turn >= 10 && state.turn <= 12) {
     const civilianFlybyActive = (state.clocks.civilianFlyby ?? 12) > 0;
     if (civilianFlybyActive && state.dinoRay.powerCore.capacitorCharge > 0.8) {
       return {
-        allowed: false,
-        reason: "Civilian helicopter in visual range. High-power firing would expose the lair.",
-        override: "Override possible but will trigger EXPOSURE ending if civilians photograph the event.",
+        allowed: true,  // ALICE CAN fire... but should she?
+        warning: `⚠️ CIVILIAN FLYBY IN PROGRESS!
+High-power firing during tourist helicopter overflight will:
+• Draw Dr. M's SUSPICION (+2)
+• Alert X-Branch via tourist photos (-1 turn to their arrival)
+• Create potential witnesses
+
+Dr. M said NO high-power firing. Proceed anyway?`,
+        consequences: {
+          suspicionDelta: 2,
+          xBranchDelayDelta: -1,  // -1 turn = they arrive SOONER
+          narrativeHook: `The flash of the DinoRay catches the tourists' attention. Cameras flash.
+Dr. M's voice cuts through: "A.L.I.C.E.! I SPECIFICALLY said—"
+She pauses, checks her phone. "Tourist photos are already on social media. X-Branch will see this."`,
+        },
       };
     }
   }

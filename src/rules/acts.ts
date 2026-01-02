@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FullGameState, Act, ACT_CONFIGS, ActConfig } from "../state/schema.js";
+import { resetMemoryForActTransition, ActSummary } from "../gm/gmClaude.js";
 
 // ============================================
 // ZOD SCHEMA FOR HANDOFF VALIDATION
@@ -166,12 +167,25 @@ function buildTransition(state: FullGameState, reason: string): ActTransitionRes
 
 /**
  * Apply the act transition (call this after player acknowledges)
+ * Now includes GM Memory Reset for fresh context!
  */
-export function applyActTransition(state: FullGameState, nextAct: Act): void {
+export function applyActTransition(state: FullGameState, nextAct: Act): ActSummary {
   const nextConfig = ACT_CONFIGS[nextAct];
+  const previousAct = state.actConfig.currentAct;
+  const actStartTurn = state.actConfig.actStartTurn;
 
-  // Store summary of previous act
-  const previousActSummary = `Completed ${state.actConfig.currentAct} at turn ${state.turn}`;
+  // ============================================
+  // GM MEMORY RESET - Fresh context, preserved gold!
+  // ============================================
+  const actSummary = resetMemoryForActTransition(
+    previousAct,
+    nextAct,
+    actStartTurn,
+    state.turn
+  );
+
+  // Store summary of previous act (now includes the generated summary)
+  const previousActSummary = `${previousAct} (Turns ${actStartTurn}-${state.turn}): ${actSummary.keyEvents.join("; ") || "Completed"}`;
 
   // Update act configuration
   state.actConfig = {
@@ -196,8 +210,7 @@ export function applyActTransition(state: FullGameState, nextAct: Act): void {
     // Narration handled by generateAct3Intro
   }
 
-  // DON'T clear history - we're staying in the same conversation!
-  // The compact responses handle context limits.
+  return actSummary;
 }
 
 // ============================================

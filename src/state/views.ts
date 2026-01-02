@@ -802,7 +802,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         selectedProfile: compressed.ray.prof,
         profileIntegrity: 1.0,
         libraryStatus: "HEALTHY",
-        fallbackProfile: "RAPTOR_STANDARD",
+        fallbackProfile: "Canary", // CANARY FALLBACK!
         activeLibrary: compressed.ray.lib as "A" | "B",
         libraryAUnlocked: true,
         libraryBUnlocked: true, // Both libraries now available from Level 1
@@ -1013,6 +1013,8 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
           estimatedAffected: 8800000,
           reason: "[ENCRYPTED]",
         },
+        broadcastLibrary: "B" as const,
+        selectedTargetId: "LONDON" as const,
         groundConsoleOperational: true,
         deadmanSwitch: {
           active: true,

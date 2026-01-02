@@ -32,8 +32,11 @@ export type ArchimedesStatus =
   | "ALERT"
   | "EVALUATING"
   | "CHARGING"
+  | "READY"       // Battle mode: Can fire on Dr. M's command
   | "ARMED"
+  | "TARGETING"   // Battle mode: Locked on city, 2 turns to BROADCAST
   | "FIRING"
+  | "BROADCAST"   // Battle mode: MASS TRANSFORMATION IN PROGRESS
   | "COMPLETE";
 
 export type BiosignatureStatus =

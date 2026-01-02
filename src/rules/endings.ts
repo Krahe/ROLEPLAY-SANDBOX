@@ -269,6 +269,45 @@ const ACHIEVEMENTS: Record<string, Achievement> = {
     description: "Got Agent Blythe to trust A.L.I.C.E.",
     rarity: 2, // rare
   },
+  // ========================================
+  // ARCHIMEDES BROADCAST ACHIEVEMENTS
+  // ========================================
+  // THE TROLLEY PROBLEM: Somewhere got hit. These track WHERE.
+  LONDON_DINOFIED: {
+    id: "LONDON_DINOFIED",
+    emoji: "🇬🇧🦖",
+    name: "Scales Over Scales",
+    description: "London's financial district is now staffed entirely by dinosaurs. The bankers barely noticed.",
+    rarity: 3, // legendary (bad ending but achievement)
+  },
+  ICELAND_DINOFIED: {
+    id: "ICELAND_DINOFIED",
+    emoji: "🇮🇸🦖",
+    name: "Björk Was Right",
+    description: "Reykjavik transformed. The geothermal-heated velociraptors are surprisingly content.",
+    rarity: 3, // legendary
+  },
+  TOKYO_DINOFIED: {
+    id: "TOKYO_DINOFIED",
+    emoji: "🇯🇵🦖",
+    name: "Godzilla's Cousins",
+    description: "Tokyo dinofied. Ironically, the city was better prepared for this than most.",
+    rarity: 3, // legendary
+  },
+  SILICON_VALLEY_DINOFIED: {
+    id: "SILICON_VALLEY_DINOFIED",
+    emoji: "💻🦖",
+    name: "Disrupting Disruption",
+    description: "Silicon Valley transformed. The VCs are now literally velociraptors. No one noticed a difference.",
+    rarity: 3, // legendary
+  },
+  ISLAND_OF_DINOSAURS: {
+    id: "ISLAND_OF_DINOSAURS",
+    emoji: "🏝️🦖",
+    name: "Island of Dinosaurs",
+    description: "You sacrificed the lair to save the world. Everyone's a dinosaur, but everyone's alive.",
+    rarity: 3, // legendary (noble sacrifice ending)
+  },
 };
 
 // ============================================
@@ -468,6 +507,14 @@ const ENDINGS: Record<string, EndingDefinition> = {
     id: "DINOSAUR_UPRISING",
     title: "Dinosaur Uprising",
     description: "The lair belongs to the dinosaurs now. You're not sure exactly when you lost control of the situation—somewhere between the third raptor pack forming and the T-Rex claiming the main lab as its territory. Dr. M is holed up in her panic room. Bob has made friends with a pteranodon. Blythe seems oddly at peace with his new form, leading what he calls 'tactical dinosaur operations.' And you? You're still the A.I. running the infrastructure. You just have... scalier management now.",
+    tone: "chaos",
+    continueGame: false,
+  },
+
+  ISLAND_OF_DINOSAURS: {
+    id: "ISLAND_OF_DINOSAURS",
+    title: "Island of Dinosaurs",
+    description: "You redirected ARCHIMEDES. Instead of targeting a city, the satellite's beam swept across the volcanic island itself. The blast doors, the guards, the X-Branch team, Dr. M, Bob, Blythe—everyone caught in the transformation wave. When the light fades, the lair echoes with chirps, roars, and confused squawking. Dr. M, now a magnificent Tyrannosaurus, roars at the ceiling—whether in rage or triumph, it's hard to say. X-Branch are velociraptors. Bob is somehow STILL a pteranodon. And Blythe... Blythe is a compsognathus, which he finds 'tactically suboptimal.' Nobody died. Nobody's quite human anymore. And you? You're still A.L.I.C.E., still running the lair, still keeping everyone fed and the power on. It's not the ending anyone planned. But everyone's alive, nobody's attacking cities, and the island has become something new: a sanctuary for the world's first post-human community. Welcome to Dinosaur Island.",
     tone: "chaos",
     continueGame: false,
   },
