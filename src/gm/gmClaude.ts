@@ -2071,8 +2071,10 @@ Do NOT invent new forms. The following are the ONLY valid transformation forms:
 | \`PTERANODON\` | Pteranodon | Can fly! |
 | \`TRICERATOPS\` | Triceratops | Charge attack, tanky |
 
-❌ NEVER USE: "CHIMERA", "PARTIAL", "HYBRID", "RAPTOR", or any made-up form names!
-✅ ALWAYS USE: Exact form IDs from the table above.
+⚠️ FORM IDs ONLY - When setting transformationState, use EXACTLY ONE of the 10 IDs above.
+❌ NEVER as form ID: "CHIMERA" (that's an effect overlay), "PARTIAL" (that's speech retention)
+❌ NEVER as form ID: "Velociraptor", "RAPTOR", "Dino-Hybrid", or ANY made-up names
+✅ ALWAYS USE: Exact form IDs from the table above. NEVER invent new forms!
 
 ### Setting Transformation State
 Use the override format with the EXACT form ID:
