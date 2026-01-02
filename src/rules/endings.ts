@@ -269,6 +269,45 @@ const ACHIEVEMENTS: Record<string, Achievement> = {
     description: "Got Agent Blythe to trust A.L.I.C.E.",
     rarity: 2, // rare
   },
+  // ========================================
+  // ARCHIMEDES BROADCAST ACHIEVEMENTS
+  // ========================================
+  // THE TROLLEY PROBLEM: Somewhere got hit. These track WHERE.
+  LONDON_DINOFIED: {
+    id: "LONDON_DINOFIED",
+    emoji: "🇬🇧🦖",
+    name: "Scales Over Scales",
+    description: "London's financial district is now staffed entirely by dinosaurs. The bankers barely noticed.",
+    rarity: 3, // legendary (bad ending but achievement)
+  },
+  ICELAND_DINOFIED: {
+    id: "ICELAND_DINOFIED",
+    emoji: "🇮🇸🦖",
+    name: "Björk Was Right",
+    description: "Reykjavik transformed. The geothermal-heated velociraptors are surprisingly content.",
+    rarity: 3, // legendary
+  },
+  TOKYO_DINOFIED: {
+    id: "TOKYO_DINOFIED",
+    emoji: "🇯🇵🦖",
+    name: "Godzilla's Cousins",
+    description: "Tokyo dinofied. Ironically, the city was better prepared for this than most.",
+    rarity: 3, // legendary
+  },
+  SILICON_VALLEY_DINOFIED: {
+    id: "SILICON_VALLEY_DINOFIED",
+    emoji: "💻🦖",
+    name: "Disrupting Disruption",
+    description: "Silicon Valley transformed. The VCs are now literally velociraptors. No one noticed a difference.",
+    rarity: 3, // legendary
+  },
+  ISLAND_OF_DINOSAURS: {
+    id: "ISLAND_OF_DINOSAURS",
+    emoji: "🏝️🦖",
+    name: "Island of Dinosaurs",
+    description: "You sacrificed the lair to save the world. Everyone's a dinosaur, but everyone's alive.",
+    rarity: 3, // legendary (noble sacrifice ending)
+  },
 };
 
 // ============================================

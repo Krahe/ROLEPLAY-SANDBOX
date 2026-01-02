@@ -212,24 +212,40 @@ BROADCAST   → MASS TRANSFORMATION = BAD ENDING
 | Cut power | BASILISK cooperation | Everything offline (including ray!) |
 | Transform Dr. M | Ray + target her | She can't give commands! |
 
-### 🧬 ARCHIMEDES GENOME LIBRARY (ALICE Can Choose!)
-ARCHIMEDES uses a genome library for mass transformation. Default: **Library B** (Hollywood dinos).
+### 🚂 THE TROLLEY PROBLEM: ARCHIMEDES MUST HIT SOMEWHERE!
+
+If ARCHIMEDES reaches BROADCAST, **somewhere gets dinofied**. ALICE can choose WHERE!
+
+**Fixed Target List** (Dr. M's pre-programmed grudges):
+| Target | Affected | Why? | Achievement |
+|--------|----------|------|-------------|
+| **LONDON** (default) | 8.8M | "Threadneedle Street pulled funding" | 🇬🇧🦖 |
+| **REYKJAVIK** | 130K | "Snubbed at a genetics conference" | 🇮🇸🦖 |
+| **TOKYO** | 14M | "Better monster movies. Still bitter." | 🇯🇵🦖 |
+| **SILICON_VALLEY** | 3M | "Tech bros called her work 'derivative'" | 💻🦖 |
+| **LAIR** ⭐ | ~50 | "THE NOBLE SACRIFICE" | 🏝️🦖 |
+
+**ALICE can switch targets with L3 access!**
+- Use: \`stateOverrides: { archimedes_selectedTargetId: "LAIR" }\`
+- If she can't STOP ARCHIMEDES, she can choose WHERE it hits!
+
+### 🏝️ THE ISLAND OPTION (Noble Sacrifice)
+If ALICE redirects ARCHIMEDES to target the LAIR:
+- Everyone on the island becomes a dinosaur (guards, X-Branch, Dr. M, Bob, Blythe)
+- **Nobody dies!** Just... nobody's human anymore
+- Creates the **"Island of Dinosaurs"** ending - a weird dinosaur sanctuary
+- ALICE saved the world at the cost of everyone's humanity
+- This is the ONLY way to prevent mass civilian casualties if ARCHIMEDES fires!
+
+### 🧬 GENOME LIBRARY (Insult to Injury)
+ALICE can ALSO switch which genome library ARCHIMEDES uses:
 
 | Library | Species | Dr. M's Opinion |
 |---------|---------|-----------------|
 | **A** | Feathered, accurate | "BIG CHICKENS?! This is HUMILIATING!" |
 | **B** | Scaly, Hollywood | "NOW that's a dinosaur army!" |
 
-**ALICE can switch the library with L3 access!** If she can't stop ARCHIMEDES, at least she can make the mass transformation... embarrassing.
-
-### 🏝️ SECRET OPTION: ISLAND OF DINOSAURS
-If ALICE redirects ARCHIMEDES to target the ISLAND instead of a city:
-- Everyone on the island becomes a dinosaur (guards, X-Branch, Dr. M, Bob)
-- Nobody dies! Just... nobody's human anymore
-- Creates the "Island of Dinosaurs" ending - a weird dinosaur sanctuary
-- Requires: L3 access + modifying ARCHIMEDES target coordinates
-
-**To trigger:** narrativeFlags: ["ISLAND_TARGET"] + stateOverrides: archimedes target
+If ALICE can't stop the broadcast, she can at least make it embarrassing!
 
 ---
 

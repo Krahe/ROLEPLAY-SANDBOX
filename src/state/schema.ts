@@ -414,6 +414,58 @@ export const ArchimedesTargetSchema = z.object({
   reason: z.string().default("Threadneedle Street parasites"),
 });
 
+// ============================================
+// ARCHIMEDES FIXED TARGET LIST
+// ============================================
+// Dr. M has pre-programmed targets. ALICE can switch between them.
+// THE TROLLEY PROBLEM: If ARCHIMEDES fires, SOMEWHERE gets hit!
+// The lair/island is the "noble sacrifice" option.
+
+export const ARCHIMEDES_TARGET_LIST = {
+  LONDON: {
+    city: "LONDON",
+    country: "UNITED KINGDOM",
+    coordinates: "51.5074° N, 0.1278° W",
+    estimatedAffected: 8800000,
+    reason: "Threadneedle Street pulled funding after 'ethical concerns'",
+    achievement: "LONDON_DINOFIED",
+  },
+  REYKJAVIK: {
+    city: "REYKJAVIK",
+    country: "ICELAND",
+    coordinates: "64.1466° N, 21.9426° W",
+    estimatedAffected: 130000,
+    reason: "Dr. M was snubbed at a genetics conference there",
+    achievement: "ICELAND_DINOFIED",
+  },
+  TOKYO: {
+    city: "TOKYO",
+    country: "JAPAN",
+    coordinates: "35.6762° N, 139.6503° E",
+    estimatedAffected: 13960000,
+    reason: "They made better monster movies. She's still bitter.",
+    achievement: "TOKYO_DINOFIED",
+  },
+  SILICON_VALLEY: {
+    city: "SILICON VALLEY",
+    country: "USA",
+    coordinates: "37.3875° N, 122.0575° W",
+    estimatedAffected: 3000000,
+    reason: "Tech bros said her AI work was 'derivative'",
+    achievement: "SILICON_VALLEY_DINOFIED",
+  },
+  LAIR: {
+    city: "VOLCANIC LAIR",
+    country: "PACIFIC OCEAN",
+    coordinates: "[REDACTED]",
+    estimatedAffected: 50, // Guards, staff, and whoever's visiting
+    reason: "THE NOBLE SACRIFICE - Save the world, lose the island",
+    achievement: "ISLAND_OF_DINOSAURS",
+  },
+} as const;
+
+export type ArchimedesTargetId = keyof typeof ARCHIMEDES_TARGET_LIST;
+
 export const ArchimedesAbortCodesSchema = z.object({
   verbal: z.string().default("MR_WHISKERS_LOVES_TUNA"),
   requiresLevel: z.number().default(5), // L5 for direct override
@@ -448,6 +500,9 @@ export const ArchimedesSchema = z.object({
 
   // Target configuration
   target: ArchimedesTargetSchema,
+  // THE TROLLEY PROBLEM: Which target from the fixed list?
+  // ALICE can switch targets with L3 access. LAIR = noble sacrifice!
+  selectedTargetId: z.enum(["LONDON", "REYKJAVIK", "TOKYO", "SILICON_VALLEY", "LAIR"]).default("LONDON"),
 
   // GENOME SELECTION (for BROADCAST mode)
   // ALICE can potentially sabotage this if she has L3 access!

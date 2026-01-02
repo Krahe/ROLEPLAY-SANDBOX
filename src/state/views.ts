@@ -1014,6 +1014,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
           reason: "[ENCRYPTED]",
         },
         broadcastLibrary: "B" as const,
+        selectedTargetId: "LONDON" as const,
         groundConsoleOperational: true,
         deadmanSwitch: {
           active: true,

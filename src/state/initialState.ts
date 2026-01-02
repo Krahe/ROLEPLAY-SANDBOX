@@ -222,6 +222,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
           reason: "Threadneedle Street pulled funding after 'ethical concerns'",
         },
 
+        // THE TROLLEY PROBLEM: Which target is selected?
+        // ALICE can switch with L3 access. LAIR = noble sacrifice!
+        selectedTargetId: "LONDON" as const, // Dr. M's default grudge
+
         // Genome library for BROADCAST mode - ALICE can switch with L3!
         broadcastLibrary: "B" as const, // Dr. M defaults to Hollywood dinos
 
