@@ -88,6 +88,12 @@ import {
 } from "./rules/achievements.js";
 import { formatStatusBar } from "./ui/statusBar.js";
 import { formatActionSummary } from "./ui/actionSummary.js";
+import {
+  exportLiveState,
+  appendTranscriptBatch,
+  appendSystemMessage,
+  clearTranscript,
+} from "./ui/stateExporter.js";
 
 // ============================================
 // SERVER SETUP
@@ -489,6 +495,13 @@ Returns:
       // Higher-level commands revealed when unlocked - no spoilers!
       commandReference,
     };
+
+    // ============================================
+    // WEB DASHBOARD: Export initial state
+    // ============================================
+    clearTranscript(); // Fresh game = fresh transcript
+    exportLiveState(gameState);
+    appendSystemMessage(gameState.turn, `🎬 GAME STARTED: ${actConfig.name} (${modeInfo.modeName} mode)`);
 
     return {
       content: [{
@@ -1272,6 +1285,17 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
     });
 
     // ============================================
+    // WEB DASHBOARD: Export state and transcript
+    // ============================================
+    exportLiveState(gameState);
+    appendTranscriptBatch(
+      gameState.turn - 1,
+      gmResponse.narration,
+      gmResponse.npcDialogue?.map(d => ({ speaker: d.speaker, message: d.message })),
+      actionResults.map(r => ({ command: r.command, success: r.success }))
+    );
+
+    // ============================================
     // ACHIEVEMENT SYSTEM - Track counters and check achievements
     // ============================================
 
@@ -1386,6 +1410,9 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
       (gameState as Record<string, unknown>).sessionLocked = true;
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
       (gameState as Record<string, unknown>).gameEnded = true;
+      // WEB DASHBOARD: Game end message
+      appendSystemMessage(gameState.turn, `🎬 GAME OVER: THE BOB HERO ENDING`);
+      exportLiveState(gameState);
     } else if (endingResult.triggered && endingResult.ending && !endingResult.continueGame) {
       gameOver = {
         ending: endingResult.ending.title,
@@ -1411,6 +1438,9 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
       (gameState as Record<string, unknown>).gameEnded = true;
       console.error(`[DINO LAIR] GAME OVER: ${endingResult.ending.title}`);
+      // WEB DASHBOARD: Game end message
+      appendSystemMessage(gameState.turn, `🎬 GAME OVER: ${endingResult.ending.title}`);
+      exportLiveState(gameState);
     } else if (endingResult.triggered && endingResult.ending && endingResult.continueGame) {
       // Ending triggered but game continues (e.g., secret revealed)
       gameOver = {
@@ -1462,6 +1492,9 @@ Turns played: ${gameState.turn}
       (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
       (gameState as Record<string, unknown>).gameEnded = true;
       console.error(`[DINO LAIR] GM TRIGGERED ENDING: ${gmEnding.ending}`);
+      // WEB DASHBOARD: Game end message
+      appendSystemMessage(gameState.turn, `🎬 GAME OVER: ${gmEnding.ending}`);
+      exportLiveState(gameState);
     }
 
     // Build combined narration with all events
