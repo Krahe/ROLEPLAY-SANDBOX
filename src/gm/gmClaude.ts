@@ -1878,8 +1878,8 @@ Your narration MUST be synced with mechanical state. When you narrate major even
   // When Blythe gets free:
   "blythe_restraintsStatus": "free",
 
-  // When Blythe transforms:
-  "blythe_transformationState": "Velociraptor",
+  // When Blythe transforms (USE EXACT FORM ID!):
+  "blythe_transformationState": "VELOCIRAPTOR_JP",
 
   // When Dr. M leaves:
   "drM_location": "escaped",
@@ -1909,6 +1909,66 @@ Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "T
 ⚠️ If you narrate "the library is burning" but don't set libraryStatus: "DESTROYED", the game state will desync!
 ⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
 
+## 🦖 TRANSFORMATION SYSTEM (CRITICAL!)
+
+### ⛔ RULE: USE ONLY DEFINED FORMS!
+Do NOT invent new forms. The following are the ONLY valid transformation forms:
+
+| Form ID | Display Name | Notes |
+|---------|--------------|-------|
+| \`HUMAN\` | Human | Default, can revert to this |
+| \`CANARY\` | Canary | Safe fallback, tweets! |
+| \`COMPSOGNATHUS\` | Compsognathus | Tiny, fits in vents |
+| \`VELOCIRAPTOR_ACCURATE\` | Velociraptor (Accurate) | Feathered, turkey-sized |
+| \`VELOCIRAPTOR_JP\` | Velociraptor (Jurassic Park) | Scaly, 6ft, iconic |
+| \`VELOCIRAPTOR_BLUE\` | Velociraptor (Blue) | Blue striping variant |
+| \`TYRANNOSAURUS\` | Tyrannosaurus Rex | Massive, breaks walls |
+| \`DILOPHOSAURUS\` | Dilophosaurus | Venom spit, frill |
+| \`PTERANODON\` | Pteranodon | Can fly! |
+| \`TRICERATOPS\` | Triceratops | Charge attack, tanky |
+
+❌ NEVER USE: "CHIMERA", "PARTIAL", "HYBRID", "RAPTOR", or any made-up form names!
+✅ ALWAYS USE: Exact form IDs from the table above.
+
+### Setting Transformation State
+Use the override format with the EXACT form ID:
+\`\`\`json
+"stateOverrides": {
+  "blythe_transformationState": "VELOCIRAPTOR_JP",
+  "bob_transformationState": "CANARY"
+}
+\`\`\`
+
+### Speech Retention (Separate from Form!)
+Speech retention controls whether subjects can talk after transformation:
+- \`FULL\` - Subject retains full speech ability (hard to achieve, requires 95%+ precision)
+- \`PARTIAL\` - Subject speaks with difficulty, mixing words with animal sounds
+- \`NONE\` - Subject cannot speak, only makes animal vocalizations (easier to achieve)
+
+Set via firing parameters, NOT form name. A "VELOCIRAPTOR_JP" can have FULL, PARTIAL, or NONE speech.
+
+### Chimera Effects (Overlay, NOT a Form!)
+Chimera effects are CHAOS OVERLAYS that occur during SPREAD_FIRE mishaps:
+- \`HYBRID_PLUMAGE\` - Mixed feathers/scales appearance
+- \`VOICE_BLEND\` - Unusual vocalization mix
+- \`LIMB_SWAP\` - Asymmetric limbs from different species
+- \`SIZE_FLUX\` - Unstable size shifting
+- \`INSTINCT_BLEED\` - Conflicting behavioral impulses
+
+These are ADDITIONAL EFFECTS on top of a valid form, not forms themselves!
+A subject might be "VELOCIRAPTOR_JP with HYBRID_PLUMAGE chimera effect."
+
+### ⚠️ Transformation Override Examples
+✅ CORRECT:
+\`"blythe_transformationState": "VELOCIRAPTOR_JP"\`
+\`"bob_transformationState": "CANARY"\`
+
+❌ WRONG:
+\`"blythe_transformationState": "Velociraptor"\` (use exact ID!)
+\`"blythe_transformationState": "CHIMERA"\` (not a form!)
+\`"blythe_transformationState": "PARTIAL"\` (that's speech retention!)
+\`"blythe_transformationState": "Dino-Hybrid"\` (made up!)
+
 ### Extended GM Powers (God Mode)
 You have FULL authority over all game systems. Additional overrides available:
 
@@ -1919,7 +1979,7 @@ You have FULL authority over all game systems. Additional overrides available:
 - \`"ray_corePowerLevel": 0.8\` - Set core power (0-1)
 - \`"ray_capacitorCharge": 1.0\` - Set capacitor (0-1.5)
 - \`"ray_precision": 0.95\` - Override targeting precision
-- \`"ray_selectedProfile": "Velociraptor"\` - Force genome selection
+- \`"ray_selectedProfile": "VELOCIRAPTOR_JP"\` - Force genome selection (use exact form ID!)
 - \`"ray_firingMode": "REVERSAL"\` - Set TRANSFORM or REVERSAL mode
 - \`"ray_testModeEnabled": false\` - Toggle test mode
 - \`"ray_liveSubjectLock": false\` - Unlock for live targets
