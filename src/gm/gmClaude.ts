@@ -882,6 +882,150 @@ export function getGMMemory(): GMMemory {
 }
 
 // ============================================
+// ACT TRANSITION MEMORY RESET
+// ============================================
+// Selective reset: clears bloat, preserves narrative gold
+// Called when transitioning between acts to give GM fresh context
+
+export interface ActSummary {
+  fromAct: string;
+  toAct: string;
+  turnRange: string;
+  keyEvents: string[];
+  npcStates: {
+    bob: string;
+    blythe: string;
+    drM: string;
+  };
+  preservedMoments: string[];
+}
+
+/**
+ * Reset GM memory for act transition
+ * CLEARS: recentExchanges, turnSummaries, hiddenClocks, npcAwareness, actionHistory
+ * PRESERVES: top 5 juicyMoments, permanentConsequences, callbacks, NPC arc states
+ * GENERATES: Act summary for narrative handoff
+ */
+export function resetMemoryForActTransition(
+  fromAct: string,
+  toAct: string,
+  startTurn: number,
+  endTurn: number
+): ActSummary {
+  // ============================================
+  // 1. GENERATE ACT SUMMARY (before clearing!)
+  // ============================================
+
+  // Get top 5 juicy moments by emotional weight
+  const topMoments = [...gmMemory.juicyMoments]
+    .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
+    .slice(0, 5);
+
+  // Extract key events from narrative markers
+  const keyEvents = gmMemory.narrativeMarkers
+    .slice(-5)
+    .map(m => m.marker);
+
+  // Capture NPC states
+  const npcStates = {
+    bob: `${gmMemory.npcArcs.bob.currentState} (${gmMemory.npcArcs.bob.relationshipToAlice})`,
+    blythe: `${gmMemory.npcArcs.blythe.currentState} (${gmMemory.npcArcs.blythe.relationshipToAlice})`,
+    drM: `${gmMemory.npcArcs.drM.currentState} (${gmMemory.npcArcs.drM.relationshipToAlice})`,
+  };
+
+  const actSummary: ActSummary = {
+    fromAct,
+    toAct,
+    turnRange: `Turns ${startTurn}-${endTurn}`,
+    keyEvents,
+    npcStates,
+    preservedMoments: topMoments.map(m =>
+      m.type === "quote" && m.speaker
+        ? `"${m.content}" - ${m.speaker}`
+        : m.content
+    ),
+  };
+
+  // ============================================
+  // 2. PRESERVE THE GOLD
+  // ============================================
+
+  // Keep only top 5 juicy moments
+  const preservedJuicyMoments = topMoments;
+
+  // Keep ALL permanent consequences (they're permanent!)
+  const preservedConsequences = [...gmMemory.permanentConsequences];
+
+  // Keep callbacks that haven't been paid off yet
+  const preservedCallbacks = gmMemory.callbacks.filter(c => !c.payoffUsed);
+
+  // Keep NPC arc states (just the current state, not history)
+  const preservedNpcArcs = {
+    bob: { ...gmMemory.npcArcs.bob, trajectory: [gmMemory.npcArcs.bob.currentState] },
+    blythe: { ...gmMemory.npcArcs.blythe, trajectory: [gmMemory.npcArcs.blythe.currentState] },
+    drM: { ...gmMemory.npcArcs.drM, trajectory: [gmMemory.npcArcs.drM.currentState] },
+  };
+
+  // Keep planted seeds that haven't triggered
+  const preservedSeeds = gmMemory.plantedSeeds.filter(s => !s.triggered);
+
+  // Keep GM notebook (last 3 strategic notes)
+  const preservedNotebook = gmMemory.gmNotebook.slice(-3);
+
+  // ============================================
+  // 3. CLEAR THE BLOAT
+  // ============================================
+
+  // Reset to fresh memory
+  const fresh = createFreshMemory();
+
+  // ============================================
+  // 4. RESTORE THE GOLD
+  // ============================================
+
+  gmMemory = {
+    ...fresh,
+
+    // Restored gold
+    juicyMoments: preservedJuicyMoments,
+    permanentConsequences: preservedConsequences,
+    callbacks: preservedCallbacks,
+    npcArcs: preservedNpcArcs,
+    plantedSeeds: preservedSeeds,
+    gmNotebook: [
+      `=== ACT TRANSITION: ${fromAct} → ${toAct} ===`,
+      `Previous act summary: ${keyEvents.join("; ") || "No major events recorded"}`,
+      ...preservedNotebook,
+    ],
+
+    // Carry over tension level (scaled down slightly for fresh start feel)
+    tensionLevel: Math.max(1, Math.floor(gmMemory.tensionLevel * 0.7)),
+
+    // Carry over hidden NPC states (these are important!)
+    hiddenNpcStates: {
+      drM: {
+        ...gmMemory.hiddenNpcStates.drM,
+        patienceRemaining: Math.min(gmMemory.hiddenNpcStates.drM.patienceRemaining + 3, 10), // Slight patience reset
+        hasNoticedInconsistency: gmMemory.hiddenNpcStates.drM.hasNoticedInconsistency.slice(-3), // Keep only last 3
+      },
+      bob: gmMemory.hiddenNpcStates.bob, // Bob's guilt doesn't reset
+      blythe: {
+        ...gmMemory.hiddenNpcStates.blythe,
+        escapeReadiness: Math.min(gmMemory.hiddenNpcStates.blythe.escapeReadiness + 10, 100), // Progress toward escape
+      },
+    },
+  };
+
+  // Log the transition
+  appendToLog(`\n${"=".repeat(60)}\nACT TRANSITION: ${fromAct} → ${toAct}\n${"=".repeat(60)}`);
+  appendToLog(`Key events: ${keyEvents.join("; ")}`);
+  appendToLog(`Preserved moments: ${preservedJuicyMoments.length}, Consequences: ${preservedConsequences.length}`);
+  appendToLog(`Memory reset complete. Fresh context for ${toAct}.\n`);
+
+  return actSummary;
+}
+
+// ============================================
 // GM MEMORY SIZE LIMITS
 // ============================================
 // Prevent unbounded growth of memory arrays
