@@ -945,7 +945,9 @@ export function transformSubject(
   // Prevent transforming an already-transformed character to another dinosaur form
   // (Reversal to human is still allowed)
   if (transformation.form !== "HUMAN" && newForm !== "HUMAN") {
-    return `${subjectId} is already transformed (${FORM_DEFINITIONS[transformation.form].displayName})! Cannot transform to ${formDef.displayName}. Revert to human first.`;
+    // CANARY FALLBACK: Guard against corrupted current form
+    const currentFormDef = FORM_DEFINITIONS[transformation.form] || FORM_DEFINITIONS.CANARY;
+    return `${subjectId} is already transformed (${currentFormDef.displayName})! Cannot transform to ${formDef.displayName}. Revert to human first.`;
   }
 
   // Store previous form

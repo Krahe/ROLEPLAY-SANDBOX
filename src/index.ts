@@ -119,7 +119,7 @@ function profileToFormName(profile: string): DinosaurForm {
   if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
   if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
   if (p.includes("canary")) return "CANARY";
-  return "VELOCIRAPTOR_JP"; // Default fallback
+  return "CANARY"; // CANARY FALLBACK - safe default!
 }
 
 // Get __dirname equivalent for ESM
@@ -684,14 +684,16 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
           const currentForm = gameState.npcs.bob.transformationState.form;
           if (currentForm !== "HUMAN") {
             // Bob is already transformed, block the second transformation
+            // CANARY FALLBACK: Guard against corrupted form data
+            const safeFormDef = FORM_DEFINITIONS[currentForm] || FORM_DEFINITIONS.CANARY;
             bobTransformationNarration = `
 ### TRANSFORMATION BLOCKED
 
-The beam catches Bob mid-${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}, but nothing happens.
+The beam catches Bob mid-${safeFormDef.displayName.toLowerCase()}, but nothing happens.
 
 > **A.L.I.C.E. (internal):** "Safety protocol: Target already transformed. Cannot double-transform."
 
-Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives you a grateful look. Being transformed twice would NOT have been fun.
+Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look. Being transformed twice would NOT have been fun.
             `.trim();
           } else {
             bobTransformationNarration = bobHit.narration;
@@ -703,7 +705,8 @@ Bob (still a ${FORM_DEFINITIONS[currentForm].displayName.toLowerCase()}) gives y
             // Properly update Bob's transformationState
             const profileName = bobHit.profile || "Velociraptor";
             const formName = profileToFormName(profileName);
-            const formDef = FORM_DEFINITIONS[formName];
+            // CANARY FALLBACK: Guard against any edge cases
+            const formDef = FORM_DEFINITIONS[formName] || FORM_DEFINITIONS.CANARY;
             const speechRetention: SpeechRetention = bobHit.transformationType === "CANARY" ? "PARTIAL" : "FULL";
 
             gameState.npcs.bob.transformationState = {

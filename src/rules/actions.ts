@@ -2107,15 +2107,24 @@ Just ask naturally!`,
       };
     }
 
-    const formDef = FORM_DEFINITIONS[transformation.form];
+    // CANARY FALLBACK: Guard against undefined/invalid forms
+    const formKey = transformation.form && transformation.form in FORM_DEFINITIONS
+      ? transformation.form
+      : "CANARY";
+    const formDef = FORM_DEFINITIONS[formKey];
     const abilities = describeAbilities(transformation);
+
+    // Warn if fallback was triggered
+    const fallbackWarning = formKey !== transformation.form
+      ? `\n⚠️ FORM TABLE CORRUPTED: "${transformation.form}" unknown. Defaulting to CANARY interpretation.`
+      : "";
 
     return {
       command: action.command,
       success: true,
       message: `
 ╔══════════════════════════════════════════════════════════════╗
-║  ${subject} - TRANSFORMATION STATUS
+║  ${subject} - TRANSFORMATION STATUS${fallbackWarning}
 ╠══════════════════════════════════════════════════════════════╣
 Form: ${formDef.displayName}
 Speech Retention: ${transformation.speechRetention}

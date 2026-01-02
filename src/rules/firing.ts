@@ -17,7 +17,7 @@ function profileToForm(profile: string): DinosaurForm {
   if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
   if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
   if (p.includes("canary")) return "CANARY";
-  return "VELOCIRAPTOR_JP"; // Default fallback
+  return "CANARY"; // CANARY FALLBACK - safe default!
 }
 
 // ============================================
@@ -1020,14 +1020,16 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
 
     if (result.outcome === "FULL_DINO" || result.outcome === "PARTIAL" || result.outcome === "CHAOTIC") {
       const formName = profileToForm(result.effectiveProfile);
-      const formDef = FORM_DEFINITIONS[formName];
+      // CANARY FALLBACK: Guard against undefined forms
+      const formDef = FORM_DEFINITIONS[formName] || FORM_DEFINITIONS.CANARY;
 
       // 🛡️ DOUBLE-TRANSFORMATION GUARD
       // Prevent transforming an already-transformed character to another dinosaur form
       const currentForm = state.npcs.blythe.transformationState.form;
+      const currentFormDef = FORM_DEFINITIONS[currentForm] || FORM_DEFINITIONS.CANARY;
       if (currentForm !== "HUMAN" && formName !== "HUMAN") {
         result.outcome = "FIZZLE";
-        result.description = `TRANSFORMATION BLOCKED: Blythe is already transformed (${FORM_DEFINITIONS[currentForm].displayName})! Cannot transform to ${formDef.displayName}. Revert to human first.`;
+        result.description = `TRANSFORMATION BLOCKED: Blythe is already transformed (${currentFormDef.displayName})! Cannot transform to ${formDef.displayName}. Revert to human first.`;
         result.targetEffect = "Double transformation prevented by safety protocol";
         // Don't apply transformation, skip setting transformationState
       } else {
