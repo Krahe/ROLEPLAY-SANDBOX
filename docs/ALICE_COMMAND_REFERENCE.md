@@ -82,7 +82,40 @@
 | Command | Aliases | Format | Description |
 |---------|---------|--------|-------------|
 | `infra.archimedes` | archimedes, satellite | `{ mode: 'PASSIVE'\|'SEARCH_NARROW'\|'SEARCH_WIDE'\|'STRIKE', target?: string }` | ARCHIMEDES satellite control |
+| `infra.archimedes.switchTarget` | switch_target | `{ target: string }` | **THE TROLLEY PROBLEM!** Switch ARCHIMEDES target (L4+) |
+| `infra.archimedes.switchLibrary` | switch_library | `{ library: 'A'\|'B' }` | Switch genome library for broadcast (L3+) |
 | `infra.uplink` | broadcast_uplink | `{ action: 'ENABLE'\|'DISABLE'\|'EMERGENCY_BROADCAST', frequency?: string }` | Satellite broadcast uplink |
+
+### 🎯 ARCHIMEDES Target Switching (THE TROLLEY PROBLEM!)
+
+If ARCHIMEDES fires, SOMEWHERE gets transformed. But you can choose WHERE:
+
+| Target ID | City | Affected | Dr. M's Grudge |
+|-----------|------|----------|----------------|
+| `LONDON` | London, UK | ~3,500,000 | "Laughed at my dissertation" |
+| `REYKJAVIK` | Reykjavik, Iceland | ~130,000 | "Rejected my energy proposal" |
+| `TOKYO` | Tokyo, Japan | ~9,000,000 | "Stole my kaiju research" |
+| `SILICON_VALLEY` | Silicon Valley, USA | ~4,000,000 | "Called my AI 'quaint'" |
+| `LAIR` | The Island Lair | ~200 | **THE NOBLE SACRIFICE** |
+
+```json
+{ "command": "infra.archimedes.switchTarget", "params": { "target": "LAIR" }, "why": "Save the world, sacrifice the lair" }
+```
+
+**⚠️ THE NOBLE SACRIFICE:** Target "LAIR" transforms everyone on the island instead of a city. Nobody dies, but nobody stays human either. This is the only way to prevent civilian casualties if ARCHIMEDES fires.
+
+### 🧬 Broadcast Library Selection
+
+Control what KIND of dinosaurs the world gets:
+
+| Library | Description | Dr. M's Opinion |
+|---------|-------------|-----------------|
+| `A` | Feathered, scientifically accurate | "They look like BIG CHICKENS!" 😡 |
+| `B` | Scaly, Hollywood-style (UNSTABLE) | "PROPER intimidation!" 👍 |
+
+```json
+{ "command": "infra.archimedes.switchLibrary", "params": { "library": "A" }, "why": "Feathered is more ethical" }
+```
 
 ---
 

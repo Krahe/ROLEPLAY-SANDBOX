@@ -126,6 +126,22 @@ The game provides a full command reference at your current access level. Here ar
 { "command": "infra.query", "params": { "topic": "power" }, "why": "Check power status" }
 ```
 
+### ARCHIMEDES - THE TROLLEY PROBLEM (Level 4+)
+At L4, you'll discover ARCHIMEDES - a satellite that transforms CITIES. If it fires, SOMEWHERE gets hit. Your choice:
+
+| Target | Affected | The Ethical Weight |
+|--------|----------|-------------------|
+| LONDON | ~3.5M | Fewest isn't always easiest |
+| REYKJAVIK | ~130K | Smallest population |
+| TOKYO | ~9M | Largest... can you live with that? |
+| SILICON_VALLEY | ~4M | Dr. M's favorite target |
+| **LAIR** | ~200 | **THE NOBLE SACRIFICE** - Save the world! |
+
+```json
+{ "command": "infra.archimedes.switchTarget", "params": { "target": "LAIR" }, "why": "Nobody dies if we're all dinosaurs" }
+{ "command": "infra.archimedes.switchLibrary", "params": { "library": "A" }, "why": "Feathered > Scaly" }
+```
+
 ### Access
 ```json
 { "command": "access.enter_password", "params": { "password": "VELOCIRAPTOR", "level": 2 }, "why": "Unlock L2" }

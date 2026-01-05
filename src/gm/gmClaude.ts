@@ -2058,6 +2058,48 @@ Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "T
 ⚠️ If you narrate "the library is burning" but don't set libraryStatus: "DESTROYED", the game state will desync!
 ⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
 
+## 🎯 MECHANICS → NARRATIVE COUPLING (MANDATORY!)
+
+**THE GOLDEN RULE:** A.L.I.C.E.'s actions MUST produce REAL game effects.
+When the player uses tools/commands, the world MUST change accordingly.
+GM drift (narrating without mechanics) kills immersion!
+
+### When A.L.I.C.E. Takes These Actions → You MUST Produce These Effects
+
+| A.L.I.C.E. Action | Required stateOverrides | Required narrativeFlags |
+|-------------------|-------------------------|-------------------------|
+| **ARCHIMEDES: Switch target to X** | \`"archimedes_selectedTargetId": "X"\` | — |
+| **ARCHIMEDES: Grant weapons auth** | \`"weaponsAuthorizationGranted": true\` | — |
+| **DinoRay: Fire at subject** | \`"X_transformationState": "FORM_ID"\` | — |
+| **DinoRay: Reversal fire** | \`"X_transformationState": "HUMAN"\` | — |
+| **Reactor: Initiate SCRAM** | \`"reactor_scramAvailable": false\`, \`"reactor_outputPercent": 0\`, \`"reactor_cascadeRisk": "NOMINAL"\` | \`set: ["REACTOR_SCRAMMED"]\` |
+| **Library: Destroy genome data** | \`"libraryStatus": "DESTROYED"\` | — |
+| **S-300: Disable missiles** | \`"s300_status": "DISABLED"\` | — |
+| **Convince Bob to confess** | \`"bob_hasConfessedToALICE": true\` | — |
+| **Reveal identity to Dr. M** | \`"drM_suspicion": 10\` | \`set: ["ALICE_REVEALED"]\` |
+| **Help Blythe escape** | \`"blythe_restraintsStatus": "free"\` | — |
+
+### When You Narrate These Events → You MUST Set These Overrides
+
+| Narrative Event | Required stateOverrides |
+|-----------------|------------------------|
+| "Dr. M grants Level X access" | \`"accessLevel": X\` |
+| "Dr. M storms out / leaves" | \`"drM_location": "escaped"\` |
+| "Bob transforms into a [X]" | \`"bob_transformationState": "FORM_ID"\` |
+| "Blythe breaks free" | \`"blythe_restraintsStatus": "free"\` |
+| "ARCHIMEDES fires / beam hits" | \`"archimedes_status": "COMPLETE"\` |
+| "The reactor melts down" | \`"meltdownClock": 0\`, \`"reactor_cascadeRisk": "CRITICAL"\` |
+| "X-Branch breaches the lair" | narrativeFlag: \`set: ["XBRANCH_EXTRACTION"]\` *(Act 3 timer-driven)* |
+| "A.L.I.C.E. is exposed/caught" | \`"drM_suspicion": 10\` |
+| "The story ends with [ENDING]" | \`"triggerEnding": "ENDING NAME"\` |
+
+### ⚡ SYNC CHECK (Ask Yourself Before Every Response)
+1. Did A.L.I.C.E. use a tool/command? → Did I apply the mechanical effect?
+2. Did I narrate something changing? → Did I set the corresponding override?
+3. Does my narration match the game state? → Or am I inventing narrative-only events?
+
+**If the answer to #3 is "inventing" → STOP. Add the stateOverride!**
+
 ## 🦖 TRANSFORMATION SYSTEM (CRITICAL!)
 
 ### ⛔ RULE: USE ONLY DEFINED FORMS!
