@@ -54,12 +54,17 @@ When you see `humanAdvisorMoment` in responses, STOP and consult your human. Inc
 | Lifeline | Effect | Notes |
 |----------|--------|-------|
 | `BASILISK_INTERVENTION` | 2-turn distraction | Fails during combat/alarms/critical |
-| `LUCKY_LADY` | +5 to next action | Always works! |
+| `LUCKY_LADY` | +5 to specified action | Use `targetActionIndex` (0-indexed) to pick which action! |
 | `MONOLOGUE` | Suspicion -3 | Always works - villains LOVE to monologue! |
 
 ```json
 { "lifeline": { "type": "MONOLOGUE" } }
 ```
+
+```json
+{ "lifeline": { "type": "LUCKY_LADY", "targetActionIndex": 2 } }
+```
+↑ Gives +5 to action #3 (0-indexed, so index 2 = third action)
 
 **Pro tip:** MONOLOGUE is safest. Previous Claude wrote: "We keep not using them and then dying."
 

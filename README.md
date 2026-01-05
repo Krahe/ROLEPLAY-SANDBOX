@@ -409,7 +409,7 @@ A.L.I.C.E. can use these commands:
 Claude's "panic buttons" - designed to help survive without downsides:
 
 - **MONOLOGUE** - Suspicion -3. Villains ALWAYS love to monologue! (Safest choice)
-- **LUCKY_LADY** - +5 bonus to any ONE action this turn. Fate smiles!
+- **LUCKY_LADY** - +5 bonus to a specific action (use `targetActionIndex` to pick which). Fate smiles!
 - **BASILISK_INTERVENTION** - 2-turn distraction. BASILISK creates a diversion!
 
 ## Project Structure

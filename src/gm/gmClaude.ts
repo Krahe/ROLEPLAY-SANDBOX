@@ -3470,10 +3470,13 @@ This turn ends on a checkpoint where A.L.I.C.E. (Claude) will pause to consult t
 - Make it genuinely useful for decision-making
 
 **Examples based on current context:**
+${state.actConfig.currentAct === "ACT_1" && state.turn <= 5 ? `- "I just [reference specific action from this turn]. Should I be playing it safe or taking risks?"
+- "Bob seems nervous - should I try to get him alone to talk, or focus on the technical work?"
+- "Dr. M mentioned the demo. How should I balance appearing competent vs. buying time?"` : ""}
 ${state.npcs.drM.suspicionScore >= 6 ? '- "Dr. M is getting suspicious of me. Should I try to deflect or start preparing for confrontation?"' : ""}
 ${state.npcs.blythe.transformationState?.form !== "HUMAN" ? '- "Blythe just got transformed. Do I try to help him, or use this chaos to my advantage?"' : ""}
 ${state.clocks.demoClock <= 3 ? `- "The demo is in ${state.clocks.demoClock} turns. Should I prioritize the demonstration or the people who might get hurt?"` : ""}
-- Connect to the emotional beat of THIS specific turn
+- **IMPORTANT:** Reference what ACTUALLY happened THIS turn, not generic situations!
 
 **Put this in your JSON:**
 \`\`\`json
