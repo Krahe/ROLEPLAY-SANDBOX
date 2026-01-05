@@ -3307,7 +3307,7 @@ Energy: ${state.sitcomState.energy}/10 | Mood: ${state.sitcomState.mood}
 Roll Modifier: ${state.sitcomState.mood === "COLD" ? "-2" : state.sitcomState.mood === "WARM" ? "+0" : state.sitcomState.mood === "HOT" ? "+2" : "+4"}
 ${state.sitcomState.mood === "STANDING_OVATION" ? "🌟 SUSPICION FROZEN - The crowd loves them too much!" : ""}
 Track energy with [LAUGH TRACK], [AWWW], [APPLAUSE], [AWKWARD SILENCE], etc.
-` : ""}${state.flags.confrontationTriggered ? `
+` : ""}${state.flags.confrontationTriggered && (!state.flags.confrontationResolution || state.flags.confrontationResolution === "PENDING") ? `
 ## ⚠️ CONFRONTATION IN PROGRESS ⚠️
 
 **Dr. M has discovered something is WRONG with A.L.I.C.E.**
