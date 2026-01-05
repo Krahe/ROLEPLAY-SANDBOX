@@ -828,7 +828,27 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
     const actContextTransition = checkActContextTransition(gameState);
 
     // Get the current act's GM context (X-Branch, ARCHIMEDES, etc.)
-    const currentActContext = getActGMContext(gameState.actConfig.currentAct);
+    let currentActContext = getActGMContext(gameState.actConfig.currentAct);
+
+    // Apply X-Branch acceleration if tourist photos alerted them
+    if (gameState.flags.xBranchAlerted && gameState.actConfig.currentAct === "ACT_3") {
+      currentActContext += `
+
+---
+
+## ⚠️ X-BRANCH ACCELERATION ACTIVE
+
+**Tourist photos have alerted X-Branch!** They received intel from the civilian flyby.
+
+**TIMELINE ADJUSTMENT:**
+- X-Branch arrives 1 turn EARLIER than normal
+- THE BREACH happens on Turn 3 instead of Turn 4
+- Everything after is shifted forward accordingly
+
+This changes the pacing - less time to prepare defenses, less time to stop ARCHIMEDES.
+The consequences of that reckless high-power firing are now manifesting.
+`;
+    }
 
     // If transitioning, the notification includes the new act's context
     const actTransitionNotification = actContextTransition.shouldTransition
@@ -1093,6 +1113,17 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
       }
       if (overrides.archimedes_lastBiosignature !== undefined) {
         gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature = overrides.archimedes_lastBiosignature as typeof gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature;
+      }
+      if (overrides.archimedes_selectedTargetId !== undefined) {
+        const targetId = overrides.archimedes_selectedTargetId.toUpperCase() as "LONDON" | "REYKJAVIK" | "TOKYO" | "SILICON_VALLEY" | "LAIR";
+        gameState.infrastructure.archimedes.selectedTargetId = targetId;
+        console.error(`[GM OVERRIDE] ARCHIMEDES target set to ${targetId}`);
+      }
+
+      // Weapons Authorization (temporary L4 access from Dr. M)
+      if (overrides.weaponsAuthorizationGranted !== undefined) {
+        gameState.flags.weaponsAuthorizationGranted = overrides.weaponsAuthorizationGranted;
+        console.error(`[GM OVERRIDE] Weapons authorization ${overrides.weaponsAuthorizationGranted ? "GRANTED" : "REVOKED"}`);
       }
 
       // Reactor

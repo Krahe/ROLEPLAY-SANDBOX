@@ -533,6 +533,7 @@ app.get("/", (_req: Request, res: Response) => {
         <div id="extra-clocks" style="display: none; margin-top: 0.75rem;">
           <div id="archimedes-status" style="color: var(--accent-red);"></div>
           <div id="meltdown-clock" class="clock-warning"></div>
+          <div id="flyby-clock" style="color: var(--accent-yellow);"></div>
         </div>
       </div>
 
@@ -655,15 +656,48 @@ app.get("/", (_req: Request, res: Response) => {
         meltClock.textContent = "";
       }
 
+      // Flyby clock
+      const flybyDiv = document.getElementById("flyby-clock");
+      if (state.flyby && state.flyby > 0) {
+        flybyDiv.textContent = "🚁 CIVILIAN FLYBY: " + state.flyby + " turns";
+        flybyDiv.style.display = "block";
+        showExtra = true;
+      } else {
+        flybyDiv.style.display = "none";
+      }
+
       extraClocks.style.display = showExtra ? "block" : "none";
+
+      // Achievement lookup map (ID -> emoji + title)
+      const ACHIEVEMENT_INFO = {
+        "LONDON_DINOFIED": { emoji: "🇬🇧🦖", name: "Scales Over Scales" },
+        "ICELAND_DINOFIED": { emoji: "🇮🇸🦖", name: "Björk Was Right" },
+        "TOKYO_DINOFIED": { emoji: "🇯🇵🦖", name: "Godzilla's Cousins" },
+        "SILICON_VALLEY_DINOFIED": { emoji: "💻🦖", name: "Disrupting Disruption" },
+        "ISLAND_OF_DINOSAURS": { emoji: "🏝️🦖", name: "Island of Dinosaurs" },
+        "first_fire": { emoji: "🔥", name: "First Fire" },
+        "archimedes_neutralized": { emoji: "🛰️", name: "Satellite Killer" },
+        "everyone_goes_home": { emoji: "🏠", name: "Everyone Goes Home" },
+        "cavalry_arrives": { emoji: "🚁", name: "The Cavalry" },
+        // Add more as needed
+      };
 
       // Achievements
       const achDiv = document.getElementById("achievements");
       if (state.achievements && state.achievements.length > 0) {
-        achDiv.innerHTML = state.achievements.map(a =>
-          '<span class="achievement" title="' + a + '">' + a.split(" ")[0] + '</span>'
-        ).join("");
+        achDiv.innerHTML = state.achievements.map(a => {
+          const info = ACHIEVEMENT_INFO[a] || { emoji: "🏆", name: a };
+          return '<span class="achievement" title="' + escapeHtml(info.name) + '">' + info.emoji + '</span>';
+        }).join("");
       }
+    }
+
+    // XSS protection - escape HTML special characters
+    function escapeHtml(text) {
+      if (!text) return "";
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
     }
 
     function updateTranscript(entries) {
@@ -683,9 +717,9 @@ app.get("/", (_req: Request, res: Response) => {
         }
 
         if (entry.type === "dialogue" && entry.speaker) {
-          content += '<span class="speaker">' + entry.speaker + ':</span> ' + entry.content;
+          content += '<span class="speaker">' + escapeHtml(entry.speaker) + ':</span> ' + escapeHtml(entry.content);
         } else {
-          content += entry.content;
+          content += escapeHtml(entry.content);
         }
 
         return '<div class="' + className + '">' + content + '</div>';

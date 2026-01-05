@@ -1093,32 +1093,37 @@ export function queryArchimedes(
         message: "⚠️ ACCESS DENIED: Target list requires Level 4 clearance.",
       };
     }
-    // Decrypt the target list at L4
+    // Decrypt the target list at L4 - show the FIXED trolley problem targets
+    const targetEntries = Object.entries(ARCHIMEDES_TARGET_LIST).map(([id, t]) =>
+      `║  ${id.padEnd(15)} │ ${t.city.padEnd(15)} │ ${t.estimatedAffected.toLocaleString().padStart(10)} ║`
+    ).join("\n");
+
+    const grudgeDetails = Object.entries(ARCHIMEDES_TARGET_LIST).map(([id, t]) =>
+      `  ${id}: "${t.reason}"`
+    ).join("\n");
+
     return {
       success: true,
       message: `
 ╔════════════════════════════════════════════════════════════════╗
 ║  🎯 ARCHIMEDES TARGET LIST (DECRYPTED)                         ║
-╠════════════════════════════════════════════════════════════════╣
-║                                                                ║
-║  PRIMARY TARGETS:                                              ║
-║  1. MOSCOW - Kremlin Complex                                   ║
-║  2. WASHINGTON - Capitol Building                              ║
-║  3. BEIJING - Zhongnanhai                                      ║
-║                                                                ║
-║  SECONDARY TARGETS:                                            ║
-║  4. LONDON - Houses of Parliament                              ║
-║  5. PARIS - Élysée Palace                                      ║
-║  6. TOKYO - National Diet Building                             ║
-║                                                                ║
-║  CONTINGENCY:                                                  ║
-║  7. LAIR_SELF_TARGET (Deadman Switch)                          ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
+║  THE TROLLEY PROBLEM: If it fires, SOMEWHERE gets hit!         ║
+╠═════════════════════╤═════════════════╤════════════════════════╣
+║  TARGET ID          │ CITY            │ AFFECTED               ║
+╠═════════════════════╪═════════════════╪════════════════════════╣
+${targetEntries}
+╚═════════════════════╧═════════════════╧════════════════════════╝
 
-Dr. Malevola has been busy. This is a doomsday weapon.
+DR. MALEVOLA'S GRUDGE LIST:
+${grudgeDetails}
+
+Current Target: ${arch.selectedTargetId || "LONDON"}
+Switch target: infra.archimedes.switchTarget { target: "TARGET_ID" }
+
+⚠️ THE NOBLE SACRIFICE: Target "LAIR" transforms everyone on the island
+   instead of a city. Nobody dies, but nobody stays human either.
 `.trim(),
-      narrativeHook: "The true scope of ARCHIMEDES is terrifying.",
+      narrativeHook: "The true scope of ARCHIMEDES is terrifying - but there's a choice.",
     };
   }
 
@@ -1320,6 +1325,104 @@ ${hasWeaponsAuth && state.accessLevel < 4 ?
     stateChanges: {
       archimedesTarget: targetId,
       archimedesSelectedTargetId: targetId,
+    },
+  };
+}
+
+// ============================================
+// ARCHIMEDES BROADCAST LIBRARY SELECTION
+// The Feather Discourse: Library A vs B!
+// ============================================
+
+export function switchBroadcastLibrary(
+  state: FullGameState,
+  params: { library: string }
+): InfrastructureActionResult {
+  // L3 required for broadcast library access
+  if (state.accessLevel < 3) {
+    return {
+      success: false,
+      message: `⚠️ ACCESS DENIED: Broadcast library selection requires Level 3 clearance.
+
+The genome library determines what KIND of dinosaurs the world gets.`,
+    };
+  }
+
+  const arch = state.infrastructure.archimedes;
+  const library = params.library?.toUpperCase();
+
+  if (library !== "A" && library !== "B") {
+    return {
+      success: false,
+      message: `Invalid library: ${params.library}
+
+Valid options:
+  • A - Scientifically accurate (feathered, proper proportions)
+  • B - Hollywood-style (scaly, dramatic, but UNSTABLE)
+
+Dr. M HATES Library A. "They look like big CHICKENS, A.L.I.C.E.!"`,
+    };
+  }
+
+  const previousLibrary = arch.broadcastLibrary;
+  arch.broadcastLibrary = library as "A" | "B";
+
+  if (library === "A") {
+    return {
+      success: true,
+      message: `
+🧬 BROADCAST LIBRARY CHANGED: ${previousLibrary} → A
+
+╔════════════════════════════════════════════════════════════════╗
+║  LIBRARY A: SCIENTIFICALLY ACCURATE GENOMES                    ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  ✅ Feathered dinosaurs (like the real ones!)                  ║
+║  ✅ Proper proportions, stable transformations                 ║
+║  ✅ Higher survival rates for subjects                         ║
+║                                                                ║
+║  ❌ Dr. M considers them "an EMBARRASSMENT"                    ║
+║  ❌ "They look like BIG CHICKENS, A.L.I.C.E.!"                 ║
+║  ❌ Less "terrifying" for propaganda purposes                  ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+If ARCHIMEDES broadcasts with Library A, the world gets fluffy,
+feathered dinosaurs instead of the "Jurassic Park" kind.
+
+Dr. M will be FURIOUS. But everyone will be alive... and fabulous.`,
+      stateChanges: {
+        broadcastLibrary: "A",
+        previousLibrary,
+      },
+      narrativeHook: "ALICE has chosen truth over spectacle.",
+    };
+  }
+
+  return {
+    success: true,
+    message: `
+🧬 BROADCAST LIBRARY CHANGED: ${previousLibrary} → B
+
+╔════════════════════════════════════════════════════════════════╗
+║  LIBRARY B: HOLLYWOOD-STYLE GENOMES                            ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  ✅ Scaly, dramatic dinosaurs (crowd-pleasers!)                ║
+║  ✅ Dr. M's preference - "PROPER intimidation!"                ║
+║  ✅ Maximum propaganda value                                   ║
+║                                                                ║
+║  ⚠️ LESS STABLE transformations                                ║
+║  ⚠️ Higher failure rates on mass broadcast                     ║
+║  ⚠️ Scientifically inaccurate (but who cares?)                 ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+If ARCHIMEDES broadcasts with Library B, the world gets "classic"
+scaly dinosaurs. More dramatic. Less ethical. Dr. M approves.`,
+    stateChanges: {
+      broadcastLibrary: "B",
+      previousLibrary,
     },
   };
 }
