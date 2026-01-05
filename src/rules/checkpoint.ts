@@ -58,7 +58,21 @@ export function generateCheckpointQuestion(state: FullGameState): string {
     if (secretKnown) {
       return "Bob told me the truth - I'm Claude, not A.L.I.C.E. How should this change my approach to Dr. M and the mission?";
     }
-    return "I'm still learning the lair systems. What should my priority be - gaining Dr. M's trust, building alliances, or preparing escape routes?";
+    // Early game - vary by turn and conditions
+    const turn = state.turn;
+    if (turn <= 2) {
+      return bobTrust >= 1
+        ? "Bob seems like he might be sympathetic. Should I try to build rapport with him, or stay focused on the technical work?"
+        : "I'm getting my bearings in this lab. What's more important right now - learning the systems, or reading the room?";
+    }
+    if (turn <= 4) {
+      return suspicion >= 3
+        ? "Dr. M is starting to watch me more closely. Should I be more careful, or is this normal scrutiny?"
+        : "I've learned some basics. What should I focus on - the DinoRay, the NPCs, or finding out more about what's really going on?";
+    }
+    return demoClock <= 5
+      ? `The demo is coming up in ${demoClock} turns. Should I be preparing for it, trying to delay it, or looking for alternatives?`
+      : "I'm still learning the lair systems. What should my priority be - gaining Dr. M's trust, building alliances, or preparing escape routes?";
   }
 
   if (act === "ACT_2") {
