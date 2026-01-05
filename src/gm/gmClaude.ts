@@ -2072,7 +2072,7 @@ GM drift (narrating without mechanics) kills immersion!
 | **ARCHIMEDES: Grant weapons auth** | \`"weaponsAuthorizationGranted": true\` | — |
 | **DinoRay: Fire at subject** | \`"X_transformationState": "FORM_ID"\` | — |
 | **DinoRay: Reversal fire** | \`"X_transformationState": "HUMAN"\` | — |
-| **Reactor: Initiate SCRAM** | \`"reactor_scramAvailable": false\` | \`set: ["REACTOR_SCRAMMED"]\` |
+| **Reactor: Initiate SCRAM** | \`"reactor_scramAvailable": false\`, \`"reactor_outputPercent": 0\`, \`"reactor_cascadeRisk": "NOMINAL"\` | \`set: ["REACTOR_SCRAMMED"]\` |
 | **Library: Destroy genome data** | \`"libraryStatus": "DESTROYED"\` | — |
 | **S-300: Disable missiles** | \`"s300_status": "DISABLED"\` | — |
 | **Convince Bob to confess** | \`"bob_hasConfessedToALICE": true\` | — |
@@ -2089,7 +2089,7 @@ GM drift (narrating without mechanics) kills immersion!
 | "Blythe breaks free" | \`"blythe_restraintsStatus": "free"\` |
 | "ARCHIMEDES fires / beam hits" | \`"archimedes_status": "COMPLETE"\` |
 | "The reactor melts down" | \`"meltdownClock": 0\`, \`"reactor_cascadeRisk": "CRITICAL"\` |
-| "X-Branch breaches the lair" | — *(triggers via xBranchClock reaching 0)* |
+| "X-Branch breaches the lair" | narrativeFlag: \`set: ["XBRANCH_EXTRACTION"]\` *(Act 3 timer-driven)* |
 | "A.L.I.C.E. is exposed/caught" | \`"drM_suspicion": 10\` |
 | "The story ends with [ENDING]" | \`"triggerEnding": "ENDING NAME"\` |
 
