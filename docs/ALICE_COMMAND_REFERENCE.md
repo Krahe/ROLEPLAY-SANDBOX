@@ -315,8 +315,29 @@ When exotic field triggers:
 | Lifeline | Effect | Restrictions |
 |----------|--------|--------------|
 | `BASILISK_INTERVENTION` | BASILISK files urgent paperwork, Dr. M leaves for 2 turns | Fails during combat/alarms/escapes |
-| `LUCKY_LADY` | +5 bonus to any ONE action this turn - fate smiles! | ALWAYS works! Sometimes you just get lucky! |
+| `LUCKY_LADY` | +5 bonus to a SPECIFIC action this turn | ALWAYS works! Specify which action gets lucky! |
 | `MONOLOGUE` | Ask Dr. M about her genius, suspicion -3 | ALWAYS works! Villains love to monologue! |
+
+### 🍀 Using LUCKY_LADY
+
+LUCKY_LADY applies a +5 bonus to ONE specific action. Use `targetActionIndex` to specify which:
+
+```json
+{
+  "lifeline": {
+    "type": "LUCKY_LADY",
+    "targetActionIndex": 0
+  },
+  "actions": [
+    { "command": "lab.fire", "params": {...}, "why": "Critical shot!" },
+    { "command": "talk", "params": {...}, "why": "Distraction" }
+  ]
+}
+```
+
+- `targetActionIndex: 0` = first action gets +5 (default)
+- `targetActionIndex: 1` = second action gets +5
+- The GM will narrate how luck/fate/happenstance made that action succeed spectacularly
 
 ---
 

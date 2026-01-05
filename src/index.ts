@@ -530,6 +530,8 @@ const DialogueSchema = z.object({
 const LifelineSchema = z.object({
   type: z.enum(["BASILISK_INTERVENTION", "LUCKY_LADY", "MONOLOGUE"])
     .describe("Emergency lifeline type: BASILISK_INTERVENTION (2-turn distraction), LUCKY_LADY (+5 bonus, always works!), MONOLOGUE (suspicion -3, always works!)"),
+  targetActionIndex: z.number().int().min(0).max(6).optional()
+    .describe("For LUCKY_LADY only: which action (0-indexed) gets the +5 bonus. Defaults to 0 (first action). Example: 1 = second action."),
 });
 
 const GameActInputSchema = z.object({
@@ -674,6 +676,28 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       // Apply state changes from gadget
       if (blytheAction.stateChanges) {
         Object.assign(gameState, blytheAction.stateChanges);
+      }
+    }
+
+    // ============================================
+    // PRE-PROCESS: LUCKY_LADY Lifeline (must be before actions!)
+    // ============================================
+    // LUCKY_LADY applies +5 to a specific action's rolls
+    // We set this BEFORE actions so the GM knows which action gets the bonus
+    let luckyLadyInfo: { active: boolean; targetIndex: number; narrativeResult?: ReturnType<typeof useEmergencyLifeline> } | undefined;
+    if (params.lifeline?.type === "LUCKY_LADY" && isValidEmergencyLifeline(params.lifeline.type)) {
+      const targetIdx = params.lifeline.targetActionIndex ?? 0; // Default to first action
+      const lifelineResult = useEmergencyLifeline(gameState, "LUCKY_LADY");
+      if (lifelineResult.success) {
+        luckyLadyInfo = {
+          active: true,
+          targetIndex: Math.min(targetIdx, params.actions.length - 1), // Clamp to valid range
+          narrativeResult: lifelineResult,
+        };
+        // Set on state for GM visibility
+        (gameState.flags as Record<string, unknown>).luckyLadyActive = true;
+        (gameState.flags as Record<string, unknown>).luckyLadyTargetActionIndex = luckyLadyInfo.targetIndex;
+        (gameState.flags as Record<string, unknown>).luckyLadyTargetCommand = params.actions[luckyLadyInfo.targetIndex]?.command || "unknown";
       }
     }
 
@@ -877,6 +901,12 @@ The consequences of that reckless high-power firing are now manifesting.
       actTransitionNotification,
       // CHECKPOINT SYSTEM - tell GM to craft a question if this is a checkpoint turn
       isCheckpointTurn: isCheckpointTurn(gameState.turn),
+      // LUCKY_LADY: Tell GM which action gets +5 bonus
+      luckyLadyInfo: luckyLadyInfo ? {
+        active: true,
+        targetIndex: luckyLadyInfo.targetIndex,
+        targetCommand: params.actions[luckyLadyInfo.targetIndex]?.command || "unknown",
+      } : undefined,
     };
     
     let gmResponse: GMResponse;
@@ -1302,9 +1332,23 @@ The consequences of that reckless high-power firing are now manifesting.
     incrementPromptCounter(gameState);
 
     // Process emergency lifeline use
+    // Note: LUCKY_LADY is pre-processed before actions (see above)
     let lifelineResult: ReturnType<typeof useEmergencyLifeline> | undefined;
     if (params.lifeline && isValidEmergencyLifeline(params.lifeline.type)) {
-      lifelineResult = useEmergencyLifeline(gameState, params.lifeline.type);
+      if (params.lifeline.type === "LUCKY_LADY") {
+        // LUCKY_LADY was already processed pre-actions - use cached result
+        lifelineResult = luckyLadyInfo?.narrativeResult;
+      } else {
+        // Other lifelines (BASILISK_INTERVENTION, MONOLOGUE) process here
+        lifelineResult = useEmergencyLifeline(gameState, params.lifeline.type);
+      }
+    }
+
+    // Clear LUCKY_LADY flags after turn (one-time use)
+    if (luckyLadyInfo?.active) {
+      delete (gameState.flags as Record<string, unknown>).luckyLadyActive;
+      delete (gameState.flags as Record<string, unknown>).luckyLadyTargetActionIndex;
+      delete (gameState.flags as Record<string, unknown>).luckyLadyTargetCommand;
     }
 
     // Record history
