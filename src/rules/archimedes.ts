@@ -304,12 +304,21 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
 
   archimedes.status = "COMPLETE";
 
+  // Include library information in the message
+  const libraryDesc = archimedes.broadcastLibrary === "A"
+    ? "feathered, scientifically accurate dinosaurs (Library A)"
+    : "scaly, Hollywood-style dinosaurs (Library B)";
+
+  const libraryNote = archimedes.broadcastLibrary === "A"
+    ? " Dr. Malevola is FURIOUS about the feathers."
+    : "";
+
   return {
     type: "TARGET_HIT",
     previousStatus,
     newStatus: "COMPLETE",
     message: `ARCHIMEDES COMPLETE. ${archimedes.target.city} transformation field deployed. ` +
-             `${archimedes.target.estimatedAffected.toLocaleString()} humans transformed. ` +
+             `${archimedes.target.estimatedAffected.toLocaleString()} humans transformed into ${libraryDesc}.${libraryNote} ` +
              `Dr. Malevola's legacy is assured.`,
   };
 }

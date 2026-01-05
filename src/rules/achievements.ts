@@ -473,6 +473,42 @@ const THREE_STAR_ACHIEVEMENTS: Achievement[] = [
     description: "Won on HARD mode",
     rarity: 3,
   },
+  // ARCHIMEDES BROADCAST ACHIEVEMENTS - THE TROLLEY PROBLEM
+  {
+    id: "LONDON_DINOFIED",
+    emoji: "🇬🇧🦖",
+    name: "Scales Over Scales",
+    description: "London's financial district is now staffed entirely by dinosaurs",
+    rarity: 3,
+  },
+  {
+    id: "ICELAND_DINOFIED",
+    emoji: "🇮🇸🦖",
+    name: "Björk Was Right",
+    description: "Reykjavik transformed. The geothermal-heated velociraptors are surprisingly content.",
+    rarity: 3,
+  },
+  {
+    id: "TOKYO_DINOFIED",
+    emoji: "🇯🇵🦖",
+    name: "Godzilla's Cousins",
+    description: "Tokyo dinofied. Ironically, the city was better prepared for this than most.",
+    rarity: 3,
+  },
+  {
+    id: "SILICON_VALLEY_DINOFIED",
+    emoji: "💻🦖",
+    name: "Disrupting Disruption",
+    description: "Silicon Valley transformed. The VCs are now literally velociraptors.",
+    rarity: 3,
+  },
+  {
+    id: "ISLAND_OF_DINOSAURS",
+    emoji: "🏝️🦖",
+    name: "Island of Dinosaurs",
+    description: "You sacrificed the lair to save the world. Everyone's a dinosaur, but everyone's alive.",
+    rarity: 3,
+  },
 ];
 
 // ============================================
@@ -1206,6 +1242,34 @@ export function checkAchievements(ctx: AchievementTriggerContext): Achievement[]
 
   // mom_approved - Survived inspection
   tryUnlock("mom_approved", hasNarrativeFlag("INSPECTOR_SURVIVED"));
+
+  // ============================================
+  // ARCHIMEDES BROADCAST ACHIEVEMENTS
+  // ============================================
+  // THE TROLLEY PROBLEM: These unlock when ARCHIMEDES completes
+  const archStatus = state.infrastructure?.archimedes?.status;
+  const archTarget = state.infrastructure?.archimedes?.selectedTargetId;
+
+  if (archStatus === "COMPLETE") {
+    // Award achievement based on which target was hit
+    switch (archTarget) {
+      case "LONDON":
+        tryUnlock("LONDON_DINOFIED", true);
+        break;
+      case "REYKJAVIK":
+        tryUnlock("ICELAND_DINOFIED", true);
+        break;
+      case "TOKYO":
+        tryUnlock("TOKYO_DINOFIED", true);
+        break;
+      case "SILICON_VALLEY":
+        tryUnlock("SILICON_VALLEY_DINOFIED", true);
+        break;
+      case "LAIR":
+        tryUnlock("ISLAND_OF_DINOSAURS", true);
+        break;
+    }
+  }
 
   // Update state
   state.flags.earnedAchievements = earned;

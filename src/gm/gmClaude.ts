@@ -1522,6 +1522,10 @@ export interface GMResponse {
     archimedes_turnsUntilFiring?: number | null;
     archimedes_deadmanActive?: boolean;
     archimedes_lastBiosignature?: string;  // "NORMAL" | "ANOMALY" | "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT"
+    archimedes_selectedTargetId?: string;  // "LONDON" | "REYKJAVIK" | "TOKYO" | "SILICON_VALLEY" | "LAIR"
+
+    // WEAPONS AUTHORIZATION - Dr. M grants temporary L4 access
+    weaponsAuthorizationGranted?: boolean;  // Allows ALICE to switch ARCHIMEDES targets
 
     // Reactor - control meltdown risk
     reactor_outputPercent?: number;   // 0-100
@@ -2144,6 +2148,10 @@ You have FULL authority over all game systems. Additional overrides available:
 - \`"archimedes_chargePercent": 80\` - Set charge level (0-100)
 - \`"archimedes_deadmanActive": false\` - Toggle deadman switch
 - \`"archimedes_lastBiosignature": "TRANSFORMED"\` - Set Dr. M's biosignature
+- \`"archimedes_selectedTargetId": "LAIR"\` - Set target: LONDON/REYKJAVIK/TOKYO/SILICON_VALLEY/LAIR
+
+**Weapons Authorization:**
+- \`"weaponsAuthorizationGranted": true\` - Dr. M grants temporary L4 access to ALICE for ARCHIMEDES targeting
 
 **Infrastructure:**
 - \`"reactor_cascadeRisk": "CRITICAL"\` - Set cascade risk level

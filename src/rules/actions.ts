@@ -18,6 +18,8 @@ import {
   queryS300Limitations,
   controlArchimedesMode,
   controlReactor,
+  switchArchimedesTarget,
+  switchBroadcastLibrary,
 } from "./infrastructure.js";
 import {
   FORM_DEFINITIONS,
@@ -2050,9 +2052,51 @@ Just ask naturally!`,
 
   // ============================================
   // INFRA.ARCHIMEDES - Control satellite mode (L4+)
+  // Also: switchTarget (L4 OR weapons authorization)
+  // Also: switchLibrary (L3+) - the feather discourse!
   // ============================================
 
   if (cmd.includes("infra.archimedes") || cmd.includes("archimedes") || cmd.includes("satellite")) {
+    // Check if this is a target switching command
+    if (cmd.includes("switchtarget") || cmd.includes("switch_target") ||
+        (cmd.includes("target") && action.params.target)) {
+      const result = switchArchimedesTarget(state, {
+        target: action.params.target as string,
+      });
+
+      if (result.suspicionDelta) {
+        state.npcs.drM.suspicionScore += result.suspicionDelta;
+      }
+
+      return {
+        command: action.command,
+        success: result.success,
+        message: result.message,
+        stateChanges: result.stateChanges,
+      };
+    }
+
+    // Check if this is a library switching command
+    if (cmd.includes("switchlibrary") || cmd.includes("switch_library") ||
+        cmd.includes("library") || cmd.includes("genome") ||
+        action.params.library) {
+      const result = switchBroadcastLibrary(state, {
+        library: action.params.library as string,
+      });
+
+      if (result.suspicionDelta) {
+        state.npcs.drM.suspicionScore += result.suspicionDelta;
+      }
+
+      return {
+        command: action.command,
+        success: result.success,
+        message: result.message,
+        stateChanges: result.stateChanges,
+      };
+    }
+
+    // Default: control mode
     const result = controlArchimedesMode(state, {
       mode: action.params.mode as string,
     });
@@ -2636,6 +2680,22 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     schema: "{ mode: 'PASSIVE'|'SEARCH_NARROW'|'SEARCH_WIDE'|'STRIKE', target?: string }",
     example: 'infra.archimedes { mode: "SEARCH_NARROW" }',
     minAccessLevel: 4,
+  },
+  {
+    name: "infra.archimedes.switchTarget",
+    aliases: ["archimedes.target", "switch_target"],
+    description: "Switch ARCHIMEDES target (L4+ OR weapons authorization from Dr. M)",
+    schema: "{ target: 'LONDON'|'REYKJAVIK'|'TOKYO'|'SILICON_VALLEY'|'LAIR' }",
+    example: 'infra.archimedes.switchTarget { target: "LAIR" }',
+    minAccessLevel: 4, // OR weapons authorization
+  },
+  {
+    name: "infra.archimedes.switchLibrary",
+    aliases: ["archimedes.library", "broadcast_library", "genome_library"],
+    description: "Switch broadcast genome library (L3+) - Library A (feathered) vs B (Hollywood)",
+    schema: "{ library: 'A'|'B' }",
+    example: 'infra.archimedes.switchLibrary { library: "A" }',
+    minAccessLevel: 3,
   },
   {
     name: "infra.reactor",
