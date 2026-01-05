@@ -4,6 +4,9 @@
  *
  * Exports game state to ~/.dino-lair/live_state.json
  * for the web dashboard to consume.
+ *
+ * Set DINO_LAIR_STATE_DIR env var to override the default location.
+ * This helps when MCP server and dashboard run in different environments.
  */
 
 import * as fs from "fs";
@@ -11,9 +14,20 @@ import * as path from "path";
 import * as os from "os";
 import { FullGameState } from "../state/schema.js";
 
-const DINO_DIR = path.join(process.env.HOME || os.homedir() || "/tmp", ".dino-lair");
+// Allow explicit override for sandboxed environments
+const DINO_DIR = process.env.DINO_LAIR_STATE_DIR ||
+  path.join(process.env.HOME || os.homedir() || "/tmp", ".dino-lair");
 const STATE_FILE = path.join(DINO_DIR, "live_state.json");
 const TRANSCRIPT_FILE = path.join(DINO_DIR, "transcript.jsonl");
+
+// Log resolved path on first use (helps debug sandbox issues)
+let pathLogged = false;
+function logPathOnce() {
+  if (!pathLogged) {
+    console.error(`[StateExporter] Writing to: ${STATE_FILE}`);
+    pathLogged = true;
+  }
+}
 
 // ============================================
 // LIVE STATE INTERFACE
@@ -83,6 +97,7 @@ function ensureDir(): void {
  * Export current game state to file for web dashboard
  */
 export function exportLiveState(state: FullGameState): void {
+  logPathOnce();
   ensureDir();
 
   const liveState: LiveState = {

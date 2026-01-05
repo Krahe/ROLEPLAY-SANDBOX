@@ -7,6 +7,10 @@
  *
  * Usage: npm run dashboard
  * Then open http://localhost:3000
+ *
+ * Environment variables:
+ *   DINO_DASHBOARD_PORT - Port to run on (default: 3000)
+ *   DINO_LAIR_STATE_DIR - Override state directory (must match MCP server!)
  */
 
 import express, { Request, Response } from "express";
@@ -18,7 +22,9 @@ const app = express();
 const PORT = process.env.DINO_DASHBOARD_PORT || 3000;
 
 // State storage location (shared with MCP server)
-const DINO_DIR = path.join(process.env.HOME || os.homedir() || "/tmp", ".dino-lair");
+// IMPORTANT: Must match the path used by stateExporter.ts!
+const DINO_DIR = process.env.DINO_LAIR_STATE_DIR ||
+  path.join(process.env.HOME || os.homedir() || "/tmp", ".dino-lair");
 const STATE_FILE = path.join(DINO_DIR, "live_state.json");
 const TRANSCRIPT_FILE = path.join(DINO_DIR, "transcript.jsonl");
 
@@ -593,6 +599,15 @@ app.get("/", (_req: Request, res: Response) => {
     function updateState(state) {
       if (!state) return;
 
+      // Check if this is an error response (no game in progress)
+      if (state.error) {
+        document.getElementById("session-id").textContent = "No game";
+        document.getElementById("turn-number").textContent = "T0";
+        document.getElementById("act-info").textContent = "Waiting for game_start...";
+        if (noGameMessage) noGameMessage.style.display = "block";
+        return;
+      }
+
       // Remove no-game message
       if (noGameMessage) noGameMessage.style.display = "none";
 
@@ -601,7 +616,7 @@ app.get("/", (_req: Request, res: Response) => {
 
       // Turn & Act
       document.getElementById("turn-number").textContent = "T" + (state.turn || 0);
-      document.getElementById("act-info").textContent = state.act + " (Turn " + state.actTurn + ")";
+      document.getElementById("act-info").textContent = (state.act || "ACT_1") + " (Turn " + (state.actTurn || 0) + ")";
 
       // Suspicion
       const sus = state.suspicion || 0;
