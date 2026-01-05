@@ -1164,6 +1164,12 @@ export interface GMContext {
   actTransitionNotification?: string; // Notification when act changes
   // CHECKPOINT SYSTEM
   isCheckpointTurn?: boolean;       // True when this turn ends on a checkpoint
+  // LUCKY_LADY LIFELINE
+  luckyLadyInfo?: {
+    active: boolean;
+    targetIndex: number;
+    targetCommand: string;
+  };
 }
 
 // ============================================
@@ -3211,7 +3217,7 @@ function formatGMPrompt(context: GMContext): string {
           clockEventNarrations, activeEvents, blytheGadgetNarration,
           bobTransformationNarration, civilianFlybyConsequences, trustContext, gadgetStatus,
           humanPromptInjection, userPromptResponse,
-          actContext, actTransitionNotification, isCheckpointTurn } = context;
+          actContext, actTransitionNotification, isCheckpointTurn, luckyLadyInfo } = context;
 
   // Check for firing results
   const firingResult = actionResults.find(r => r.command.includes("fire"));
@@ -3429,10 +3435,15 @@ ${aliceDialogue.length > 0
   : "(A.L.I.C.E. said nothing this turn)"}
 
 ### Actions Taken
-${aliceActions.map((a, i) => `${i + 1}. ${a.command}(${JSON.stringify(a.params)}) - "${a.why}"`).join("\n")}
+${aliceActions.map((a, i) => `${i + 1}. ${a.command}(${JSON.stringify(a.params)}) - "${a.why}"${luckyLadyInfo?.active && luckyLadyInfo.targetIndex === i ? " 🍀 +5 LUCKY LADY!" : ""}`).join("\n")}
 
 ### Action Results
 ${actionResults.map(r => `- ${r.command}: ${r.success ? "✓ SUCCESS" : "✗ FAILED"} - ${r.message.split("\n")[0]}`).join("\n")}
+${luckyLadyInfo?.active ? `
+### 🍀 LUCKY LADY ACTIVE!
+**Action #${luckyLadyInfo.targetIndex + 1} (${luckyLadyInfo.targetCommand}) gets +5 to ALL rolls!**
+Fate smiles on this action. Make it succeed spectacularly. Narrate how luck/happenstance twisted things in A.L.I.C.E.'s favor!
+` : ""}
 
 ${buildNpcSpeechConstraints(state)}
 
