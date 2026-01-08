@@ -244,9 +244,9 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
     newStatus: "CHARGING",
     message: `🔴 ARCHIMEDES CHARGING: ${reason}. ` +
              `Target: ${archimedes.target.city}. ` +
-             `Time to firing: ${archimedes.turnsUntilFiring} turns. ` +
+             `Time to firing: ${archimedes.turnsUntilFiring ?? "?"} turns. ` +
              `Abort still possible.`,
-    turnsRemaining: archimedes.turnsUntilFiring,
+    turnsRemaining: archimedes.turnsUntilFiring ?? undefined,
   };
 }
 
@@ -409,7 +409,7 @@ export function processArchimedesCountdown(state: FullGameState): ArchimedesEven
       return {
         type: "COUNTDOWN_TICK",
         message: `🔴 ARCHIMEDES CHARGING: ${archimedes.chargePercent}% charged. ` +
-                 `${archimedes.turnsUntilFiring} turn(s) until firing. ` +
+                 `${archimedes.turnsUntilFiring ?? "?"} turn(s) until firing. ` +
                  `Target: ${archimedes.target.city}.`,
         turnsRemaining: archimedes.turnsUntilFiring ?? 0,
       };
@@ -577,7 +577,7 @@ export function attemptXBranchDelay(
     return {
       type: "ABORT_SUCCESS", // Well, partial success
       message: `ARCHIMEDES: X-Branch override accepted. Firing delayed by ${XBRANCH_DELAY_TURNS} turns. ` +
-               `WARNING: This is a DELAY, not an abort. ${archimedes.turnsUntilFiring} turn(s) until firing.`,
+               `WARNING: This is a DELAY, not an abort. ${archimedes.turnsUntilFiring ?? "?"} turn(s) until firing.`,
       turnsRemaining: archimedes.turnsUntilFiring ?? 0,
     };
   }
@@ -629,7 +629,7 @@ Linked Biosignature: ${arch.deadmanSwitch.linkedTo} (${arch.deadmanSwitch.lastBi
 `;
 
   // Add countdown info if active
-  if (arch.turnsUntilFiring !== null) {
+  if (arch.turnsUntilFiring !== null && arch.turnsUntilFiring !== undefined) {
     report += `\n⚠️ COUNTDOWN ACTIVE: ${arch.turnsUntilFiring} turn(s) until firing`;
   }
 

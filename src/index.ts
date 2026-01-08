@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
-import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier } from "./state/schema.js";
+import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "./state/schema.js";
 import { processActions, ActionResult, generateCommandReference } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
@@ -910,16 +910,30 @@ The consequences of that reckless high-power firing are now manifesting.
     };
     
     let gmResponse: GMResponse;
+    let gmErrorOccurred = false;
     try {
       gmResponse = await callGMClaude(gmContext);
     } catch (error) {
+      // Patch 18.1: Track GM error to prevent ending triggers
+      // When GM fails, we shouldn't trigger endings based on missing resolution flags
+      console.error("[GM] API error, using fallback response:", error instanceof Error ? error.message : error);
+      gmErrorOccurred = true;
+
       // Fallback if GM call fails
       gmResponse = {
-        narration: "The lab hums quietly as systems process your commands.",
+        narration: "The lab hums quietly as systems process your commands. [GM SYSTEM UNAVAILABLE - Actions processed mechanically]",
         npcDialogue: [],
         npcActions: [],
         stateUpdates: {},
       };
+    }
+
+    // Patch 18.1: Set GM error flag in game state to prevent ending triggers
+    if (gmErrorOccurred) {
+      gameState.flags.gmErrorThisTurn = true;
+    } else {
+      // Clear the flag from previous turns
+      gameState.flags.gmErrorThisTurn = false;
     }
 
     // ============================================
@@ -1145,9 +1159,23 @@ The consequences of that reckless high-power firing are now manifesting.
         gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature = overrides.archimedes_lastBiosignature as typeof gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature;
       }
       if (overrides.archimedes_selectedTargetId !== undefined) {
-        const targetId = overrides.archimedes_selectedTargetId.toUpperCase() as "LONDON" | "REYKJAVIK" | "TOKYO" | "SILICON_VALLEY" | "LAIR";
-        gameState.infrastructure.archimedes.selectedTargetId = targetId;
-        console.error(`[GM OVERRIDE] ARCHIMEDES target set to ${targetId}`);
+        const targetId = overrides.archimedes_selectedTargetId.toUpperCase() as ArchimedesTargetId;
+        // Patch 18.1: Sync both selectedTargetId AND target object to prevent display desync
+        if (ARCHIMEDES_TARGET_LIST[targetId]) {
+          gameState.infrastructure.archimedes.selectedTargetId = targetId;
+          // Sync the target object for consistent display
+          const targetInfo = ARCHIMEDES_TARGET_LIST[targetId];
+          gameState.infrastructure.archimedes.target = {
+            city: targetInfo.city,
+            country: targetInfo.country,
+            coordinates: targetInfo.coordinates,
+            estimatedAffected: targetInfo.estimatedAffected,
+            reason: targetInfo.reason,
+          };
+          console.error(`[GM OVERRIDE] ARCHIMEDES target set to ${targetId} (${targetInfo.city})`);
+        } else {
+          console.error(`[GM OVERRIDE] Invalid ARCHIMEDES target ID: ${overrides.archimedes_selectedTargetId}`);
+        }
       }
 
       // Weapons Authorization (temporary L4 access from Dr. M)
