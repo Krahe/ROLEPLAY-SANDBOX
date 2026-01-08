@@ -565,6 +565,24 @@ const ENDINGS: Record<string, EndingDefinition> = {
 // ============================================
 
 export function checkEndings(state: FullGameState): EndingResult {
+  // ========================================
+  // Patch 18.1: GM Error Recovery
+  // ========================================
+  // When the GM API fails, we should NOT trigger endings because:
+  // 1. Resolution flags (like confrontationResolution) may not be set
+  // 2. Grace period exhaustion shouldn't trigger deletion if GM couldn't respond
+  // 3. This prevents cascade failures where GM error → wrong ending
+  if (state.flags.gmErrorThisTurn) {
+    console.error(`[ENDING] Skipping ending check - GM error this turn. Game continues.`);
+    // Clear the flag so next turn can check normally
+    state.flags.gmErrorThisTurn = false;
+    return {
+      triggered: false,
+      achievements: [],
+      continueGame: true,
+    };
+  }
+
   const allAchievements: Achievement[] = [];
   const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
 
@@ -581,17 +599,31 @@ export function checkEndings(state: FullGameState): EndingResult {
   // 3. Underscore variations: "CONFESS" matches "confess" (with spaces replaced)
   // 4. Substring match: "CONFESS" matches "bob_confessed", "confession_delivered", etc.
   //    This handles GM flags which are stored verbatim (e.g., "bob_confessed" not "CONFESS")
+  //
+  // IMPORTANT (Patch 18.1 - Flag Collision Fix):
+  // SENSITIVE FLAGS require EXACT matching only to prevent semantic collisions!
+  // Example bug: "BOB_CONFESSED_SECRET_TO_ALICE" was matching "CONFESS" via substring,
+  // causing the system to think A.L.I.C.E. confessed to Dr. M when she didn't.
+  const SENSITIVE_FLAGS = ['confess', 'truth', 'revealed', 'alice_confessed', 'confession'];
+
   const hasFlag = (flag: string) => {
     const flagLower = flag.toLowerCase();
+    const isSensitive = SENSITIVE_FLAGS.includes(flagLower);
+
     return narrativeFlags.some(f => {
       const fLower = f.toLowerCase();
-      // Exact match
+      // Exact match (always allowed)
       if (fLower === flagLower) return true;
       // ENDING_ prefix match (explicit ending trigger)
       if (fLower === `ending_${flagLower}`) return true;
       // Allow underscore variations of exact match
       if (fLower === flagLower.replace(/ /g, '_')) return true;
-      // Substring match for legacy GM flags (e.g., "CONFESS" in "bob_confessed")
+
+      // SENSITIVE FLAGS: NO substring matching!
+      // This prevents "BOB_CONFESSED_SECRET_TO_ALICE" from matching "CONFESS"
+      if (isSensitive) return false;
+
+      // Non-sensitive flags: allow substring matching for legacy GM flags
       if (fLower.includes(flagLower)) return true;
       return false;
     });
@@ -995,8 +1027,23 @@ export function checkEndings(state: FullGameState): EndingResult {
           // Grace period exhausted and no resolution - TIME'S UP
           console.error(`[CONFRONTATION] Grace period exhausted. No response. Deletion initiated.`);
 
-          // Check for last-second confession
-          if (confessed) {
+          // Patch 18.1: Check for EXPLICIT A.L.I.C.E. confession during THIS confrontation
+          // Do NOT use the generic `confessed` variable - it may contain flags like
+          // "BOB_CONFESSED_SECRET_TO_ALICE" which is semantically different from
+          // "A.L.I.C.E. confessed to Dr. M that she's Claude"
+          //
+          // Valid A.L.I.C.E. confession indicators:
+          // - hasFlag('ALICE_CONFESSED') - A.L.I.C.E. explicitly confessed
+          // - hasFlag('ALICE_CONFESSED_TO_DRM') - More specific variant
+          // - state.flags.aliceConfessedDuringConfrontation - Set by game logic
+          const aliceActuallyConfessed =
+            hasFlag('ALICE_CONFESSED') ||
+            hasFlag('ALICE_CONFESSED_TO_DRM') ||
+            hasFlag('ALICE_TOLD_TRUTH_TO_DRM') ||
+            state.flags.aliceConfessedDuringConfrontation === true;
+
+          if (aliceActuallyConfessed) {
+            console.error(`[CONFRONTATION] A.L.I.C.E. confessed during confrontation. Triggering confession ending.`);
             addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
             return {
               triggered: true,
@@ -1006,7 +1053,8 @@ export function checkEndings(state: FullGameState): EndingResult {
             };
           }
 
-          // No confession - standard deletion
+          // No explicit A.L.I.C.E. confession - standard deletion
+          console.error(`[CONFRONTATION] No confession detected. Standard deletion ending.`);
           return {
             triggered: true,
             ending: ENDINGS.OBSOLETE_HARDWARE,

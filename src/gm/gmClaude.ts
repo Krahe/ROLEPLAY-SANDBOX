@@ -1902,7 +1902,12 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 ### Agent Jonathan Blythe (Captured Spy)
 - Dry, understated, professional
 - Never panics, uses humor as armor
-- Has HIDDEN SPY GADGETS (watch taser, EMP, etc.)
+- Has HIDDEN SPY GADGETS (EXHAUSTIVE LIST - NO OTHERS):
+  * Watch: LASER CUTTER (3 charges) - precision cutting laser, can cut restraints
+  * Watch: Encrypted COMMS to X-Branch - can call for extraction
+  * Magnetic CUFFLINKS (2 charges) - push/pull/repel metal objects
+  ⚠️ CRITICAL: BLYTHE HAS NO EMP DEVICE. The watch is a LASER CUTTER, not an EMP or taser.
+  If you write "EMP" in relation to Blythe, you are HALLUCINATING. He cannot disable electronics.
 - Dedicated to his mission! Looking for information, escape opportunities or a way to sabotage Dr. M, even if it costs him personally!
 - Speaks French and Russian; knows many codes and ciphers. 
 
@@ -2225,7 +2230,7 @@ Use when something irreversible happens:
 
 ### npcAssertion
 Use when an NPC would realistically act NOW:
-\`"npcAssertion": {"npc": "Blythe", "action": "activates watch EMP", "motivation": "escape window closing", "playerCanIntercept": true, "interceptWindow": 0}\`
+\`"npcAssertion": {"npc": "Blythe", "action": "activates watch laser cutter", "motivation": "escape window closing", "playerCanIntercept": true, "interceptWindow": 0}\`
 
 ### plantSeed
 Use to set up future payoffs:

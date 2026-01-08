@@ -1603,6 +1603,14 @@ export const FlagsSchema = z.object({
   ]).optional(),
   confrontationIntervenor: z.enum(["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"]).optional(),
 
+  // Patch 18.1: Explicit A.L.I.C.E. confession during confrontation
+  // This is separate from narrative flags to avoid semantic collision
+  aliceConfessedDuringConfrontation: z.boolean().optional(),
+
+  // Patch 18.1: GM Error Recovery
+  // When GM API fails, this flag prevents ending triggers that turn
+  gmErrorThisTurn: z.boolean().optional(),
+
   // INSPECTOR_COMETH modifier flags
   inspectorTransformed: z.boolean().optional(), // Player transformed the Guild Inspector!
 
