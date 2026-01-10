@@ -1356,26 +1356,36 @@ The consequences of that reckless high-power firing are now manifesting.
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
 
     // ============================================
-    // NOT_GREAT_NOT_TERRIBLE: PASSIVE CAPACITOR CREEP (Patch 18.2)
+    // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)
     // ============================================
-    // The unstable reactor causes capacitor charge to creep up each turn,
-    // creating mounting pressure toward RESONANCE CASCADE conditions.
-    // This makes the modifier feel like real danger without changing cascade logic.
+    // The unstable reactor creates mounting pressure:
+    // 1. Reactor runs hot - forces higher power output (faster capacitor charging)
+    // 2. Instability surges push capacitor past normal 100% cap
+    // 3. Meltdown clock decays, increasing cascade risk
     if (isModifierActive(gameState, "NOT_GREAT_NOT_TERRIBLE") && gameState.meltdownState) {
-      const currentCharge = gameState.dinoRay.powerCore.capacitorCharge;
-      const creepAmount = 0.03; // +3% per turn (conservative, visible over ~10 turns)
-      const maxCreep = 1.15; // Cap at 115% - player must still choose to fire
+      // Force reactor to run hot (minimum 80% power) - can't throttle an unstable reactor!
+      const minReactorPower = 0.80;
+      if (gameState.nuclearPlant.reactorOutput < minReactorPower) {
+        gameState.nuclearPlant.reactorOutput = minReactorPower;
+      }
 
-      if (currentCharge < maxCreep) {
-        gameState.dinoRay.powerCore.capacitorCharge = Math.min(maxCreep, currentCharge + creepAmount);
+      // Instability surges: extra +3% charge that CAN push past 100%
+      // This represents power fluctuations from the unstable core
+      const currentCharge = gameState.dinoRay.powerCore.capacitorCharge;
+      const instabilitySurge = 0.03;
+      const maxSurge = 1.15; // Cap at 115% - player must vent or it gets dangerous
+
+      if (currentCharge < maxSurge) {
+        const newCharge = Math.min(maxSurge, currentCharge + instabilitySurge);
+        gameState.dinoRay.powerCore.capacitorCharge = newCharge;
 
         // Log warning at dangerous thresholds
-        if (currentCharge < 1.0 && gameState.dinoRay.powerCore.capacitorCharge >= 1.0) {
-          console.error(`[NOT_GREAT_NOT_TERRIBLE] Capacitor crossed 100% - CASCADE RISK INCREASING`);
+        if (currentCharge < 1.0 && newCharge >= 1.0) {
+          console.error(`[NOT_GREAT_NOT_TERRIBLE] Capacitor crossed 100% due to reactor instability!`);
         }
       }
 
-      // Also decay meltdown clock every 2 turns (passive reactor decay)
+      // Meltdown clock decay every 2 turns (passive reactor degradation)
       if (gameState.turn % 2 === 0 && gameState.clocks.meltdownClock && gameState.clocks.meltdownClock > 0) {
         gameState.clocks.meltdownClock -= 1;
         updateMeltdownFromClock(gameState);

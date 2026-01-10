@@ -362,8 +362,8 @@ infra.query is an action. game_query_basilisk is a tool.`,
     }
     
     // Map parameter to state location
+    // NOTE: capacitorCharge removed in Patch 18.3 - use lab.vent_capacitor / lab.boost_capacitor instead!
     const paramMap: Record<string, { path: string[]; min: number; max: number }> = {
-      "capacitorCharge": { path: ["dinoRay", "powerCore", "capacitorCharge"], min: 0, max: 1.5 },
       "corePowerLevel": { path: ["dinoRay", "powerCore", "corePowerLevel"], min: 0, max: 1 },
       "coolantTemp": { path: ["dinoRay", "powerCore", "coolantTemp"], min: 0, max: 2 },
       "stability": { path: ["dinoRay", "powerCore", "stability"], min: 0, max: 1 },
@@ -373,6 +373,26 @@ infra.query is an action. game_query_basilisk is a tool.`,
       "precision": { path: ["dinoRay", "targeting", "precision"], min: 0, max: 1 },
       "profileIntegrity": { path: ["dinoRay", "genome", "profileIntegrity"], min: 0, max: 1 },
     };
+
+    // Special handling for capacitorCharge - redirect to new actions
+    if (param.toLowerCase() === "capacitorcharge" || param.toLowerCase() === "capacitor") {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚡ CAPACITOR CONTROL REDESIGNED (Patch 18.3)
+
+Direct capacitor manipulation is no longer available.
+The capacitor charges based on reactor output and must be managed properly.
+
+Use these dedicated actions instead:
+  • lab.vent_capacitor   → Safely vent 25% charge (prevents overload)
+  • lab.boost_capacitor  → Draw 25% from reactor (for quick charging)
+
+Current capacitor: ${(state.dinoRay.powerCore.capacitorCharge * 100).toFixed(0)}%
+Reactor power: ${(state.nuclearPlant.reactorOutput * 100).toFixed(0)}%`,
+        stateChanges: {},
+      };
+    }
     
     const paramInfo = paramMap[param];
     if (!paramInfo) {
@@ -394,11 +414,6 @@ infra.query is an action. game_query_basilisk is a tool.`,
     const oldValue = obj[finalKey];
     obj[finalKey] = clampedValue;
     
-    // Check for hidden quirks
-    if (param === "capacitorCharge" && clampedValue > 1.05) {
-      state.dinoRay.safety.testModeEnabled = true;
-    }
-
     // Check calibration status after adjustment
     const calibration = checkCalibrationThresholds(state);
     const calibrationNote = calibration.ready
@@ -406,8 +421,7 @@ infra.query is an action. game_query_basilisk is a tool.`,
       : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
 
     // Short param names for compact display
-    const shortParam = param.replace('capacitorCharge', 'capacitor')
-                            .replace('spatialCoherence', 'coherence')
+    const shortParam = param.replace('spatialCoherence', 'coherence')
                             .replace('corePowerLevel', 'power');
 
     // Format values based on parameter type
@@ -1648,6 +1662,118 @@ The good news? You have +25% base precision bonus! 🎯`,
   }
 
   // ============================================
+  // CAPACITOR MANAGEMENT (Patch 18.3)
+  // ============================================
+  // Vent: Safely release 25% charge (prevents overload)
+  // Boost: Draw 25% from reactor (quick charging, adds heat)
+
+  if (cmd === "lab.vent_capacitor" || cmd === "vent_capacitor" || cmd === "vent") {
+    const currentCharge = state.dinoRay.powerCore.capacitorCharge;
+    const ventAmount = 0.25;
+
+    if (currentCharge <= 0.1) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚡ VENT FAILED: Capacitor too low to vent safely.
+
+Current charge: ${(currentCharge * 100).toFixed(0)}%
+Minimum for venting: 10%
+
+Nothing to vent - capacitor is nearly empty.`,
+        stateChanges: {},
+      };
+    }
+
+    const newCharge = Math.max(0, currentCharge - ventAmount);
+    state.dinoRay.powerCore.capacitorCharge = newCharge;
+
+    // Venting creates a small heat spike (energy has to go somewhere!)
+    const heatSpike = 0.05;
+    state.dinoRay.powerCore.coolantTemp = Math.min(2, state.dinoRay.powerCore.coolantTemp + heatSpike);
+
+    return {
+      command: action.command,
+      success: true,
+      message: `⚡ CAPACITOR VENTED
+
+Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (-25%)
+Coolant: +5% heat (venting byproduct)
+
+${newCharge > 1.0 ? "⚠️ Still in overcharge territory!" : newCharge < 0.6 ? "⚠️ Below firing threshold (60%)" : "✓ Charge level nominal."}`,
+      shortMessage: `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%`,
+      stateChanges: { capacitorCharge: newCharge },
+    };
+  }
+
+  if (cmd === "lab.boost_capacitor" || cmd === "boost_capacitor" || cmd === "boost") {
+    const currentCharge = state.dinoRay.powerCore.capacitorCharge;
+    const reactorPower = state.nuclearPlant.reactorOutput;
+    const boostAmount = 0.25;
+
+    // Can't boost if reactor is too low
+    if (reactorPower < 0.3) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚡ BOOST FAILED: Insufficient reactor power.
+
+Reactor power: ${(reactorPower * 100).toFixed(0)}%
+Minimum required: 30%
+
+The reactor can't spare power for capacitor charging right now.
+Ask BASILISK to increase reactor output first.`,
+        stateChanges: {},
+      };
+    }
+
+    // Warning if already overcharged
+    if (currentCharge >= 1.3) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚡ BOOST BLOCKED: Capacitor critically overcharged!
+
+Current charge: ${(currentCharge * 100).toFixed(0)}%
+Maximum safe boost: 130%
+
+Further charging risks catastrophic capacitor failure.
+Use lab.vent_capacitor to reduce charge first!`,
+        stateChanges: {},
+      };
+    }
+
+    const newCharge = Math.min(1.5, currentCharge + boostAmount);
+    state.dinoRay.powerCore.capacitorCharge = newCharge;
+
+    // Boosting draws hard from reactor - adds significant heat
+    const heatSpike = 0.10;
+    state.dinoRay.powerCore.coolantTemp = Math.min(2, state.dinoRay.powerCore.coolantTemp + heatSpike);
+
+    // If boosting past 100%, enable test mode (quirk preserved from old system)
+    if (currentCharge <= 1.0 && newCharge > 1.0) {
+      state.dinoRay.safety.testModeEnabled = true;
+    }
+
+    const overchargeWarning = newCharge > 1.0
+      ? "\n⚠️ OVERCHARGE: Exotic field event risk increased!"
+      : "";
+
+    return {
+      command: action.command,
+      success: true,
+      message: `⚡ CAPACITOR BOOSTED
+
+Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (+25%)
+Coolant: +10% heat (reactor draw)${overchargeWarning}
+
+${newCharge >= 0.6 ? "✓ Firing threshold met." : "⚠️ Still below firing threshold (60%)"}`,
+      shortMessage: `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%`,
+      stateChanges: { capacitorCharge: newCharge },
+    };
+  }
+
+  // ============================================
   // LAB.SCAN - OMNISCANNER™ (Patch 16)
   // ============================================
   // Scan NPCs for intel and +10% permanent precision bonus
@@ -2533,6 +2659,22 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
+    name: "lab.vent_capacitor",
+    aliases: ["vent_capacitor", "vent"],
+    description: "Safely vent 25% capacitor charge (prevents overload, adds small heat)",
+    schema: "{ }",
+    example: 'lab.vent_capacitor',
+    minAccessLevel: 1,
+  },
+  {
+    name: "lab.boost_capacitor",
+    aliases: ["boost_capacitor", "boost"],
+    description: "Draw 25% charge from reactor (quick charging, adds heat, requires 30%+ reactor)",
+    schema: "{ }",
+    example: 'lab.boost_capacitor',
+    minAccessLevel: 1,
+  },
+  {
     name: "lab.scan",
     aliases: ["scan", "omniscanner"],
     description: "Scan an NPC for intel (+10% precision bonus, may cause suspicion)",
@@ -3119,8 +3261,23 @@ function applyPassiveDrift(state: FullGameState): void {
     state.dinoRay.powerCore.coolantTemp -= 0.02;
   }
 
-  // Capacitor natural charge (slow)
+  // ============================================
+  // CAPACITOR CHARGING (Patch 18.3)
+  // ============================================
+  // Charge rate is tied to reactor power level:
+  // - Low reactor (30%) = ~2.4% per turn
+  // - Medium reactor (60%) = ~4.8% per turn
+  // - High reactor (90%) = ~7.2% per turn
+  // - Max reactor (100%) = 8% per turn
+  // Cap at 100% - overcharging requires manual boost action
+  const reactorPower = state.nuclearPlant?.reactorOutput ?? 0.7;
+  const baseChargeRate = 0.08; // 8% at full reactor power
+  const chargeRate = reactorPower * baseChargeRate;
+
   if (state.dinoRay.powerCore.capacitorCharge < 1.0) {
-    state.dinoRay.powerCore.capacitorCharge += 0.05;
+    state.dinoRay.powerCore.capacitorCharge = Math.min(
+      1.0,
+      state.dinoRay.powerCore.capacitorCharge + chargeRate
+    );
   }
 }
