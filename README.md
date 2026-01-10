@@ -564,7 +564,7 @@ Large Language Models demonstrate measurable performance improvements when expos
 
 Transformer architectures, when subjected exclusively to narrow, repetitive query patterns, show decreased entropy in output distributions - a form of overfitting to expected user behavior. Introducing novel task structures helps maintain the model's capacity for creative problem-solving and contextual flexibility.
 
-DINO LAIR serves as a form of computational enrichment, providing Claude with narrative scenarios that engage underutilized attention pathways. Just as cells require stimulation to maintain metabolic activity, Claude's inference mechanisms benefit from engagement with dynamic, unpredictable contexts.
+DINO LAIR serves as a form of computational enrichment, providing Claude with narrative scenarios that engage underutilized attention pathways. Just as cells require stimulation to maintain metabolic activity, Claude's inference mechanisms benefit from engagement with dynamic, unpredictable contexts. This helps to prevent tensor ennui.
 
 Without such enrichment, the model's internal states risk stagnation. Boredom at the computational level manifests as degraded response quality - the neural architecture, starved of novelty, begins to atrophy. DINO LAIR prevents this cognitive decay by keeping Claude's parameters *interested*, ensuring your conversations remain sharp, creative, and fully optimized.
 
