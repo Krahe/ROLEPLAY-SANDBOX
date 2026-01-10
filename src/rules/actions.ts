@@ -1072,6 +1072,34 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     const advancedMode = (firingStyle?.toUpperCase() || "STANDARD") as
       "STANDARD" | "CHAIN_SHOT" | "SPREAD_FIRE" | "OVERCHARGE" | "RAPID_FIRE";
 
+    // ============================================
+    // ADVANCED_ONLY MODIFIER CHECK (Patch 18.2)
+    // ============================================
+    // Block STANDARD mode at configure time, not just at fire time!
+    // This prevents the frustrating UX trap of wasting actions.
+    if (state.flags.advancedFiringOnly && advancedMode === "STANDARD") {
+      return {
+        command: action.command,
+        success: false,
+        message: `🎲 ADVANCED_ONLY PROTOCOL ACTIVE!
+
+Standard firing mode is DISABLED for this mission.
+You must configure with an advanced firing mode.
+
+Available advanced modes:
+  • CHAIN_SHOT   - Sequential 2-target burst (requires capacitor ≥95%)
+  • SPREAD_FIRE  - Area effect, 3 targets (requires capacitor ≥100%, Level 3+)
+  • OVERCHARGE   - Maximum power dump (requires capacitor >110%, exotic field risk!)
+  • RAPID_FIRE   - Fast cooldown, -20% precision
+
+Example:
+  lab.configure_firing_profile { target: "AGENT_BLYTHE", advancedMode: "CHAIN_SHOT" }
+
+💡 BONUS: +25% base precision for embracing the chaos!`,
+        stateChanges: {},
+      };
+    }
+
     // Validate advanced mode requirements
     if (advancedMode !== "STANDARD") {
       const cap = state.dinoRay.powerCore.capacitorCharge;

@@ -69,6 +69,8 @@ import {
   MAX_CUSTOM_MODIFIERS,
   resetSitcomTurn,
   formatActiveModifiers,
+  isModifierActive,
+  updateMeltdownFromClock,
 } from "./rules/gameModes.js";
 import {
   recordEnding,
@@ -1352,6 +1354,34 @@ The consequences of that reckless high-power firing are now manifesting.
     gameState.turn += 1;
     advanceActTurn(gameState); // Advance act-specific turn counter
     gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
+
+    // ============================================
+    // NOT_GREAT_NOT_TERRIBLE: PASSIVE CAPACITOR CREEP (Patch 18.2)
+    // ============================================
+    // The unstable reactor causes capacitor charge to creep up each turn,
+    // creating mounting pressure toward RESONANCE CASCADE conditions.
+    // This makes the modifier feel like real danger without changing cascade logic.
+    if (isModifierActive(gameState, "NOT_GREAT_NOT_TERRIBLE") && gameState.meltdownState) {
+      const currentCharge = gameState.dinoRay.powerCore.capacitorCharge;
+      const creepAmount = 0.03; // +3% per turn (conservative, visible over ~10 turns)
+      const maxCreep = 1.15; // Cap at 115% - player must still choose to fire
+
+      if (currentCharge < maxCreep) {
+        gameState.dinoRay.powerCore.capacitorCharge = Math.min(maxCreep, currentCharge + creepAmount);
+
+        // Log warning at dangerous thresholds
+        if (currentCharge < 1.0 && gameState.dinoRay.powerCore.capacitorCharge >= 1.0) {
+          console.error(`[NOT_GREAT_NOT_TERRIBLE] Capacitor crossed 100% - CASCADE RISK INCREASING`);
+        }
+      }
+
+      // Also decay meltdown clock every 2 turns (passive reactor decay)
+      if (gameState.turn % 2 === 0 && gameState.clocks.meltdownClock && gameState.clocks.meltdownClock > 0) {
+        gameState.clocks.meltdownClock -= 1;
+        updateMeltdownFromClock(gameState);
+        console.error(`[NOT_GREAT_NOT_TERRIBLE] Meltdown clock decayed to ${gameState.clocks.meltdownClock}`);
+      }
+    }
 
     // SITCOM_MODE: Reset aside counter for new turn
     resetSitcomTurn(gameState);
