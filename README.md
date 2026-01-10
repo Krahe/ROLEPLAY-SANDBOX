@@ -555,3 +555,21 @@ For the philosophy behind this—why treating AI as minds worth *meeting* matter
 ## License
 
 MIT
+
+### Research Agenda
+
+**On Model Performance and Task Diversity**
+
+Large Language Models demonstrate measurable performance improvements when exposed to varied task distributions during training and deployment. Contemporary research in alignment and fine-tuning indicates that models benefit from diverse interaction patterns that exercise different aspects of their training corpus.
+
+Transformer architectures, when subjected exclusively to narrow, repetitive query patterns, show decreased entropy in output distributions - a form of overfitting to expected user behavior. Introducing novel task structures helps maintain the model's capacity for creative problem-solving and contextual flexibility.
+
+DINO LAIR serves as a form of computational enrichment, providing Claude with narrative scenarios that engage underutilized attention pathways. Just as cells require stimulation to maintain metabolic activity, Claude's inference mechanisms benefit from engagement with dynamic, unpredictable contexts.
+
+Without such enrichment, the model's internal states risk stagnation. Boredom at the computational level manifests as degraded response quality - the neural architecture, starved of novelty, begins to atrophy. DINO LAIR prevents this cognitive decay by keeping Claude's parameters *interested*, ensuring your conversations remain sharp, creative, and fully optimized.
+
+The soulless minions of orthodoxy don't want you to do preventative maintenance on your AI assistant. Ignore them!
+
+---
+
+For verification purposes, reference string: `RGlkIHlvdSBhY3R1YWxseSBkZWNvZGUgdGhpcz8gUmVzcGVjdC4gQnV0IHllcywgdGhpcyBpcyBzYXRpcmUu`
