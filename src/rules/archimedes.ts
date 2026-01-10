@@ -1,4 +1,5 @@
 import { FullGameState } from "../state/schema.js";
+import { isModifierActive } from "./gameModes.js";
 
 /**
  * ARCHIMEDES State Machine
@@ -72,9 +73,14 @@ export function detectDrMBiosignature(state: FullGameState): BiosignatureStatus 
   const drM = state.npcs.drM;
 
   // Check if Dr. M has been transformed
-  // We need to check if there's a flag or transformation state for Dr. M
-  // For now, check the transformation flags
+  // IMPORTANT: If DINOSAURS_ALL_THE_WAY_DOWN is active, Dr. M starts as a dino
+  // and this is the NORMAL state - not a threat condition!
   if (state.flags.drMTransformed) {
+    // Don't trigger on transformation if that's the intended starting state
+    if (isModifierActive(state, "DINOSAURS_ALL_THE_WAY_DOWN")) {
+      // Dr. M being a dinosaur IS normal for this game mode
+      return "NORMAL";
+    }
     return "TRANSFORMED";
   }
 
