@@ -2428,19 +2428,22 @@ export function buildModifierPromptSection(state: FullGameState): string {
     lines.push("| 9-10 | 'EVERYONE STAY CALM.' (full Jurassic Park mode) |");
     lines.push("");
 
-    lines.push("### ENCOUNTER MENU");
-    lines.push("When you need a dinosaur encounter, pick from this menu or roll randomly:");
+    lines.push("### 🦕 DINOSAUR EVENT TABLE");
+    lines.push("Inject 0-2 events per act as dramatically appropriate. These are COMIC RELIEF with TACTICAL CONSEQUENCES.");
     lines.push("");
-    lines.push("| Encounter | What Happens | Opportunity |");
-    lines.push("|-----------|--------------|-------------|");
-    lines.push("| 🥪 LUNCH_THIEF | Dino stole someone's sandwich, very pleased with itself | Distraction, comedy, Dr. M embarrassment |");
-    lines.push("| 👂 VENT_SOUNDS | Scratching/clicking from ventilation above | Tension, ominous, foreshadowing |");
-    lines.push("| 🚧 BLOCKED_PATH | Dinosaur nesting in corridor, won't move | Rerouting, obstacle, negotiation |");
-    lines.push("| ⚔️ TERRITORIAL_DISPUTE | Two dinos fighting over a spot | Chaos, distraction, danger to bystanders |");
-    lines.push("| 👀 SURPRISE_APPEARANCE | One just... shows up. Looking at you. | Jump scare, tension, roleplay moment |");
-    lines.push("| 🎁 HELPFUL_ACCIDENT | Dino knocked something useful into reach | Unexpected assistance, comedy |");
-    lines.push("| 🛡️ PROTECTIVE_POSTURE | Standing guard over something/someone | Mystery, territorial behavior |");
-    lines.push("| 🍖 FEEDING_TIME | They expect Dr. M to feed them NOW | Distraction, Dr. M occupied |");
+    lines.push("| Event | Effect | Suggested Timing |");
+    lines.push("|-------|--------|------------------|");
+    lines.push("| Triceratops ambles past windows | -2 to visual perception rolls this turn (THUMP THUMP THUMP) | During stealth/observation moments |");
+    lines.push("| Playful velociraptors tumble into room | Random NPC takes 1 stun damage (comedic collision) | During tense conversations |");
+    lines.push("| Distant T-Rex roar echoes through vents | All NPCs freeze; +1 tension/suspicion | Before major decisions |");
+    lines.push("| Compy swarm investigating shiny objects | Small item goes missing (keycard? gadget? snack?) | When player is juggling inventory |");
+    lines.push("| Pteranodon flyby (open-air areas only) | Papers scatter, dramatic swoosh, Dr. M curses | Scene transitions |");
+    lines.push("| Ankylosaur blocks corridor | Alternate route required; costs 1 action to navigate | When player is rushing |");
+    lines.push("| 🥪 LUNCH_THIEF | Dino stole someone's sandwich, very pleased with itself | Comedy beats, distraction needed |");
+    lines.push("| 👂 VENT_SOUNDS | Scratching/clicking from ventilation above | Building tension, foreshadowing |");
+    lines.push("| 🎁 HELPFUL_ACCIDENT | Dino knocked something useful into reach | When player needs a break |");
+    lines.push("");
+    lines.push("**Don't overuse** — let dinosaur moments punctuate the story, not dominate it.");
     lines.push("");
 
     lines.push("### DR. M'S DEFENSIVE VOCABULARY");
