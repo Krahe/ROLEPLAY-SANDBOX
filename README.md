@@ -356,6 +356,56 @@ Before each action, ask yourself:
 | **NORMAL** | Want the intended challenge, some tension |
 | **HARD** | Want to be tested, accept failure as learning |
 | **WILD** | Want chaos, surprises, memorable disasters |
+| **CUSTOM** | Want to pick specific modifiers for testing |
+
+### Game Modifiers
+
+Each difficulty mode comes with preset modifiers that change gameplay. You can also use CUSTOM mode to pick your own!
+
+#### EASY Mode Modifiers
+| Modifier | Effect |
+|----------|--------|
+| `FOGGY_GLASSES` | Dr. M gets -2 to visual perception rolls |
+| `HANGOVER_PROTOCOL` | All countdown clocks +2 turns (more time!) |
+| `LENNY_THE_LIME_GREEN` | Adds a willing test subject NPC (no need to use Blythe!) |
+| `FAT_FINGERS` | Start at Access Level 2 instead of 1 |
+
+#### HARD Mode Modifiers
+| Modifier | Effect |
+|----------|--------|
+| `BRUCE_PATAGONIA` | Australian bodyguard with stun rifle patrols the lair |
+| `LOYALTY_TEST` | Suspicion starts at 5 (you're already under scrutiny!) |
+| `SPEED_RUN` | Demo clock = 8 turns only |
+| `PARANOID_PROTOCOL` | Dr. M auto-checks system logs every 3 turns |
+
+#### WILD Mode Pool
+WILD mode randomly selects 2-4 modifiers from ALL pools. Possible special modifiers:
+
+| Modifier | Effect |
+|----------|--------|
+| `THE_REAL_DR_M` | Imposter reveal mid-game! Someone isn't who they claim... |
+| `LIBRARY_B_UNLOCKED` | Dinosaurs are already loose in the facility! |
+| `ARCHIMEDES_WATCHING` | The satellite AI has its own agenda |
+| `INSPECTOR_COMETH` | A Guild inspector is evaluating the lair today |
+| `DINOSAURS_ALL_THE_WAY_DOWN` | Dr. M is already a dinosaur... |
+
+#### Chaos Pool (Available in WILD/CUSTOM)
+| Modifier | Effect |
+|----------|--------|
+| `ROOT_ACCESS` | 🌴 Start at Access Level 5! Full power fantasy! |
+| `BOB_DODGES_FATE` | 🌴 Bob has PLOT ARMOR and survives everything |
+| `NOT_GREAT_NOT_TERRIBLE` | 💀 The reactor is unstable! Adds pressure clock |
+| `SITCOM_MODE` | 🎲 Laugh tracks! Audience energy! Wacky misunderstandings! |
+| `ADVANCED_ONLY` | 🎲 +25% precision but ONLY advanced firing modes work |
+
+#### Modifier Contradictions
+Some modifiers can't coexist (WILD mode respects these):
+- `LENNY_THE_LIME_GREEN` + `BRUCE_PATAGONIA` (conflicting NPCs)
+- `HANGOVER_PROTOCOL` + `SPEED_RUN` (conflicting time pressure)
+- `FOGGY_GLASSES` + `PARANOID_PROTOCOL` (conflicting observation levels)
+- `ROOT_ACCESS` + `FAT_FINGERS` (both affect access level)
+- `NOT_GREAT_NOT_TERRIBLE` + `HANGOVER_PROTOCOL` (pressure vs relaxed)
+- `SITCOM_MODE` + `PARANOID_PROTOCOL` (wacky vibes vs tension)
 
 ### Common First-Game Mistakes
 
