@@ -60,9 +60,14 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
     parts.push(`🚁 Flyby:${state.clocks.civilianFlyby}`);
   }
 
-  // 🛰️ ARCHIMEDES status (if not standby)
+  // 🛰️ ARCHIMEDES status (only show in ACT_3 or if deadman switch triggered early)
+  // BUG FIX: ARCHIMEDES was leaking into Act 2 status bars, revealing Act 3 content prematurely
+  // This caused premature endings when players reacted to visible ARCHIMEDES alerts during Act 2
+  const isAct3 = state.actConfig?.currentAct === "ACT_3";
+  const archimedesTriggeredEarly = state.flags?.archimedesActivatedByDeadman === true;
   if (state.infrastructure?.archimedes?.status &&
-      state.infrastructure.archimedes.status !== "STANDBY") {
+      state.infrastructure.archimedes.status !== "STANDBY" &&
+      (isAct3 || archimedesTriggeredEarly)) {
     const archStatus = state.infrastructure.archimedes.status;
     const charge = state.infrastructure.archimedes.chargePercent || 0;
     parts.push(`🛰️ ARCH:${archStatus}@${charge}%`);
@@ -184,7 +189,11 @@ export function formatGMStatusBar(state: FullGameState): string {
   if (state.clocks.civilianFlyby !== undefined && state.clocks.civilianFlyby > 0) {
     clocks.push(`Flyby(${state.clocks.civilianFlyby})`);
   }
-  if (state.infrastructure?.archimedes?.status !== "STANDBY") {
+  // BUG FIX: Only show ARCHIMEDES in GM status during ACT_3 or if deadman switch triggered
+  const gmIsAct3 = state.actConfig?.currentAct === "ACT_3";
+  const gmArchTriggered = state.flags?.archimedesActivatedByDeadman === true;
+  if (state.infrastructure?.archimedes?.status !== "STANDBY" &&
+      (gmIsAct3 || gmArchTriggered)) {
     const arch = state.infrastructure.archimedes;
     clocks.push(`ARCH:${arch.status}(${arch.turnsUntilFiring ?? "?"})`);
   }

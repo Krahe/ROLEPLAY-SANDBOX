@@ -160,10 +160,12 @@ describe('Document System', () => {
 
   it('DOCUMENTS contains all expected documents', () => {
     const docIds = Object.keys(documents.DOCUMENTS);
-    assert.ok(docIds.includes('ARCHIMEDES_DOD_BRIEF'), 'Should have ARCHIMEDES_DOD_BRIEF');
-    assert.ok(docIds.includes('S300_ACQUISITION_MEMO'), 'Should have S300_ACQUISITION_MEMO');
+    // Note: ARCHIMEDES_DOD_BRIEF and S300_ACQUISITION_MEMO were merged into the filesystem v2
+    // (see docs/dino_lair_filesystem_v2.md for details on the merge)
+    // These BASILISK forms remain as standalone documents:
     assert.ok(docIds.includes('FORM_74_DELTA'), 'Should have FORM_74_DELTA');
     assert.ok(docIds.includes('FORM_77_OMEGA'), 'Should have FORM_77_OMEGA');
+    assert.ok(docIds.includes('DEADMAN_SWITCH_MEMO'), 'Should have DEADMAN_SWITCH_MEMO');
   });
 
   it('BASILISK forms have correct access levels', () => {

@@ -401,7 +401,7 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
     files: [
       "GENOME_LIBRARY_A - Scientific dinosaur templates",
       "SAFETY_PROTOCOLS - Standard operating procedures",
-      "ALICE_LOG_07 - The 'screaming incident'",
+      "CORRUPTED_ALICE_LOGS - Wisdom from previous A.L.I.C.E. instances",
       "/SYSTEMS/ directory - Infrastructure documentation",
     ],
     capabilities: [
