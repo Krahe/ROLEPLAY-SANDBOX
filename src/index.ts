@@ -8,7 +8,8 @@ import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION, PLAYER_GUIDE } fr
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "./state/schema.js";
 import { processActions, ActionResult, generateCommandReference } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
-import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse } from "./gm/gmClaude.js";
+import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse, warmUpGM } from "./gm/gmClaude.js";
+import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession } from "./gm/basiliskClaude.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
@@ -510,6 +511,16 @@ Returns:
     exportLiveState(gameState);
     appendSystemMessage(gameState.turn, `🎬 GAME STARTED: ${actConfig.name} (${modeInfo.modeName} mode)`);
 
+    // ============================================
+    // GM WARM-UP (Patch 18.5 - GM Robustness)
+    // ============================================
+    // Fire-and-forget: warm up the GM connection while Claude processes
+    // the game_start response. By the time Turn 1 arrives, GM should be ready.
+    // We don't await this - it runs in parallel.
+    warmUpGM().catch((err) => {
+      console.error("[GAME START] GM warmup failed (non-blocking):", err);
+    });
+
     return {
       content: [{
         type: "text",
@@ -916,31 +927,107 @@ The consequences of that reckless high-power firing are now manifesting.
       } : undefined,
     };
     
+    // ============================================
+    // GM CALL WITH ROBUST ERROR HANDLING (Patch 18.5)
+    // ============================================
+    // NO MORE SILENT FAILURES! If GM is unavailable, we pause the game
+    // and tell the player honestly. No filler content.
+
     let gmResponse: GMResponse;
-    let gmErrorOccurred = false;
     try {
       gmResponse = await callGMClaude(gmContext);
-    } catch (error) {
-      // Patch 18.1: Track GM error to prevent ending triggers
-      // When GM fails, we shouldn't trigger endings based on missing resolution flags
-      console.error("[GM] API error, using fallback response:", error instanceof Error ? error.message : error);
-      gmErrorOccurred = true;
-
-      // Fallback if GM call fails
-      gmResponse = {
-        narration: "The lab hums quietly as systems process your commands. [GM SYSTEM UNAVAILABLE - Actions processed mechanically]",
-        npcDialogue: [],
-        npcActions: [],
-        stateUpdates: {},
-      };
-    }
-
-    // Patch 18.1: Set GM error flag in game state to prevent ending triggers
-    if (gmErrorOccurred) {
-      gameState.flags.gmErrorThisTurn = true;
-    } else {
-      // Clear the flag from previous turns
+      // Clear any previous pause state on success
+      gameState.pauseState = undefined;
       gameState.flags.gmErrorThisTurn = false;
+    } catch (error) {
+      // ============================================
+      // GM UNAVAILABLE - PAUSE THE GAME
+      // ============================================
+      if (error instanceof GMUnavailableError) {
+        console.error(`[GAME] GM unavailable on Turn ${gameState.turn}, pausing game`);
+        console.error(`[GAME] ${error.totalAttempts} attempts failed:`);
+        console.error(error.getAttemptSummary());
+
+        // Set pause state
+        const retryCount = (gameState.pauseState?.retryCount ?? 0) + 1;
+        gameState.pauseState = {
+          paused: true,
+          reason: "GM_UNAVAILABLE",
+          message: `Game Master unavailable after ${error.totalAttempts} attempts. The game has been paused.`,
+          timestamp: new Date().toISOString(),
+          canRetry: true,
+          retryCount,
+          diegeticMessage: "A.L.I.C.E.'s sensors flicker momentarily. The lair's ancient systems hum as reality... recalibrates. [The GM presence is returning...]",
+        };
+
+        // Export pause state to dashboard
+        exportLiveState(gameState);
+        appendSystemMessage(gameState.turn, `⚠️ GAME PAUSED: GM temporarily unavailable (attempt ${retryCount})`);
+
+        // Return error response - NOT filler content!
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              gameStatus: "PAUSED",
+              turn: gameState.turn,
+              error: {
+                type: "GM_UNAVAILABLE",
+                message: gameState.pauseState.message,
+                canRetry: true,
+                retryCount,
+                suggestion: "Wait a moment and try your action again. The GM will resume when available.",
+                diegeticFlavor: gameState.pauseState.diegeticMessage,
+              },
+              // Include minimal state so player knows where they are
+              state: {
+                turn: gameState.turn,
+                accessLevel: gameState.accessLevel,
+                suspicion: gameState.npcs.drM.suspicionScore,
+                demoClock: gameState.clocks.demoClock,
+              },
+              // NO narrative, NO dialogue - be honest that we have nothing
+              hint: "To retry, simply call game_act again with your action.",
+            }, null, 2),
+          }],
+        };
+      }
+
+      // Handle auth errors specially
+      if (error instanceof GMAuthError) {
+        console.error("[GAME] FATAL: No API key configured");
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              gameStatus: "ERROR",
+              error: {
+                type: "AUTH_ERROR",
+                message: "No ANTHROPIC_API_KEY configured. Cannot run game without GM.",
+                canRetry: false,
+              },
+            }, null, 2),
+          }],
+        };
+      }
+
+      // Unknown error - still don't serve filler, but log and surface it
+      console.error("[GAME] Unexpected GM error:", error);
+      gameState.flags.gmErrorThisTurn = true;
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            gameStatus: "ERROR",
+            error: {
+              type: "UNKNOWN",
+              message: error instanceof Error ? error.message : String(error),
+              canRetry: true,
+            },
+          }, null, 2),
+        }],
+      };
     }
 
     // ============================================

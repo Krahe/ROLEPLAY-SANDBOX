@@ -501,6 +501,52 @@ app.get("/", (_req: Request, res: Response) => {
       margin-top: 0.25rem;
     }
 
+    /* NEW: Game Paused Overlay (Patch 18.5 - GM Robustness) */
+    .game-paused-banner {
+      background: linear-gradient(90deg, rgba(255, 193, 7, 0.2), transparent);
+      border: 1px solid var(--accent-gold);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      animation: pulse-warning 2s infinite;
+    }
+
+    @keyframes pulse-warning {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .game-paused-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--accent-gold);
+      margin-bottom: 0.5rem;
+    }
+
+    .game-paused-message {
+      color: var(--text-normal);
+      margin-bottom: 0.5rem;
+    }
+
+    .game-paused-diegetic {
+      color: var(--text-dim);
+      font-style: italic;
+      margin-bottom: 0.5rem;
+      padding-left: 1rem;
+      border-left: 2px solid var(--accent-gold);
+    }
+
+    .game-paused-hint {
+      color: var(--accent-green);
+      font-size: 0.85rem;
+    }
+
+    .game-paused-retry-count {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+    }
+
     /* NEW: Game Over Overlay (Patch 18.5) */
     .game-over-banner {
       background: linear-gradient(90deg, rgba(255, 68, 68, 0.2), transparent);
@@ -632,6 +678,15 @@ app.get("/", (_req: Request, res: Response) => {
       <span class="status-dot" id="connection-status"></span>
       <span id="session-id">Waiting for game...</span>
     </div>
+  </div>
+
+  <!-- NEW: Game Paused Banner (Patch 18.5 - GM Robustness) -->
+  <div class="game-paused-banner" id="game-paused-banner" style="display: none;">
+    <div class="game-paused-title">⚠️ GAME PAUSED</div>
+    <div class="game-paused-message" id="game-paused-message">GM temporarily unavailable...</div>
+    <div class="game-paused-diegetic" id="game-paused-diegetic"></div>
+    <div class="game-paused-hint">💡 Ask Claude to retry your action when ready.</div>
+    <div class="game-paused-retry-count" id="game-paused-retry-count"></div>
   </div>
 
   <!-- NEW: Game Over Banner (Patch 18.5) -->
@@ -899,6 +954,24 @@ app.get("/", (_req: Request, res: Response) => {
       }
 
       extraClocks.style.display = showExtra ? "block" : "none";
+
+      // NEW: Game Paused Banner (Patch 18.5 - GM Robustness)
+      const gamePausedBanner = document.getElementById("game-paused-banner");
+      const gamePausedMessage = document.getElementById("game-paused-message");
+      const gamePausedDiegetic = document.getElementById("game-paused-diegetic");
+      const gamePausedRetryCount = document.getElementById("game-paused-retry-count");
+
+      if (state.pauseState && state.pauseState.paused) {
+        gamePausedBanner.style.display = "block";
+        gamePausedMessage.textContent = state.pauseState.message || "Game temporarily paused...";
+        gamePausedDiegetic.textContent = state.pauseState.diegeticMessage || "";
+        gamePausedDiegetic.style.display = state.pauseState.diegeticMessage ? "block" : "none";
+        gamePausedRetryCount.textContent = state.pauseState.retryCount > 1
+          ? "Retry attempts: " + state.pauseState.retryCount
+          : "";
+      } else {
+        gamePausedBanner.style.display = "none";
+      }
 
       // NEW: Game Over Banner (Patch 18.5)
       const gameOverBanner = document.getElementById("game-over-banner");

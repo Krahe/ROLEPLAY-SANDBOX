@@ -87,6 +87,17 @@ export interface LiveState {
   gameOver?: boolean;
   ending?: string;
 
+  // NEW: Pause State (Patch 18.5 - GM Robustness)
+  pauseState?: {
+    paused: boolean;
+    reason: string;
+    message: string;
+    timestamp: string;
+    canRetry: boolean;
+    retryCount: number;
+    diegeticMessage?: string;
+  };
+
   // Meta
   lastUpdate: string;
   gameMode?: string;
@@ -187,6 +198,17 @@ export function exportLiveState(state: FullGameState): void {
     // These fields are populated when an ending triggers - for now, check for common ending markers
     gameOver: state.flags?.earnedAchievements?.some(a => a.includes("ENDING")) || false,
     ending: undefined, // Will be set when ending logic populates it
+
+    // NEW: Pause State (Patch 18.5 - GM Robustness)
+    pauseState: state.pauseState ? {
+      paused: state.pauseState.paused,
+      reason: state.pauseState.reason,
+      message: state.pauseState.message,
+      timestamp: state.pauseState.timestamp,
+      canRetry: state.pauseState.canRetry,
+      retryCount: state.pauseState.retryCount,
+      diegeticMessage: state.pauseState.diegeticMessage,
+    } : undefined,
 
     // Meta
     lastUpdate: new Date().toISOString(),
