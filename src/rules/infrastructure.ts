@@ -1677,6 +1677,7 @@ export function queryInfrastructure(
       return queryS300Limitations(state);
 
     case "ARCHIMEDES":
+    case "ARCHIMEDES_STATUS":
     case "SATELLITE":
       return queryArchimedes(state, params as { topic?: string });
 

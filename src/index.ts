@@ -1437,7 +1437,9 @@ The consequences of that reckless high-power firing are now manifesting.
       gameState.turn - 1,
       gmResponse.narration,
       gmResponse.npcDialogue?.map(d => ({ speaker: d.speaker, message: d.message })),
-      actionResults.map(r => ({ command: r.command, success: r.success }))
+      actionResults.map(r => ({ command: r.command, success: r.success })),
+      // NEW in Patch 18.5: Include A.L.I.C.E.'s dialogue in transcript
+      params.dialogue?.map(d => ({ to: d.to, message: d.message }))
     );
 
     // ============================================

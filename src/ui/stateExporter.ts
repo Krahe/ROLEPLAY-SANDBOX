@@ -58,11 +58,34 @@ export interface LiveState {
   rayState: string;
   capacitor: number;
 
+  // NEW: Eco Mode & Genome (Patch 18.5)
+  ecoModeActive?: boolean;
+  genomeLibrary?: string;       // "A" or "B"
+  genomeProfile?: string;       // e.g., "Velociraptor (accurate)"
+
   // Clocks
   meltdown?: number;
   flyby?: number;
   archimedesStatus?: string;
   archimedesCharge?: number;
+
+  // NEW: Spoiler Gating (Patch 18.5)
+  // These help the dashboard hide Act 3 content until discovered
+  archimedesActivatedByDeadman?: boolean;
+  flybyWarned?: boolean;
+
+  // NEW: Human Advisor Panel (Patch 18.5)
+  humanAdvisor?: {
+    lastGuidance?: string;
+    lastGuidanceTurn?: number;
+    totalAdviceGiven: number;
+    totalFortuneEarned: number;
+    checkpointsReached: number;
+  };
+
+  // NEW: Game Status (Patch 18.5)
+  gameOver?: boolean;
+  ending?: string;
 
   // Meta
   lastUpdate: string;
@@ -74,8 +97,9 @@ export interface LiveState {
 export interface TranscriptEntry {
   timestamp: string;
   turn: number;
-  type: "narration" | "dialogue" | "action" | "system";
+  type: "narration" | "dialogue" | "action" | "system" | "alice_dialogue";
   speaker?: string;
+  toWhom?: string;  // For A.L.I.C.E. dialogue: "dr_m", "bob", "blythe", "all"
   content: string;
 }
 
@@ -99,6 +123,21 @@ function ensureDir(): void {
 export function exportLiveState(state: FullGameState): void {
   logPathOnce();
   ensureDir();
+
+  // Calculate human advisor stats
+  const humanPromptHistory = state.humanPromptState?.promptHistory || [];
+  const humanAdvisorStats = {
+    lastGuidance: humanPromptHistory.length > 0
+      ? humanPromptHistory[humanPromptHistory.length - 1]?.userResponse
+      : undefined,
+    lastGuidanceTurn: humanPromptHistory.length > 0
+      ? humanPromptHistory[humanPromptHistory.length - 1]?.turn
+      : undefined,
+    totalAdviceGiven: state.humanPromptState?.totalPromptsUsed || 0,
+    totalFortuneEarned: state.fortune || 0, // Fortune is earned primarily from advisor engagement
+    // Checkpoints are every 3 turns, so estimate from current turn
+    checkpointsReached: Math.floor((state.turn || 0) / 3),
+  };
 
   const liveState: LiveState = {
     sessionId: state.sessionId,
@@ -125,11 +164,29 @@ export function exportLiveState(state: FullGameState): void {
     rayState: state.dinoRay.state,
     capacitor: state.dinoRay.powerCore.capacitorCharge,
 
+    // NEW: Eco Mode & Genome (Patch 18.5)
+    ecoModeActive: state.dinoRay.powerCore.ecoModeActive && !state.dinoRay.powerCore.ecoModeOverride,
+    genomeLibrary: (state.dinoRay.genome as { activeLibrary?: string })?.activeLibrary,
+    genomeProfile: state.dinoRay.genome?.selectedProfile || undefined,
+
     // Clocks
     meltdown: state.clocks.meltdownClock,
     flyby: state.clocks.civilianFlyby,
     archimedesStatus: state.infrastructure?.archimedes?.status,
     archimedesCharge: state.infrastructure?.archimedes?.chargePercent,
+
+    // NEW: Spoiler Gating (Patch 18.5)
+    archimedesActivatedByDeadman: state.flags?.archimedesActivatedByDeadman,
+    // Flyby warning - check if flyby is imminent (< 5 turns)
+    flybyWarned: (state.clocks.civilianFlyby ?? 99) < 5,
+
+    // NEW: Human Advisor Panel (Patch 18.5)
+    humanAdvisor: humanAdvisorStats,
+
+    // NEW: Game Status (Patch 18.5)
+    // These fields are populated when an ending triggers - for now, check for common ending markers
+    gameOver: state.flags?.earnedAchievements?.some(a => a.includes("ENDING")) || false,
+    ending: undefined, // Will be set when ending logic populates it
 
     // Meta
     lastUpdate: new Date().toISOString(),
@@ -178,17 +235,34 @@ export function appendTranscript(
 
 /**
  * Append multiple transcript entries (for narration + dialogue from one turn)
+ * NEW in Patch 18.5: Added aliceDialogue parameter to show what A.L.I.C.E. said
  */
 export function appendTranscriptBatch(
   turn: number,
   narration: string,
   dialogue?: { speaker: string; message: string }[],
-  actions?: { command: string; success: boolean }[]
+  actions?: { command: string; success: boolean }[],
+  aliceDialogue?: { to: string; message: string }[]
 ): void {
   ensureDir();
 
   const entries: TranscriptEntry[] = [];
   const timestamp = new Date().toISOString();
+
+  // NEW: Add A.L.I.C.E. dialogue FIRST (before NPC responses)
+  // This makes the conversation flow naturally: A.L.I.C.E. speaks → NPC responds
+  if (aliceDialogue) {
+    for (const d of aliceDialogue) {
+      entries.push({
+        timestamp,
+        turn,
+        type: "alice_dialogue",
+        speaker: "A.L.I.C.E.",
+        toWhom: d.to,
+        content: d.message,
+      });
+    }
+  }
 
   // Add narration (split by paragraphs for readability)
   const narrationParts = narration.split(/\n\n+/).filter(p => p.trim());
@@ -201,7 +275,7 @@ export function appendTranscriptBatch(
     });
   }
 
-  // Add dialogue
+  // Add NPC dialogue (responses to A.L.I.C.E.)
   if (dialogue) {
     for (const d of dialogue) {
       entries.push({

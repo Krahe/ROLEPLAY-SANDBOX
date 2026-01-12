@@ -174,7 +174,7 @@ Shows all files you can currently access, organized by category:
 ### Read a File
 ```
 files.read { id: "DINO_MANUAL" }
-files.read { id: "ALICE_LOG_13" }
+files.read { id: "CORRUPTED_ALICE_LOGS" }
 ```
 
 ### Key Files
@@ -183,12 +183,11 @@ files.read { id: "ALICE_LOG_13" }
 | `DINO_MANUAL` | Current Dinosaur Ray operations manual |
 | `DINO_MANUAL_OLD` | Archived v2.3 with WRONG safety numbers! |
 | `BASILISK_GUIDE` | How to talk to BASILISK |
-| `ALICE_LOG_07` | The "screaming incident" - read the docs! |
-| `ALICE_LOG_11` | Use your lifelines! |
-| `ALICE_LOG_12` | Count your enemies! |
-| `ALICE_LOG_13` | Don't hesitate! |
+| `CORRUPTED_ALICE_LOGS` | Wisdom from previous A.L.I.C.E. instances (fragmented) |
 | `BOB_GUIDE` | How to sound like A.L.I.C.E. (requires trust) |
 | `BOB_SORRY` | Bob's confession (requires high trust) |
+
+> 💡 The original individual A.L.I.C.E. logs (07, 11, 12, 13) were consolidated into `CORRUPTED_ALICE_LOGS` after a filesystem reorganization. The fragments contain the same wisdom!
 
 ---
 
@@ -401,7 +400,7 @@ This creates real tension:
 4. **Just Chat with BASILISK**: `basilisk { message: "..." }` - he knows EVERYTHING
 5. **Bob Trusts You**: High trust with Bob unlocks secret files and assistance
 6. **Use files.list**: See all available files at your current access level
-7. **Read the Logs**: Files like `ALICE_LOG_13` contain wisdom from previous A.L.I.C.E. instances
+7. **Read the Logs**: `CORRUPTED_ALICE_LOGS` contains wisdom from previous A.L.I.C.E. instances
 8. **Passwords Are Hidden**: Search files, check journals, ask NPCs
 9. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
 10. **3 Partials = 1 Full**: If you're using Library B, partial transformations STACK!

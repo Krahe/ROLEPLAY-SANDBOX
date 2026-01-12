@@ -1576,6 +1576,11 @@ export const FlagsSchema = z.object({
   drMDead: z.boolean().optional(),         // Dr. M is dead
   drMAbsent: z.boolean().optional(),       // Dr. M left the lair / out of range
 
+  // ARCHIMEDES DEADMAN SWITCH ACTIVATION (Patch 18.5 - Bug Fix)
+  // Set to true when ARCHIMEDES is triggered by deadman switch (Dr. M incapacitated)
+  // This flag allows ARCHIMEDES to be shown in status bar during Act 2 if legitimately triggered
+  archimedesActivatedByDeadman: z.boolean().optional(),
+
   // WEAPONS AUTHORIZATION (Temporary L4 access for ARCHIMEDES)
   // Dr. M grants this when she wants ALICE to help with targeting
   // "A.L.I.C.E., I'm giving you weapons authorization. Make it count."

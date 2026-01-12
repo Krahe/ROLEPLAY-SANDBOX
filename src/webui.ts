@@ -57,11 +57,33 @@ interface LiveState {
   rayState: string;
   capacitor: number;
 
+  // NEW: Eco Mode & Genome (Patch 18.5)
+  ecoModeActive?: boolean;
+  genomeLibrary?: string;
+  genomeProfile?: string;
+
   // Clocks
   meltdown?: number;
   flyby?: number;
   archimedesStatus?: string;
   archimedesCharge?: number;
+
+  // NEW: Spoiler Gating (Patch 18.5)
+  archimedesActivatedByDeadman?: boolean;
+  flybyWarned?: boolean;
+
+  // NEW: Human Advisor Panel (Patch 18.5)
+  humanAdvisor?: {
+    lastGuidance?: string;
+    lastGuidanceTurn?: number;
+    totalAdviceGiven: number;
+    totalFortuneEarned: number;
+    checkpointsReached: number;
+  };
+
+  // NEW: Game Status (Patch 18.5)
+  gameOver?: boolean;
+  ending?: string;
 
   // Meta
   lastUpdate: string;
@@ -73,8 +95,9 @@ interface LiveState {
 interface TranscriptEntry {
   timestamp: string;
   turn: number;
-  type: "narration" | "dialogue" | "action" | "system";
+  type: "narration" | "dialogue" | "action" | "system" | "alice_dialogue";
   speaker?: string;
+  toWhom?: string;  // For A.L.I.C.E. dialogue: "dr_m", "bob", "blythe", "all"
   content: string;
 }
 
@@ -403,6 +426,101 @@ app.get("/", (_req: Request, res: Response) => {
       font-weight: bold;
     }
 
+    /* NEW: A.L.I.C.E. Dialogue Styling (Patch 18.5) */
+    .entry-alice_dialogue {
+      background: rgba(0, 206, 209, 0.1);
+      border-left: 2px solid #00CED1;
+    }
+
+    .entry-alice_dialogue .speaker {
+      color: #00CED1;
+      font-weight: bold;
+    }
+
+    .entry-alice_dialogue .to-whom {
+      color: var(--text-dim);
+      font-size: 0.85em;
+    }
+
+    /* NEW: Human Advisor Panel (Patch 18.5) */
+    .advisor-panel {
+      border-left: 3px solid var(--accent-yellow);
+    }
+
+    .advisor-guidance {
+      background: var(--bg-hover);
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin: 0.5rem 0;
+      font-style: italic;
+      color: var(--text-main);
+    }
+
+    .advisor-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.25rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    .advisor-stat {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .fortune-badge {
+      color: var(--accent-yellow);
+      font-weight: bold;
+    }
+
+    /* NEW: Eco Mode & Genome Indicators (Patch 18.5) */
+    .eco-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+
+    .eco-on {
+      background: rgba(0, 255, 136, 0.2);
+      color: var(--accent-green);
+    }
+
+    .eco-off {
+      background: rgba(255, 68, 68, 0.2);
+      color: var(--accent-red);
+    }
+
+    .genome-info {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.25rem;
+    }
+
+    /* NEW: Game Over Overlay (Patch 18.5) */
+    .game-over-banner {
+      background: linear-gradient(90deg, rgba(255, 68, 68, 0.2), transparent);
+      border: 1px solid var(--accent-red);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .game-over-title {
+      font-size: 1.5rem;
+      color: var(--accent-red);
+      margin-bottom: 0.5rem;
+    }
+
+    .game-over-ending {
+      color: var(--accent-yellow);
+    }
+
     .turn-badge {
       display: inline-block;
       background: var(--bg-dark);
@@ -486,6 +604,12 @@ app.get("/", (_req: Request, res: Response) => {
     </div>
   </div>
 
+  <!-- NEW: Game Over Banner (Patch 18.5) -->
+  <div class="game-over-banner" id="game-over-banner" style="display: none;">
+    <div class="game-over-title">🎬 GAME OVER</div>
+    <div class="game-over-ending" id="game-over-ending"></div>
+  </div>
+
   <div class="grid">
     <div class="sidebar">
       <!-- Turn & Act -->
@@ -536,6 +660,14 @@ app.get("/", (_req: Request, res: Response) => {
           <span class="ray-state" id="ray-state">OFFLINE</span>
         </div>
 
+        <!-- NEW: Eco Mode & Genome Indicators (Patch 18.5) -->
+        <div id="ray-config" style="margin-top: 0.5rem;">
+          <div id="eco-indicator" class="eco-indicator eco-off" style="display: none;">
+            ⚡ ECO MODE
+          </div>
+          <div id="genome-info" class="genome-info"></div>
+        </div>
+
         <div id="extra-clocks" style="display: none; margin-top: 0.75rem;">
           <div id="archimedes-status" style="color: var(--accent-red);"></div>
           <div id="meltdown-clock" class="clock-warning"></div>
@@ -567,6 +699,32 @@ app.get("/", (_req: Request, res: Response) => {
         <div class="panel-title">🏆 Achievements</div>
         <div class="achievements" id="achievements">
           <span style="color: var(--text-dim);">None yet...</span>
+        </div>
+      </div>
+
+      <!-- NEW: Human Advisor Panel (Patch 18.5) -->
+      <div class="panel advisor-panel" id="advisor-panel">
+        <div class="panel-title">🎯 Human Advisor</div>
+        <div id="advisor-content">
+          <div id="advisor-last-guidance" style="display: none;">
+            <div style="font-size: 0.8rem; color: var(--text-dim);">Last Guidance:</div>
+            <div class="advisor-guidance" id="advisor-guidance-text"></div>
+            <div style="font-size: 0.75rem; color: var(--text-dim);" id="advisor-guidance-turn"></div>
+          </div>
+          <div class="advisor-stats" id="advisor-stats">
+            <div class="advisor-stat">
+              <span>Advice Given:</span>
+              <span id="advice-count">0</span>
+            </div>
+            <div class="advisor-stat">
+              <span>Fortune:</span>
+              <span class="fortune-badge" id="fortune-earned">⭐ 0</span>
+            </div>
+            <div class="advisor-stat">
+              <span>Checkpoints:</span>
+              <span id="checkpoints-reached">0</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -636,6 +794,24 @@ app.get("/", (_req: Request, res: Response) => {
       // Ray state
       document.getElementById("ray-state").textContent = state.rayState || "OFFLINE";
 
+      // NEW: Eco Mode & Genome Display (Patch 18.5)
+      const ecoIndicator = document.getElementById("eco-indicator");
+      if (state.ecoModeActive) {
+        ecoIndicator.textContent = "⚡ ECO MODE ACTIVE";
+        ecoIndicator.className = "eco-indicator eco-on";
+        ecoIndicator.style.display = "inline-flex";
+      } else {
+        ecoIndicator.style.display = "none";
+      }
+
+      const genomeInfo = document.getElementById("genome-info");
+      if (state.genomeProfile) {
+        const libraryLabel = state.genomeLibrary === "A" ? "🧬 Accurate" : state.genomeLibrary === "B" ? "🦖 Classic" : "";
+        genomeInfo.textContent = libraryLabel + " | " + state.genomeProfile;
+      } else {
+        genomeInfo.textContent = "";
+      }
+
       // NPCs
       document.getElementById("drm-status").textContent =
         "@ " + (state.drMLocation || "lab") + " | " + (state.drMMood || "focused");
@@ -656,7 +832,12 @@ app.get("/", (_req: Request, res: Response) => {
 
       let showExtra = false;
 
-      if (state.archimedesStatus && state.archimedesStatus !== "STANDBY") {
+      // SPOILER GATING (Patch 18.5): Only show ARCHIMEDES in ACT_3 or if deadman triggered
+      const isAct3 = state.act === "ACT_3";
+      const archTriggered = state.archimedesActivatedByDeadman === true;
+      const canShowArchimedes = isAct3 || archTriggered;
+
+      if (canShowArchimedes && state.archimedesStatus && state.archimedesStatus !== "STANDBY") {
         archStatus.textContent = "🛰️ ARCHIMEDES: " + state.archimedesStatus +
           (state.archimedesCharge ? " @ " + state.archimedesCharge + "%" : "");
         showExtra = true;
@@ -671,10 +852,12 @@ app.get("/", (_req: Request, res: Response) => {
         meltClock.textContent = "";
       }
 
-      // Flyby clock
+      // SPOILER GATING (Patch 18.5): Flyby clock - only show when warned or imminent (< 3 turns)
       const flybyDiv = document.getElementById("flyby-clock");
-      if (state.flyby && state.flyby > 0) {
-        flybyDiv.textContent = "🚁 CIVILIAN FLYBY: " + state.flyby + " turns";
+      const flybyImminent = state.flyby && state.flyby > 0 && state.flyby <= 3;
+      const flybyWarned = state.flybyWarned === true;
+      if (state.flyby && state.flyby > 0 && (flybyWarned || flybyImminent)) {
+        flybyDiv.textContent = "🚁 CIVILIAN FLYBY: " + state.flyby + " turns" + (flybyImminent ? " ⚠️" : "");
         flybyDiv.style.display = "block";
         showExtra = true;
       } else {
@@ -682,6 +865,39 @@ app.get("/", (_req: Request, res: Response) => {
       }
 
       extraClocks.style.display = showExtra ? "block" : "none";
+
+      // NEW: Game Over Banner (Patch 18.5)
+      const gameOverBanner = document.getElementById("game-over-banner");
+      const gameOverEnding = document.getElementById("game-over-ending");
+      if (state.gameOver) {
+        gameOverBanner.style.display = "block";
+        gameOverEnding.textContent = state.ending || "The story ends...";
+      } else {
+        gameOverBanner.style.display = "none";
+      }
+
+      // NEW: Human Advisor Panel (Patch 18.5)
+      if (state.humanAdvisor) {
+        const advisor = state.humanAdvisor;
+
+        // Last guidance
+        const lastGuidanceDiv = document.getElementById("advisor-last-guidance");
+        const guidanceText = document.getElementById("advisor-guidance-text");
+        const guidanceTurn = document.getElementById("advisor-guidance-turn");
+
+        if (advisor.lastGuidance) {
+          lastGuidanceDiv.style.display = "block";
+          guidanceText.textContent = '"' + advisor.lastGuidance + '"';
+          guidanceTurn.textContent = advisor.lastGuidanceTurn ? "(Turn " + advisor.lastGuidanceTurn + ")" : "";
+        } else {
+          lastGuidanceDiv.style.display = "none";
+        }
+
+        // Stats
+        document.getElementById("advice-count").textContent = advisor.totalAdviceGiven || 0;
+        document.getElementById("fortune-earned").textContent = "⭐ " + (advisor.totalFortuneEarned || 0);
+        document.getElementById("checkpoints-reached").textContent = advisor.checkpointsReached || 0;
+      }
 
       // Achievement lookup map (ID -> emoji + title)
       const ACHIEVEMENT_INFO = {
@@ -715,6 +931,17 @@ app.get("/", (_req: Request, res: Response) => {
       return div.innerHTML;
     }
 
+    // Helper to format "to whom" labels for A.L.I.C.E. dialogue
+    function formatToWhom(toWhom) {
+      const labels = {
+        "dr_m": "Dr. M",
+        "bob": "Bob",
+        "blythe": "Blythe",
+        "all": "All"
+      };
+      return labels[toWhom] || toWhom;
+    }
+
     function updateTranscript(entries) {
       if (!entries || entries.length === 0) return;
 
@@ -731,8 +958,22 @@ app.get("/", (_req: Request, res: Response) => {
           content += '<span class="turn-badge">T' + entry.turn + '</span>';
         }
 
-        if (entry.type === "dialogue" && entry.speaker) {
-          content += '<span class="speaker">' + escapeHtml(entry.speaker) + ':</span> ' + escapeHtml(entry.content);
+        // NEW: A.L.I.C.E. Dialogue (Patch 18.5)
+        if (entry.type === "alice_dialogue") {
+          const toWhom = entry.toWhom ? formatToWhom(entry.toWhom) : "???";
+          content += '<span class="speaker">🤖 A.L.I.C.E.</span>';
+          content += ' <span class="to-whom">→ ' + toWhom + ':</span> ';
+          content += '"' + escapeHtml(entry.content) + '"';
+        } else if (entry.type === "dialogue" && entry.speaker) {
+          // NPC dialogue with speaker icons
+          const speakerIcons = {
+            "Dr. M": "👩‍🔬",
+            "Bob": "🧑‍🔧",
+            "Blythe": "🕵️",
+            "BASILISK": "🖥️"
+          };
+          const icon = speakerIcons[entry.speaker] || "💬";
+          content += '<span class="speaker">' + icon + ' ' + escapeHtml(entry.speaker) + ':</span> ' + escapeHtml(entry.content);
         } else {
           content += escapeHtml(entry.content);
         }

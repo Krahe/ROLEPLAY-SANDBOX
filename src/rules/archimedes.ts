@@ -244,6 +244,10 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
   archimedes.alertCountdown = null;
   archimedes.evaluatingCountdown = null;
 
+  // Mark that ARCHIMEDES was triggered by deadman switch (Patch 18.5 - Bug Fix)
+  // This allows the status bar to show ARCHIMEDES info even in Act 2 when legitimately triggered
+  state.flags.archimedesActivatedByDeadman = true;
+
   return {
     type: "STATUS_CHANGE",
     previousStatus,
