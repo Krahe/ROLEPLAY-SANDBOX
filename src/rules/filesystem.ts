@@ -188,7 +188,7 @@ you must bring all parameters to CALIBRATION THRESHOLDS:
 
   CALIBRATION THRESHOLDS (minimum to reach READY state):
   -------------------------------------------------------
-  • capacitorCharge  >= 60%   (use lab.adjust_ray)
+  • capacitorCharge  >= 60%   (charges from reactor, or use lab.boost_capacitor)
   • stability        >= 60%   (use lab.adjust_ray)
   • spatialCoherence >= 70%   (use lab.adjust_ray)
   • precision        >= 50%   (use lab.adjust_ray)
@@ -198,8 +198,13 @@ Once thresholds are met, use lab.calibrate to verify status.
 The ray will transition to READY automatically at end of turn,
 or immediately when lab.calibrate confirms all thresholds met.
 
+CAPACITOR MANAGEMENT (Patch 18.3):
+  • lab.boost_capacitor  - Draw +25% from reactor (adds heat)
+  • lab.vent_capacitor   - Release -25% safely (prevents overload)
+  Capacitor charges passively based on reactor output.
+
 EXAMPLE CALIBRATION SEQUENCE:
-  lab.adjust_ray { parameter: "capacitorCharge", value: 0.85 }
+  lab.boost_capacitor  (if capacitor below threshold)
   lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }
   lab.calibrate {}
 
