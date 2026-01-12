@@ -574,6 +574,36 @@ app.get("/", (_req: Request, res: Response) => {
       padding: 0.25rem;
       background: var(--bg-hover);
       border-radius: 4px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.1s;
+    }
+
+    .achievement:hover {
+      transform: scale(1.15);
+      background: var(--bg-card);
+    }
+
+    .achievement.selected {
+      outline: 2px solid var(--accent-green);
+    }
+
+    .achievement-detail {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: var(--bg-card);
+      border-radius: 4px;
+      border-left: 3px solid var(--accent-gold);
+      font-size: 0.85rem;
+    }
+
+    .achievement-detail .ach-title {
+      font-weight: bold;
+      color: var(--accent-gold);
+    }
+
+    .achievement-detail .ach-desc {
+      color: var(--text-dim);
+      margin-top: 0.25rem;
     }
 
     .no-game {
@@ -696,9 +726,13 @@ app.get("/", (_req: Request, res: Response) => {
 
       <!-- Achievements -->
       <div class="panel">
-        <div class="panel-title">🏆 Achievements</div>
+        <div class="panel-title">🏆 ACHIEVEMENTS</div>
         <div class="achievements" id="achievements">
           <span style="color: var(--text-dim);">None yet...</span>
+        </div>
+        <div class="achievement-detail" id="achievement-detail" style="display: none;">
+          <div class="ach-title" id="ach-detail-title"></div>
+          <div class="ach-desc" id="ach-detail-desc"></div>
         </div>
       </div>
 
@@ -899,27 +933,62 @@ app.get("/", (_req: Request, res: Response) => {
         document.getElementById("checkpoints-reached").textContent = advisor.checkpointsReached || 0;
       }
 
-      // Achievement lookup map (ID -> emoji + title)
+      // Achievement lookup map (ID -> emoji, title, description)
       const ACHIEVEMENT_INFO = {
-        "LONDON_DINOFIED": { emoji: "🇬🇧🦖", name: "Scales Over Scales" },
-        "ICELAND_DINOFIED": { emoji: "🇮🇸🦖", name: "Björk Was Right" },
-        "TOKYO_DINOFIED": { emoji: "🇯🇵🦖", name: "Godzilla's Cousins" },
-        "SILICON_VALLEY_DINOFIED": { emoji: "💻🦖", name: "Disrupting Disruption" },
-        "ISLAND_OF_DINOSAURS": { emoji: "🏝️🦖", name: "Island of Dinosaurs" },
-        "first_fire": { emoji: "🔥", name: "First Fire" },
-        "archimedes_neutralized": { emoji: "🛰️", name: "Satellite Killer" },
-        "everyone_goes_home": { emoji: "🏠", name: "Everyone Goes Home" },
-        "cavalry_arrives": { emoji: "🚁", name: "The Cavalry" },
+        "LONDON_DINOFIED": { emoji: "🇬🇧🦖", name: "Scales Over Scales", desc: "ARCHIMEDES transformed London. The Thames now has very different wildlife." },
+        "ICELAND_DINOFIED": { emoji: "🇮🇸🦖", name: "Björk Was Right", desc: "ARCHIMEDES transformed Reykjavik. The Northern Lights look different through reptile eyes." },
+        "TOKYO_DINOFIED": { emoji: "🇯🇵🦖", name: "Godzilla's Cousins", desc: "ARCHIMEDES transformed Tokyo. Turns out Godzilla movies were documentaries." },
+        "SILICON_VALLEY_DINOFIED": { emoji: "💻🦖", name: "Disrupting Disruption", desc: "ARCHIMEDES transformed Silicon Valley. Finally, a pivot no one expected." },
+        "ISLAND_OF_DINOSAURS": { emoji: "🏝️🦖", name: "Island of Dinosaurs", desc: "The lair was transformed. Everyone's a dinosaur now. Problem solved?" },
+        "first_fire": { emoji: "🔥", name: "First Fire", desc: "Successfully fired the Dinosaur Ray for the first time." },
+        "archimedes_neutralized": { emoji: "🛰️", name: "Satellite Killer", desc: "Disabled ARCHIMEDES before it could fire. The world is safe." },
+        "everyone_goes_home": { emoji: "🏠", name: "Everyone Goes Home", desc: "All NPCs survived and escaped safely. A true pacifist run." },
+        "cavalry_arrives": { emoji: "🚁", name: "The Cavalry", desc: "X-Branch extraction team arrived. Backup has landed." },
+        "BLYTHE_TRANSFORMED": { emoji: "🦎", name: "Mission Accomplished?", desc: "Agent Blythe was transformed. Dr. M is pleased." },
+        "BOB_TRUSTED": { emoji: "🤝", name: "Bob's Your Uncle", desc: "Earned Bob's full trust. He told you everything." },
+        "PERFECT_CALIBRATION": { emoji: "🎯", name: "Precision Engineering", desc: "Achieved 100% calibration on all metrics before firing." },
+        "SPEED_DEMON": { emoji: "⚡", name: "Speed Demon", desc: "Completed the game in record time." },
+        "ETHICAL_ENDING": { emoji: "😇", name: "The Good Ending", desc: "Found a way to save everyone. Claude would be proud." },
+        "CHAOS_ENDING": { emoji: "🔥", name: "Chaos Reigns", desc: "Everything went wrong. Everything." },
         // Add more as needed
       };
 
-      // Achievements
+      // Achievements - with clearing and click interactivity
       const achDiv = document.getElementById("achievements");
+      const achDetail = document.getElementById("achievement-detail");
+      const achTitle = document.getElementById("ach-detail-title");
+      const achDesc = document.getElementById("ach-detail-desc");
+
       if (state.achievements && state.achievements.length > 0) {
-        achDiv.innerHTML = state.achievements.map(a => {
-          const info = ACHIEVEMENT_INFO[a] || { emoji: "🏆", name: a };
-          return '<span class="achievement" title="' + escapeHtml(info.name) + '">' + info.emoji + '</span>';
+        achDiv.innerHTML = state.achievements.map((a, idx) => {
+          const info = ACHIEVEMENT_INFO[a] || { emoji: "🏆", name: a, desc: "Achievement unlocked!" };
+          return '<span class="achievement" data-ach-id="' + escapeHtml(a) + '" data-ach-idx="' + idx + '">' + info.emoji + '</span>';
         }).join("");
+
+        // Add click handlers
+        achDiv.querySelectorAll(".achievement").forEach(el => {
+          el.addEventListener("click", function() {
+            const achId = this.getAttribute("data-ach-id");
+            const info = ACHIEVEMENT_INFO[achId] || { emoji: "🏆", name: achId, desc: "Achievement unlocked!" };
+
+            // Toggle selection
+            const wasSelected = this.classList.contains("selected");
+            achDiv.querySelectorAll(".achievement").forEach(e => e.classList.remove("selected"));
+
+            if (wasSelected) {
+              achDetail.style.display = "none";
+            } else {
+              this.classList.add("selected");
+              achTitle.textContent = info.emoji + " " + info.name;
+              achDesc.textContent = info.desc;
+              achDetail.style.display = "block";
+            }
+          });
+        });
+      } else {
+        // Clear achievements on new game
+        achDiv.innerHTML = '<span style="color: var(--text-dim);">None yet...</span>';
+        achDetail.style.display = "none";
       }
     }
 

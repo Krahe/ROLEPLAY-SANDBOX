@@ -3069,8 +3069,40 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     return generateStubResponse(context);
   }
 
-  try {
-    const client = getAnthropicClient();
+  // Retry configuration for transient failures (rate limits, timeouts, cold starts)
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY_MS = 2000;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await callGMClaudeInternal(context);
+    } catch (error) {
+      const isLastAttempt = attempt === MAX_RETRIES;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const errorType = error instanceof Error ? error.constructor.name : "Unknown";
+
+      console.error(`[GM] API attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`);
+      console.error(`[GM] Error type: ${errorType}`);
+      console.error(`[GM] Error message: ${errorMsg}`);
+
+      if (isLastAttempt) {
+        console.error("[GM] All retries exhausted, using stub response");
+        return generateStubResponse(context);
+      }
+
+      // Wait before retrying (exponential backoff)
+      const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
+      console.error(`[GM] Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  // Fallback (shouldn't reach here, but TypeScript wants it)
+  return generateStubResponse(context);
+}
+
+async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
+  const client = getAnthropicClient();
 
     // ═══════════════════════════════════════════════════════════════
     // PINNED FACTS (Patch 18.4)
@@ -3263,11 +3295,6 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     }
 
     return parsed;
-
-  } catch (error) {
-    console.error("GM Claude API error:", error);
-    return generateStubResponse(context);
-  }
 }
 
 function formatGMPrompt(context: GMContext): string {
