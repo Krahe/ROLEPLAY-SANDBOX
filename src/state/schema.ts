@@ -1817,6 +1817,19 @@ export const FullGameStateSchema = z.object({
     turn: z.number(),
     marker: z.string(),
   })).optional(),
+
+  // GAME PAUSE STATE (Patch 18.5 - GM Robustness)
+  // Tracks when game is paused due to errors
+  pauseState: z.object({
+    paused: z.boolean(),
+    reason: z.enum(["GM_UNAVAILABLE", "PLAYER_PAUSE", "ERROR"]),
+    message: z.string(),
+    timestamp: z.string(),
+    canRetry: z.boolean(),
+    retryCount: z.number().int(),
+    // Diegetic flavor message for immersion
+    diegeticMessage: z.string().optional(),
+  }).optional(),
 });
 
 // ============================================
@@ -1863,6 +1876,19 @@ export const StateSnapshotSchema = z.object({
     remaining: z.number().int(),
     used: z.array(z.string()),
   }),
+
+  // GAME PAUSE STATE (Patch 18.5 - GM Robustness)
+  // Tracks when game is paused due to errors
+  pauseState: z.object({
+    paused: z.boolean(),
+    reason: z.enum(["GM_UNAVAILABLE", "PLAYER_PAUSE", "ERROR"]),
+    message: z.string(),
+    timestamp: z.string(),
+    canRetry: z.boolean(),
+    retryCount: z.number().int(),
+    // Diegetic flavor message for immersion
+    diegeticMessage: z.string().optional(),
+  }).optional(),
 });
 
 // ============================================

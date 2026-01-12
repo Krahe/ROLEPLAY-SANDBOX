@@ -22,6 +22,20 @@ import {
   PinnedFact,
   FactViolation,
 } from "./pinnedFacts.js";
+import {
+  validateGMResponse as validateGMResponseContent,
+  formatValidationResult,
+  looksLikeFiller,
+  type GMValidationResult,
+} from "./gmValidation.js";
+import {
+  GMError,
+  GMValidationError,
+  GMTimeoutError,
+  GMUnavailableError,
+  GMRateLimitError,
+  GMAuthError,
+} from "../types/errors.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -3062,43 +3076,188 @@ function createTurnSummary(exchange: { turn: number; actionCommands: string[]; r
   }
 }
 
-export async function callGMClaude(context: GMContext): Promise<GMResponse> {
-  // Check if we have an API key
+// ============================================
+// GM CALL OPTIONS
+// ============================================
+
+export interface GMCallOptions {
+  maxRetries?: number;
+  timeoutMs?: number;
+  backoffMs?: number[];
+  validateContent?: boolean;
+}
+
+const DEFAULT_GM_OPTIONS: Required<GMCallOptions> = {
+  maxRetries: 4,                        // More retries for robustness
+  timeoutMs: 60000,                     // 60 seconds (GM needs time for extended thinking)
+  backoffMs: [2000, 4000, 8000, 16000], // Exponential: 2s, 4s, 8s, 16s
+  validateContent: true,                // Check for filler patterns
+};
+
+/**
+ * Helper: Create a timeout promise
+ */
+function createTimeout(ms: number, message: string): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new GMTimeoutError(message, ms)), ms);
+  });
+}
+
+/**
+ * Helper: Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Call the GM with robust retry logic and validation.
+ *
+ * NEVER returns filler content silently. Either:
+ * - Returns valid GM response
+ * - Throws GMUnavailableError (for caller to handle)
+ * - Throws GMAuthError (missing API key)
+ *
+ * Patch 18.5 - GM Robustness: No more silent failures!
+ */
+export async function callGMClaude(
+  context: GMContext,
+  options: GMCallOptions = {}
+): Promise<GMResponse> {
+  const opts = { ...DEFAULT_GM_OPTIONS, ...options };
+  const errors: Error[] = [];
+  const turn = context.state.turn;
+
+  // Check if we have an API key - throw, don't fallback
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("No ANTHROPIC_API_KEY found, using stub response");
-    return generateStubResponse(context);
+    console.error("[GM] FATAL: No ANTHROPIC_API_KEY found");
+    throw new GMAuthError(
+      "No ANTHROPIC_API_KEY environment variable found. Cannot proceed without GM."
+    );
   }
 
-  // Retry configuration for transient failures (rate limits, timeouts, cold starts)
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY_MS = 2000;
+  console.error(`[GM] Starting call for Turn ${turn} (max ${opts.maxRetries} retries, ${opts.timeoutMs}ms timeout)`);
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= opts.maxRetries; attempt++) {
+    const attemptStart = Date.now();
+
     try {
-      return await callGMClaudeInternal(context);
-    } catch (error) {
-      const isLastAttempt = attempt === MAX_RETRIES;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      const errorType = error instanceof Error ? error.constructor.name : "Unknown";
+      console.error(`[GM] Attempt ${attempt}/${opts.maxRetries} starting...`);
 
-      console.error(`[GM] API attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`);
-      console.error(`[GM] Error type: ${errorType}`);
-      console.error(`[GM] Error message: ${errorMsg}`);
+      // Make the API call with timeout
+      const response = await Promise.race([
+        callGMClaudeInternal(context),
+        createTimeout(opts.timeoutMs, `GM call timed out after ${opts.timeoutMs}ms`),
+      ]);
 
-      if (isLastAttempt) {
-        console.error("[GM] All retries exhausted, using stub response");
-        return generateStubResponse(context);
+      // Validate the response has real content (not filler)
+      if (opts.validateContent) {
+        const validation = validateGMResponseContent(response);
+
+        if (validation.warnings.length > 0) {
+          console.warn(`[GM] Response validation warnings:`, validation.warnings);
+        }
+
+        if (!validation.valid) {
+          const validationError = new GMValidationError(
+            `GM response failed validation: ${validation.errors.join(", ")}`,
+            validation,
+            false // not fatal, can retry
+          );
+          console.error(`[GM] Validation failed:\n${formatValidationResult(validation)}`);
+          throw validationError;
+        }
       }
 
-      // Wait before retrying (exponential backoff)
-      const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
-      console.error(`[GM] Retrying in ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      // Quick filler check even if full validation is off
+      if (looksLikeFiller(response)) {
+        throw new GMValidationError(
+          "GM response looks like filler content",
+          { valid: false, errors: ["Filler pattern detected"], warnings: [] },
+          false
+        );
+      }
+
+      const elapsed = Date.now() - attemptStart;
+      console.error(`[GM] Attempt ${attempt} succeeded in ${elapsed}ms`);
+
+      return response;
+
+    } catch (error) {
+      const elapsed = Date.now() - attemptStart;
+      const err = error instanceof Error ? error : new Error(String(error));
+
+      console.error(`[GM] Attempt ${attempt}/${opts.maxRetries} failed after ${elapsed}ms:`);
+      console.error(`[GM]   Type: ${err.name}`);
+      console.error(`[GM]   Message: ${err.message}`);
+
+      errors.push(err);
+
+      // Check for fatal errors that shouldn't be retried
+      if (err instanceof GMValidationError && err.isFatal) {
+        console.error("[GM] Fatal validation error - not retrying");
+        break;
+      }
+
+      // Check for rate limit with retry-after
+      if (err instanceof GMRateLimitError && err.retryAfterMs) {
+        console.error(`[GM] Rate limited, waiting ${err.retryAfterMs}ms as requested`);
+        await sleep(err.retryAfterMs);
+        continue; // Don't count this against backoff
+      }
+
+      // Wait before retry (if not last attempt)
+      if (attempt < opts.maxRetries) {
+        const backoffIndex = Math.min(attempt - 1, opts.backoffMs.length - 1);
+        const backoff = opts.backoffMs[backoffIndex];
+        console.error(`[GM] Waiting ${backoff}ms before retry ${attempt + 1}...`);
+        await sleep(backoff);
+      }
     }
   }
 
-  // Fallback (shouldn't reach here, but TypeScript wants it)
-  return generateStubResponse(context);
+  // All retries exhausted - throw aggregated error
+  // DO NOT return stub content! Let the caller decide what to do.
+  console.error(`[GM] FAILED: All ${opts.maxRetries} attempts exhausted for Turn ${turn}`);
+  console.error("[GM] Error history:");
+  errors.forEach((e, i) => console.error(`[GM]   ${i + 1}. ${e.name}: ${e.message}`));
+
+  throw new GMUnavailableError(
+    `GM unavailable after ${opts.maxRetries} attempts on Turn ${turn}`,
+    errors
+  );
+}
+
+/**
+ * Warm up the GM connection (call on game_start).
+ * Makes a lightweight call to establish connection and pre-cache prompts.
+ * Fire-and-forget - doesn't block game start.
+ */
+export async function warmUpGM(): Promise<void> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("[GM WARMUP] No API key, skipping warmup");
+    return;
+  }
+
+  try {
+    console.error("[GM WARMUP] Starting connection warmup...");
+    const client = getAnthropicClient();
+
+    // Make a minimal API call to warm up the connection
+    // Use haiku for speed - we just want to establish the connection
+    const startTime = Date.now();
+    await client.messages.create({
+      model: "claude-sonnet-4-20250514", // Fast model for warmup
+      max_tokens: 10,
+      messages: [{ role: "user", content: "Ready?" }],
+    });
+
+    const elapsed = Date.now() - startTime;
+    console.error(`[GM WARMUP] Connection established in ${elapsed}ms`);
+  } catch (error) {
+    // Don't fail game start if warmup fails - just log it
+    console.error("[GM WARMUP] Warmup failed (non-fatal):", error instanceof Error ? error.message : error);
+  }
 }
 
 async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
