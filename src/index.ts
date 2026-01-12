@@ -95,6 +95,7 @@ import {
   appendTranscriptBatch,
   appendSystemMessage,
   clearTranscript,
+  clearLiveState,
 } from "./ui/stateExporter.js";
 
 // ============================================
@@ -2466,6 +2467,10 @@ Perfect for checking which modifiers are affecting your current run!`,
 // ============================================
 
 async function main() {
+  // Clear stale state from previous sessions so dashboard doesn't show old games
+  clearLiveState();
+  clearTranscript();
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("DINO LAIR MCP Server running on stdio");

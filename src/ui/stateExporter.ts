@@ -247,6 +247,21 @@ export function clearTranscript(): void {
 }
 
 /**
+ * Clear live state (for server startup - prevents showing stale game data)
+ */
+export function clearLiveState(): void {
+  ensureDir();
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      fs.unlinkSync(STATE_FILE);
+      console.error("[StateExporter] Cleared stale live state");
+    }
+  } catch (err) {
+    console.error("[StateExporter] Failed to clear live state:", err);
+  }
+}
+
+/**
  * Add a system message to transcript
  */
 export function appendSystemMessage(turn: number, message: string): void {
