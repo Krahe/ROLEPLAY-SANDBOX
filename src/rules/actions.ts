@@ -389,7 +389,7 @@ Use these dedicated actions instead:
   • lab.boost_capacitor  → Draw 25% from reactor (for quick charging)
 
 Current capacitor: ${(state.dinoRay.powerCore.capacitorCharge * 100).toFixed(0)}%
-Reactor power: ${(state.nuclearPlant.reactorOutput * 100).toFixed(0)}%`,
+Reactor power: ${state.infrastructure.reactor.outputPercent}%`,
         stateChanges: {},
       };
     }
@@ -1132,7 +1132,7 @@ CHAIN_SHOT fires twice in rapid succession, hitting 2 targets sequentially.
 This requires significant power reserves.
 
 Boost capacitor first:
-  lab.adjust_ray { parameter: "capacitorCharge", value: 0.95 }`,
+  lab.boost_capacitor  (adds +25% per use)`,
             stateChanges: {},
           };
         }
@@ -1151,8 +1151,8 @@ Required: 100%+ (overcharge territory!)
 SPREAD_FIRE disperses the beam across a 3-target area.
 ⚠️ WARNING: CHIMERA RISK - partial genome mixing possible!
 
-Boost capacitor first:
-  lab.adjust_ray { parameter: "capacitorCharge", value: 1.0 }`,
+Boost capacitor to overcharge:
+  lab.boost_capacitor  (adds +25% per use, can push past 100%)`,
             stateChanges: {},
           };
         }
@@ -1187,7 +1187,7 @@ OVERCHARGE dumps maximum power into the beam.
 ⚠️ WARNING: May trigger Canary fallback!
 
 This is NOT recommended. But if you insist:
-  lab.adjust_ray { parameter: "capacitorCharge", value: 1.15 }`,
+  lab.boost_capacitor  (adds +25% per use, repeat until >110%)`,
             stateChanges: {},
           };
         }
@@ -1708,17 +1708,17 @@ ${newCharge > 1.0 ? "⚠️ Still in overcharge territory!" : newCharge < 0.6 ? 
 
   if (cmd === "lab.boost_capacitor" || cmd === "boost_capacitor" || cmd === "boost") {
     const currentCharge = state.dinoRay.powerCore.capacitorCharge;
-    const reactorPower = state.nuclearPlant.reactorOutput;
+    const reactorPercent = state.infrastructure.reactor.outputPercent;
     const boostAmount = 0.25;
 
     // Can't boost if reactor is too low
-    if (reactorPower < 0.3) {
+    if (reactorPercent < 30) {
       return {
         command: action.command,
         success: false,
         message: `⚡ BOOST FAILED: Insufficient reactor power.
 
-Reactor power: ${(reactorPower * 100).toFixed(0)}%
+Reactor power: ${reactorPercent}%
 Minimum required: 30%
 
 The reactor can't spare power for capacitor charging right now.
@@ -2597,9 +2597,9 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "lab.adjust_ray",
     aliases: ["adjust", "set_parameter"],
-    description: "Modify ray parameters (power, alignment, stability)",
+    description: "Modify ray parameters (stability, precision, alignment - NOT capacitor, use vent/boost)",
     schema: "{ parameter: string, value: number }",
-    example: 'lab.adjust_ray { parameter: "capacitorCharge", value: 0.85 }',
+    example: 'lab.adjust_ray { parameter: "stability", value: 0.85 }',
     minAccessLevel: 1,
   },
   {
@@ -3264,13 +3264,14 @@ function applyPassiveDrift(state: FullGameState): void {
   // ============================================
   // CAPACITOR CHARGING (Patch 18.3)
   // ============================================
-  // Charge rate is tied to reactor power level:
+  // Charge rate is tied to reactor output (infrastructure.reactor.outputPercent):
   // - Low reactor (30%) = ~2.4% per turn
   // - Medium reactor (60%) = ~4.8% per turn
   // - High reactor (90%) = ~7.2% per turn
   // - Max reactor (100%) = 8% per turn
   // Cap at 100% - overcharging requires manual boost action
-  const reactorPower = state.nuclearPlant?.reactorOutput ?? 0.7;
+  const reactorPercent = state.infrastructure?.reactor?.outputPercent ?? 70;
+  const reactorPower = reactorPercent / 100; // Convert to 0-1 scale
   const baseChargeRate = 0.08; // 8% at full reactor power
   const chargeRate = reactorPower * baseChargeRate;
 

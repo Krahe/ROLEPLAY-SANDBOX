@@ -1364,9 +1364,10 @@ The consequences of that reckless high-power firing are now manifesting.
     // 3. Meltdown clock decays, increasing cascade risk
     if (isModifierActive(gameState, "NOT_GREAT_NOT_TERRIBLE") && gameState.meltdownState) {
       // Force reactor to run hot (minimum 80% power) - can't throttle an unstable reactor!
-      const minReactorPower = 0.80;
-      if (gameState.nuclearPlant.reactorOutput < minReactorPower) {
-        gameState.nuclearPlant.reactorOutput = minReactorPower;
+      // Uses infrastructure.reactor.outputPercent (0-100 scale) for consistency with infra control
+      const minReactorPercent = 80;
+      if (gameState.infrastructure.reactor.outputPercent < minReactorPercent) {
+        gameState.infrastructure.reactor.outputPercent = minReactorPercent;
       }
 
       // Instability surges: extra +3% charge that CAN push past 100%
@@ -1560,7 +1561,7 @@ The consequences of that reckless high-power firing are now manifesting.
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers),
+        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers, gameState),
         sessionTerminated: true,
       };
       // Write to log file
@@ -1589,7 +1590,7 @@ The consequences of that reckless high-power firing are now manifesting.
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers),
+        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers, gameState),
         sessionTerminated: false,
       };
     } else if (endingResult.achievements.length > 0) {

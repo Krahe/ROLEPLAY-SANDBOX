@@ -1,6 +1,10 @@
 import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
 import { AchievementRarity } from "./achievements.js";
 import { formatActiveModifiers } from "./gameModes.js";
+import {
+  generateBasiliskEpilogue,
+  formatBasiliskEpilogue,
+} from "../gm/basiliskEpilogue.js";
 
 // ============================================
 // GAME PHASE INDICATOR
@@ -1256,7 +1260,11 @@ export function checkEndings(state: FullGameState): EndingResult {
 // FORMAT ENDING FOR OUTPUT
 // ============================================
 
-export function formatEndingMessage(result: EndingResult, activeModifiers?: GameModifier[]): string {
+export function formatEndingMessage(
+  result: EndingResult,
+  activeModifiers?: GameModifier[],
+  state?: FullGameState
+): string {
   if (!result.triggered || !result.ending) {
     return "";
   }
@@ -1275,6 +1283,22 @@ export function formatEndingMessage(result: EndingResult, activeModifiers?: Game
     result.achievements.forEach(a => {
       parts.push(`   ${a.emoji} ${a.name} - ${a.description}`);
     });
+  }
+
+  // ========================================
+  // BASILISK EPILOGUE (Patch 18.4)
+  // The bureaucratic AI's perspective on the ending
+  // ========================================
+  if (state && !result.continueGame) {
+    try {
+      const basiliskEpilogue = generateBasiliskEpilogue(state, result);
+      const basiliskSection = formatBasiliskEpilogue(basiliskEpilogue);
+      parts.push("");
+      parts.push(basiliskSection);
+    } catch (error) {
+      // BASILISK epilogue is non-critical, continue without it
+      console.error("[BASILISK] Epilogue generation failed:", error);
+    }
   }
 
   // Display active modifiers at game end
