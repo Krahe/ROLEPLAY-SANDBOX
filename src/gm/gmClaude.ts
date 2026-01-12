@@ -14,6 +14,14 @@ import {
   getCumulativeTokens,
   TurnMetrics,
 } from "../logging/metrics.js";
+import {
+  generatePinnedFacts,
+  formatPinnedFactsForPrompt,
+  verifyTextAgainstFacts,
+  logFactViolations,
+  PinnedFact,
+  FactViolation,
+} from "./pinnedFacts.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -3064,16 +3072,34 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
   try {
     const client = getAnthropicClient();
 
+    // ═══════════════════════════════════════════════════════════════
+    // PINNED FACTS (Patch 18.4)
+    // These go FIRST - authoritative truths that must not be contradicted
+    // ═══════════════════════════════════════════════════════════════
+    const pinnedFacts = generatePinnedFacts(context.state);
+    const pinnedFactsSection = formatPinnedFactsForPrompt(pinnedFacts);
+
     // Build memory context
     const memoryContext = buildMemoryContext();
 
     // Build the current turn prompt
     const currentTurnPrompt = formatGMPrompt(context);
 
-    // Combine memory + current turn
-    const fullPrompt = memoryContext
-      ? `${memoryContext}\n---\n\n${currentTurnPrompt}`
-      : currentTurnPrompt;
+    // Combine: PINNED FACTS (first!) + memory + current turn
+    // Pinned facts go at the TOP to ensure they're not buried
+    let fullPrompt = "";
+    if (pinnedFactsSection) {
+      fullPrompt = pinnedFactsSection;
+    }
+    if (memoryContext) {
+      fullPrompt += memoryContext + "\n---\n\n";
+    }
+    fullPrompt += currentTurnPrompt;
+
+    // Legacy format for comparison (remove after testing):
+    // const fullPrompt = memoryContext
+    //   ? `${memoryContext}\n---\n\n${currentTurnPrompt}`
+    //   : currentTurnPrompt;
 
     // Build messages array with recent exchanges for conversational context
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
@@ -3207,6 +3233,33 @@ export async function callGMClaude(context: GMContext): Promise<GMResponse> {
     // This is a safety net in case the GM ignores the speech constraint guidance
     if (parsed.npcDialogue && parsed.npcDialogue.length > 0) {
       parsed.npcDialogue = enforceNpcSpeechConstraints(parsed.npcDialogue, context.state);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PINNED FACT VERIFICATION (Patch 18.4)
+    // Check GM narrative for contradictions against pinned facts
+    // ═══════════════════════════════════════════════════════════════
+    if (pinnedFacts.length > 0 && parsed.narration) {
+      // Also check NPC dialogue for speech violations
+      const textToVerify = parsed.narration + " " +
+        (parsed.npcDialogue || []).map(d => `${d.speaker}: ${d.message}`).join(" ");
+
+      const violations = verifyTextAgainstFacts(textToVerify, pinnedFacts);
+
+      if (violations.length > 0) {
+        console.warn(`[PINNED_FACTS] ${violations.length} fact violation(s) detected in GM response:`);
+        const corrections = logFactViolations(violations);
+
+        // Store violations in metrics for debugging (optional enhancement)
+        // Could also trigger auto-correction prompt here in future versions
+
+        // For ERROR-level violations (speech/transformation), we could
+        // regenerate or patch the response, but for now we log and continue
+        const errorViolations = violations.filter(v => v.severity === "ERROR");
+        if (errorViolations.length > 0) {
+          console.error(`[PINNED_FACTS] ${errorViolations.length} ERROR-level violations require attention!`);
+        }
+      }
     }
 
     return parsed;

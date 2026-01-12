@@ -1561,7 +1561,7 @@ The consequences of that reckless high-power firing are now manifesting.
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers),
+        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers, gameState),
         sessionTerminated: true,
       };
       // Write to log file
@@ -1590,7 +1590,7 @@ The consequences of that reckless high-power firing are now manifesting.
       gameOver = {
         ending: endingResult.ending.title,
         achievements: endingResult.achievements.map(a => `${a.emoji} ${a.name}`),
-        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers),
+        endingMessage: formatEndingMessage(endingResult, gameState.gameModeConfig?.activeModifiers, gameState),
         sessionTerminated: false,
       };
     } else if (endingResult.achievements.length > 0) {
