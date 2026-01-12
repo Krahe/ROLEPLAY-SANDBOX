@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION } from "./state/initialState.js";
+import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION, PLAYER_GUIDE } from "./state/initialState.js";
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "./state/schema.js";
 import { processActions, ActionResult, generateCommandReference } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
@@ -497,6 +497,10 @@ Returns:
       // DYNAMIC COMMAND REFERENCE: Only shows commands for current access level
       // Higher-level commands revealed when unlocked - no spoilers!
       commandReference,
+      // PLAYER GUIDE: Auto-injected so Claude always has gameplay instructions
+      // regardless of whether /play-dino-lair skill was manually invoked
+      // Patch 18.5 - Player Experience Enhancement
+      playerGuide: PLAYER_GUIDE,
     };
 
     // ============================================
