@@ -20,14 +20,14 @@ The tone is Megamind meets Despicable Me. Dr. Malevola wants to turn a spy into 
 git clone https://github.com/yourusername/dino-lair-mcp
 cd dino-lair-mcp
 
-# Install
-npm install
+# Install and build
+npm install && npm run build
 
-# Build
-npm run build
+# Run the installer (configures Claude Desktop automatically!)
+npm run setup
 ```
 
-Then configure Claude Desktop (see Installation below).
+The installer will prompt for your API key and configure everything else automatically.
 
 ---
 
@@ -89,9 +89,53 @@ If the build succeeds, you'll see a `dist/` folder with the compiled JavaScript.
 
 **Important:** The API key is used for the GM (Opus) and BASILISK (Sonnet) AIs. Your Claude Desktop session (Sonnet) uses its own credentials.
 
-### Step 4: Configure Claude Desktop
+### Step 4: Run the Installer (Recommended)
 
-Find your Claude Desktop config file:
+```bash
+npm run setup
+```
+
+The installer will:
+- Detect your Claude Desktop config location automatically
+- Back up your existing config before making changes
+- Add the dino-lair MCP server entry
+- Preserve all your other MCP servers
+
+Just enter your API key when prompted!
+
+```
+🦖 DINO LAIR Installer v1.0.0
+
+Checking prerequisites...
+  ✓ Node.js v20.10.0 detected
+  ✓ Game build found (dist/index.js)
+  ✓ Claude Desktop config directory found (macOS)
+
+Please enter your Anthropic API key.
+(Get one at https://console.anthropic.com/api-keys)
+
+API Key: sk-ant-api03-xxxxx
+
+  ✓ API key format validated
+
+Installing DINO LAIR...
+  • Backing up existing config → claude_desktop_config.backup.2026-01-13T10-30-00.json
+  • Adding dino-lair to mcpServers
+  • Writing updated config
+
+✅ Installation complete!
+```
+
+**Other installer commands:**
+```bash
+npm run setup -- --help       # Show help
+npm run setup -- --uninstall  # Remove DINO LAIR from config
+npm run uninstall             # Shortcut for uninstall
+```
+
+### Step 4 (Alternative): Manual Configuration
+
+If you prefer to configure manually, find your Claude Desktop config file:
 
 | Platform | Location |
 |----------|----------|
