@@ -3399,10 +3399,10 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
 
     if (parseError || !parsed) {
       console.error("GM JSON parse error after repair attempt:", parseError);
-      console.error("Falling back to stub response");
       turnMetrics.quality.gmJsonValid = false;
       logTurnMetrics(turnMetrics);
-      return generateStubResponse(context);
+      // Patch 18.5: Throw error instead of returning stub - let retry logic handle it
+      throw new Error(`GM JSON parse failed: ${parseError || "unknown parse error"}`);
     }
 
     // Validate GM response with Zod schema

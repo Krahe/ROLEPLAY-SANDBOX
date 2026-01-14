@@ -626,6 +626,179 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     }
 
     // ============================================
+    // PAUSED STATE CHECK (Patch 18.5 - GM Robustness)
+    // ============================================
+    // If game is paused due to GM failure, we need to retry GM BEFORE
+    // processing actions to prevent double-application of state changes.
+    // The player's action payload is preserved - we just retry the narrative.
+    const isPaused = gameState.pauseState?.paused === true;
+    const pendingRetry = isPaused && gameState.pauseState?.reason === "GM_UNAVAILABLE";
+
+    if (pendingRetry) {
+      console.error(`[GAME] Resuming from pause state (retry ${gameState.pauseState?.retryCount || 0})`);
+      // Don't process actions - they were already applied on the previous attempt
+      // Just retry the GM call with minimal context
+
+      // Build minimal retry context - actions already applied to state
+      const retryGmContext = {
+        state: gameState,
+        aliceThought: params.thought,
+        aliceDialogue: params.dialogue || [],
+        aliceActions: params.actions,
+        // Empty results - actions were already processed
+        actionResults: [],
+        clockEventNarrations: [],
+        activeEvents: getCurrentEventStatus(gameState),
+        blytheGadgetNarration: "",
+        bobTransformationNarration: "",
+        civilianFlybyConsequences: "",
+        trustContext: formatTrustContextForGM(gameState),
+        gadgetStatus: getGadgetStatusForGM(gameState),
+        humanPromptInjection: undefined,
+        userPromptResponse: undefined,
+        actContext: getActGMContext(gameState.actConfig.currentAct),
+        actTransitionNotification: undefined,
+        isCheckpointTurn: isCheckpointTurn(gameState.turn),
+        luckyLadyInfo: undefined,
+        // Special flag for GM: this is a retry, narrate based on current state
+        isRetryAttempt: true,
+      };
+
+      try {
+        const gmResponse = await callGMClaude(retryGmContext);
+
+        // Success! Clear pause state
+        gameState.pauseState = undefined;
+        gameState.flags.gmErrorThisTurn = false;
+
+        console.error(`[GAME] GM retry successful on Turn ${gameState.turn}`);
+        appendSystemMessage(gameState.turn, "✅ GM connection restored");
+
+        // Apply GM state overrides (inline, same as normal flow)
+        if (gmResponse.stateOverrides) {
+          const overrides = gmResponse.stateOverrides;
+          if (overrides.drM_suspicion !== undefined) {
+            gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10, overrides.drM_suspicion));
+          }
+          if (overrides.drM_mood !== undefined) {
+            gameState.npcs.drM.mood = overrides.drM_mood;
+          }
+          if (overrides.bob_trust !== undefined) {
+            gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5, overrides.bob_trust));
+          }
+          if (overrides.blythe_trust !== undefined) {
+            gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, overrides.blythe_trust));
+          }
+          if (overrides.accessLevel !== undefined) {
+            gameState.accessLevel = Math.max(1, Math.min(5, overrides.accessLevel));
+          }
+          if (overrides.demoClock !== undefined) {
+            gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
+          }
+        }
+
+        // Build narration with retry context
+        const retryNarration = gmResponse.narration || "The lair systems stabilize as reality reasserts itself.";
+
+        // Increment turn
+        gameState.turn += 1;
+        gameState.actConfig.actTurn += 1;
+
+        // Record in history
+        gameState.history.push({
+          turn: gameState.turn - 1,
+          aliceActions: params.actions,
+          gmResponse: retryNarration,
+          stateChanges: [],
+        });
+
+        // Export state
+        exportLiveState(gameState);
+        appendTranscriptBatch(
+          gameState.turn - 1,
+          retryNarration,
+          gmResponse.npcDialogue?.map(d => ({ speaker: d.speaker, message: d.message })),
+          [],
+          params.dialogue?.map(d => ({ to: d.to, message: d.message }))
+        );
+
+        // Build response (simplified for retry)
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              turn: { completed: gameState.turn - 1, act: gameState.actConfig.currentAct, actTurn: gameState.actConfig.actTurn - 1 },
+              retrySuccess: true,
+              narrative: `---\n**[Connection Restored]**\n\n${retryNarration}`,
+              dialogue: gmResponse.npcDialogue,
+              npcActions: gmResponse.npcActions,
+              state: buildCompactSnapshot(gameState),
+            }, null, 2),
+          }],
+        };
+
+      } catch (error) {
+        // Retry failed - update pause state and return
+        if (error instanceof GMUnavailableError) {
+          const retryCount = (gameState.pauseState?.retryCount ?? 0) + 1;
+          gameState.pauseState = {
+            paused: true,
+            reason: "GM_UNAVAILABLE",
+            message: `GM still unavailable after retry attempt ${retryCount}.`,
+            timestamp: new Date().toISOString(),
+            canRetry: true,
+            retryCount,
+            diegeticMessage: "The lair's systems continue to flicker. A.L.I.C.E. detects instability in the narrative matrix...",
+          };
+
+          exportLiveState(gameState);
+          appendSystemMessage(gameState.turn, `⚠️ GM retry failed (attempt ${retryCount})`);
+
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify({
+                gameStatus: "PAUSED",
+                turn: gameState.turn,
+                error: {
+                  type: "GM_UNAVAILABLE",
+                  message: gameState.pauseState.message,
+                  canRetry: true,
+                  retryCount,
+                  suggestion: "Wait a moment and try again. The GM will resume when available.",
+                  diegeticFlavor: gameState.pauseState.diegeticMessage,
+                },
+                state: {
+                  turn: gameState.turn,
+                  accessLevel: gameState.accessLevel,
+                  suspicion: gameState.npcs.drM.suspicionScore,
+                  demoClock: gameState.clocks.demoClock,
+                },
+                hint: "Your previous actions were preserved. Simply call game_act again to retry.",
+              }, null, 2),
+            }],
+          };
+        }
+
+        // Unexpected error during retry
+        console.error("[GAME] Unexpected error during GM retry:", error);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              gameStatus: "ERROR",
+              error: {
+                type: "UNKNOWN",
+                message: error instanceof Error ? error.message : String(error),
+                canRetry: true,
+              },
+            }, null, 2),
+          }],
+        };
+      }
+    }
+
+    // ============================================
     // GRACEFUL EMPTY CALL HANDLING
     // ============================================
     // If game_act is called with missing/empty params, return helpful message instead of validation error
