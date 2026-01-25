@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 
 // ============================================
 // DINO LAIR METRICS LOGGING SYSTEM
@@ -8,10 +9,11 @@ import * as path from "path";
 // Format: JSONL (one JSON line per turn, append-only)
 //
 // After a playtest, run:
-//   cat logs/metrics-*.jsonl | jq '.tokens.cumulativeSession'
+//   cat ~/.dino-lair/logs/metrics-*.jsonl | jq '.tokens.cumulativeSession'
 // To see token growth at a glance.
 
-const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
+// Use absolute path in ~/.dino-lair/logs to avoid working directory issues
+const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || path.join(os.homedir(), ".dino-lair", "logs");
 
 // ============================================
 // INTERFACES

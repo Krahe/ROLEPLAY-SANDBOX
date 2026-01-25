@@ -38,6 +38,7 @@ import {
 } from "../types/errors.js";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 
 // ============================================
 // FILE LOGGING SYSTEM (Session-Based)
@@ -45,7 +46,8 @@ import * as path from "path";
 // Logs are now created per-session to prevent unbounded growth
 // and make individual playthroughs easier to analyze.
 
-const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
+// Use absolute path in ~/.dino-lair/logs to avoid working directory issues
+const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || path.join(os.homedir(), ".dino-lair", "logs");
 let currentSessionId: string | null = null;
 
 // Ensure log directory exists
@@ -3089,7 +3091,7 @@ export interface GMCallOptions {
 
 const DEFAULT_GM_OPTIONS: Required<GMCallOptions> = {
   maxRetries: 4,                        // More retries for robustness
-  timeoutMs: 60000,                     // 60 seconds (GM needs time for extended thinking)
+  timeoutMs: 100000,                    // 100 seconds (GM needs time for complex turns)
   backoffMs: [2000, 4000, 8000, 16000], // Exponential: 2s, 4s, 8s, 16s
   validateContent: true,                // Check for filler patterns
 };
