@@ -113,7 +113,7 @@ function checkNodeVersion() {
     return false;
   }
 
-  success(`Node.js v${version} detected`);
+  success(`Node.js v${version} detected (${process.execPath})`);
   return true;
 }
 
@@ -278,10 +278,17 @@ function getGamePath() {
   return path.join(process.cwd(), 'dist', 'index.js');
 }
 
+// Get the full path to node (critical for Mac where GUI apps don't inherit PATH)
+function getNodePath() {
+  // process.execPath gives us the exact node binary running this installer
+  // This ensures Claude Desktop can find node even without PATH
+  return process.execPath;
+}
+
 // Build the dino-lair MCP server config entry
 function buildDinoLairEntry(apiKey) {
   return {
-    command: 'node',
+    command: getNodePath(),
     args: [getGamePath()],
     env: {
       ANTHROPIC_API_KEY: apiKey,
