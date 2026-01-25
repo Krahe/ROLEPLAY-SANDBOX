@@ -153,7 +153,7 @@ Add or update the `mcpServers` section:
 {
   "mcpServers": {
     "dino-lair": {
-      "command": "node",
+      "command": "/FULL/PATH/TO/node",
       "args": ["/FULL/PATH/TO/dino-lair-mcp/dist/index.js"],
       "env": {
         "ANTHROPIC_API_KEY": "sk-ant-api03-YOUR-KEY-HERE"
@@ -163,7 +163,13 @@ Add or update the `mcpServers` section:
 }
 ```
 
-**Critical:** Replace `/FULL/PATH/TO/` with the actual absolute path to your installation!
+**Critical:** Replace `/FULL/PATH/TO/` with actual absolute paths!
+
+**⚠️ Mac Users:** You MUST use the full path to node, not just `"node"`. GUI apps on Mac don't inherit your terminal's PATH. Find your node path with:
+```bash
+which node
+```
+Common paths: `/opt/homebrew/bin/node` (Apple Silicon) or `/usr/local/bin/node` (Intel)
 
 **Example paths:**
 - macOS: `/Users/yourname/projects/dino-lair-mcp/dist/index.js`
@@ -174,7 +180,23 @@ Add or update the `mcpServers` section:
 
 Completely quit and restart Claude Desktop for the MCP server to load.
 
-### Step 6: Play!
+### Step 6: Open the Dashboard (Optional)
+
+The **Live Dashboard** auto-starts when Claude Desktop launches the MCP server! Open your browser to:
+
+```
+http://localhost:3000
+```
+
+The dashboard shows:
+- Real-time game state (suspicion, demo clock, fortune)
+- NPC status (Bob, Blythe, Dr. M)
+- Turn history and transcript
+- Achievements earned
+
+No terminal commands needed - just bookmark the URL!
+
+### Step 7: Play!
 
 Start a new conversation and say:
 
@@ -254,6 +276,7 @@ Test graceful degradation:
 |----------|----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | **Yes** | - | API key for GM (Opus) and BASILISK (Sonnet) |
 | `DINO_LAIR_LOG_DIR` | No | `./logs` | Directory for game logs |
+| `DINO_DASHBOARD_PORT` | No | `3000` | Port for the live dashboard |
 | `BASILISK_DEBUG` | No | `false` | Set to `"true"` for verbose BASILISK logging |
 
 ---
