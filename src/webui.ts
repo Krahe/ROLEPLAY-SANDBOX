@@ -157,7 +157,7 @@ function startWatching(): void {
     broadcastTranscript();
   });
 
-  console.log(`[Dashboard] Watching ${STATE_FILE}`);
+  console.error(`[Dashboard] Watching ${STATE_FILE}`);
 }
 
 // ============================================
