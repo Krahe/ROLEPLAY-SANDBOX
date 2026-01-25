@@ -348,7 +348,7 @@ const GameStartInputSchema = z.object({
     .describe("Add these modifiers ON TOP of the mode's default set (for EASY/HARD/WILD customization)"),
   removeModifiers: z.array(z.string()).optional()
     .describe("Remove these modifiers FROM the mode's default set (for EASY/HARD/WILD customization)"),
-}).strict();
+}).passthrough(); // Allow extra properties for Mac client compatibility
 
 server.registerTool(
   "game_start",
@@ -563,7 +563,7 @@ const GameActInputSchema = z.object({
     .describe("Optional emergency lifeline (3 total uses per game): BASILISK_INTERVENTION (2-turn distraction), LUCKY_LADY (+5 bonus, always works!), or MONOLOGUE (suspicion -3, always works!)"),
   humanPromptResponse: z.string().optional()
     .describe("Response to a previous human prompt question from the human advisor"),
-}).strict();
+}).passthrough(); // Allow extra properties for Mac client compatibility
 
 server.registerTool(
   "game_act",
@@ -2303,7 +2303,7 @@ const BasiliskQuerySchema = z.object({
   topic: z.string().describe("What to query BASILISK about"),
   parameters: z.record(z.unknown()).optional()
     .describe("Optional parameters for the query"),
-}).strict();
+}).passthrough(); // Allow extra properties for Mac client compatibility
 
 server.registerTool(
   "game_query_basilisk",
@@ -2372,7 +2372,7 @@ Returns the state snapshot showing:
 - Visible lair systems
 - NPC states
 - Active clocks`,
-    inputSchema: z.object({}).strict(),
+    inputSchema: z.object({}).passthrough(), // Mac compatibility
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -2422,7 +2422,7 @@ Use this to see what the GM has been thinking and any feedback for designers!`,
     inputSchema: z.object({
       includeFullMemory: z.boolean().optional()
         .describe("Include full memory dump (default: just highlights)"),
-    }).strict(),
+    }).passthrough(), // Mac compatibility
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -2527,7 +2527,7 @@ The gallery persists across game sessions, so you can track your progress over t
     inputSchema: z.object({
       showFullHistory: z.boolean().optional()
         .describe("Show full ending history (default: just summary)"),
-    }).strict(),
+    }).passthrough(), // Mac compatibility
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -2598,7 +2598,7 @@ Example: game_start with mode="CUSTOM" and modifiers=["SITCOM_MODE", "ROOT_ACCES
     inputSchema: z.object({
       category: z.enum(["ALL", "EASY", "HARD", "WILD", "CHAOS"]).optional()
         .describe("Filter by category (default: ALL)"),
-    }).strict(),
+    }).passthrough(), // Mac compatibility
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
@@ -2675,7 +2675,7 @@ Shows:
 
 Use this during gameplay to understand what special rules are in effect.
 Perfect for checking which modifiers are affecting your current run!`,
-    inputSchema: z.object({}).strict(),
+    inputSchema: z.object({}).passthrough(), // Mac compatibility
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
