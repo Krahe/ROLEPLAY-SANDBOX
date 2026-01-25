@@ -1190,18 +1190,29 @@ app.get("/", (_req: Request, res: Response) => {
 // START SERVER
 // ============================================
 
-startWatching();
+/**
+ * Start the dashboard server.
+ * Exported so it can be called from the main MCP server.
+ */
+export function startDashboard(): void {
+  startWatching();
 
-app.listen(PORT, () => {
-  console.log(`
+  app.listen(PORT, () => {
+    // Use stderr for MCP compatibility (stdout is reserved for MCP protocol)
+    console.error(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
 ║   🦖 DINO LAIR - Live Dashboard                              ║
 ║                                                              ║
-║   Open http://localhost:${PORT} to view the game              ║
-║                                                              ║
-║   Watching: ${STATE_FILE}        ║
+║   👉 Open in browser: http://localhost:${PORT}                 ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
-  `);
-});
+    `);
+  });
+}
+
+// Only auto-start if run directly (not imported)
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
+  startDashboard();
+}
