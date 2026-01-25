@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { startDashboard } from "./webui.js";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION, PLAYER_GUIDE } from "./state/initialState.js";
 import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "./state/schema.js";
 import { processActions, ActionResult, generateCommandReference } from "./rules/actions.js";
@@ -2740,6 +2741,13 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("DINO LAIR MCP Server running on stdio");
+
+  // Auto-start the dashboard for spectators
+  try {
+    startDashboard();
+  } catch (err) {
+    console.error("[DINO LAIR] Dashboard failed to start (non-fatal):", err);
+  }
 }
 
 main().catch((error) => {
