@@ -5,6 +5,7 @@ import { generateCommandReference } from "../rules/actions.js";
 import { extractJSON, repairJSON } from "./gmClaude.js";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { fileURLToPath } from "url";
 
 // ============================================
@@ -22,7 +23,8 @@ import { fileURLToPath } from "url";
 // Logs are now created per-session to prevent unbounded growth
 // and make individual playthroughs easier to analyze.
 
-const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
+// Use absolute path in ~/.dino-lair/logs to avoid working directory issues
+const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || path.join(os.homedir(), ".dino-lair", "logs");
 const BASILISK_VERBOSE_LOGGING = process.env.BASILISK_DEBUG === "true";
 let basiliskSessionId: string | null = null;
 

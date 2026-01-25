@@ -38,6 +38,7 @@ import {
 } from "../types/errors.js";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 
 // ============================================
 // FILE LOGGING SYSTEM (Session-Based)
@@ -45,7 +46,8 @@ import * as path from "path";
 // Logs are now created per-session to prevent unbounded growth
 // and make individual playthroughs easier to analyze.
 
-const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || "./logs";
+// Use absolute path in ~/.dino-lair/logs to avoid working directory issues
+const LOG_DIR = process.env.DINO_LAIR_LOG_DIR || path.join(os.homedir(), ".dino-lair", "logs");
 let currentSessionId: string | null = null;
 
 // Ensure log directory exists
