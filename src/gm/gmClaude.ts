@@ -3089,7 +3089,7 @@ export interface GMCallOptions {
 
 const DEFAULT_GM_OPTIONS: Required<GMCallOptions> = {
   maxRetries: 4,                        // More retries for robustness
-  timeoutMs: 60000,                     // 60 seconds (GM needs time for extended thinking)
+  timeoutMs: 100000,                    // 100 seconds (GM needs time for complex turns)
   backoffMs: [2000, 4000, 8000, 16000], // Exponential: 2s, 4s, 8s, 16s
   validateContent: true,                // Check for filler patterns
 };
