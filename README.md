@@ -20,14 +20,18 @@ The tone is Megamind meets Despicable Me. Dr. Malevola wants to turn a spy into 
 git clone https://github.com/yourusername/dino-lair-mcp
 cd dino-lair-mcp
 
-# Install and build
-npm install && npm run build
-
-# Run the installer (configures Claude Desktop automatically!)
-npm run setup
+# One-command setup (installs, builds, and configures Claude Desktop)
+npm run quickstart
 ```
 
 The installer will prompt for your API key and configure everything else automatically.
+
+**Alternative (manual steps):**
+```bash
+npm install          # Install dependencies
+npm run build        # Compile TypeScript
+npm run setup        # Configure Claude Desktop
+```
 
 ---
 
