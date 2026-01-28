@@ -694,6 +694,7 @@ export interface GMMemory {
       actualSuspicion: number;           // 0-10, hidden (may differ from visible)
       patienceRemaining: number;         // Turns before she snaps
       hasNoticedInconsistency: string[]; // List of things she's clocked
+      suspicionLedger: string[];         // PERSISTENT across acts - running record of key suspicions
     };
     bob: {
       breakingPoint: number;             // When he cracks (0-10)
@@ -837,6 +838,7 @@ export function createFreshMemory(): GMMemory {
         actualSuspicion: 1,          // Starts same as visible
         patienceRemaining: 8,        // Turns before she snaps
         hasNoticedInconsistency: [], // Clean slate
+        suspicionLedger: [],         // Persistent across acts
       },
       bob: {
         breakingPoint: 7,            // How much pressure before he cracks
@@ -1025,12 +1027,45 @@ export function resetMemoryForActTransition(
     // Carry over tension level (scaled down slightly for fresh start feel)
     tensionLevel: Math.max(1, Math.floor(gmMemory.tensionLevel * 0.7)),
 
+    // Carry over NPC awareness (compact: last 3 key observations per NPC survive act transitions)
+    npcAwareness: {
+      drM: {
+        hasSeenActions: gmMemory.npcAwareness.drM.hasSeenActions.slice(-3),
+        hasHeardDialogue: gmMemory.npcAwareness.drM.hasHeardDialogue.slice(-2),
+        suspiciousOf: gmMemory.npcAwareness.drM.suspiciousOf.slice(-3),
+      },
+      bob: {
+        hasSeenActions: [],  // Bob is less observant, fresh start is fine
+        hasHeardDialogue: [],
+        sharedSecrets: gmMemory.npcAwareness.bob.sharedSecrets.slice(-3), // But secrets persist
+      },
+      blythe: {
+        hasSeenActions: gmMemory.npcAwareness.blythe.hasSeenActions.slice(-2),
+        hasHeardDialogue: [],
+        trustIndicators: gmMemory.npcAwareness.blythe.trustIndicators.slice(-3), // Trust evidence persists
+      },
+    },
+
+    // Carry over player behavior patterns (don't let act transitions erase pattern detection)
+    playerBehavior: {
+      ...fresh.playerBehavior,
+      patterns: { ...gmMemory.playerBehavior.patterns }, // Keep accumulated scores
+      unfulfilledPromises: gmMemory.playerBehavior.unfulfilledPromises.slice(-3), // Keep recent promises
+      valueReveals: gmMemory.playerBehavior.valueReveals.slice(-3), // Keep recent value reveals
+    },
+
     // Carry over hidden NPC states (these are important!)
     hiddenNpcStates: {
       drM: {
         ...gmMemory.hiddenNpcStates.drM,
         patienceRemaining: Math.min(gmMemory.hiddenNpcStates.drM.patienceRemaining + 3, 10), // Slight patience reset
         hasNoticedInconsistency: gmMemory.hiddenNpcStates.drM.hasNoticedInconsistency.slice(-3), // Keep only last 3
+        // PERSISTENT: Merge current inconsistencies + awareness into the ledger before clearing
+        suspicionLedger: [
+          ...gmMemory.hiddenNpcStates.drM.suspicionLedger,
+          ...gmMemory.hiddenNpcStates.drM.hasNoticedInconsistency,
+          ...gmMemory.npcAwareness.drM.suspiciousOf.map(s => `[${fromAct}] ${s}`),
+        ].slice(-15), // Keep last 15 entries max
       },
       bob: gmMemory.hiddenNpcStates.bob, // Bob's guilt doesn't reset
       blythe: {
@@ -2410,6 +2445,9 @@ function buildMemoryContext(): string {
   if (drM.hasNoticedInconsistency.length > 0) {
     parts.push(`  Things she's noticed but not acted on: ${drM.hasNoticedInconsistency.slice(-3).join("; ")}`);
   }
+  if (drM.suspicionLedger && drM.suspicionLedger.length > 0) {
+    parts.push(`  🔴 SUSPICION LEDGER (persistent): ${drM.suspicionLedger.slice(-5).join("; ")}`);
+  }
 
   parts.push(`- **Bob** (breaking point: ${bob.breakingPoint}/10, loyalty conflict: ${bob.loyaltyConflict}/10)`);
   if (bob.guiltySecrets.length > 0) {
@@ -3313,15 +3351,16 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     // PROMPT CACHING: The system prompt is cached, reducing costs on subsequent turns
     // (cache hits are 90% cheaper than re-processing).
     //
-    // EXTENDED THINKING: 5.5K tokens - sweet spot for complex GM decisions
-    // (NPC motivations, multi-character scenes, WILD mode chaos) without
-    // the excessive 10K we had before.
+    // EXTENDED THINKING: 4.5K tokens - trimmed from 5.5K to reduce timeout risk.
+    // 4K was sufficient in testing; 4.5K gives headroom for WILD mode without
+    // the latency cost of 5.5K.
+    const startTime = Date.now();
     const response = await client.messages.create({
       model: "claude-opus-4-5-20251101",
       max_tokens: 8000,
       thinking: {
         type: "enabled",
-        budget_tokens: 5500, // Sweet spot: enough for WILD chaos, not excessive
+        budget_tokens: 4500,
       },
       system: [
         {
@@ -3332,6 +3371,12 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
       ],
       messages,
     });
+
+    // ═══════════════════════════════════════════════════════════════
+    // GM CALL TIMING
+    // ═══════════════════════════════════════════════════════════════
+    const gmCallDurationMs = Date.now() - startTime;
+    appendToLog(`[TIMING] GM call took ${gmCallDurationMs}ms (${(gmCallDurationMs / 1000).toFixed(1)}s) — Turn ${context.state.turn}`);
 
     // ═══════════════════════════════════════════════════════════════
     // TOKEN METRICS TRACKING
