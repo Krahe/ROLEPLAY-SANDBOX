@@ -742,6 +742,19 @@ export interface GMMemory {
   }>;
 
   // ============================================
+  // PREVIOUS ACT NARRATIVE CONTEXT
+  // ============================================
+  // Preserved across act transitions to maintain narrative consistency
+  previousActContext: {
+    // All narrative markers from previous acts (not just last 5)
+    narrativeMarkers: Array<{ turn: number; marker: string; act: string }>;
+    // Key turn summaries from previous acts
+    turnSummaries: Array<{ turn: number; summary: string; act: string }>;
+    // Act transition summaries
+    actSummaries: Array<{ act: string; summary: string }>;
+  };
+
+  // ============================================
   // PLAYER BEHAVIOR TRACKING
   // ============================================
 
@@ -859,6 +872,13 @@ export function createFreshMemory(): GMMemory {
     plantedSeeds: [],
     permanentConsequences: [],
     callbacks: [],
+
+    // Previous act context - starts empty, populated on act transitions
+    previousActContext: {
+      narrativeMarkers: [],
+      turnSummaries: [],
+      actSummaries: [],
+    },
 
     // Player behavior tracking - starts empty
     playerBehavior: {
@@ -999,6 +1019,44 @@ export function resetMemoryForActTransition(
   const preservedNotebook = gmMemory.gmNotebook.slice(-3);
 
   // ============================================
+  // 2.5 PRESERVE NARRATIVE CONTEXT ACROSS ACTS (NEW!)
+  // ============================================
+  // This is the key fix for narrative continuity!
+
+  // Capture ALL narrative markers from current act (tag with act name)
+  const currentActMarkers = gmMemory.narrativeMarkers.map(m => ({
+    turn: m.turn,
+    marker: m.marker,
+    act: fromAct,
+  }));
+
+  // Capture last 8 turn summaries from current act (compact but informative)
+  const currentActSummaries = gmMemory.turnSummaries.slice(-8).map(s => ({
+    turn: s.turn,
+    summary: s.outcome || "Turn completed",
+    act: fromAct,
+  }));
+
+  // Build act summary for the log
+  const actSummaryText = `${fromAct}: ${keyEvents.join("; ") || "Completed"}`;
+
+  // Combine with existing previous act context (cumulative across all acts)
+  const preservedPreviousActContext = {
+    narrativeMarkers: [
+      ...gmMemory.previousActContext.narrativeMarkers,
+      ...currentActMarkers,
+    ].slice(-30), // Keep last 30 markers total across all acts
+    turnSummaries: [
+      ...gmMemory.previousActContext.turnSummaries,
+      ...currentActSummaries,
+    ].slice(-20), // Keep last 20 turn summaries total
+    actSummaries: [
+      ...gmMemory.previousActContext.actSummaries,
+      { act: fromAct, summary: actSummaryText },
+    ],
+  };
+
+  // ============================================
   // 3. CLEAR THE BLOAT
   // ============================================
 
@@ -1023,6 +1081,10 @@ export function resetMemoryForActTransition(
       `Previous act summary: ${keyEvents.join("; ") || "No major events recorded"}`,
       ...preservedNotebook,
     ],
+
+    // PRESERVED NARRATIVE CONTEXT (NEW!)
+    // This maintains plot continuity across acts
+    previousActContext: preservedPreviousActContext,
 
     // Carry over tension level (scaled down slightly for fresh start feel)
     tensionLevel: Math.max(1, Math.floor(gmMemory.tensionLevel * 0.7)),
@@ -1079,7 +1141,8 @@ export function resetMemoryForActTransition(
   appendToLog(`\n${"=".repeat(60)}\nACT TRANSITION: ${fromAct} → ${toAct}\n${"=".repeat(60)}`);
   appendToLog(`Key events: ${keyEvents.join("; ")}`);
   appendToLog(`Preserved moments: ${preservedJuicyMoments.length}, Consequences: ${preservedConsequences.length}`);
-  appendToLog(`Memory reset complete. Fresh context for ${toAct}.\n`);
+  appendToLog(`Narrative context preserved: ${preservedPreviousActContext.narrativeMarkers.length} markers, ${preservedPreviousActContext.turnSummaries.length} turn summaries`);
+  appendToLog(`Memory reset complete. Fresh context for ${toAct} with narrative continuity preserved.\n`);
 
   return actSummary;
 }
@@ -2492,6 +2555,44 @@ function buildMemoryContext(): string {
       const reversible = c.reversible ? `(reversible if: ${c.reverseCondition})` : "(IRREVERSIBLE)";
       parts.push(`- [T${c.turn}] ${c.description} ${reversible}`);
     });
+    parts.push("");
+  }
+
+  // ============================================
+  // PREVIOUS ACT NARRATIVE CONTEXT (for continuity!)
+  // ============================================
+  if (gmMemory.previousActContext.actSummaries.length > 0) {
+    parts.push("## 📚 PREVIOUS ACT CONTEXT (Maintain Continuity!)");
+    parts.push("");
+
+    // Act summaries
+    parts.push("### Act Summaries");
+    gmMemory.previousActContext.actSummaries.forEach(s => {
+      parts.push(`- **${s.act}**: ${s.summary}`);
+    });
+    parts.push("");
+
+    // Key narrative markers from previous acts
+    if (gmMemory.previousActContext.narrativeMarkers.length > 0) {
+      parts.push("### Key Events From Previous Acts");
+      // Group by act for clarity
+      const byAct = new Map<string, Array<{ turn: number; marker: string }>>();
+      gmMemory.previousActContext.narrativeMarkers.forEach(m => {
+        if (!byAct.has(m.act)) byAct.set(m.act, []);
+        byAct.get(m.act)!.push({ turn: m.turn, marker: m.marker });
+      });
+      byAct.forEach((markers, act) => {
+        parts.push(`**${act}:**`);
+        markers.slice(-10).forEach(m => {
+          parts.push(`  - [T${m.turn}] ${m.marker}`);
+        });
+      });
+      parts.push("");
+    }
+
+    // Important: Remind GM to maintain established facts
+    parts.push("⚠️ **IMPORTANT**: The above events HAPPENED. Maintain continuity with them!");
+    parts.push("Do not contradict or forget established plot points from previous acts.");
     parts.push("");
   }
 

@@ -17,8 +17,8 @@ The tone is Megamind meets Despicable Me. Dr. Malevola wants to turn a spy into 
 
 ```bash
 # Clone
-git clone https://github.com/yourusername/dino-lair-mcp
-cd dino-lair-mcp
+git clone https://github.com/Krahe/ROLEPLAY-SANDBOX
+cd ROLEPLAY-SANDBOX
 
 # One-command setup (installs, builds, and configures Claude Desktop)
 npm run quickstart
@@ -72,8 +72,8 @@ npm --version   # Should show 8.x.x or higher
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dino-lair-mcp
-cd dino-lair-mcp
+git clone https://github.com/Krahe/ROLEPLAY-SANDBOX
+cd ROLEPLAY-SANDBOX
 
 # Install dependencies
 npm install
