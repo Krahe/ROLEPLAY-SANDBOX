@@ -40,6 +40,7 @@ export const CompressedCheckpointSchema = z.object({
     ray: z.number(),
     demo: z.number().nullable(),
     acc: z.number(),
+    sec: z.boolean().optional(), // aliceKnowsTheSecret (v2.4.0)
   }),
 
   f: z.string(),
@@ -48,8 +49,8 @@ export const CompressedCheckpointSchema = z.object({
 
   npc: z.object({
     bob: z.object({ conf: z.boolean(), task: z.string(), stun: z.number() }),
-    blythe: z.object({ rest: z.string(), stun: z.number(), loc: z.string() }),
-    drM: z.object({ loc: z.string() }),
+    blythe: z.object({ rest: z.string(), stun: z.number(), loc: z.string(), esc: z.boolean().optional() }), // v2.5.0: blythe escaped
+    drM: z.object({ loc: z.string(), xf: z.string().optional() }), // v2.5.0: drM transformed form
   }),
 
   ray: z.object({
@@ -81,6 +82,20 @@ export const CompressedCheckpointSchema = z.object({
 
   ft: z.number().optional(),
   gm: z.string().optional(),
+
+  // v2.5.0: Critical state fields that MUST survive checkpoint
+  crit: z.object({
+    // ARCHIMEDES
+    arch: z.string().optional(),      // archimedes status (short code)
+    archT: z.number().optional(),     // archimedes turns until firing
+    // Confrontation
+    conf: z.boolean().optional(),     // confrontation triggered
+    confG: z.number().optional(),     // confrontation grace turns
+    // Alice confession
+    aConf: z.boolean().optional(),    // alice confessed during confrontation
+    // Alarm
+    alrm: z.string().optional(),      // alarm status
+  }).optional(),
 });
 
 /**
@@ -516,6 +531,7 @@ export interface CompressedCheckpoint {
     ray: number; // ray state enum
     demo: number | null; // demo clock
     acc: number; // access level
+    sec?: boolean; // aliceKnowsTheSecret (v2.4.0 - critical revelation flag!)
   };
 
   // Flags as short codes
@@ -530,8 +546,8 @@ export interface CompressedCheckpoint {
   // Essential NPC state for restoration
   npc: {
     bob: { conf: boolean; task: string; stun: number };
-    blythe: { rest: string; stun: number; loc: string };
-    drM: { loc: string };
+    blythe: { rest: string; stun: number; loc: string; esc?: boolean }; // v2.5.0: escaped
+    drM: { loc: string; xf?: string }; // v2.5.0: transformed form
   };
 
   // Ray essentials
@@ -569,6 +585,16 @@ export interface CompressedCheckpoint {
 
   // GM MEMORY (v2.3 - preserves "same DM" across checkpoints!)
   gm?: string;   // Serialized GM memory JSON
+
+  // v2.5.0: Critical state fields that MUST survive checkpoint
+  crit?: {
+    arch?: string;      // archimedes status (short code)
+    archT?: number;     // archimedes turns until firing
+    conf?: boolean;     // confrontation triggered
+    confG?: number;     // confrontation grace turns
+    aConf?: boolean;    // alice confessed during confrontation
+    alrm?: string;      // alarm status
+  };
 }
 
 // Ray state to enum (save chars)
@@ -643,6 +669,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       ray: RAY_STATE_ENUM[full.dinoRay.state] ?? 0,
       demo: full.clocks.demoClock,
       acc: full.accessLevel,
+      sec: full.flags.aliceKnowsTheSecret || false, // v2.4.0: explicit secret flag
     },
 
     f: compressFlags(narrativeFlags.slice(-20)), // Last 20 flags, compressed
@@ -661,9 +688,11 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
         rest: full.npcs.blythe.restraintsStatus,
         stun: full.npcs.blythe.stunLevel,
         loc: full.npcs.blythe.location,
+        esc: full.npcs.blythe.hasEscaped || false, // v2.5.0: preserve escape state
       },
       drM: {
         loc: full.npcs.drM.location,
+        xf: full.flags.drMTransformed ? full.flags.drMTransformedForm : undefined, // v2.5.0: preserve Dr. M transformation
       },
     },
 
@@ -715,6 +744,29 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
 
     // GM Memory (v2.3) - preserves "same DM" across checkpoints!
     gm: serializeGMMemory(),
+
+    // v2.5.0: Critical state fields that MUST survive checkpoint
+    crit: (full.infrastructure?.archimedes?.status !== "STANDBY" ||
+           full.flags.confrontationTriggered ||
+           full.flags.aliceConfessedDuringConfrontation ||
+           full.lairEnvironment?.alarmStatus !== "quiet")
+      ? {
+          // ARCHIMEDES (only if not standby)
+          arch: full.infrastructure?.archimedes?.status !== "STANDBY"
+            ? full.infrastructure.archimedes.status.slice(0, 4)
+            : undefined,
+          archT: full.infrastructure?.archimedes?.turnsUntilFiring ?? undefined,
+          // Confrontation
+          conf: full.flags.confrontationTriggered || undefined,
+          confG: full.flags.confrontationGraceTurns ?? undefined,
+          // Alice confession
+          aConf: full.flags.aliceConfessedDuringConfrontation || undefined,
+          // Alarm
+          alrm: full.lairEnvironment?.alarmStatus !== "quiet"
+            ? full.lairEnvironment.alarmStatus
+            : undefined,
+        }
+      : undefined,
   };
 }
 
@@ -770,10 +822,10 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         stunResistanceUsed: false,
         spyTrainingBonus: 1,
         autoInjectorUsed: false,
-        // Escape tracking (defaults on checkpoint restoration)
-        hasEscaped: false,
-        escapeTurn: null,
-        escapeMethod: null,
+        // Escape tracking (v2.5.0: preserve escape state!)
+        hasEscaped: compressed.npc.blythe.esc ?? false,
+        escapeTurn: compressed.npc.blythe.esc ? compressed.t - 1 : null, // Estimate
+        escapeMethod: null, // Can't fully preserve method, null is safe
       },
       // Gadgets reset to minimal state on decompression
       blytheGadgets: {
@@ -844,10 +896,11 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
     },
 
     // CRITICAL: These were stripped from v2.0 for size - restore defaults!
+    // v2.5.0: Restore alarm status from checkpoint if available
     lairEnvironment: {
       lairPowerGrid: "stable",
       structuralIntegrity: 100,
-      alarmStatus: "quiet" as const,
+      alarmStatus: (compressed.crit?.alrm as "quiet" | "local" | "full-lair") ?? "quiet",
       corridorStatus: "clear",
       labHazards: [],
     },
@@ -871,7 +924,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       predatorProfileClearedForLive: {},
       exoticFieldEventOccurred: false,
       lastHighEnergyTurn: null,
-      aliceKnowsTheSecret: decompressFlags(compressed.f).includes("SECRET_REVEALED"),
+      aliceKnowsTheSecret: compressed.m.sec ?? decompressFlags(compressed.f).includes("SECRET_REVEALED"), // v2.4.0: prefer explicit flag, fallback to narrativeFlags
       // CRITICAL: Restore secret reveal method (v2.0.1 fix)
       secretRevealMethod: compressed.srm
         ? (compressed.srm === "BOB" ? "BOB_CONFESSION"
@@ -895,6 +948,14 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         transformationCount: 0,
         lastSuspicionScore: 3,
       },
+      // v2.5.0: Critical state - confrontation
+      confrontationTriggered: compressed.crit?.conf ?? false,
+      confrontationGraceTurns: compressed.crit?.confG ?? undefined,
+      // v2.5.0: Critical state - Alice confession
+      aliceConfessedDuringConfrontation: compressed.crit?.aConf ?? false,
+      // v2.5.0: Dr. M transformation
+      drMTransformed: !!compressed.npc.drM.xf,
+      drMTransformedForm: compressed.npc.drM.xf,
     },
 
     // CRITICAL: Restore prompt state (v2.0.2 fix for checkpoint resume bug)
@@ -998,10 +1059,22 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         exceptedSignatures: [],
       },
       archimedes: {
-        status: "STANDBY",
+        // v2.5.0: Restore ARCHIMEDES status from checkpoint
+        status: compressed.crit?.arch
+          ? (compressed.crit.arch === "CHAR" ? "CHARGING"
+            : compressed.crit.arch === "ALER" ? "ALERT"
+            : compressed.crit.arch === "EVAL" ? "EVALUATING"
+            : compressed.crit.arch === "READ" ? "READY"
+            : compressed.crit.arch === "ARME" ? "ARMED"
+            : compressed.crit.arch === "TARG" ? "TARGETING"
+            : compressed.crit.arch === "FIRI" ? "FIRING"
+            : compressed.crit.arch === "BROA" ? "BROADCAST"
+            : compressed.crit.arch === "COMP" ? "COMPLETE"
+            : "STANDBY") as "STANDBY" | "ALERT" | "EVALUATING" | "CHARGING" | "READY" | "ARMED" | "TARGETING" | "FIRING" | "BROADCAST" | "COMPLETE"
+          : "STANDBY",
         mode: "STANDBY",
         chargePercent: 50,
-        turnsUntilFiring: null,
+        turnsUntilFiring: compressed.crit?.archT ?? null,
         alertCountdown: null,
         evaluatingCountdown: null,
         chargingCountdown: null,

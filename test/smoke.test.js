@@ -241,6 +241,113 @@ describe('Game Modes', () => {
   });
 });
 
+describe('Act Transition Memory Preservation', () => {
+  let gmClaude;
+
+  before(async () => {
+    gmClaude = await import(join(distPath, 'gm', 'gmClaude.js'));
+  });
+
+  it('preserves narrative markers across act transitions', () => {
+    // Reset to fresh memory
+    gmClaude.resetGMMemory('test-session');
+
+    // Populate with some narrative markers
+    const memory = gmClaude.getGMMemory();
+    memory.narrativeMarkers.push(
+      { turn: 1, marker: 'Bob discovered A.L.I.C.E. accessing restricted files' },
+      { turn: 3, marker: 'Dr. M activated the dinosaur ray for the first time' },
+      { turn: 5, marker: 'Blythe attempted escape and was recaptured' }
+    );
+
+    // Populate with some turn summaries
+    memory.turnSummaries.push(
+      { turn: 1, summary: 'Initial briefing', outcome: 'A.L.I.C.E. received mission parameters' },
+      { turn: 3, summary: 'Ray calibration', outcome: 'Dinosaur ray calibrated to 60%' },
+      { turn: 5, summary: 'Crisis management', outcome: 'Escape attempt thwarted' }
+    );
+
+    // Trigger act transition
+    const actSummary = gmClaude.resetMemoryForActTransition('ACT_1', 'ACT_2', 1, 5);
+
+    // Verify act summary was generated
+    assert.ok(actSummary, 'Should return act summary');
+    assert.strictEqual(actSummary.fromAct, 'ACT_1', 'Should have correct fromAct');
+    assert.strictEqual(actSummary.toAct, 'ACT_2', 'Should have correct toAct');
+
+    // Verify previousActContext is preserved
+    const newMemory = gmClaude.getGMMemory();
+    assert.ok(newMemory.previousActContext, 'Should have previousActContext');
+
+    // Check narrative markers were preserved with act tags
+    assert.ok(newMemory.previousActContext.narrativeMarkers.length > 0,
+      'Should preserve narrative markers');
+    assert.ok(newMemory.previousActContext.narrativeMarkers.some(m => m.act === 'ACT_1'),
+      'Markers should be tagged with act name');
+
+    // Check turn summaries were preserved
+    assert.ok(newMemory.previousActContext.turnSummaries.length > 0,
+      'Should preserve turn summaries');
+
+    // Check act summary was added
+    assert.ok(newMemory.previousActContext.actSummaries.length > 0,
+      'Should have act summaries');
+    assert.ok(newMemory.previousActContext.actSummaries.some(s => s.act === 'ACT_1'),
+      'Should include ACT_1 summary');
+  });
+
+  it('accumulates context across multiple act transitions', () => {
+    // Start fresh
+    gmClaude.resetGMMemory('test-multi-act');
+
+    // ACT 1 content
+    const mem1 = gmClaude.getGMMemory();
+    mem1.narrativeMarkers.push({ turn: 1, marker: 'Act 1 event' });
+    mem1.turnSummaries.push({ turn: 1, summary: 'Act 1', outcome: 'Act 1 completed' });
+
+    // Transition ACT_1 → ACT_2
+    gmClaude.resetMemoryForActTransition('ACT_1', 'ACT_2', 1, 3);
+
+    // ACT 2 content
+    const mem2 = gmClaude.getGMMemory();
+    mem2.narrativeMarkers.push({ turn: 4, marker: 'Act 2 event' });
+    mem2.turnSummaries.push({ turn: 4, summary: 'Act 2', outcome: 'Act 2 completed' });
+
+    // Transition ACT_2 → ACT_3
+    gmClaude.resetMemoryForActTransition('ACT_2', 'ACT_3', 4, 6);
+
+    // Verify cumulative preservation
+    const finalMemory = gmClaude.getGMMemory();
+
+    // Should have markers from both acts
+    const act1Markers = finalMemory.previousActContext.narrativeMarkers.filter(m => m.act === 'ACT_1');
+    const act2Markers = finalMemory.previousActContext.narrativeMarkers.filter(m => m.act === 'ACT_2');
+    assert.ok(act1Markers.length > 0, 'Should preserve ACT_1 markers');
+    assert.ok(act2Markers.length > 0, 'Should preserve ACT_2 markers');
+
+    // Should have summaries from both acts
+    assert.ok(finalMemory.previousActContext.actSummaries.length >= 2,
+      'Should have summaries from multiple acts');
+  });
+
+  it('respects marker/summary limits', () => {
+    gmClaude.resetGMMemory('test-limits');
+
+    // Add more markers than the limit (30 total)
+    const memory = gmClaude.getGMMemory();
+    for (let i = 0; i < 35; i++) {
+      memory.narrativeMarkers.push({ turn: i, marker: `Event ${i}` });
+    }
+
+    // Trigger transition
+    gmClaude.resetMemoryForActTransition('ACT_1', 'ACT_2', 1, 35);
+
+    const newMemory = gmClaude.getGMMemory();
+    assert.ok(newMemory.previousActContext.narrativeMarkers.length <= 30,
+      'Should cap narrative markers at 30');
+  });
+});
+
 describe('Error Handling', () => {
   it('does not throw on import', async () => {
     // If we got this far, imports worked

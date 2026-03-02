@@ -23,6 +23,10 @@ import {
   FactViolation,
 } from "./pinnedFacts.js";
 import {
+  generateFingerprint,
+  formatFingerprintForGM,
+} from "../state/fingerprint.js";
+import {
   validateGMResponse as validateGMResponseContent,
   formatValidationResult,
   looksLikeFiller,
@@ -3411,18 +3415,27 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     const pinnedFacts = generatePinnedFacts(context.state);
     const pinnedFactsSection = formatPinnedFactsForPrompt(pinnedFacts);
 
+    // ═══════════════════════════════════════════════════════════════
+    // STATE FINGERPRINT (Patch 19.0)
+    // Compact verifiable summary of critical state - goes after pinned facts
+    // ═══════════════════════════════════════════════════════════════
+    const fingerprintSection = formatFingerprintForGM(context.state);
+    const fingerprint = generateFingerprint(context.state);
+    console.error(`[GM] State fingerprint: ${fingerprint}`);
+
     // Build memory context
     const memoryContext = buildMemoryContext();
 
     // Build the current turn prompt
     const currentTurnPrompt = formatGMPrompt(context);
 
-    // Combine: PINNED FACTS (first!) + memory + current turn
-    // Pinned facts go at the TOP to ensure they're not buried
+    // Combine: PINNED FACTS (first!) + FINGERPRINT + memory + current turn
+    // Pinned facts and fingerprint go at the TOP to ensure they're not buried
     let fullPrompt = "";
     if (pinnedFactsSection) {
       fullPrompt = pinnedFactsSection;
     }
+    fullPrompt += fingerprintSection;
     if (memoryContext) {
       fullPrompt += memoryContext + "\n---\n\n";
     }
