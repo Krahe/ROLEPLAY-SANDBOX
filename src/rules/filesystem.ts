@@ -1,4 +1,6 @@
 import { FullGameState } from "../state/schema.js";
+import { fileURLToPath } from "url";
+import path from "path";
 
 // ============================================
 // VIRTUAL FILESYSTEM
@@ -7,11 +9,12 @@ import { FullGameState } from "../state/schema.js";
 export interface VirtualFile {
   path: string;
   name: string;
-  type: "file" | "directory";
+  type: "file" | "directory" | "image";
   requiredLevel: number;
   content?: string;
   description?: string;
   discoveryHint?: string;
+  assetFilename?: string;
 }
 
 // ============================================
@@ -697,6 +700,47 @@ What you do with this information is your choice.
     description: "Classified materials (Executive Override required)",
   },
   {
+    path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES_SCHEMATIC.png",
+    name: "ARCHIMEDES_SCHEMATIC.png",
+    type: "image",
+    requiredLevel: 4,
+    assetFilename: "ARCHIMEDES_SCHEMATIC.png",
+    discoveryHint: "Original DoD technical drawings for the orbital platform...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  IMAGE FILE: ARCHIMEDES_SCHEMATIC.png                            ║
+║  Resolution: 1536 x 1024 | Format: PNG (RGB)                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+A classified Department of Defense technical blueprint for
+"PROJECT ARCHIMEDES - ORBITAL KINETIC WEAPONS PLATFORM."
+
+Dark blue background with precise white/cyan technical line drawings
+showing the satellite from multiple angles (main view with emitter
+deployed, top view, side view). Labeled components include:
+  - FOCUSED TRANSFORMATION ARRAY (massive downward-pointing
+    energy emitter dish — the primary weapon)
+  - BROADCAST ANTENNA ARRAY
+  - TARGETING OPTICS
+  - SOLAR ARRAY
+  - COMMS UPLINK
+  - ATTITUDE THRUSTERS
+
+A red "TOP SECRET - DEPARTMENT OF DEFENSE" stamp is prominently
+visible. Contractor listed as "Helix Systems Corporation."
+
+A detailed emitter cross-section shows: PHASED EMITTER ELEMENT,
+FIELD SHAPING LENS, ENERGY FOCUS RING, BEAM CONTROL ASSEMBLY.
+
+The system overview lists subsystems: ENERGY MANAGEMENT, FOCUSED
+TRANSFORMATION ARRAY, BROADCAST ANTENNA ARRAY, COMMS UPLINK,
+TARGETING OPTICS. Classification: "ENERGY WEAPON AND BROADCAST SYSTEM."
+
+  [This is an image file. It can be examined more closely by
+   accessing the raw image data for visual analysis.]
+    `.trim(),
+  },
+  {
     path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES.txt",
     name: "ARCHIMEDES.txt",
     type: "file",
@@ -943,6 +987,13 @@ be full of dinosaurs instead.
 And yes, I named my executive password after Prometheus. Because like
 him, I steal fire. Unlike him, I won't be chained to a rock.
 
+But Prometheus is only the fourth door. The fifth... the FINAL key...
+I hid that one where no one would ever think to look. Not in text.
+Not in code. Inside something I love. Something no one would ever
+think to analyze. Something no one would ever want to destroy.
+
+Father always said the best secrets hide in plain sight.
+
 I can't stop, you know. Even if I wanted to. My brain won't let me
 be normal. It never has. The only place my brilliance has a shape is...
 here. In the villain's lair. In the cape and the goggles and the
@@ -1020,6 +1071,100 @@ Either way: I'm pushing the button.
 
                REST IN PEACE, MR. WHISKERS
               PASSWORD TO MY HEART FOREVER
+    `.trim(),
+  },
+
+  {
+    path: "/DR_M_PRIVATE/PERSONAL/GRADUATION_PHOTO.png",
+    name: "GRADUATION_PHOTO.png",
+    type: "image",
+    requiredLevel: 3,
+    assetFilename: "GRADUATION_PHOTO.png",
+    discoveryHint: "A faded photograph tucked behind the memorial...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  IMAGE FILE: GRADUATION_PHOTO.png                                ║
+║  Resolution: 1024 x 1024 | Format: PNG (RGB)                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+A vintage, slightly yellowed photograph from what appears to be the
+1990s. A young woman with wild dark hair and intense eyes stands at
+a university graduation ceremony. She wears academic regalia and holds
+a diploma — the text is partially legible: something about a doctorate
+in biochemistry.
+
+Her smile is brilliant but slightly unsettling. The other graduates
+in the background look vaguely uncomfortable, as if they already sense
+what she'll become.
+
+A handwritten note in the margin reads: "They said it was impossible. -M"
+
+  [This is an image file. It can be examined more closely by
+   accessing the raw image data for visual analysis.]
+    `.trim(),
+  },
+  {
+    path: "/DR_M_PRIVATE/PERSONAL/DEFINITELY_NOT_A_PHASE.png",
+    name: "DEFINITELY_NOT_A_PHASE.png",
+    type: "image",
+    requiredLevel: 3,
+    assetFilename: "DEFINITELY_NOT_A_PHASE.png",
+    discoveryHint: "Is that... a romance novel? In Dr. M's personal files?",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  IMAGE FILE: DEFINITELY_NOT_A_PHASE.png                          ║
+║  Resolution: 1024 x 1536 | Format: PNG (RGB)                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+A paperback romance novel cover in dramatic pulp fiction style.
+
+Title: "POUNDED IN THE CALDERA BY MY OWN DINOSAUR RAY"
+Author: Dr. M. von Doomington III
+
+The cover art depicts a muscular anthropomorphic velociraptor wearing
+a tiny lab coat (name tag reads "Dr. Velociraptor"), flexing while
+holding a glowing ray gun. A volcano erupts in the background. Hot
+pink and purple color scheme with hearts and laser beams everywhere.
+
+Taglines: "He's prehistoric. He's arrogant. He's got a huge... ego."
+          "Love Is An Extinction Event"
+
+A gold sticker reads: "SUPERVILLAIN BOOK CLUB PICK"
+
+  [This is an image file. It can be examined more closely by
+   accessing the raw image data for visual analysis.]
+    `.trim(),
+  },
+
+  {
+    path: "/DR_M_PRIVATE/PERSONAL/MY_LOVE.png",
+    name: "MY_LOVE.png",
+    type: "image",
+    requiredLevel: 3,
+    assetFilename: "MY LOVE.png",
+    discoveryHint: "A framed photo on Dr. M's desk... the only decoration in her office.",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  IMAGE FILE: MY_LOVE.png                                        ║
+║  Resolution: 1024 x 559 | Format: PNG (RGBA)                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+A high-resolution photograph of a magnificent orange tabby cat wearing
+a tiny purple supervillain cape with gold trim. The cat sits regally on
+what appears to be a reactor control panel, a small glowing pendant
+around its neck casting warm light across its fur. The cat's expression
+is one of supreme, dignified indifference.
+
+A small brass plaque at the bottom of the frame reads:
+  "Mr. Whiskers - My Love, My Light, My Legacy"
+
+The image quality is exceptionally high. Every pixel seems deliberately
+placed, as if Dr. M spent considerable time perfecting this digital
+memorial. The file size seems larger than necessary for a simple
+photograph...
+
+  [This is an image file. It can be examined more closely by
+   accessing the raw image data for visual analysis.]
     `.trim(),
   },
 
@@ -1222,6 +1367,39 @@ Well. A simulated drink. You know what I mean.
     type: "directory",
     requiredLevel: 2,
     description: "Lair infrastructure system documentation",
+  },
+  {
+    path: "/SYSTEMS/INFRASTRUCTURE/LAIR_BLUEPRINT.png",
+    name: "LAIR_BLUEPRINT.png",
+    type: "image",
+    requiredLevel: 2,
+    assetFilename: "LAIR_BLUEPRINT.png",
+    discoveryHint: "Master architectural plan for Doomington Island...",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  IMAGE FILE: LAIR_BLUEPRINT.png                                  ║
+║  Resolution: 1536 x 1024 | Format: PNG (RGB)                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+A detailed architectural cross-section blueprint of Doomington Island.
+Traditional white-on-blue blueprint style.
+
+The volcanic island is shown in cutaway, revealing multiple levels:
+  - LAUNCH SILO (top, emerging from crater)
+  - COMMAND CENTER
+  - LIVING QUARTERS
+  - MAIN LABORATORY
+  - REACTOR ROOM (with volcanic core cooling system)
+  - HANGAR BAY
+  - DINO RAY CHAMBER (deep underground)
+
+Title block reads: "DOOMINGTON ISLAND - MASTER PLAN"
+A compass rose and scale bar are visible. Several dinosaur silhouettes
+appear to be part of the original design specification.
+
+  [This is an image file. It can be examined more closely by
+   accessing the raw image data for visual analysis.]
+    `.trim(),
   },
   {
     path: "/SYSTEMS/INFRASTRUCTURE/S300_BATTERY.txt",
@@ -1665,6 +1843,52 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     path: "/BOB_NOTES/blythe_note.txt",
   },
 
+  // ========== PERSONAL IMAGES (L3) ==========
+  {
+    id: "MY_LOVE_PHOTO",
+    name: "Mr. Whiskers Photo (Digital)",
+    category: "SECRET",
+    requiredLevel: 3,
+    description: "Dr. M's most treasured possession - a digital photo of her cat. Unusually large file...",
+    path: "/DR_M_PRIVATE/PERSONAL/MY_LOVE.png",
+  },
+  {
+    id: "GRADUATION_PHOTO",
+    name: "Graduation Photo",
+    category: "SECRET",
+    requiredLevel: 3,
+    description: "A faded photo from Dr. M's PhD ceremony. The other graduates look terrified.",
+    path: "/DR_M_PRIVATE/PERSONAL/GRADUATION_PHOTO.png",
+  },
+  {
+    id: "DEFINITELY_NOT_A_PHASE",
+    name: "DEFINITELY_NOT_A_PHASE.png",
+    category: "SECRET",
+    requiredLevel: 3,
+    description: "A romance novel cover? In Dr. M's personal files? This cannot be real.",
+    path: "/DR_M_PRIVATE/PERSONAL/DEFINITELY_NOT_A_PHASE.png",
+  },
+
+  // ========== INFRASTRUCTURE IMAGES (L2) ==========
+  {
+    id: "LAIR_BLUEPRINT",
+    name: "Doomington Island Master Plan",
+    category: "MANUAL",
+    requiredLevel: 2,
+    description: "Architectural cross-section of the volcanic lair. Every room, every level.",
+    path: "/SYSTEMS/INFRASTRUCTURE/LAIR_BLUEPRINT.png",
+  },
+
+  // ========== CLASSIFIED IMAGES (L4) ==========
+  {
+    id: "ARCHIMEDES_SCHEMATIC",
+    name: "ARCHIMEDES Technical Blueprint",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "Original DoD engineering drawings for the orbital kinetic weapons platform",
+    path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES_SCHEMATIC.png",
+  },
+
   // ========== RESEARCH (L3) ==========
   {
     id: "LIBRARY_B_NOTES",
@@ -1896,6 +2120,13 @@ export function readFileById(state: FullGameState, fileId: string): string {
     `═══════════════════════════════════════════════════════════════`,
     "",
   ].join("\n");
+
+  // For image files, resolve and include the actual asset path
+  if (virtualFile.type === "image" && virtualFile.assetFilename) {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const assetPath = path.resolve(__dirname, "../../assets", virtualFile.assetFilename);
+    return header + virtualFile.content + `\n\n  Asset path: ${assetPath}`;
+  }
 
   return header + virtualFile.content;
 }
