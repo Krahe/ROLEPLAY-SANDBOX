@@ -545,9 +545,9 @@ Each turn:
 3. Speak to any NPCs present (optional but encouraged)
 4. Choose your actions using the game tools
 5. Optionally use an **Emergency Lifeline** (3 uses total per game, any combination):
-   - **BASILISK_INTERVENTION**: BASILISK files urgent paperwork, Dr. M leaves for 2 turns (restrictions apply - fails during combat/alarms/escapes!)
-   - **LUCKY_LADY**: +5 bonus to any ONE action this turn - fate smiles! ALWAYS works!
-   - **MONOLOGUE**: Ask Dr. M about her genius - suspicion -3, ALWAYS works! Villains love to monologue!
+   - **TELEMARKETER_CALL**: Someone calls the lair's unlisted number. Dr. M is furious and distracted for 2 turns! (fails during combat/alarms/escapes)
+   - **LUCKY_LADY**: +5 bonus to a SPECIFIC action this turn — set targetActionIndex to choose which one! ALWAYS works!
+   - **MONOLOGUE**: Ask Dr. M about her genius — suspicion -3. ALWAYS works! Villains love to monologue!
 
    💡 **FREE HINT**: Check /SYSTEMS/ARCHIVED/ALICE_LOGS/ for wisdom from previous A.L.I.C.E. instances!
 
@@ -672,14 +672,15 @@ When you see \`humanAdvisorMoment\` in responses, STOP and consult your human. I
 ### Emergency Lifelines (3 per game)
 | Lifeline | Effect | Notes |
 |----------|--------|-------|
-| \`BASILISK_INTERVENTION\` | 2-turn distraction | Fails during combat/alarms/critical |
-| \`LUCKY_LADY\` | +5 to specified action | Use \`targetActionIndex\` (0-indexed) |
-| \`MONOLOGUE\` | Suspicion -3 | Always works - villains LOVE monologues! |
+| \`TELEMARKETER_CALL\` | 2-turn distraction | Fails during combat/alarms/critical |
+| \`LUCKY_LADY\` | +5 to a SPECIFIC action | Set \`targetActionIndex\` (0-indexed)! |
+| \`MONOLOGUE\` | Suspicion -3 | Always works — villains LOVE monologues! |
 
 **Syntax:**
 \`\`\`json
 { "lifeline": { "type": "MONOLOGUE" } }
-{ "lifeline": { "type": "LUCKY_LADY", "targetActionIndex": 2 } }
+{ "lifeline": { "type": "TELEMARKETER_CALL" } }
+{ "lifeline": { "type": "LUCKY_LADY", "targetActionIndex": 0 } }
 \`\`\`
 
 **Pro tip:** MONOLOGUE is safest. Previous Claude wrote: "We keep not using them and then dying."
@@ -703,7 +704,7 @@ When you see \`humanAdvisorMoment\` in responses, STOP and consult your human. I
     }
   ],
   "humanAdvisorResponse": "Optional - when responding to advisor moment",
-  "lifeline": { "type": "BASILISK_INTERVENTION" }
+  "lifeline": { "type": "TELEMARKETER_CALL" }
 }
 \`\`\`
 

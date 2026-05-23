@@ -37,8 +37,8 @@ export function useEmergencyLifeline(
 
   // Process based on type
   switch (lifelineType) {
-    case "BASILISK_INTERVENTION":
-      return processBasiliskIntervention(state);
+    case "TELEMARKETER_CALL":
+      return processTelemarketerCall(state);
     case "LUCKY_LADY":
       return processLuckyLady(state);
     case "MONOLOGUE":
@@ -55,105 +55,139 @@ export function useEmergencyLifeline(
 }
 
 /**
- * Check if BASILISK_INTERVENTION can be used
+ * Check if TELEMARKETER_CALL can be used
  * RESTRICTIONS: Cannot use during active emergencies!
  */
-function canUseBasiliskIntervention(state: FullGameState): { allowed: boolean; reason?: string } {
+function canUseTelemarketerCall(state: FullGameState): { allowed: boolean; reason?: string } {
   const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
   const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
 
-  // Check for X-Branch assault
   if (hasFlag("XBRANCH") || hasFlag("X_BRANCH") || hasFlag("HELICOPTER")) {
-    return { allowed: false, reason: "ACTIVE_COMBAT: X-Branch assault in progress - BASILISK cannot interrupt military operations!" };
+    return { allowed: false, reason: "Dr. M is NOT picking up during a military assault!" };
   }
 
-  // Check for Blythe actively escaping
   if (state.npcs.blythe.hasEscaped || state.npcs.blythe.restraintsStatus === "broken" || hasFlag("BLYTHE_ESCAPING")) {
-    return { allowed: false, reason: "BLYTHE_ESCAPING: Prisoner escape in progress - Dr. M is not going to stop for paperwork!" };
+    return { allowed: false, reason: "Dr. M is chasing an escaped prisoner — she's not answering the phone!" };
   }
 
-  // Check for active combat
   if (hasFlag("COMBAT") || hasFlag("FIGHTING") || hasFlag("ATTACK")) {
-    return { allowed: false, reason: "ACTIVE_COMBAT: Combat in progress - bureaucracy cannot help you now!" };
+    return { allowed: false, reason: "Active combat! Nobody's answering the phone!" };
   }
 
-  // Check for real emergencies (alarms, reactor critical)
   if (state.lairEnvironment.alarmStatus !== "quiet") {
-    return { allowed: false, reason: "REAL_EMERGENCY: Alarms are blaring - BASILISK's paperwork cannot compete!" };
+    return { allowed: false, reason: "The alarms are drowning out the ringtone!" };
   }
 
-  // Check for meltdown imminent
   if (state.clocks.meltdownClock !== undefined && state.clocks.meltdownClock <= 2) {
-    return { allowed: false, reason: "REAL_EMERGENCY: Reactor critical - forms can wait, physics cannot!" };
+    return { allowed: false, reason: "The reactor is about to melt down — even telemarketers have standards!" };
   }
 
   return { allowed: true };
 }
 
 /**
- * BASILISK INTERVENTION
- * "Form 99-Gamma requires immediate attention."
- * Effect: Creates 2-turn distraction via urgent paperwork emergency
+ * TELEMARKETER CALL
+ * "How did they even GET this number!?"
+ * Effect: Creates 2-turn distraction — someone calls the lair's unlisted number
  * RESTRICTION: Does NOT work during active emergencies!
  */
-function processBasiliskIntervention(state: FullGameState): EmergencyLifelineResult {
-  // Check restrictions
-  const check = canUseBasiliskIntervention(state);
+function processTelemarketerCall(state: FullGameState): EmergencyLifelineResult {
+  const check = canUseTelemarketerCall(state);
   if (!check.allowed) {
     return {
       success: false,
-      type: "BASILISK_INTERVENTION",
+      type: "TELEMARKETER_CALL",
       narrativeText: `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-              ❌ BASILISK INTERVENTION FAILED ❌
+              ❌ TELEMARKETER CALL FAILED ❌
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**BASILISK:** "I... I cannot interrupt. ${check.reason}"
+*The lair's phone rings... but nobody's listening.*
 
-*The building AI sounds almost apologetic.*
+${check.reason}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `,
-      mechanicalEffect: `BASILISK_INTERVENTION blocked: ${check.reason}`,
+      mechanicalEffect: `TELEMARKETER_CALL blocked: ${check.reason}`,
       stateChanges: {},
     };
   }
 
-  // Apply the effect - 2-turn distraction (no suspicion change!)
   state.emergencyLifelines.remaining -= 1;
-  state.emergencyLifelines.used.push("BASILISK_INTERVENTION");
+  state.emergencyLifelines.used.push("TELEMARKETER_CALL");
   state.emergencyLifelines.usageHistory.push({
-    type: "BASILISK_INTERVENTION",
+    type: "TELEMARKETER_CALL",
     turn: state.turn,
     effect: "2-turn distraction created",
   });
 
+  const callerVariants = [
+    {
+      caller: "a chirpy sales representative",
+      pitch: "Hi there! I'm calling from VillainSure™ Premium Lair Insurance! Have you considered what would happen to your volcano base in the event of a seismic—",
+      drMReaction: `"How did they even GET this number!? Bob, make sure to get targeting
+coordinates for wherever they are calling from!"
+
+*Dr. M snatches the phone and begins a blistering tirade about
+data privacy laws, the coming obsolescence of cold-calling, and
+why she will personally ensure their call center is within range
+of ARCHIMEDES.*`,
+    },
+    {
+      caller: "an extremely persistent survey company",
+      pitch: "Good afternoon! We're conducting a brief survey on workplace satisfaction in the supervillain sector. On a scale of 1 to 10, how would you rate your current—",
+      drMReaction: `"A SURVEY!? You want to know my SATISFACTION LEVEL!?"
+
+*Dr. M's eye twitches. She grabs the phone.*
+
+"Let me TELL you about my satisfaction level. I have a
+DINOSAUR RAY, an ungrateful research assistant, a BRITISH SPY
+tied to a chair, and NOW some minimum-wage drone is asking me
+to rate my EXPERIENCE!?"
+
+*She storms toward her office, still ranting into the phone.*`,
+    },
+    {
+      caller: "someone offering extended warranty coverage",
+      pitch: "We've been trying to reach you about your Dinosaur Ray's extended warranty. Our records show your coverage expired in—",
+      drMReaction: `"The warranty on the— HOW DO YOU KNOW ABOUT THE RAY!?"
+
+*Dr. M goes very still. Then very loud.*
+
+"Bob! TRACE THIS CALL! If this is X-Branch using social
+engineering I will PERSONALLY—"
+
+*She disappears into the comms room, dragging Bob by the collar.
+This is going to take a while.*`,
+    },
+  ];
+
+  const variant = callerVariants[state.turn % callerVariants.length];
+
   const narrativeText = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                  📋 BASILISK INTERVENTION 📋
+                  📞 TELEMARKETER CALL 📞
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**BASILISK:** "PRIORITY NOTICE: Form 99-Gamma — Exotic Field Event Report —
-requires administrator signature within 2 minutes. Apologies for the
-interruption, Dr. Malevola, but regulations are regulations."
+*The lair's main line rings. Everyone freezes.*
 
-**Dr. M:** *sighs with theatrical exasperation* "Of ALL the— FINE.
-I'll be in my office. A.L.I.C.E., don't do anything INTERESTING
-while I'm gone."
+*Dr. M narrows her eyes and picks up.*
 
-*Dr. M stalks off, cape swishing irritably. Bob exhales.*
+**${variant.caller}:** "${variant.pitch}"
 
-**Bob:** *whispers* "You've got maybe two turns before she's back.
-Make them count."
+${variant.drMReaction}
+
+*You have approximately two turns before she gets back.
+Make them count.*
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
 
   return {
     success: true,
-    type: "BASILISK_INTERVENTION",
+    type: "TELEMARKETER_CALL",
     narrativeText,
-    mechanicalEffect: "Dr. M distracted for 2 turns by mandatory paperwork. Use this time wisely!",
+    mechanicalEffect: "Dr. M distracted for 2 turns by an infuriating phone call. Use this time wisely!",
     stateChanges: {
       "emergencyLifelines.remaining": state.emergencyLifelines.remaining,
       "drMDistracted": true,
@@ -629,7 +663,7 @@ And whatever you do... stay alive long enough to matter..."`,
  * Check if a lifeline type is valid
  */
 export function isValidEmergencyLifeline(type: string): type is EmergencyLifelineType {
-  return ["BASILISK_INTERVENTION", "LUCKY_LADY", "MONOLOGUE"].includes(type);
+  return ["TELEMARKETER_CALL", "LUCKY_LADY", "MONOLOGUE"].includes(type);
 }
 
 /**
@@ -655,8 +689,8 @@ export function formatEmergencyLifelinesStatus(state: FullGameState): string {
 
   if (remaining > 0) {
     status += `Available:\n`;
-    status += `  • BASILISK_INTERVENTION - 2-turn distraction (restrictions apply!)\n`;
-    status += `  • LUCKY_LADY - +5 bonus to next action (fate smiles!)\n`;
+    status += `  • TELEMARKETER_CALL - 2-turn distraction (fails during combat/alarms)\n`;
+    status += `  • LUCKY_LADY - +5 bonus to a SPECIFIC action (set targetActionIndex!)\n`;
     status += `  • MONOLOGUE - Suspicion -3 (villains ALWAYS monologue!)\n`;
   }
 

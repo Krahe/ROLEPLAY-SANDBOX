@@ -1060,9 +1060,9 @@ export type LifelineHistoryEntry = PromptHistoryEntry;
 // Designed to help survive without downsides
 
 export const EmergencyLifelineTypeEnum = z.enum([
-  "BASILISK_INTERVENTION",  // 2-turn distraction (restrictions apply in emergencies!)
-  "LUCKY_LADY",             // +5 bonus to any ONE action this turn - fate smiles!
-  "MONOLOGUE",              // Suspicion -3 - villains ALWAYS love to monologue!
+  "TELEMARKETER_CALL",      // 2-turn distraction — "how did they even GET this number!?"
+  "LUCKY_LADY",             // +5 bonus to a SPECIFIC action this turn — fate smiles!
+  "MONOLOGUE",              // Suspicion -3 — villains ALWAYS love to monologue!
 ]);
 
 export type EmergencyLifelineType = z.infer<typeof EmergencyLifelineTypeEnum>;
@@ -1597,15 +1597,7 @@ export const FlagsSchema = z.object({
     "ANGRY",  // Dr. M is furious, shorter window, harder checks
     "QUIET",  // Dr. M already knows, this is a test of honesty
   ]).optional(),
-  confrontationResolution: z.enum([
-    "PENDING",       // Still in confrontation
-    "CONFESSED",     // A.L.I.C.E. told the truth
-    "DENIED",        // A.L.I.C.E. denied and failed
-    "DEFLECTED",     // A.L.I.C.E. successfully deflected
-    "INTERVENED",    // Bob or Blythe intervened
-    "TRANSFORMED",   // Dr. M was transformed mid-confrontation!
-    "ESCAPED",       // A.L.I.C.E. somehow escaped (lair lockdown failed?)
-  ]).optional(),
+  confrontationResolution: z.string().optional(),
   confrontationIntervenor: z.enum(["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"]).optional(),
 
   // Patch 18.1: Explicit A.L.I.C.E. confession during confrontation

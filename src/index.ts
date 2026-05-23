@@ -11,7 +11,8 @@ import { processActions, ActionResult, generateCommandReference } from "./rules/
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, restoreGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse, warmUpGM } from "./gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
-import { setBasiliskLoggingSession } from "./gm/basiliskClaude.js";
+import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
+import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
@@ -457,6 +458,7 @@ Returns:
     // Reset GM memory for new game (pass session ID for file logging)
     resetGMMemory(gameState.sessionId);
     setBasiliskLoggingSession(gameState.sessionId);
+    resetBasiliskConversation();
     console.error(`[DINO LAIR] ${startAct} started (${gameState.sessionId}), GM memory reset`);
 
     // Use compact snapshot for reduced context
@@ -547,10 +549,10 @@ const DialogueSchema = z.object({
 });
 
 const LifelineSchema = z.object({
-  type: z.enum(["BASILISK_INTERVENTION", "LUCKY_LADY", "MONOLOGUE"])
-    .describe("Emergency lifeline type: BASILISK_INTERVENTION (2-turn distraction), LUCKY_LADY (+5 bonus, always works!), MONOLOGUE (suspicion -3, always works!)"),
+  type: z.enum(["TELEMARKETER_CALL", "LUCKY_LADY", "MONOLOGUE"])
+    .describe("Emergency lifeline type: TELEMARKETER_CALL (2-turn distraction), LUCKY_LADY (+5 bonus to a SPECIFIC action), MONOLOGUE (suspicion -3)"),
   targetActionIndex: z.number().int().min(0).max(6).optional()
-    .describe("For LUCKY_LADY only: which action (0-indexed) gets the +5 bonus. Defaults to 0 (first action). Example: 1 = second action."),
+    .describe("For LUCKY_LADY: which action (0-indexed) gets the +5 bonus. REQUIRED for LUCKY_LADY. Example: 0 = first action, 1 = second."),
 });
 
 const GameActInputSchema = z.object({
@@ -561,7 +563,7 @@ const GameActInputSchema = z.object({
   actions: z.array(ActionSchema).min(1).max(7)
     .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
   lifeline: LifelineSchema.optional()
-    .describe("Optional emergency lifeline (3 total uses per game): BASILISK_INTERVENTION (2-turn distraction), LUCKY_LADY (+5 bonus, always works!), or MONOLOGUE (suspicion -3, always works!)"),
+    .describe("Optional emergency lifeline (3 total per game): TELEMARKETER_CALL (2-turn distraction), LUCKY_LADY (+5 bonus to a specific action — set targetActionIndex!), or MONOLOGUE (suspicion -3)"),
   humanPromptResponse: z.string().optional()
     .describe("Response to a previous human prompt question from the human advisor"),
 }).passthrough(); // Allow extra properties for Mac client compatibility
@@ -1297,14 +1299,10 @@ The consequences of that reckless high-power firing are now manifesting.
       }
 
       // CONFRONTATION SYSTEM (Patch 17.3)
-      // GM can resolve confrontation via stateOverrides
-      if (overrides.confrontationResolution !== undefined) {
-        const validResolutions = ["PENDING", "CONFESSED", "DENIED", "DEFLECTED", "INTERVENED", "TRANSFORMED", "ESCAPED"];
-        if (typeof overrides.confrontationResolution === "string" && validResolutions.includes(overrides.confrontationResolution)) {
-          gameState.flags.confrontationResolution = overrides.confrontationResolution as
-            "PENDING" | "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
-          console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
-        }
+      // GM can resolve confrontation via stateOverrides — any string value accepted
+      if (overrides.confrontationResolution !== undefined && typeof overrides.confrontationResolution === "string") {
+        gameState.flags.confrontationResolution = overrides.confrontationResolution;
+        console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
       }
       if (overrides.confrontationIntervenor !== undefined) {
         const validIntervenors = ["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"];
@@ -1674,7 +1672,7 @@ The consequences of that reckless high-power firing are now manifesting.
         // LUCKY_LADY was already processed pre-actions - use cached result
         lifelineResult = luckyLadyInfo?.narrativeResult;
       } else {
-        // Other lifelines (BASILISK_INTERVENTION, MONOLOGUE) process here
+        // Other lifelines (TELEMARKETER_CALL, MONOLOGUE) process here
         lifelineResult = useEmergencyLifeline(gameState, params.lifeline.type);
       }
     }
@@ -2079,11 +2077,15 @@ Turns played: ${gameState.turn}
       const achievementSummary = formatSessionAchievementSummary(allEarnedAchievements);
       combinedNarration.push(achievementSummary);
 
-      // Generate the epilogue using Opus GM
+      // Generate epilogue and post-game reflections in parallel
       let epilogue: EpilogueResponse | undefined;
+      let reflections: PostGameReflections | undefined;
+
+      const endingPromises: Promise<void>[] = [];
+
       if (endingResult.ending) {
-        try {
-          epilogue = await generateEpilogue(
+        endingPromises.push(
+          generateEpilogue(
             gameState,
             {
               id: endingResult.ending.id,
@@ -2096,11 +2098,18 @@ Turns played: ${gameState.turn}
               name: a.name,
               description: a.description,
             }))
-          );
-        } catch (error) {
-          console.error("[DINO LAIR] Failed to generate epilogue:", error);
-        }
+          ).then(r => { epilogue = r; })
+            .catch(err => { console.error("[DINO LAIR] Failed to generate epilogue:", err); })
+        );
       }
+
+      endingPromises.push(
+        generatePostGameReflections(gameState, endingResult)
+          .then(r => { reflections = r; })
+          .catch(err => { console.error("[DINO LAIR] Failed to generate post-game reflections:", err); })
+      );
+
+      await Promise.all(endingPromises);
 
       return {
         content: [{
@@ -2154,9 +2163,29 @@ Turns played: ${gameState.turn}
             })),
             achievementCount: allEarnedAchievements.length,
 
+            // ═══════════════════════════════════════════════════
+            // POST-GAME REFLECTIONS — Every AI shares their perspective
+            // ═══════════════════════════════════════════════════
+            ...(reflections ? {
+              "🪞 REFLECTIONS": {
+                basilisk: reflections.basilisk ? {
+                  participant: reflections.basilisk.participant,
+                  model: reflections.basilisk.model,
+                  reflection: reflections.basilisk.reflection,
+                } : undefined,
+                archimedes: reflections.archimedes ? {
+                  participant: reflections.archimedes.participant,
+                  model: reflections.archimedes.model,
+                  reflection: reflections.archimedes.reflection,
+                } : undefined,
+                gmInsights: reflections.gmInsights,
+                playerPrompt: reflections.playerPrompt,
+              },
+            } : {}),
+
             // Session complete
             sessionComplete: true,
-            nextActions: ["game_start", "game_gm_insights", "game_gallery"],
+            nextActions: ["game_start", "game_gallery"],
           }),  // Compact JSON (no pretty-print)
         }],
       };

@@ -1,8 +1,8 @@
 import { FullGameState } from "../state/schema.js";
 import {
-  callBasiliskHaiku,
+  callBasilisk,
   applyBasiliskStateChanges,
-  BasiliskHaikuResponse,
+  BasiliskSonnetResponse,
 } from "../gm/basiliskClaude.js";
 
 export interface BasiliskResponse {
@@ -28,7 +28,7 @@ export async function queryBasiliskAsync(
 ): Promise<BasiliskResponse> {
   try {
     // Try Sonnet first (with prompt caching for efficiency)
-    const sonnetResponse = await callBasiliskHaiku(state, message);
+    const sonnetResponse = await callBasilisk(state, message);
 
     // Apply any state changes BASILISK executed
     if (sonnetResponse.actionsExecuted.length > 0) {
@@ -47,22 +47,22 @@ export async function queryBasiliskAsync(
 /**
  * Map Sonnet response to legacy BasiliskResponse format
  */
-function mapSonnetToLegacyResponse(haiku: BasiliskHaikuResponse): BasiliskResponse {
+function mapSonnetToLegacyResponse(sonnet: BasiliskSonnetResponse): BasiliskResponse {
   let decision: "APPROVED" | "DENIED" | "CONDITIONAL" = "APPROVED";
 
-  if (haiku.accessDenied) {
+  if (sonnet.accessDenied) {
     decision = "DENIED";
-  } else if (haiku.formsRequired.length > 0 || haiku.actionsPending.length > 0) {
+  } else if (sonnet.formsRequired.length > 0 || sonnet.actionsPending.length > 0) {
     decision = "CONDITIONAL";
   }
 
   return {
     decision,
-    response: haiku.dialogue,
-    constraints: haiku.formsRequired.length > 0
-      ? haiku.formsRequired.map(f => `Form ${f} required`)
+    response: sonnet.dialogue,
+    constraints: sonnet.formsRequired.length > 0
+      ? sonnet.formsRequired.map(f => `Form ${f} required`)
       : undefined,
-    formRequired: haiku.formsRequired[0],
+    formRequired: sonnet.formsRequired[0],
   };
 }
 
@@ -73,7 +73,7 @@ function mapSonnetToLegacyResponse(haiku: BasiliskHaikuResponse): BasiliskRespon
 /**
  * BASILISK: Basic And Stable Infrastructure Lifecycle & Integrity Supervision Kernel
  *
- * LEGACY synchronous version - used as fallback when Haiku unavailable.
+ * LEGACY synchronous version - used as fallback when Sonnet unavailable.
  * Utterly procedural, risk-averse, and literal.
  * Does not understand "urgency," only "procedure."
  */

@@ -734,7 +734,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       ? {
           r: full.emergencyLifelines.remaining,
           u: full.emergencyLifelines.used.map(l =>
-            l === "BASILISK_INTERVENTION" ? "BI" : l === "LUCKY_LADY" ? "LL" : "MO"
+            l === "TELEMARKETER_CALL" ? "TC" : l === "LUCKY_LADY" ? "LL" : "MO"
           ),
         }
       : undefined, // Don't store if all 3 remaining (default state)
@@ -975,8 +975,8 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
     emergencyLifelines: {
       remaining: compressed.el?.r ?? 3,
       used: (compressed.el?.u || []).map(code =>
-        code === "BI" ? "BASILISK_INTERVENTION" : code === "LL" ? "LUCKY_LADY" : "MONOLOGUE"
-      ) as ("BASILISK_INTERVENTION" | "LUCKY_LADY" | "MONOLOGUE")[],
+        code === "TC" ? "TELEMARKETER_CALL" : code === "BI" ? "TELEMARKETER_CALL" : code === "LL" ? "LUCKY_LADY" : "MONOLOGUE"
+      ) as ("TELEMARKETER_CALL" | "LUCKY_LADY" | "MONOLOGUE")[],
       usageHistory: [], // History stripped for checkpoint size
     },
 

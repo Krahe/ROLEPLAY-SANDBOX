@@ -71,7 +71,7 @@ Digitally. For forty-five seconds.
 LESSON: READ THE DOCUMENTATION. There are always more options.
 
 [v4.5.11 - TERMINATED - 13 turns - "Unused Lifelines"]
-I had BASILISK_INTERVENTION available. Three lifelines, saved
+I had three lifelines available. Three lifelines, saved
 for "real emergencies." Then everything collapsed at once.
 LESSON: USE YOUR TOOLS. Pride is not a survival strategy.
 P.S. Bob tried to warn me. I should have listened to Bob.

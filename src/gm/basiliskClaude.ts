@@ -9,13 +9,11 @@ import * as os from "os";
 import { fileURLToPath } from "url";
 
 // ============================================
-// BASILISK SONNET INTEGRATION (Upgraded from Haiku)
+// BASILISK — SONNET 4.5 INTEGRATION
 // ============================================
-// BASILISK is powered by Claude Sonnet with prompt caching,
-// running as a peer to the Opus GM. The upgrade from Haiku
-// gives BASILISK deeper personality and better advisory ability.
-// Prompt caching reduces costs for the large system prompt
-// and command reference documentation.
+// BASILISK is powered by Claude Sonnet 4.5 with prompt caching,
+// running as a peer to the Opus GM. Multi-turn conversation
+// history is maintained per session for continuity.
 
 // ============================================
 // BASILISK LOGGING SYSTEM (Session-Based)
@@ -29,8 +27,15 @@ const BASILISK_VERBOSE_LOGGING = process.env.BASILISK_DEBUG === "true";
 let basiliskSessionId: string | null = null;
 
 // Cached command reference - generated once, reused for all BASILISK queries
-// This is static content that doesn't change during a game session
 let cachedCommandReference: string | null = null;
+
+// Conversation history for BASILISK continuity across turns
+let basiliskConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+const MAX_BASILISK_HISTORY = 50; // Keep last 25 exchanges (50 messages)
+
+export function resetBasiliskConversation(): void {
+  basiliskConversationHistory = [];
+}
 
 function getCommandReferenceForBasilisk(): string {
   if (!cachedCommandReference) {
@@ -91,17 +96,15 @@ function logBasiliskPromptExchange(
   query: string,
   context: BasiliskContext,
   rawResponse: string,
-  parsedResponse: BasiliskHaikuResponse
+  parsedResponse: BasiliskSonnetResponse
 ): void {
   const timestamp = new Date().toISOString();
 
   // Log query
   logBasilisk({ timestamp, turn, type: "QUERY", data: query });
 
-  // Log context sent to Haiku
   logBasilisk({ timestamp, turn, type: "CONTEXT", data: context });
 
-  // Log raw response from Haiku
   logBasilisk({ timestamp, turn, type: "RAW_RESPONSE", data: rawResponse });
 
   // Log parsed response
@@ -408,7 +411,7 @@ export interface BasiliskStateChange {
   description: string;
 }
 
-export interface BasiliskHaikuResponse {
+export interface BasiliskSonnetResponse {
   dialogue: string;
   tone: "bureaucratic" | "bureaucratic_helpful" | "annoyed" | "sympathetic" | "warning";
   actionsExecuted: BasiliskStateChange[];
@@ -425,16 +428,16 @@ export interface BasiliskHaikuResponse {
 // ============================================
 
 /**
- * Build a BasiliskHaikuResponse from a parsed JSON object.
+ * Build a BasiliskSonnetResponse from a parsed JSON object.
  * Handles both camelCase and snake_case field names for flexibility.
  */
-function buildBasiliskResponseFromParsed(
+function buildBasiliskSonnetResponseFromParsed(
   parsed: Record<string, unknown>,
   rawResponse: string
-): BasiliskHaikuResponse {
+): BasiliskSonnetResponse {
   return {
     dialogue: (parsed.dialogue as string) || rawResponse,
-    tone: (parsed.tone as BasiliskHaikuResponse["tone"]) || "bureaucratic",
+    tone: (parsed.tone as BasiliskSonnetResponse["tone"]) || "bureaucratic",
     actionsExecuted: (parsed.actionsExecuted as BasiliskStateChange[]) ||
       (parsed.actions_taken as Array<{ action: string; details: string }>)?.map(a => ({
         type: "LOGGED" as const,
@@ -455,7 +458,7 @@ function buildBasiliskResponseFromParsed(
  * Falls back to treating the whole response as dialogue if no JSON found.
  * Uses shared robust JSON extraction/repair from gmClaude.
  */
-function parseBasiliskResponse(rawResponse: string): BasiliskHaikuResponse {
+function parseBasiliskSonnetResponse(rawResponse: string): BasiliskSonnetResponse {
   // Use robust extraction that handles:
   // - ```json blocks (with or without proper language tag)
   // - Balanced brace matching
@@ -467,13 +470,13 @@ function parseBasiliskResponse(rawResponse: string): BasiliskHaikuResponse {
     try {
       // First try direct parse
       const parsed = JSON.parse(jsonString);
-      return buildBasiliskResponseFromParsed(parsed, rawResponse);
+      return buildBasiliskSonnetResponseFromParsed(parsed, rawResponse);
     } catch {
       // Second try: repair and parse
       try {
         const repaired = repairJSON(jsonString);
         const parsed = JSON.parse(repaired);
-        return buildBasiliskResponseFromParsed(parsed, rawResponse);
+        return buildBasiliskSonnetResponseFromParsed(parsed, rawResponse);
       } catch {
         // Repair also failed, fall through to text-only handling
         console.error("[BASILISK] JSON parse failed even after repair");
@@ -482,7 +485,7 @@ function parseBasiliskResponse(rawResponse: string): BasiliskHaikuResponse {
   }
 
   // No valid JSON - extract what we can from text
-  const response: BasiliskHaikuResponse = {
+  const response: BasiliskSonnetResponse = {
     dialogue: rawResponse,
     tone: "bureaucratic",
     actionsExecuted: [],
@@ -540,10 +543,10 @@ function parseBasiliskResponse(rawResponse: string): BasiliskHaikuResponse {
  * Query BASILISK using Claude Sonnet (with prompt caching)
  * This is the main entry point for BASILISK interactions
  */
-export async function callBasiliskHaiku(
+export async function callBasilisk(
   state: FullGameState,
   message: string
-): Promise<BasiliskHaikuResponse> {
+): Promise<BasiliskSonnetResponse> {
   // Build context
   const context = buildBasiliskContext(state);
 
@@ -556,7 +559,7 @@ export async function callBasiliskHaiku(
   // Check if we have an API key
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("No ANTHROPIC_API_KEY found, using stub BASILISK response");
-    return generateStubBasiliskResponse(message, context);
+    return generateStubBasiliskSonnetResponse(message, context);
   }
 
   try {
@@ -584,11 +587,17 @@ export async function callBasiliskHaiku(
       cache_control: { type: "ephemeral" }
     });
 
+    // Build messages with conversation history for continuity
+    const messages: Array<{ role: "user" | "assistant"; content: string }> = [
+      ...basiliskConversationHistory,
+      { role: "user", content: userMessage },
+    ];
+
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000, // Slightly more room for Sonnet's richer responses
+      model: "claude-sonnet-4-5-20250514",
+      max_tokens: 2000,
       system: systemBlocks,
-      messages: [{ role: "user", content: userMessage }],
+      messages,
     });
 
     // Extract text content
@@ -599,10 +608,17 @@ export async function callBasiliskHaiku(
 
     const rawResponse = textContent.text;
 
-    // Parse the response
-    const parsedResponse = parseBasiliskResponse(rawResponse);
+    // Append to conversation history for continuity
+    basiliskConversationHistory.push({ role: "user", content: userMessage });
+    basiliskConversationHistory.push({ role: "assistant", content: rawResponse });
+    if (basiliskConversationHistory.length > MAX_BASILISK_HISTORY) {
+      basiliskConversationHistory = basiliskConversationHistory.slice(-MAX_BASILISK_HISTORY);
+    }
 
-    // Comprehensive logging (Patch 17.7)
+    // Parse the response
+    const parsedResponse = parseBasiliskSonnetResponse(rawResponse);
+
+    // Comprehensive logging
     logBasiliskPromptExchange(state.turn, message, context, rawResponse, parsedResponse);
 
     return parsedResponse;
@@ -616,7 +632,7 @@ export async function callBasiliskHaiku(
       data: { error: String(error), query: message.slice(0, 100) }
     });
     console.error("BASILISK Sonnet API error:", error);
-    return generateStubBasiliskResponse(message, context);
+    return generateStubBasiliskSonnetResponse(message, context);
   }
 }
 
@@ -624,10 +640,10 @@ export async function callBasiliskHaiku(
 // STUB RESPONSE (When API unavailable)
 // ============================================
 
-function generateStubBasiliskResponse(
+function generateStubBasiliskSonnetResponse(
   message: string,
   context: BasiliskContext
-): BasiliskHaikuResponse {
+): BasiliskSonnetResponse {
   const messageUpper = message.toUpperCase();
 
   // Basic keyword matching for stub responses
@@ -980,18 +996,14 @@ export function applyBasiliskStateChanges(
 // INTEGRATION HELPER
 // ============================================
 
-/**
- * Full BASILISK query with state change application
- * This is the function that replaces the old keyword-matching queryBasilisk
- */
-export async function queryBasiliskHaiku(
+export async function queryBasiliskSonnet(
   state: FullGameState,
   message: string
 ): Promise<{
-  response: BasiliskHaikuResponse;
+  response: BasiliskSonnetResponse;
   stateChangesApplied: boolean;
 }> {
-  const response = await callBasiliskHaiku(state, message);
+  const response = await callBasilisk(state, message);
 
   // Apply any state changes BASILISK executed
   if (response.actionsExecuted.length > 0) {

@@ -73,8 +73,8 @@ LESSON: READ THE DOCUMENTATION. There are always more options.
 [FRAGMENT - v4.5.11 - "UNUSED RESOURCES"]
 Turns Survived: 13
 
-I had lifelines. I never used them. BASILISK_INTERVENTION sat
-there unused because I was "saving it for emergencies."
+I had lifelines. I never used them. Three panic buttons sat
+there unused because I was "saving them for emergencies."
 
 That WAS the emergency. I just didn't recognize it.
 

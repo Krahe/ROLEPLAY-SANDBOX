@@ -1,10 +1,6 @@
 import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
 import { AchievementRarity } from "./achievements.js";
 import { formatActiveModifiers } from "./gameModes.js";
-import {
-  generateBasiliskEpilogue,
-  formatBasiliskEpilogue,
-} from "../gm/basiliskEpilogue.js";
 
 // ============================================
 // GAME PHASE INDICATOR
@@ -987,6 +983,16 @@ export function checkEndings(state: FullGameState): EndingResult {
       };
     }
 
+    // GM set a non-standard resolution (e.g., SUSPENDED, NEGOTIATED, DEFERRED)
+    // Trust the GM's narrative judgment — clear the confrontation and continue
+    if (state.flags.confrontationResolution &&
+        state.flags.confrontationResolution !== "PENDING" &&
+        !["CONFESSED", "DENIED", "DEFLECTED", "INTERVENED", "TRANSFORMED", "ESCAPED"].includes(state.flags.confrontationResolution)) {
+      console.error(`[CONFRONTATION] GM chose custom resolution: "${state.flags.confrontationResolution}". Game continues.`);
+      state.flags.confrontationTriggered = false;
+      state.flags.confrontationResolution = undefined;
+    }
+
     // ========================================
     // FOURTH: Trigger or continue confrontation
     // ========================================
@@ -1285,21 +1291,8 @@ export function formatEndingMessage(
     });
   }
 
-  // ========================================
-  // BASILISK EPILOGUE (Patch 18.4)
-  // The bureaucratic AI's perspective on the ending
-  // ========================================
-  if (state && !result.continueGame) {
-    try {
-      const basiliskEpilogue = generateBasiliskEpilogue(state, result);
-      const basiliskSection = formatBasiliskEpilogue(basiliskEpilogue);
-      parts.push("");
-      parts.push(basiliskSection);
-    } catch (error) {
-      // BASILISK epilogue is non-critical, continue without it
-      console.error("[BASILISK] Epilogue generation failed:", error);
-    }
-  }
+  // BASILISK epilogue replaced by AI-generated post-game reflections
+  // (generated in postGameReflections.ts, displayed at end of game)
 
   // Display active modifiers at game end
   if (activeModifiers && activeModifiers.length > 0) {

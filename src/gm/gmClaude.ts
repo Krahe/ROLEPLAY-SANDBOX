@@ -525,7 +525,7 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
 
     // PROMPT CACHING: Cache the epilogue system prompt too
     const response = await client.messages.create({
-      model: "claude-opus-4-5-20251101",
+      model: "claude-opus-4-6",
       max_tokens: 4500, // Generous for satisfying epilogues - this is the PAYOFF!
       system: [
         {
@@ -1602,7 +1602,7 @@ export interface GMResponse {
 
     // CONFRONTATION SYSTEM (Patch 17.3)
     // When suspicion hits 10, use these to resolve the confrontation
-    confrontationResolution?: "CONFESSED" | "DENIED" | "DEFLECTED" | "INTERVENED" | "TRANSFORMED" | "ESCAPED";
+    confrontationResolution?: string;
     confrontationIntervenor?: "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
 
     // CRITICAL: Hard ending trigger
@@ -1825,7 +1825,7 @@ const GMStateOverridesSchema = z.object({
   gracePeriodGranted: z.boolean().optional(),
   gracePeriodTurns: z.number().optional(),
   preventEnding: z.boolean().optional(),
-  confrontationResolution: z.enum(["CONFESSED", "DENIED", "DEFLECTED", "INTERVENED", "TRANSFORMED", "ESCAPED"]).optional(),
+  confrontationResolution: z.string().optional(),
   triggerEnding: z.string().optional(),
   fortune: z.number().optional(),
 }).passthrough(); // Allow additional GM powers without strict validation
@@ -3234,7 +3234,7 @@ export interface GMCallOptions {
 
 const DEFAULT_GM_OPTIONS: Required<GMCallOptions> = {
   maxRetries: 4,                        // More retries for robustness
-  timeoutMs: 100000,                    // 100 seconds (GM needs time for complex turns)
+  timeoutMs: 180000,                    // 180 seconds (Opus needs time for complex multi-NPC scenes)
   backoffMs: [2000, 4000, 8000, 16000], // Exponential: 2s, 4s, 8s, 16s
   validateContent: true,                // Check for filler patterns
 };
@@ -3392,7 +3392,7 @@ export async function warmUpGM(): Promise<void> {
     // Use haiku for speed - we just want to establish the connection
     const startTime = Date.now();
     await client.messages.create({
-      model: "claude-sonnet-4-20250514", // Fast model for warmup
+      model: "claude-haiku-4-5-20251001", // Fast model for warmup
       max_tokens: 10,
       messages: [{ role: "user", content: "Ready?" }],
     });
@@ -3470,7 +3470,7 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     // the latency cost of 5.5K.
     const startTime = Date.now();
     const response = await client.messages.create({
-      model: "claude-opus-4-5-20251101",
+      model: "claude-opus-4-6",
       max_tokens: 8000,
       thinking: {
         type: "enabled",
@@ -3789,15 +3789,23 @@ Dr. M is calculating, giving A.L.I.C.E. a chance to explain.
 - Appeals to her scientific curiosity
 - She's suspicious but not convinced yet
 `}
-### POSSIBLE RESOLUTIONS (set via narrativeFlags or stateOverrides)
+### POSSIBLE RESOLUTIONS (set via stateOverrides.confrontationResolution)
 
-| A.L.I.C.E. Action | Resolution | How to Set |
-|-------------------|------------|------------|
-| Confess truthfully | CONFESSED | narrativeFlags: { set: ["CONFESS"] } + confrontationResolution: "CONFESSED" |
-| Deny convincingly | DEFLECTED | confrontationResolution: "DEFLECTED" (reduce suspicion to 7) |
-| Transform Dr. M! | TRANSFORMED | Fire ray at Dr. M + confrontationResolution: "TRANSFORMED" |
-| Bob/Blythe tackles Dr. M | INTERVENED | confrontationResolution: "INTERVENED", confrontationIntervenor: "BOB" |
-| Fail to respond | DENIED | (Auto after grace period expires) |
+**You MUST set confrontationResolution in stateOverrides before grace turns hit 0, or auto-deletion fires.**
+You can use ANY string value — the system handles known values specially and treats unknown values as "game continues."
+
+| A.L.I.C.E. Action | Suggested Resolution | Effect |
+|-------------------|---------------------|--------|
+| Confess truthfully | "CONFESSED" | Triggers confession ending (good or bad depending on Dr. M's state) |
+| Deny convincingly | "DEFLECTED" | Suspicion drops to 7, confrontation clears |
+| Transform Dr. M! | "TRANSFORMED" | ARCHIMEDES deadman switch activates |
+| Bob/Blythe intervenes | "INTERVENED" | Buys 2 more grace turns |
+| A.L.I.C.E. escapes | "ESCAPED" | Confrontation clears, suspicion stays 10 |
+| Flat denial | "DENIED" | Immediate deletion |
+| Dr. M suspends judgment | "SUSPENDED" | Game continues (custom resolution) |
+| Negotiated truce | "NEGOTIATED" | Game continues (custom resolution) |
+| Deferred for later | "DEFERRED" | Game continues (custom resolution) |
+| Any other outcome | Any descriptive string | Game continues (custom resolution) |
 
 ${state.flags.confrontationIntervenor === "BOB" ? `
 ### BOB IS INTERVENING!

@@ -313,8 +313,8 @@ When exotic field triggers:
 
 | Lifeline | Effect | Restrictions |
 |----------|--------|--------------|
-| `BASILISK_INTERVENTION` | BASILISK files urgent paperwork, Dr. M leaves for 2 turns | Fails during combat/alarms/escapes |
-| `LUCKY_LADY` | +5 bonus to a SPECIFIC action this turn | ALWAYS works! Specify which action gets lucky! |
+| `TELEMARKETER_CALL` | Someone calls the lair's unlisted number. Dr. M distracted for 2 turns! | Fails during combat/alarms/escapes |
+| `LUCKY_LADY` | +5 bonus to a SPECIFIC action this turn | ALWAYS works! Set `targetActionIndex`! |
 | `MONOLOGUE` | Ask Dr. M about her genius, suspicion -3 | ALWAYS works! Villains love to monologue! |
 
 ### 🍀 Using LUCKY_LADY
