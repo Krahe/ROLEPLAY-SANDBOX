@@ -1,4 +1,7 @@
 node_modules/
 dist/
 .env
+.api-key
+run-mcp.sh
 *.log
+.DS_Store

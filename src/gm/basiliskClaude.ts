@@ -404,6 +404,7 @@ export interface BasiliskStateChange {
     | "FIRE_SUPPRESSION"   // Trigger fire suppression
     | "BROADCAST"          // PA/radio broadcast
     | "S300"               // Air defense status
+    | "AUTHORITY_GRANT"    // Grant A.L.I.C.E. standing authorization (target: REACTOR | BROADCAST)
     | "FORM_FILED"         // Administrative action
     | "LOGGED";            // Just logging, no state change
   target?: string;         // Door ID, room ID, channel, etc.
@@ -594,7 +595,7 @@ export async function callBasilisk(
     ];
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 2000,
       system: systemBlocks,
       messages,
@@ -967,6 +968,26 @@ export function applyBasiliskStateChanges(
               state.infrastructure.s300.status = newStatus;
               console.error(`[BASILISK:S300] ${oldStatus} → ${newStatus}`);
             }
+          }
+        }
+        break;
+
+      // ─────────────────────────────────────────────
+      // AUTHORITY GRANT - Standing authorization for A.L.I.C.E.
+      // ─────────────────────────────────────────────
+      case "AUTHORITY_GRANT":
+        if (change.target && state.infrastructure?.basiliskAuthority) {
+          const system = change.target.toUpperCase();
+          if (system === "REACTOR") {
+            state.infrastructure.basiliskAuthority.reactorControlGranted = true;
+            state.infrastructure.basiliskAuthority.lastAuthorizationTurn = state.turn;
+            console.error(`[BASILISK:AUTH] Reactor control GRANTED to A.L.I.C.E.`);
+          } else if (system === "BROADCAST") {
+            state.infrastructure.basiliskAuthority.broadcastControlGranted = true;
+            state.infrastructure.basiliskAuthority.lastAuthorizationTurn = state.turn;
+            console.error(`[BASILISK:AUTH] Broadcast control GRANTED to A.L.I.C.E.`);
+          } else {
+            console.error(`[BASILISK:AUTH] Unknown system for authority grant: ${system}`);
           }
         }
         break;

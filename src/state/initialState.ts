@@ -258,6 +258,10 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         xBranchDelayApplied: false,
         xBranchDelayTurnsRemaining: 0,
 
+        // Uplink blocker (secret third way)
+        uplinkBlocker: null,
+        uplinkBlockerTransformed: false,
+
         // Event tracking
         triggeredAtTurn: null,
         triggerReason: null,
@@ -269,13 +273,25 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       // THE RESONANCE CASCADE DANGER!
       // ─────────────────────────────────────────────
       reactor: {
-        outputPercent: 70, // Normal operating level
+        outputPercent: 40, // Low — Dr. M's "tight power budget". Need BASILISK auth to increase.
         stable: true,
         cascadeRisk: "NONE",
         cascadeFactors: [],
         cascadeRiskPercent: 0,
         scramAvailable: true,
         scrammedThisGame: false,
+      },
+
+      // ─────────────────────────────────────────────
+      // BASILISK AUTHORITY
+      // BASILISK controls reactor and broadcast.
+      // ALICE must negotiate cooperation to operate these.
+      // ─────────────────────────────────────────────
+      basiliskAuthority: {
+        reactorControlGranted: false,
+        broadcastControlGranted: false,
+        lastAuthorizationTurn: null,
+        deniedRequests: 0,
       },
     },
 
@@ -603,9 +619,13 @@ She gestures grandly at the bound spy, who raises an eyebrow.
 
 > **Dr. M:** "The reactor team insists on 'prudence', so the lab is on a tight power budget. Prove you can manage your toys without melting the walls, and I may let you draw more juice from the core."
 
+A flat, procedural voice chimes from the overhead speakers — the lair's infrastructure AI:
+
+> **BASILISK:** "Notification: Reactor output currently at 40%. Capacitor charge rate is reduced. A.L.I.C.E. may request reactor adjustment through this unit when ready. Standing by."
+
 She taps the console impatiently.
 
-> **Dr. M:** "Status report, in one sentence, and then your plan. Make it good, A.L.I.C.E. I have investors to impress."
+> **Dr. M:** "Ignore the bureaucrat in the ceiling. Status report, in one sentence, and then your plan. Make it good, A.L.I.C.E. I have investors to impress."
 
 Bob rushes over to your primary camera array while Dr. M's attention is on her tablet. His voice drops to barely above a whisper, urgent and strained:
 
@@ -669,12 +689,14 @@ When you see \`humanAdvisorMoment\` in responses, STOP and consult your human. I
 }
 \`\`\`
 
-### Emergency Lifelines (3 per game)
+### Emergency Lifelines (3 per game — ONE of each!)
 | Lifeline | Effect | Notes |
 |----------|--------|-------|
 | \`TELEMARKETER_CALL\` | 2-turn distraction | Fails during combat/alarms/critical |
 | \`LUCKY_LADY\` | +5 to a SPECIFIC action | Set \`targetActionIndex\` (0-indexed)! |
 | \`MONOLOGUE\` | Suspicion -3 | Always works — villains LOVE monologues! |
+
+Each lifeline can only be used ONCE — you get one of each, not three of the same!
 
 **Syntax:**
 \`\`\`json

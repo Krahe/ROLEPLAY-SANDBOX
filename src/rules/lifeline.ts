@@ -35,6 +35,17 @@ export function useEmergencyLifeline(
     };
   }
 
+  // Each lifeline can only be used once
+  if (state.emergencyLifelines.used.includes(lifelineType)) {
+    return {
+      success: false,
+      type: lifelineType,
+      narrativeText: `⚠️ ${lifelineType} has already been used! Each lifeline can only be used once per game.`,
+      mechanicalEffect: "No effect - this lifeline was already used.",
+      stateChanges: {},
+    };
+  }
+
   // Process based on type
   switch (lifelineType) {
     case "TELEMARKETER_CALL":

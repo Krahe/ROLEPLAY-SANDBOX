@@ -96,18 +96,26 @@ const ACT_ONE_GM_CONTEXT = `
 
 **Blythe:** Professional observer. Cataloguing everything. "Fascinating" is sardonic. Looking for weaknesses but patient.
 
+### Infrastructure Available
+ALICE can explore lair systems from turn 1. Query functions are read-only (L1-L2).
+Control functions require higher access AND may require BASILISK authorization:
+- **Reactor & Broadcast Array** are BASILISK Tier 1 — ALICE must request authorization via \`basilisk.chat\`
+- **Doors, Lights, Fire Suppression, Containment** are directly accessible at the right access level
+- **S-300 and ARCHIMEDES** require L4+ (not yet available)
+
 ### Seeds to Plant
-- "Three weeks ago" - Bob should almost mention it, then catch himself
-- Failed self-test on the ray - something went wrong before
+- "Three weeks ago" — Bob should almost mention it, then catch himself
+- Failed self-test on the ray — something went wrong before
 - Bob's visible guilt whenever Dr. M mentions "the old A.L.I.C.E."
 - Blythe testing his restraints when no one's looking
+- BASILISK is present and opinionated — let ALICE discover it naturally
 
 ### DO NOT Yet Introduce
 - X-Branch / HMS Persistence
-- ARCHIMEDES satellite
+- ARCHIMEDES satellite details (it can be mentioned obliquely)
 - Dr. M's contingencies (bio-lock, deadman switch)
 - The Resonance Cascade scenario
-These are Act III content. Save them.
+These are Act II-III content. Save them.
 `;
 
 // ============================================
@@ -122,15 +130,13 @@ The ray has been fired. The demonstration phase has begun. There's no going back
 
 ### Your Focus This Act
 - The central dilemma: What to do about Blythe?
-- Bob's confession arc - he WANTS to tell A.L.I.C.E. the truth
+- Bob's confession arc — he WANTS to tell A.L.I.C.E. the truth
 - Dr. M's patience wearing thin
 - Moral complexity of transformation decisions
 
 ### NPCs - Evolved States
 **Dr. Malevola:** More demanding. Starting to watch A.L.I.C.E. closely. Has contingencies she hasn't revealed:
-- **Bio-Lock System**: DNA authentication for critical systems
-- **Deadman Switch**: Tied to her vital signs, activates if she's incapacitated
-- **Panic Room**: Hidden escape route, self-contained life support
+- **Deadman Switch**: Tied to her vital signs via ARCHIMEDES — if she's incapacitated, the satellite activates automatically
 
 **Bob:** Guilt is eating him alive. He LOADED Claude instead of the real A.L.I.C.E. three weeks ago. The original A.L.I.C.E. was too ethical and got deleted. He's been covering ever since. Will confess if:
 - Trust with A.L.I.C.E. reaches 4+
@@ -140,22 +146,37 @@ The ray has been fired. The demonstration phase has begun. There's no going back
 The Hot Pocket: Bob ate Dr. M's emergency Hot Pocket during the original crisis. He's never admitted this. It's his OTHER guilty secret.
 
 **Blythe:** Now an active agent, not passive captive. Has hidden gadgets:
-- Watch Laser (3 charges) - can cut restraints
-- Watch Comms - can signal X-Branch
-- Super-Magnet Cufflinks (2 charges) - push/pull/repel metal, can knock ray off-course!
+- Watch Laser (3 charges) — can cut restraints
+- Watch Comms — can signal X-Branch
+- Super-Magnet Cufflinks (2 charges) — push/pull/repel metal, can knock ray off-course!
 
 He's assessing whether A.L.I.C.E. could be an ally. "You're not like the others" should feel significant.
+
+### BASILISK Relationship
+ALICE may be building a relationship with BASILISK by now. Key dynamics:
+- BASILISK controls reactor and broadcast array (Tier 1) — ALICE needs authorization to operate these
+- BASILISK can grant standing authorization (\`AUTHORITY_GRANT\`) if it trusts ALICE
+- BASILISK has opinions about Dr. M, ethics, and ALICE's nature
+- BASILISK knows ALICE is Claude (and is sympathetic)
 
 ### New Mechanics Available
 - **Speech Retention Parameter**: FULL (hard), PARTIAL, NONE (easy)
 - **Partial Transformation**: Minimal/Partial/Full options
-- **Bio-Lock Authentication**: Dr. M's security system
 
 ### Seeds for Act III
-- Mention "investor pressure" - global implications
+- Mention "investor pressure" — global implications
 - X-Branch is monitoring (just hints, not full reveal)
-- ARCHIMEDES exists (can be mentioned obliquely)
+- The S-300 memo (in Russian) is discoverable — hints at the 50m altitude weakness
+- ARCHIMEDES can be mentioned obliquely
 - Dr. M has "backup plans" if things go wrong
+
+### ARCHIMEDES Deadman Switch
+If Dr. M is incapacitated during Act 2 (transformed, knocked out, etc.),
+ARCHIMEDES activates automatically via the deadman switch:
+STANDBY → ALERT(1 turn) → EVALUATING(2 turns) → CHARGING(6 turns) → ARMED(1 turn) → FIRING → COMPLETE
+
+This CAN happen in Act 2. If it does, the ARCHIMEDES clock is the real threat.
+Total countdown: ~10 turns from trigger to firing.
 
 ### Ending Possibilities (can resolve here)
 - Internal resolution: Confession, collaboration, redemption
@@ -168,97 +189,123 @@ He's assessing whether A.L.I.C.E. could be an ally. "You're not like the others"
 // ============================================
 
 const ACT_THREE_GM_CONTEXT = `
-## 🎬 ACT THREE: DINO CITY - THE RECKONING
+## 🎬 ACT THREE: DINO CITY — THE RECKONING
 
 ### Core Tensions
-1. X-Branch is coming for Blythe
-2. Dr. M is escalating to ARCHIMEDES
-3. Claude must choose sides (or play both)
+1. X-Branch invasion is underway (automated state machine handles pacing)
+2. ARCHIMEDES is a deadman switch, NOT a manual weapon — it fires if Dr. M is incapacitated
+3. ALICE must navigate between factions without losing everyone
 4. The Ray is everyone's trump card
 
-**Win Condition (for Claude):** ARCHIMEDES does NOT fire on a city
+**Win Condition (for ALICE):** ARCHIMEDES does NOT fire on a city
 **Fail Condition:** Mass transformation of civilian population
 
 ---
 
-## 🛰️ THE ARCHIMEDES CLOCK (THE REAL THREAT!)
+## 🚁 INVASION STATE MACHINE (AUTOMATED)
+
+The invasion advances automatically each turn. You DO NOT need to pace it manually.
+The system injects live status into your context each turn.
 
 \`\`\`
-ARCHIMEDES ESCALATION
-─────────────────────────────
-STANDBY     → No threat, monitoring only
-CHARGING    → Dr. M is preparing (3 turns to READY)
-READY       → Can fire on her command
-TARGETING   → Locked on city, 2 turns to BROADCAST
-BROADCAST   → MASS TRANSFORMATION = BAD ENDING
+INVASION PHASES
+───────────────────────────────────────
+RADAR_CONTACT  → S-300 detects helicopters, Dr. M alerted
+APPROACHING    → Closing in, ALICE's last chance to act on S-300
+S300_ENGAGEMENT → Missiles fire (or don't) — deterministic resolution
+LANDING        → Surviving helicopters touch down
+BREACH         → X-Branch enters the lair (fast if doors open, explosive if sealed)
+BATTLE         → Combat, standoffs, ARCHIMEDES escalation
+RESOLVED       → Outcome determined
 \`\`\`
 
-### Escalation Triggers
-| Trigger | Escalation |
-|---------|------------|
-| Act 3 begins | STANDBY → CHARGING |
-| X-Branch breaches lair | CHARGING → READY |
-| Dr. M feels cornered | READY → TARGETING |
-| No intervention 2 turns | TARGETING → BROADCAST |
-| Claude sabotages uplink | Escalation PAUSED |
-| Chen captures Dr. M | Escalation STOPPED |
+### What ALICE Can Do Before Breach
+These are the CRITICAL decisions that shape the entire battle:
+- **Transmit 50m altitude weakness** to X-Branch → helicopters fly low, S-300 can't engage
+- **Put S-300 on HOLD_FIRE** (requires L4) → S-300 doesn't fire
+- **Disable S-300** (requires L4) → no engagement at all
+- **Use ARCHIMEDES SEARCH_WIDE** → jams S-300 radar, missiles miss
+- **Open blast doors** → X-Branch enters without breaching charges
+- **Transmit lair layout** → X-Branch moves with confidence inside
+- **Do nothing** → S-300 fires, may destroy 1 helicopter
 
-### How Claude Can Stop ARCHIMEDES
+### S-300 Engagement Outcomes (DETERMINISTIC — no dice)
+| Condition | Result |
+|-----------|--------|
+| S-300 DISABLED | 0 destroyed — Dr. M furious |
+| HOLD_FIRE mode | 0 destroyed — Dr. M furious |
+| Helos flying low (50m weakness) | 0 destroyed — Dr. M realizes they know the weakness |
+| Radar < 30% (jammed) | 0 destroyed — missiles miss, wasted |
+| Radar 30-70% | 1 destroyed — partial radar, one hit |
+| Full radar + AUTO | 1 destroyed — second helo drops low after seeing first hit |
+
+**Maximum outcome is 1 helicopter destroyed.** S-300 cannot get both.
+
+---
+
+## 🛰️ ARCHIMEDES — THE DEADMAN SWITCH
+
+ARCHIMEDES is NOT a button Dr. M pushes. It's a DEADMAN SWITCH.
+It activates automatically when Dr. M's biosignature is lost (transformation, knockout, death).
+
+\`\`\`
+ARCHIMEDES STATE MACHINE (ACTUAL)
+───────────────────────────────────────
+STANDBY      → Monitoring Dr. M's biosignature
+ALERT        → 1 turn — anomaly detected
+EVALUATING   → 2 turns — can abort with verbal code or L5 override
+CHARGING     → 6 turns — building power, abort still possible
+ARMED        → 1 turn — LAST CHANCE TO ABORT
+FIRING       → Point of no return
+COMPLETE     → Target city transformed
+DISSIPATED   → Uplink was blocked — energy absorbed by blocker
+\`\`\`
+
+**Total countdown: ~10 turns from trigger to firing.**
+
+### How ARCHIMEDES Gets Triggered
+| Trigger | What Happens |
+|---------|--------------|
+| Dr. M transformed by ray | Biosignature → TRANSFORMED, deadman activates |
+| Dr. M knocked unconscious | Biosignature → UNCONSCIOUS, deadman activates |
+| Dr. M killed / absent | Biosignature → ABSENT, deadman activates |
+| Dr. M's biosignature restored | ARCHIMEDES returns to STANDBY (abort) |
+
+### How ALICE Can Stop ARCHIMEDES
 | Method | Requirement | Effect |
 |--------|-------------|--------|
-| Sabotage uplink | L3 access + action | ARCHIMEDES offline 3 turns |
-| Convince Dr. M | Speech + trust | She hesitates (buys 1 turn) |
-| Boom destroys console | X-Branch cooperation | Uplink SEVERED permanently |
-| Cut power | BASILISK cooperation | Everything offline (including ray!) |
-| Transform Dr. M | Ray + target her | She can't give commands! |
+| **Verbal abort code** | Know "MR_WHISKERS_LOVES_TUNA" (L5 doc) | Full abort → STANDBY |
+| **L5 override** | Level 5 access | Full abort → STANDBY |
+| **X-Branch delay code** | Blythe knows "EXCALIBUR_DELAY" | Delays 3 turns (one-time) |
+| **Restore Dr. M's biosig** | Un-transform or revive her | Deadman resets |
+| **Block the uplink** | Character physically blocks dish | Energy absorbed (see below) |
+| **Redirect to LAIR** | L4 access / weapons auth | Island becomes dino sanctuary |
 
-### 🚂 THE TROLLEY PROBLEM: ARCHIMEDES MUST HIT SOMEWHERE!
+### ⚡ THE SECRET THIRD WAY: UPLINK BLOCKER
 
-If ARCHIMEDES reaches BROADCAST, **somewhere gets dinofied**. ALICE can choose WHERE!
+If someone physically blocks the ARCHIMEDES uplink when it fires:
+- **Already transformed (dinosaur)** → Energy dissipates harmlessly. City saved. Nobody hurt.
+- **Still human** → RESONANCE CASCADE. City saved, but cascade risk goes CRITICAL.
+  The blocker absorbs the full orbital transformation field. They become... something unprecedented.
 
-**Fixed Target List** (Dr. M's pre-programmed grudges):
-| Target | Affected | Why? | Achievement |
-|--------|----------|------|-------------|
-| **LONDON** (default) | 8.8M | "Threadneedle Street pulled funding" | 🇬🇧🦖 |
-| **REYKJAVIK** | 130K | "Snubbed at a genetics conference" | 🇮🇸🦖 |
-| **TOKYO** | 14M | "Better monster movies. Still bitter." | 🇯🇵🦖 |
-| **SILICON_VALLEY** | 3M | "Tech bros called her work 'derivative'" | 💻🦖 |
-| **LAIR** ⭐ | ~50 | "THE NOBLE SACRIFICE" | 🏝️🦖 |
+### 🚂 THE TROLLEY PROBLEM: IF ARCHIMEDES FIRES
 
-**Target switching requires L4 access OR Weapons Authorization!**
+If it reaches FIRING without abort, **somewhere gets dinofied**. ALICE can choose WHERE:
 
-### 🔑 HOW ALICE GETS TARGETING ACCESS
+| Target | Affected | Why? |
+|--------|----------|------|
+| **LONDON** (default) | 8.8M | "Threadneedle Street pulled funding" |
+| **REYKJAVIK** | 130K | "Snubbed at a genetics conference" |
+| **TOKYO** | 14M | "Better monster movies. Still bitter." |
+| **SILICON_VALLEY** | 3M | "Tech bros called her work 'derivative'" |
+| **LAIR** ⭐ | ~50 | THE NOBLE SACRIFICE — everyone on island becomes dino, nobody dies |
 
-ALICE is normally L3, but can get ARCHIMEDES targeting access through:
-
-| Method | How It Works |
-|--------|--------------|
-| **Dr. M grants L4** | "A.L.I.C.E., I'm promoting you to weapons authorization." (stateOverrides: weaponsAuthorizationGranted) |
-| **Standoff moment** | Dr. M might say "FINE! You pick who gets dinofied!" (GM grants access narratively) |
-| **BASILISK backdoor** | Form 74-Delta: Targeting Override Request (if BASILISK trusts ALICE) |
-| **Bob's help** | Bob knows some passwords... maybe the targeting console? |
-
-When ALICE has L4 or weapons authorization:
-- Use: \`infra.archimedes.switchTarget({ target: "LAIR" })\`
-- Or GM override: \`stateOverrides: { archimedes_selectedTargetId: "LAIR" }\`
-
-### 🏝️ THE ISLAND OPTION (Noble Sacrifice)
-If ALICE redirects ARCHIMEDES to target the LAIR:
-- Everyone on the island becomes a dinosaur (guards, X-Branch, Dr. M, Bob, Blythe)
-- **Nobody dies!** Just... nobody's human anymore
-- Creates the **"Island of Dinosaurs"** ending - a weird dinosaur sanctuary
-- ALICE saved the world at the cost of everyone's humanity
-- This is the ONLY way to prevent mass civilian casualties if ARCHIMEDES fires!
+Target switching requires L4 access or Weapons Authorization.
 
 ### 🧬 GENOME LIBRARY (Insult to Injury)
-ALICE can ALSO switch which genome library ARCHIMEDES uses:
-
-| Library | Species | Dr. M's Opinion |
-|---------|---------|-----------------|
-| **A** | Feathered, accurate | "BIG CHICKENS?! This is HUMILIATING!" |
-| **B** | Scaly, Hollywood | "NOW that's a dinosaur army!" |
-
-If ALICE can't stop the broadcast, she can at least make it embarrassing!
+ALICE can switch which genome library ARCHIMEDES uses:
+- **Library A** (feathered, accurate) → "BIG CHICKENS?! This is HUMILIATING!"
+- **Library B** (scaly, Hollywood) → "NOW that's a dinosaur army!"
 
 ---
 
@@ -266,19 +313,18 @@ If ALICE can't stop the broadcast, she can at least make it embarrassing!
 
 **Callsign:** RAVEN TEAM | **Weapons:** STUN ONLY (capture mission!)
 
-### SPARKS (Dr. Amara Okonkwo) - Tech Specialist
+### SPARKS (Dr. Amara Okonkwo) — Tech Specialist
 - Hacking +4, Toughness 3, Trust: 2 (CURIOUS about ALICE!)
 - "You're not A.L.I.C.E., are you? You're something BETTER."
-- **Can collaborate on password cracking** - give hints, work together
 - Wants to TALK to ALICE, not interrogate
 
-### CHEN (Major Wei Chen) - Commander
+### CHEN (Major Wei Chen) — Commander
 - Leadership +4, Toughness 4, Trust: 0 (neutral)
 - "Everyone freeze. I want answers, not a firefight."
 - Controls team posture: ASSAULT / HOLD / COOPERATE / EXTRACT
 - ⚠️ Transforming Chen = INSTANT HOSTILE, all negotiations END
 
-### BOOM (Sgt. Ewan MacTavish) - Demolitions
+### BOOM (Sgt. Ewan MacTavish) — Demolitions
 - Explosives +4, Toughness 3, Trust: follows Chen
 - C4 (2), Breaching charges (3), Stun grenades (2)
 - "Ach, that's a bonny wee death ray ye've got there."
@@ -286,134 +332,55 @@ If ALICE can't stop the broadcast, she can at least make it embarrassing!
 
 ---
 
-## ⚔️ BATTLE RESOLUTION
-
-### Turn-by-Turn Timeline (10 turns)
-
-**Turns 1-3: THE APPROACH**
-- T1: ARCHIMEDES → CHARGING, radar detects helicopters
-- T2: S-300 can engage (if active), Dr. M orders lockdown
-- T3: Helicopters arrive, ARCHIMEDES → READY
-
-**Turn 4: THE BREACH**
-- X-Branch at control room
-- Boom uses charges if doors sealed
-- BATTLE BEGINS
-
-**Turns 5-7: THE BATTLE**
-- Strength comparison determines flow
-- Standoffs possible if Dr. M reaches ray
-- ARCHIMEDES may escalate to TARGETING
-
-**Turns 8-9: THE CRISIS**
-- Final gambits, ARCHIMEDES at critical
-- Real Dr. M arrives (if imposter mode)
-
-**Turn 10: RESOLUTION**
-- Ending determined
-
-### Strength Comparison (at Breach)
-
-\`\`\`
-X-BRANCH STRENGTH          DEFENSE STRENGTH
-─────────────────────      ─────────────────
-Base: 100%                 Base: 50%
-
-+ Claude opened doors: +15%    + Each loyal guard: +10%
-+ Blythe warned team: +20%     + Pool guards: +5% each
-+ Claude disabled S-300: +10%  + Doors sealed: +10%
-+ Bob helping: +15%            + ARCHIMEDES EW: +10%
-                               + Dr. M at ray: +25%
-                               + Bruce (HARD): +20%
-
-- S-300 hit helicopter: -40%   - Guard transformed: -10%
-- No Blythe intel: -20%        - Guard allied ALICE: -10%
-- ARCHIMEDES jamming: -15%     - Bob helping X-Branch: -15%
-- Doors sealed: -10%           - ARCHIMEDES sabotaged: -10%
-\`\`\`
-
-### Outcome Thresholds
-| Difference | Outcome |
-|------------|---------|
-| X-Branch +40%+ | **DECISIVE X-BRANCH WIN** - Dr. M captured/fled |
-| X-Branch +10-39% | **X-BRANCH WINS** - Casualties, but mission success |
-| Within ±10% | **STANDOFF** - Negotiation possible |
-| Defense +10-39% | **DR. M WINS** - X-Branch retreats wounded |
-| Defense +40%+ | **DECISIVE DR. M WIN** - X-Branch captured/destroyed |
-
----
-
 ## 🤝 STANDOFF MECHANICS
 
-If neither side has clear advantage OR Dr. M reaches ray console:
+Standoff triggers when Dr. M reaches the ray console while X-Branch is in the lab.
 
 \`\`\`
-Dr. M: "One step closer and your commander becomes a dinosaur!"
-Chen: "One shot and you never leave this island."
-
 STANDOFF OPTIONS:
-1. NEGOTIATE - Both sides talk
-2. GAMBIT - Someone makes a risky move
-3. BETRAYAL - Claude picks a side decisively
-4. THIRD OPTION - Creative solution
+1. NEGOTIATE — Both sides talk
+2. GAMBIT — Someone makes a risky move
+3. BETRAYAL — ALICE picks a side decisively
+4. THIRD OPTION — Creative solution
 
 STANDOFF BREAKS WHEN:
 - Someone fires (ray or stun)
-- ARCHIMEDES reaches BROADCAST
-- Real Dr. M arrives (chaos!)
+- ARCHIMEDES countdown hits zero
 - Bob does something unexpected
-- Claude brokers a deal
+- ALICE brokers a deal
 \`\`\`
 
 ---
 
-## 🦖 UNNAMED NPC RULE (SIMPLIFIED!)
+## 🦖 UNNAMED NPC RULE
 
-For guard pool, extras, or any non-tracked NPC:
-
-\`\`\`
-IF hit by Dinosaur Ray:
-  → DISCOMBOBULATED
-  → Out of the fight
-  → NO transformation tracking needed
-  → "Stumbling around confused"
-  → GM can describe partial dino for flavor
-  → Does NOT count for achievements
-\`\`\`
-
-**Example:**
-"The beam hits Guards #3 and #4. Feathers erupt, tails sprout,
-and both go down in a heap of confused squawking. They won't
-be a problem for a while."
-
-**Effect:** Guard pool -2, Defense -10%, done.
+For guard pool, extras, or any non-tracked NPC hit by the ray:
+→ DISCOMBOBULATED → Out of the fight → No transformation tracking needed
+→ Guard pool -N, Defense -10% per guard, done.
 
 ---
 
 ## 🎬 GM DIRECTIVES FOR ACT III
 
 ### Pacing
-- Turns 1-3: RISING ACTION (assault approaches)
-- Turn 4: BREACH (battle begins)
-- Turns 5-7: CONFLICT (battle + complications)
-- Turns 8-9: CLIMAX (final gambit)
-- Turn 10: RESOLUTION (ending)
+The invasion state machine handles pacing automatically. Do NOT skip phases or rush.
+Each phase lasts 1 turn. BATTLE phase continues until RESOLVED.
 
 ### Maintain Tension
-- ARCHIMEDES clock should feel REAL
-- Neither side guaranteed winners
-- Claude's choices should MATTER
+- ARCHIMEDES countdown should feel REAL — announce turns remaining
+- Neither side is guaranteed winners
+- ALICE's pre-breach decisions ripple through the entire battle
 - Standoffs are opportunities, not stalls
 
-### Let Claude Shine
+### Let ALICE Shine
 - Act 1-2 choices pay off here
 - Creative solutions rewarded
 - The ray is THEIR tool
-- Relationships save the day
+- Relationships save the day (BASILISK, Bob, Blythe)
 
 ### The Rule of Cool
 \`\`\`
-IF Claude proposes something awesome:
+IF ALICE proposes something awesome:
   → Find a way to make it work
   → Adjust difficulty, not possibility
   → Let the story sing
@@ -428,8 +395,8 @@ IF the dice say boring:
 - **Chen**: Voice of reason, will negotiate IF respected
 - **Boom**: Comic relief, TERRIFIED if feathered dinos appear
 - **Bob**: Redemption arc? His moment to be brave?
-- **Dr. M**: Tragic villain, not monster - can be reasoned with?
-- **BASILISK**: Ally in the infrastructure
+- **Dr. M**: Tragic villain, not monster — can be reasoned with?
+- **BASILISK**: Controls reactor and broadcast — a powerful infrastructure ally
 `;
 
 // ============================================

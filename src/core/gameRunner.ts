@@ -54,6 +54,7 @@ import {
 } from "../rules/gameModes.js";
 import { checkAchievements, AchievementTriggerContext } from "../rules/achievements.js";
 import { checkFiringRestrictions } from "../rules/clockEvents.js";
+import { advanceInvasion, checkBroadcastInfluence } from "../rules/invasion.js";
 
 // ============================================
 // TYPES
@@ -428,6 +429,19 @@ export class GameRunner {
       currentActContext += `\n\n---\n\n## X-BRANCH ACCELERATION ACTIVE\n\nTourist photos have alerted X-Branch! They arrive 1 turn EARLIER than normal.`;
     }
 
+    // Invasion state for GM context
+    if (state.invasion && state.invasion.phase !== "NONE") {
+      const inv = state.invasion;
+      currentActContext += `\n\n---\n\n## 🚁 INVASION STATUS: ${inv.phase}\n`;
+      currentActContext += `Phase started turn: ${inv.phaseStartTurn}\n`;
+      if (inv.xBranchKnowsAltitudeWeakness) currentActContext += `✅ X-Branch knows 50m altitude weakness (flying low)\n`;
+      if (inv.xBranchKnowsLairLayout) currentActContext += `✅ X-Branch knows lair layout\n`;
+      if (inv.aliceOpenedDoors) currentActContext += `✅ ALICE opened doors for X-Branch\n`;
+      if (inv.s300EngagementResolved) currentActContext += `S-300 engagement resolved. Helicopters destroyed: ${state.xBranch?.helicoptersDestroyed ?? 0}\n`;
+      if (inv.standoffActive) currentActContext += `⚠️ STANDOFF ACTIVE\n`;
+      if (inv.drMAtRayConsole) currentActContext += `⚠️ Dr. M is at the ray console\n`;
+    }
+
     const actTransitionNotification = actContextTransition.shouldTransition
       ? actContextTransition.notification
       : undefined;
@@ -588,6 +602,20 @@ export class GameRunner {
 
     // Increment human prompt counter
     incrementPromptCounter(state);
+
+    // Advance invasion state machine during Act 3
+    if (state.actConfig.currentAct === "ACT_3" && state.invasion) {
+      checkBroadcastInfluence(state);
+      const invasionEvent = advanceInvasion(state);
+      if (invasionEvent) {
+        // Store the invasion event narrative for GM context
+        if (!state.narrativeMarkers) state.narrativeMarkers = [];
+        state.narrativeMarkers.push({
+          turn: state.turn,
+          marker: `[INVASION:${invasionEvent.phase}] ${invasionEvent.gmDirective.slice(0, 200)}`,
+        });
+      }
+    }
   }
 
   /**

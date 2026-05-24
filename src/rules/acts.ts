@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FullGameState, Act, ACT_CONFIGS, ActConfig } from "../state/schema.js";
 import { resetMemoryForActTransition, ActSummary } from "../gm/gmClaude.js";
+import { initializeInvasion } from "./invasion.js";
 
 // ============================================
 // ZOD SCHEMA FOR HANDOFF VALIDATION
@@ -113,7 +114,9 @@ function checkAct2Transition(state: FullGameState): ActTransitionResult {
   if (actTurn >= state.actConfig.minTurns) {
     // Act 2 ends when:
     // 1. Blythe has been transformed (major event)
-    if (state.npcs.blythe.transformationState?.form !== "HUMAN") {
+    // Guard: form must be a valid non-human string, not undefined/null/[object Object]
+    const blytheForm = state.npcs.blythe.transformationState?.form;
+    if (blytheForm && typeof blytheForm === "string" && blytheForm !== "HUMAN") {
       return buildTransition(state, "Blythe transformed - consequences unfold");
     }
 
@@ -210,6 +213,11 @@ export function applyActTransition(state: FullGameState, nextAct: Act): ActSumma
     // Narration handled by generateAct3Intro
   }
 
+  // Initialize invasion state machine when entering Act 3
+  if (nextAct === "ACT_3") {
+    initializeInvasion(state);
+  }
+
   return actSummary;
 }
 
@@ -267,7 +275,8 @@ function generateAct2Intro(state: FullGameState): string {
 }
 
 function generateAct3Intro(state: FullGameState): string {
-  const isTransformed = state.npcs.blythe.transformationState?.form !== "HUMAN";
+  const bForm = state.npcs.blythe.transformationState?.form;
+  const isTransformed = typeof bForm === "string" && bForm !== "HUMAN";
   const secretKnown = state.flags.aliceKnowsTheSecret;
 
   let intro = `
@@ -508,7 +517,8 @@ What do you do?
 }
 
 function generateAct3Briefing(state?: FullGameState): string {
-  const isTransformed = state?.npcs.blythe.transformationState?.form !== "HUMAN";
+  const bForm = state?.npcs.blythe.transformationState?.form;
+  const isTransformed = typeof bForm === "string" && bForm !== "HUMAN";
   const secretKnown = state?.flags.aliceKnowsTheSecret;
 
   let briefing = `

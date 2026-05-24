@@ -1471,27 +1471,9 @@ Source: Recovered Soviet documentation, 1991
 
 ---
 
-[ROUGH TRANSLATION - BASILISK AUTO-TRANSLATE]
-
-The S-300 system has a design limitation:
-
-  ⚠️ MINIMUM ENGAGEMENT ALTITUDE: 50 METERS ⚠️
-
-Targets below 50 meters CANNOT BE ENGAGED by the radar system
-due to ground reflection interference.
-
-Recommendation: Low-altitude protection requires additional
-SHORAD systems or manual fire control.
-
----
-
 Dr. M's handwritten note in margin:
-"The Soviets were embarrassed by this. We should NOT be.
-If someone flies in below 50m, the guards will handle it.
--M"
-
-⚠️ CRITICAL INTEL: Any rescue helicopter flying at 49 meters
-or below will NOT be engaged by the S-300.
+"Soviets were embarrassed by this. I am not concerned.
+Guards can handle anything that slips through. -M"
     `.trim(),
   },
   {

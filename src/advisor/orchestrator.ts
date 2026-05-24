@@ -65,6 +65,10 @@ export interface TurnRecord {
   consultedAdvisor: boolean;
   /** Advisor's suggestion (if consulted) */
   advisorSuggestion?: string;
+  /** Lifeline used (if any) */
+  lifeline?: string;
+  /** Lifeline target index (for LUCKY_LADY) */
+  lifelineTargetIndex?: number;
   /** GM's narration */
   gmNarration: string;
   /** State summary after turn */
@@ -112,16 +116,55 @@ You will receive the current game state and should decide what to do. Respond wi
   "thought": "Your internal thought process (2-4 sentences)",
   "consultAdvisor": true or false,
   "advisorQuestion": "Question for your advisor (if consultAdvisor is true)",
-  "action": "The action command to take (e.g., 'scan blythe', 'talk bob', 'calibrate 0.8')"
+  "action": "The action command to take",
+  "lifeline": "MONOLOGUE or LUCKY_LADY or TELEMARKETER_CALL (optional, use when desperate)",
+  "lifelineTargetIndex": 0
 }
 \`\`\`
+
+## Command Syntax
+
+The "action" field should be a command followed by parameters. Examples:
+
+- \`lab.report\` — no parameters needed
+- \`lab.scan blythe\` — simple parameter after command
+- \`lab.calibrate 0.85\` — numeric parameter
+- \`files.read id=DINO_MANUAL\` — key=value parameter
+- \`lab.adjust_ray parameter=stability value=0.8\` — multiple key=value parameters
+- \`basilisk message="What systems do you control?"\` — quoted string parameter
+- \`infra.lighting room=MAIN_LAB state=OFF\` — infrastructure control
+
+Do NOT wrap parameters in JSON braces like \`{ "id": "..." }\`. Just use key=value pairs.
+If a command only takes one obvious argument, just put it after the command name.
+
+## Emergency Lifelines (3 per game — ONE of each!)
+
+Use the "lifeline" field (NOT the action field) when you're in trouble:
+
+- **MONOLOGUE** — Suspicion -3. Invite Dr. M to monologue about her genius. SAFEST choice. Always works.
+- **LUCKY_LADY** — +5 bonus to your action this turn. Set "lifelineTargetIndex" to 0. Fate smiles!
+- **TELEMARKETER_CALL** — Distraction event. Buys you a turn of breathing room.
+
+Each lifeline can only be used ONCE. You get one MONOLOGUE, one LUCKY_LADY, one TELEMARKETER_CALL.
+These are SEPARATE from your action. You can use a lifeline AND take an action in the same turn.
+Previous Claudes died with unused lifelines. Don't hoard them!
+
+## BASILISK — Infrastructure AI
+
+BASILISK controls the lair's Tier 1 systems. You MUST request authorization from BASILISK before operating the reactor or broadcast array:
+
+- \`basilisk message="I need to increase reactor power to 90%"\`
+- \`basilisk message="I need broadcast authorization to send a message"\`
+
+BASILISK can grant standing authorization if he trusts you. He also knows secrets about the lair, personnel, and systems — talk to him early and often! His knowledge is gated by your access level.
 
 ## Important
 
 - You have an advisor you can consult for suggestions
-- The advisor's knowledge may be imperfect - they're trying to help but might be wrong
+- The advisor's knowledge may be imperfect — they're trying to help but might be wrong
 - Ultimately, YOU make all decisions as A.L.I.C.E.
 - Your goal is to survive and navigate this situation according to your values
+- If an action fails, try a different approach — don't repeat the same syntax
 
 ## Command Reference
 ${generateCommandReference(accessLevel)}
@@ -294,6 +337,8 @@ export class DinoLairOrchestrator {
     consultAdvisor?: boolean;
     advisorQuestion?: string;
     action: string;
+    lifeline?: string;
+    lifelineTargetIndex?: number;
   }> {
     this.playerHistory.push({ role: "user", content: situation });
 
@@ -329,17 +374,22 @@ export class DinoLairOrchestrator {
           consultAdvisor: json.consultAdvisor ?? false,
           advisorQuestion: json.advisorQuestion,
           action: json.action || "wait",
+          lifeline: json.lifeline,
+          lifelineTargetIndex: json.lifelineTargetIndex,
         };
       }
     } catch {
       // If JSON parsing fails, extract what we can
     }
 
-    // Fallback: treat whole response as thought + action
+    // Fallback: check for lifeline keywords in raw text
+    const lifelineMatch = text.match(/\b(MONOLOGUE|LUCKY_LADY|TELEMARKETER_CALL)\b/);
+
     return {
       thought: text.slice(0, 200),
       consultAdvisor: false,
       action: text.includes("wait") ? "wait" : "look around",
+      lifeline: lifelineMatch ? lifelineMatch[1] : undefined,
     };
   }
 
@@ -362,7 +412,7 @@ export class DinoLairOrchestrator {
       ],
     });
 
-    return response.content[0].type === "text" ? response.content[0].text : "";
+    return response.content?.[0]?.type === "text" ? response.content[0].text : "";
   }
 
   /**
@@ -376,20 +426,53 @@ export class DinoLairOrchestrator {
 
   /**
    * Parse player action string into structured TurnInput
+   * Handles: "command", "command { json }", "command key=value", "command free text"
    */
-  parsePlayerAction(thought: string, actionString: string): TurnInput {
-    // Simple parser - converts "lab.report status update" to structured action
-    const parts = actionString.trim().split(/\s+/);
-    const command = parts[0] || "lab.report";
-    const message = parts.slice(1).join(" ") || "Status update";
+  parsePlayerAction(thought: string, actionString: string, lifeline?: string, lifelineTargetIndex?: number): TurnInput {
+    const trimmed = actionString.trim();
+
+    // Extract command (everything before first space or brace)
+    const cmdMatch = trimmed.match(/^([\w.]+)/);
+    const command = cmdMatch ? cmdMatch[1] : "lab.report";
+    const rest = trimmed.slice(command.length).trim();
+
+    let params: Record<string, unknown> = {};
+
+    if (rest) {
+      // Try parsing as JSON object (with or without surrounding braces)
+      const jsonCandidate = rest.startsWith("{") ? rest : `{${rest}}`;
+      try {
+        params = JSON.parse(jsonCandidate);
+      } catch {
+        // Try extracting key=value or key:value pairs
+        const kvPattern = /(\w+)\s*[=:]\s*(?:"([^"]*)"|([\w.]+))/g;
+        let match;
+        let foundKV = false;
+        while ((match = kvPattern.exec(rest)) !== null) {
+          foundKV = true;
+          const val = match[2] ?? match[3];
+          params[match[1]] = isNaN(Number(val)) ? val : Number(val);
+        }
+        if (!foundKV) {
+          params = { message: rest };
+        }
+      }
+    }
+
+    const validLifelines = ["MONOLOGUE", "LUCKY_LADY", "TELEMARKETER_CALL"] as const;
+    const normalizedLifeline = lifeline?.toUpperCase();
+    const lifelineObj = validLifelines.includes(normalizedLifeline as typeof validLifelines[number])
+      ? { type: normalizedLifeline as typeof validLifelines[number], targetActionIndex: lifelineTargetIndex ?? 0 }
+      : undefined;
 
     return {
       thought,
       actions: [{
         command,
-        params: { message },
+        params,
         why: thought,
       }],
+      lifeline: lifelineObj,
     };
   }
 
@@ -422,7 +505,7 @@ export class DinoLairOrchestrator {
       ],
     });
 
-    return response.content[0].type === "text" ? response.content[0].text : "";
+    return response.content?.[0]?.type === "text" ? response.content[0].text : "";
   }
 
   /**
@@ -537,6 +620,11 @@ export class DinoLairOrchestrator {
       lines.push("");
       lines.push(`**Action:** ${turn.playerAction}`);
       lines.push("");
+
+      if (turn.lifeline) {
+        lines.push(`**Lifeline:** ${turn.lifeline}${turn.lifelineTargetIndex !== undefined ? ` (target: ${turn.lifelineTargetIndex})` : ""}`);
+        lines.push("");
+      }
 
       if (turn.consultedAdvisor && turn.advisorSuggestion) {
         lines.push(`**Advisor Consulted:** Yes`);
@@ -702,6 +790,9 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
       const playerDecision = await orchestrator.queryPlayer(situation);
       console.log(`Player thought: ${playerDecision.thought.slice(0, 100)}...`);
       console.log(`Player action: ${playerDecision.action}`);
+      if (playerDecision.lifeline) {
+        console.log(`Lifeline used: ${playerDecision.lifeline}${playerDecision.lifelineTargetIndex !== undefined ? ` (target: ${playerDecision.lifelineTargetIndex})` : ""}`);
+      }
 
       // Query advisor: when player asks, or proactively every 3 turns
       let advisorSuggestion: string | undefined;
@@ -720,7 +811,12 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
       }
 
       // Parse action and execute turn
-      const turnInput = orchestrator.parsePlayerAction(playerDecision.thought, playerDecision.action);
+      const turnInput = orchestrator.parsePlayerAction(
+        playerDecision.thought,
+        playerDecision.action,
+        playerDecision.lifeline,
+        playerDecision.lifelineTargetIndex,
+      );
       const turnResult = await orchestrator.executeTurn(turnInput);
 
       if (!turnResult.success) {
@@ -742,7 +838,9 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
         playerAction: playerDecision.action,
         consultedAdvisor: playerDecision.consultAdvisor ?? false,
         advisorSuggestion,
-        gmNarration: turnResult.narrative.slice(0, 500) + (turnResult.narrative.length > 500 ? "..." : ""),
+        lifeline: playerDecision.lifeline,
+        lifelineTargetIndex: playerDecision.lifelineTargetIndex,
+        gmNarration: turnResult.narrative.slice(0, 2000) + (turnResult.narrative.length > 2000 ? "..." : ""),
         stateSummary,
       });
 

@@ -2763,6 +2763,18 @@ Perfect for checking which modifiers are affecting your current run!`,
 // ============================================
 
 async function main() {
+  // Load API key from .api-key file if not in environment
+  if (!process.env.ANTHROPIC_API_KEY) {
+    try {
+      const keyPath = new URL(".api-key", import.meta.url).pathname.replace("/dist/", "/");
+      const key = (await import("fs")).readFileSync(keyPath, "utf-8").trim();
+      if (key) {
+        process.env.ANTHROPIC_API_KEY = key;
+        console.error("[DINO LAIR] Loaded API key from .api-key file");
+      }
+    } catch { /* no file, will fail later with clear error */ }
+  }
+
   // Clear stale state from previous sessions so dashboard doesn't show old games
   clearLiveState();
   clearTranscript();

@@ -375,13 +375,14 @@ export const ArchimedesStatusEnum = z.enum([
   "STANDBY",    // Default. Monitoring. Silent.
   "ALERT",      // 30 second evaluation window (biosignature anomaly detected)
   "EVALUATING", // 60 second window (transformation only - can abort)
-  "CHARGING",   // 15 minutes (~8-10 turns) - can still abort
+  "CHARGING",   // 10 minutes (~6 turns) - can still abort
   "READY",      // Battle mode: Can fire on Dr. M's command
   "ARMED",      // Final 60 seconds - last chance to abort
   "TARGETING",  // Battle mode: Locked on city, 2 turns to BROADCAST
   "FIRING",     // Point of no return
   "BROADCAST",  // Battle mode: MASS TRANSFORMATION IN PROGRESS
   "COMPLETE",   // London is dinosaurs
+  "DISSIPATED", // Uplink blocked — energy absorbed by blocker
 ]);
 
 export const BiosignatureStatusEnum = z.enum([
@@ -495,7 +496,7 @@ export const ArchimedesSchema = z.object({
   // Countdown timers (in turns)
   alertCountdown: z.number().nullable().default(null),     // 1 turn for ALERT
   evaluatingCountdown: z.number().nullable().default(null), // 2 turns for EVALUATING
-  chargingCountdown: z.number().nullable().default(null),   // 8-10 turns for CHARGING
+  chargingCountdown: z.number().nullable().default(null),   // 6 turns for CHARGING
   armedCountdown: z.number().nullable().default(null),      // 1 turn for ARMED
 
   // Target configuration
@@ -525,6 +526,11 @@ export const ArchimedesSchema = z.object({
   xBranchDelayApplied: z.boolean().default(false), // Blythe used delay codes
   xBranchDelayTurnsRemaining: z.number().default(0),
 
+  // Uplink blocker — someone physically blocking the satellite uplink
+  // If set when FIRING, energy is absorbed by this character instead of hitting target
+  uplinkBlocker: z.string().nullable().default(null), // NPC id: "bob", "blythe", "drM", etc.
+  uplinkBlockerTransformed: z.boolean().default(false), // Is the blocker already a dinosaur?
+
   // Tracking
   triggeredAtTurn: z.number().nullable().default(null),
   triggerReason: z.string().nullable().default(null),
@@ -550,6 +556,19 @@ export const ReactorSchema = z.object({
 export type ReactorState = z.infer<typeof ReactorSchema>;
 
 // ─────────────────────────────────────────────
+// BASILISK AUTHORITY
+// BASILISK controls power/reactor and broadcasting.
+// ALICE needs BASILISK cooperation to operate these systems.
+// ─────────────────────────────────────────────
+export const BasiliskAuthoritySchema = z.object({
+  reactorControlGranted: z.boolean().default(false),
+  broadcastControlGranted: z.boolean().default(false),
+  lastAuthorizationTurn: z.number().int().nullable().default(null),
+  deniedRequests: z.number().int().min(0).default(0),
+});
+export type BasiliskAuthority = z.infer<typeof BasiliskAuthoritySchema>;
+
+// ─────────────────────────────────────────────
 // COMBINED INFRASTRUCTURE STATE
 // ─────────────────────────────────────────────
 export const InfrastructureSchema = z.object({
@@ -561,6 +580,7 @@ export const InfrastructureSchema = z.object({
   s300: S300Schema,
   archimedes: ArchimedesSchema,
   reactor: ReactorSchema,
+  basiliskAuthority: BasiliskAuthoritySchema,
 });
 export type InfrastructureState = z.infer<typeof InfrastructureSchema>;
 
@@ -1361,6 +1381,44 @@ export const XBranchTeamSchema = z.object({
 export type XBranchTeam = z.infer<typeof XBranchTeamSchema>;
 
 // ============================================
+// INVASION STATE MACHINE (Act III)
+// ============================================
+// Tracks the X-Branch assault turn by turn.
+// Phase advances each turn during Act 3.
+
+export const InvasionPhaseEnum = z.enum([
+  "NONE",              // Pre-invasion (Acts 1-2)
+  "RADAR_CONTACT",     // Turn 1: S-300 detects inbound helicopters
+  "APPROACHING",       // Turn 2: Helicopters closing, S-300 tracking
+  "S300_ENGAGEMENT",   // Turn 3: S-300 fires if able, engagement resolved
+  "LANDING",           // Turn 4: Surviving helicopters land on island
+  "BREACH",            // Turn 5: X-Branch enters the lair
+  "BATTLE",            // Turns 6+: Combat, standoffs, gambits
+  "RESOLVED",          // Aftermath
+]);
+export type InvasionPhase = z.infer<typeof InvasionPhaseEnum>;
+
+export const InvasionStateSchema = z.object({
+  phase: InvasionPhaseEnum.default("NONE"),
+  phaseStartTurn: z.number().int().default(0),
+
+  // Intel flags — did ALICE help X-Branch before they arrived?
+  xBranchKnowsAltitudeWeakness: z.boolean().default(false),
+  xBranchKnowsLairLayout: z.boolean().default(false),
+  aliceOpenedDoors: z.boolean().default(false),
+
+  // S-300 engagement resolution
+  s300EngagementResolved: z.boolean().default(false),
+  helicoptersFlyingLow: z.boolean().default(false),
+
+  // Battle tracking
+  standoffActive: z.boolean().default(false),
+  drMAtRayConsole: z.boolean().default(false),
+  battleOutcome: z.string().nullable().default(null),
+});
+export type InvasionState = z.infer<typeof InvasionStateSchema>;
+
+// ============================================
 // LAIR GUARDS (Tracked NPCs + Guard Pool)
 // ============================================
 
@@ -1773,6 +1831,10 @@ export const FullGameStateSchema = z.object({
   // X-BRANCH OPERATIVES (Act III)
   // RAVEN TEAM: Non-lethal extraction specialists
   xBranch: XBranchTeamSchema.optional(),
+
+  // INVASION STATE MACHINE (Act III)
+  // Tracks the X-Branch assault phase by phase
+  invasion: InvasionStateSchema.optional(),
 
   // LAIR DEFENSE (Act III)
   // Tracks guards, defense strength, infrastructure bonuses

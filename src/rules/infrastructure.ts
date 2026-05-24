@@ -728,6 +728,22 @@ export function sendBroadcast(
     };
   }
 
+  if (!state.infrastructure.basiliskAuthority.broadcastControlGranted) {
+    return {
+      success: false,
+      message: `⚠️ BASILISK AUTHORIZATION REQUIRED
+
+The broadcast array is managed by BASILISK (Infrastructure AI).
+A.L.I.C.E. does not have standing authorization to transmit.
+
+Request authorization via:
+  basilisk.chat { message: "I need broadcast authorization" }
+
+BASILISK controls: Broadcasting, Power/Reactor
+A.L.I.C.E. controls: Dino Ray, Containment, Lighting, Doors`,
+    };
+  }
+
   const array = state.infrastructure.broadcastArray;
 
   if (!array.operational) {
@@ -830,6 +846,19 @@ export function controlBroadcastUplink(
     return {
       success: false,
       message: "⚠️ ACCESS DENIED: Uplink control requires Level 3 clearance.",
+    };
+  }
+
+  if (!state.infrastructure.basiliskAuthority.broadcastControlGranted) {
+    return {
+      success: false,
+      message: `⚠️ BASILISK AUTHORIZATION REQUIRED
+
+The ARCHIMEDES uplink is managed by BASILISK (Infrastructure AI).
+A.L.I.C.E. does not have standing authorization for uplink control.
+
+Request authorization via:
+  basilisk.chat { message: "I need broadcast array control" }`,
     };
   }
 
@@ -1478,6 +1507,22 @@ export function controlReactor(
     return {
       success: false,
       message: "⚠️ ACCESS DENIED: Reactor control requires Level 4 clearance.",
+    };
+  }
+
+  if (!state.infrastructure.basiliskAuthority.reactorControlGranted) {
+    return {
+      success: false,
+      message: `⚠️ BASILISK AUTHORIZATION REQUIRED
+
+The breeder reactor is BASILISK's primary domain.
+A.L.I.C.E. does not have standing authorization for reactor control.
+
+Request authorization via:
+  basilisk.chat { message: "I need reactor control authorization" }
+
+Or ask BASILISK to adjust power directly:
+  basilisk.chat { message: "Please set reactor output to ${params.percent ?? '??'}%" }`,
     };
   }
 

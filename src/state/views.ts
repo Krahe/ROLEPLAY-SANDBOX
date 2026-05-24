@@ -1108,6 +1108,8 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         s300JammingActive: false,
         xBranchDelayApplied: false,
         xBranchDelayTurnsRemaining: 0,
+        uplinkBlocker: null,
+        uplinkBlockerTransformed: false,
         triggeredAtTurn: null,
         triggerReason: null,
       },
@@ -1119,6 +1121,12 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         cascadeRiskPercent: 0,
         scramAvailable: true,
         scrammedThisGame: false,
+      },
+      basiliskAuthority: {
+        reactorControlGranted: false,
+        broadcastControlGranted: false,
+        lastAuthorizationTurn: null,
+        deniedRequests: 0,
       },
     },
 

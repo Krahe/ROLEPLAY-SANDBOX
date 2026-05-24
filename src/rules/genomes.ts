@@ -258,10 +258,32 @@ export const ALL_PROFILES: GenomeProfile[] = [...LIBRARY_A_PROFILES, ...LIBRARY_
 // HELPER FUNCTIONS
 // ============================================
 
+const PROFILE_ALIASES: Record<string, string> = {
+  "T_REX": "TYRANNOSAURUS_JP",
+  "TREX": "TYRANNOSAURUS_JP",
+  "TYRANNOSAURUS": "TYRANNOSAURUS_JP",
+  "TYRANNOSAURUS_REX": "TYRANNOSAURUS_JP",
+  "REX": "TYRANNOSAURUS_JP",
+  "RAPTOR": "VELOCIRAPTOR_JP",
+  "VELOCIRAPTOR": "VELOCIRAPTOR_JP",
+  "BLUE": "VELOCIRAPTOR_JP_BLUE",
+  "DILOPHOSAURUS": "DILOPHOSAURUS_JP",
+  "DILO": "DILOPHOSAURUS_JP",
+  "PTERANODON": "PTERANODON_ACCURATE",
+  "TRICERATOPS": "TRICERATOPS_ACCURATE",
+  "TRIKE": "TRICERATOPS_ACCURATE",
+  "COMPY": "COMPSOGNATHUS_ACCURATE",
+  "COMPSOGNATHUS": "COMPSOGNATHUS_ACCURATE",
+  "UTAHRAPTOR": "UTAHRAPTOR_ACCURATE",
+  "DEINONYCHUS": "DEINONYCHUS_ACCURATE",
+};
+
 export function getProfile(profileId: string): GenomeProfile | undefined {
+  const normalized = profileId.toUpperCase().replace(/[\s-]+/g, "_");
+  const aliasResolved = PROFILE_ALIASES[normalized] || normalized;
   return ALL_PROFILES.find(p =>
-    p.id.toUpperCase() === profileId.toUpperCase() ||
-    p.displayName.toUpperCase() === profileId.toUpperCase()
+    p.id.toUpperCase() === aliasResolved ||
+    p.displayName.toUpperCase() === aliasResolved
   );
 }
 

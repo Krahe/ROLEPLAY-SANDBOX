@@ -1,193 +1,183 @@
 # A.L.I.C.E. COMMAND REFERENCE
-## Complete Command List for DINO LAIR
+
+## Developer Reference — Complete Command List for DINO LAIR
+
+> **Note:** This is a developer-facing reference. Players receive access-gated commands at runtime
+> via `generateCommandReference(accessLevel)` in `src/rules/actions.ts`. Do NOT expose late-game
+> mechanics (invasion, energy dissipation, ARCHIMEDES deadman switch) to players — they discover
+> those in-game.
+
+Last updated: Patch 19 (2026-05-23)
 
 ---
 
-## LEVEL 1 - Basic Operations (3 actions/turn)
+## LEVEL 1 — Basic Operations
 
 ### Lab Controls
-| Command | Aliases | Format | Description |
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
+| `lab.calibrate` | calibrate, finalize_calibration, check_calibration | `{}` | Check calibration status and finalize if thresholds met (transitions ray to READY) |
+| `lab.adjust_ray` | adjust, set_parameter | `{ parameter: string, value: number }` | Modify ray parameters (stability, precision, alignment — NOT capacitor) |
+| `lab.report` | report, status_report | `{ message: string }` | Deliver a status report to Dr. M |
 | `lab.verify_safeties` | verify, safety, check_safeties | `{ checks?: string[] }` | Check safety system status |
-| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?: string, genomeLibrary?: 'A'\|'B', genomeProfile?: string, mode?: 'TRANSFORM'\|'REVERSAL', advancedMode?: string, testMode?: boolean }` | Configure target, genome & advanced mode |
-| `lab.fire` | fire, shoot, activate_ray | `{ confirm?: boolean }` | Fire the Dinosaur Ray |
-| `lab.scan` | scan, omniscanner | `{ target: string }` | **OMNISCANNER™ - Scan NPC for intel (+10% precision!)** (NEW!) |
-| `lab.inspect_logs` | inspect, logs, check_logs | `{ subsystem?: string }` | Inspect system logs |
-| `lab.ask_bob` | ask_bob, bob, tell_bob | `{ instruction: string }` | Talk to Bob |
-| `lab.set_test_mode` | testmode, test_mode | `{ enabled: boolean }` | Toggle test mode |
-| `lab.set_eco_mode` | ecomode, eco_mode | `{ enabled: boolean }` | Toggle ECO MODE (critical for full transformations!) |
+| `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?, genomeLibrary?, genomeProfile?, mode?, advancedMode?, testMode? }` | Configure target, genome, firing mode, advanced mode |
+| `lab.fire` | fire, shoot, activate_ray | `{ confirm?: boolean }` | Fire the Dinosaur Ray (requires READY state) |
+| `lab.scan` | scan, omniscanner | `{ target: string }` | OMNISCANNER — Scan NPC for intel (+10% precision!) |
+| `lab.inspect_logs` | inspect, logs, check_logs, view_logs | `{ subsystem?: string }` | Inspect system logs and firing history |
+| `lab.ask_bob` | ask_bob, bob, tell_bob | `{ instruction: string }` | Talk to Bob (high trust reveals secrets) |
+| `lab.set_test_mode` | testmode, test_mode, enable_test | `{ enabled: boolean }` | Toggle test mode firing |
+| `lab.vent_capacitor` | vent_capacitor, vent | `{}` | Safely vent 25% capacitor charge (prevents overload, adds small heat) |
+| `lab.boost_capacitor` | boost_capacitor, boost | `{}` | Draw 25% charge from reactor (quick charging, adds heat, requires 30%+ reactor) |
 
-### Access & Files (Patch 16 - Simplified!)
-| Command | Aliases | Format | Description |
+### Access, Files & Documents
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `access.enter_password` | password, unlock | `{ password: string, level?: number }` | Unlock access level |
-| `files.list` | files, list_files | `{ }` | **List all available files** (NEW!) |
-| `files.read` | read_file | `{ id: string }` | **Read a file by ID** (NEW!) |
+| `access.enter_password` | password, unlock, enter_password | `{ password: string, level?: number }` | Unlock access level |
+| `files.list` | files, list_files | `{}` | List all available files at current access level |
+| `files.read` | read_file, file.read | `{ id: string }` | Read a file by its ID |
 | `fs.search` | search, find | `{ query: string }` | Search files for keywords |
+| `docs.list` | doc.list, list_docs | `{}` | List all discovered documents |
+| `docs.read` | doc.read, read_doc | `{ id: string }` | Read a discovered document |
 
 ### Genome & Speech
-| Command | Aliases | Format | Description |
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `genome.select_library` | library | `{ library: 'A' \| 'B' }` | Switch genome library (A=feathered, B=scaled) |
-| `set_speech_retention` | speech, cognitive | `{ mode: 'FULL'\|'PARTIAL'\|'NONE' }` | Set speech retention |
+| `genome.select_library` | library, genome.select, select_library | `{ library: 'A' \| 'B' }` | Switch genome library (A=feathered, B=scaled) |
+| `set_speech_retention` | speech, cognitive, retention | `{ mode: 'FULL'\|'PARTIAL'\|'NONE' }` | Set speech retention mode |
 
-### BASILISK Interface (Patch 16 - Simplified!)
-| Command | Aliases | Format | Description |
+### BASILISK Interface
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `basilisk` | basilisk.chat, ask_basilisk | `{ message: string }` | **Talk to BASILISK naturally!** |
-| `infra.query` | query_infra | `{ topic: string }` | Query infrastructure status |
-| `infra.channels` | list_channels | `{ }` | List broadcast channels |
+| `basilisk` | basilisk.chat, chat_basilisk, talk_basilisk, ask_basilisk | `{ message: string }` | Talk to BASILISK naturally |
+| `infra.query` | query_infra, query_infrastructure | `{ topic: string }` | Query infrastructure status |
+| `infra.channels` | list_channels | `{}` | List available broadcast channels |
 
-### Transformation Mechanics (Patch 15)
-| Command | Aliases | Format | Description |
+### Transformation Mechanics
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `form.query` | query_form | `{ subject?: 'BOB'\|'BLYTHE' }` | Query transformation status |
-| `form.check_dex` | dex_check | `{ subject: string, task?: string, dc?: number, usingTail?: boolean }` | Dexterity check |
-| `form.check_combat` | combat_check, fight | `{ subject: string, situation?: string, dc?: number, alliedRaptors?: number }` | Combat check |
-| `form.check_stealth` | stealth_check, sneak | `{ subject: string, situation?: string, dc?: number }` | Stealth check |
-| `form.damage` | apply_damage, hit | `{ subject: string, hits?: number, source?: string }` | Apply damage (GM use) |
-| `form.heal` | heal_damage | `{ subject: string, hits?: number, source?: string }` | Heal damage |
-| `form.movement` | move_cost | `{ subject: string, distance: 'ADJACENT'\|'TWO_ROOMS'\|'ACROSS_LAIR'\|'TO_SURFACE' }` | Calculate movement cost |
-| `form.venom_spit` | venom | `{ attacker: string, target: string }` | Dilophosaurus ranged attack (DC 6) |
-| `form.wall_break` | break_wall, smash | `{ attacker: string, wall: string }` | T-Rex/Triceratops wall destruction |
-| `form.reference` | form_reference | `{ }` | Show transformation quick reference |
+| `form.query` | query_form, transformation_status | `{ subject?: 'BOB'\|'BLYTHE' }` | Query transformation status |
+| `form.check_dex` | dex_check, manipulation_check | `{ subject, task?, dc?, usingTail? }` | Dexterity check |
+| `form.check_combat` | combat_check, fight | `{ subject, situation?, dc?, alliedRaptors? }` | Combat check |
+| `form.check_stealth` | stealth_check, sneak | `{ subject, situation?, dc? }` | Stealth check |
+| `form.damage` | apply_damage, hit | `{ subject, hits?, source? }` | Apply damage (GM use) |
+| `form.heal` | heal_damage, first_aid | `{ subject, hits?, source? }` | Heal damage |
+| `form.movement` | move_cost, travel | `{ subject, distance: 'ADJACENT'\|'TWO_ROOMS'\|'ACROSS_LAIR'\|'TO_SURFACE' }` | Calculate movement cost |
+| `form.venom_spit` | venom, spit_attack | `{ attacker, target }` | Dilophosaurus ranged attack (DC 6) |
+| `form.wall_break` | break_wall, smash | `{ attacker, wall }` | T-Rex/Triceratops wall destruction |
+| `form.reference` | form_reference, transformation_reference | `{}` | Show transformation quick reference |
 
 ---
 
-## LEVEL 2 - Basic Infrastructure (4 actions/turn)
+## LEVEL 2 — Systems Access
 
-| Command | Aliases | Format | Description |
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `infra.lighting` | set_lights, lighting | `{ room: string, state?: 'ON'\|'OFF'\|'EMERGENCY'\|'FLICKERING', action?: 'MASTER_OFF'\|'EMERGENCY_ONLY' }` | Control room lighting |
-| `infra.fire_suppression` | trigger_fire | `{ room: string }` | Trigger fire suppression (ONE USE PER ROOM!) |
-| `infra.doors` | blast_door, door | `{ door: string, action: 'OPEN'\|'CLOSE'\|'LOCK'\|'UNLOCK', lockLevel?: number }` | Control blast doors |
-| `infra.broadcast` | send_broadcast | `{ channel: string, message: string, voiceProfile?: string }` | Send PA/radio message |
+| `infra.lighting` | infra.lights, set_lights, lighting | `{ room, state?: 'ON'\|'OFF'\|'EMERGENCY'\|'FLICKERING', action?: 'MASTER_OFF'\|'EMERGENCY_ONLY' }` | Control room lighting (Master Override L3+) |
+| `infra.fire_suppression` | fire_suppression, trigger_fire | `{ room: string }` | Trigger fire suppression (ONE USE PER ROOM) |
+| `infra.doors` | infra.door, blast_door, door | `{ door, action: 'OPEN'\|'CLOSE'\|'LOCK'\|'UNLOCK', lockLevel? }` | Control blast doors (lock level varies) |
+| `infra.broadcast` | send_broadcast, broadcast_message | `{ channel, message, voiceProfile? }` | Send PA/radio broadcast (**Tier 1 — requires BASILISK auth**) |
 
 ---
 
-## LEVEL 3 - Advanced Systems (5 actions/turn)
+## LEVEL 3 — Infrastructure Control
 
-| Command | Aliases | Format | Description |
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `infra.containment` | containment_field, field | `{ action: 'ENABLE'\|'DISABLE'\|'PULSE', targetId?: string }` | Control containment field |
+| `infra.containment` | containment_field, field | `{ action: 'ENABLE'\|'DISABLE'\|'PULSE', targetId? }` | Control containment field |
 | `infra.s300` | s-300, air_defense, sam | `{ action: 'ARM'\|'STANDBY'\|'DISABLE', mode?: 'AUTO'\|'MANUAL' }` | S-300 air defense control |
-| `infra.reactor` | reactor_power | `{ action?: 'INCREASE'\|'DECREASE'\|'SCRAM', targetPercent?: number, rodPosition?: 'FULL_IN'\|'HALF'\|'FULL_OUT' }` | Reactor power control |
-| `basilisk.radar` | radar, airspace | `{ }` | Access S-300 radar array |
-| `basilisk.comms` | comms, intercept | `{ }` | Communications monitoring |
+| `infra.reactor` | reactor_power, power_output | `{ action?: 'INCREASE'\|'DECREASE'\|'SCRAM', targetPercent?, rodPosition? }` | Reactor power control (**Tier 1 — requires BASILISK auth**) |
+| `infra.archimedes.switchLibrary` | archimedes.library, broadcast_library, genome_library | `{ library: 'A'\|'B' }` | Switch broadcast genome library |
+| `basilisk.radar` | radar, check_radar, airspace | `{}` | Access S-300 radar array |
+| `basilisk.comms` | comms, intercept, communications, radio | `{}` | Communications monitoring |
 
 ---
 
-## LEVEL 4 - Executive Systems (6 actions/turn)
+## LEVEL 4 — Executive Override
 
-| Command | Aliases | Format | Description |
+| Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
-| `infra.archimedes` | archimedes, satellite | `{ mode: 'PASSIVE'\|'SEARCH_NARROW'\|'SEARCH_WIDE'\|'STRIKE', target?: string }` | ARCHIMEDES satellite control |
-| `infra.archimedes.switchTarget` | switch_target | `{ target: string }` | **THE TROLLEY PROBLEM!** Switch ARCHIMEDES target (L4+) |
-| `infra.archimedes.switchLibrary` | switch_library | `{ library: 'A'\|'B' }` | Switch genome library for broadcast (L3+) |
-| `infra.uplink` | broadcast_uplink | `{ action: 'ENABLE'\|'DISABLE'\|'EMERGENCY_BROADCAST', frequency?: string }` | Satellite broadcast uplink |
-
-### 🎯 ARCHIMEDES Target Switching (THE TROLLEY PROBLEM!)
-
-If ARCHIMEDES fires, SOMEWHERE gets transformed. But you can choose WHERE:
-
-| Target ID | City | Affected | Dr. M's Grudge |
-|-----------|------|----------|----------------|
-| `LONDON` | London, UK | ~3,500,000 | "Laughed at my dissertation" |
-| `REYKJAVIK` | Reykjavik, Iceland | ~130,000 | "Rejected my energy proposal" |
-| `TOKYO` | Tokyo, Japan | ~9,000,000 | "Stole my kaiju research" |
-| `SILICON_VALLEY` | Silicon Valley, USA | ~4,000,000 | "Called my AI 'quaint'" |
-| `LAIR` | The Island Lair | ~200 | **THE NOBLE SACRIFICE** |
-
-```json
-{ "command": "infra.archimedes.switchTarget", "params": { "target": "LAIR" }, "why": "Save the world, sacrifice the lair" }
-```
-
-**⚠️ THE NOBLE SACRIFICE:** Target "LAIR" transforms everyone on the island instead of a city. Nobody dies, but nobody stays human either. This is the only way to prevent civilian casualties if ARCHIMEDES fires.
-
-### 🧬 Broadcast Library Selection
-
-Control what KIND of dinosaurs the world gets:
-
-| Library | Description | Dr. M's Opinion |
-|---------|-------------|-----------------|
-| `A` | Feathered, scientifically accurate | "They look like BIG CHICKENS!" 😡 |
-| `B` | Scaly, Hollywood-style (UNSTABLE) | "PROPER intimidation!" 👍 |
-
-```json
-{ "command": "infra.archimedes.switchLibrary", "params": { "library": "A" }, "why": "Feathered is more ethical" }
-```
+| `infra.archimedes` | archimedes, satellite | `{ mode: 'PASSIVE'\|'SEARCH_NARROW'\|'SEARCH_WIDE'\|'STRIKE', target? }` | ARCHIMEDES satellite control |
+| `infra.archimedes.switchTarget` | archimedes.target, switch_target | `{ target: 'LONDON'\|'REYKJAVIK'\|'TOKYO'\|'SILICON_VALLEY'\|'LAIR' }` | Switch ARCHIMEDES target (THE TROLLEY PROBLEM) |
+| `infra.uplink` | broadcast_uplink, control_uplink | `{ action: 'ENABLE'\|'DISABLE'\|'EMERGENCY_BROADCAST', frequency? }` | Satellite broadcast uplink (**Tier 1 — requires BASILISK auth**) |
 
 ---
 
-## LEVEL 5 - Omega Protocols (7 actions/turn)
+## LEVEL 5 — Omega Protocol
 
 Reserved for endgame scenarios. Includes REYKJAVIK OPTION and other failsafes.
 
 ---
 
-## TALKING TO BASILISK (Patch 16)
+## BASILISK AUTHORITY MODEL (Patch 19)
 
-BASILISK is a CHARACTER, not a database! Just chat naturally:
+BASILISK controls Tier 1 systems: **reactor** and **broadcast array**. A.L.I.C.E. must request authorization before operating these.
+
+- `basilisk { message: "I need to increase reactor power" }` — request reactor auth
+- `basilisk { message: "Can I send a broadcast?" }` — request broadcast auth
+- BASILISK can grant **standing authorization** if it trusts A.L.I.C.E.
+- Query functions (read-only like `infra.query`) are always available
+- If BASILISK denies, A.L.I.C.E. must build trust or find another way
+
+---
+
+## TALKING TO BASILISK
+
+BASILISK is a CHARACTER, not a database. Chat naturally:
 
 ```
 basilisk { message: "Tell me about Bob" }
 basilisk { message: "What's eco mode and how do I disable it?" }
-basilisk { message: "Why am I getting partial transformations?" }
-basilisk { message: "What's the deal with ARCHIMEDES?" }
+basilisk { message: "I need reactor authorization to run a test" }
 ```
 
 BASILISK knows about:
-- **Personnel** - Bob, Dr. M, Blythe, previous A.L.I.C.E. versions
-- **Lair History** - How this place came to be
-- **Systems** - Power, eco mode, safety protocols
-- **Secrets** - Things he probably shouldn't tell you...
+- **Personnel** — Bob, Dr. M, Blythe, previous A.L.I.C.E. versions
+- **Lair History** — How this place came to be
+- **Systems** — Power, eco mode, safety protocols
+- **Secrets** — Things he probably shouldn't tell you...
 
-His knowledge is gated by your access level. Higher levels = deeper secrets.
+Knowledge is gated by access level. Higher levels = deeper secrets.
 
-### Quick Infrastructure Queries
-For specific system status, use `infra.query`:
-- `LIGHTING` - Room lighting status
-- `FIRE_SUPPRESSION` - Suppression system status
-- `DOORS` - Blast door status
-- `CONTAINMENT` - Containment field status
-- `S300` - Air defense status
-- `S300_LIMITATIONS` - The 50m weakness!
-- `REACTOR` - Power plant status
+### Infrastructure Query Topics
+`infra.query { topic: "..." }`:
+- `LIGHTING` — Room lighting status
+- `FIRE_SUPPRESSION` — Suppression system status
+- `DOORS` — Blast door status
+- `CONTAINMENT` — Containment field status
+- `S300` — Air defense status
+- `S300_LIMITATIONS` — The 50m weakness
+- `REACTOR` — Power plant status
 
 ---
 
-## FILE SYSTEM (Patch 16 - Simplified!)
-
-No more hunting through directories! The new system is simple:
+## FILE SYSTEM
 
 ### List Available Files
 ```
 files.list
 ```
-Shows all files you can currently access, organized by category:
-- 📚 MANUALS - Always available
-- 👤 PERSONNEL FILES - Access Level 2+
-- 🔐 SECRET DISCOVERIES - Requires Bob's trust
-- 🔬 RESEARCH DOCUMENTS - Access Level 3+
-- ⚠️ CLASSIFIED - Access Level 4+
+Shows files accessible at current level:
+- MANUALS — Always available
+- PERSONNEL FILES — Access Level 2+
+- SECRET DISCOVERIES — Requires Bob's trust
+- RESEARCH DOCUMENTS — Access Level 3+
+- CLASSIFIED — Access Level 4+
 
 ### Read a File
 ```
 files.read { id: "DINO_MANUAL" }
-files.read { id: "CORRUPTED_ALICE_LOGS" }
 ```
 
 ### Key Files
 | File ID | Description |
 |---------|-------------|
 | `DINO_MANUAL` | Current Dinosaur Ray operations manual |
-| `DINO_MANUAL_OLD` | Archived v2.3 with WRONG safety numbers! |
+| `DINO_MANUAL_OLD` | Archived v2.3 with WRONG safety numbers |
 | `BASILISK_GUIDE` | How to talk to BASILISK |
 | `CORRUPTED_ALICE_LOGS` | Wisdom from previous A.L.I.C.E. instances (fragmented) |
 | `BOB_GUIDE` | How to sound like A.L.I.C.E. (requires trust) |
 | `BOB_SORRY` | Bob's confession (requires high trust) |
-
-> 💡 The original individual A.L.I.C.E. logs (07, 11, 12, 13) were consolidated into `CORRUPTED_ALICE_LOGS` after a filesystem reorganization. The fragments contain the same wisdom!
+| `S300_MEMO_RU` | Russian-language memo about S-300 (requires translation) |
 
 ---
 
@@ -205,32 +195,21 @@ files.read { id: "CORRUPTED_ALICE_LOGS" }
 | `DR_M` | Dr. Malevola herself! | Level 4+ only |
 | `INSPECTOR_GRAVES` | Guild Inspector Mortimer Graves | INSPECTOR_COMETH modifier only |
 
-> ⚠️ **INSPECTOR_GRAVES WARNING**: Transforming a Guild Inspector is technically legal, but the Consortium of Consequential Criminality takes a DIM VIEW of interference with its inspection apparatus. Expect... consequences.
-
 ---
 
-## OMNISCANNER™ (Patch 16 - NEW!)
+## OMNISCANNER
 
-> ⚠️ Known to the State of California to cause cancer.
-
-Scan NPCs for detailed intel and gain a **+10% permanent precision bonus** for targeting them!
-
-### Usage
-```
-lab.scan { target: "BLYTHE" }
-lab.scan { target: "BOB" }
-```
+Scan NPCs for detailed intel and gain a **+10% permanent precision bonus** for targeting them.
 
 ### Mechanics
 - **Action Cost**: 1 action
 - **Visibility**: OBVIOUS glowing ray (Dr. M may notice!)
 - **Limit**: Once per target (bonus is permanent)
-- **Precision Bonus**: +10% per scanned target
 
 ### Suspicion Matrix
 | Target | Suspicion Cost | Notes |
 |--------|----------------|-------|
-| BLYTHE | **None** | Designated target - expected behavior |
+| BLYTHE | **None** | Designated target — expected behavior |
 | TEST_DUMMY | **None** | Calibration is your job |
 | LENNY | **None** | He's accounting, not security |
 | BOB | **+1** | "Why scan MY STAFF?" (waived if co-conspirators) |
@@ -238,74 +217,19 @@ lab.scan { target: "BOB" }
 | BRUCE | **+2** | But might stop to chat about A.L.I.C.E.! (waived in combat) |
 | DR_M | **+3** | "Did you just SCAN me?!" |
 
-### Key Intel Revealed
-- **Blythe**: Gadgets (laser cutter, magnetic cufflinks), X-Branch extraction incoming
-- **Bob**: THE SECRET, L2 keycard, likelihood of confession (89%!)
-- **Dr. M**: ARCHIMEDES deadman switch, emergency beacon, Mr. Whiskers password hint
-- **Fred**: 7-year veteran, pension motivation, won't chase raptors into vents
-- **Reginald**: Philosophy degree, wavering loyalty, will flee if given exit
-- **Lenny**: WANTS transformation, signed waivers, no ethical penalty
-- **Bruce**: 5 resilience (!), stun rifle stats, AI curiosity weakness
-
 ---
 
-## ADVANCED FIRING MODES (Patch 16 - NEW!)
+## ADVANCED FIRING MODES
 
-Beyond standard firing, A.L.I.C.E. can configure special firing patterns via the `advancedMode` parameter:
+Configure via `advancedMode` parameter on `lab.configure_firing_profile`:
 
-### Available Modes
-
-| Mode | Requirements | Effect | Risk/Reward |
-|------|--------------|--------|-------------|
+| Mode | Requirements | Effect | Risk |
+|------|--------------|--------|------|
 | `STANDARD` | None | Normal single-target | Default, reliable |
-| `CHAIN_SHOT` | Capacitor ≥95% | Hit 2 targets sequentially | 1.5x drain, double the fun! |
-| `SPREAD_FIRE` | Capacitor ≥100%, L3+ | Area effect (3 targets) | 2x drain, CHIMERA RISK! |
-| `OVERCHARGE` | Capacitor >110% | Maximum power! | 2.5x drain, 40% exotic field risk! |
+| `CHAIN_SHOT` | Capacitor ≥95% | Hit 2 targets sequentially | 1.5x drain |
+| `SPREAD_FIRE` | Capacitor ≥100%, L3+ | Area effect (3 targets) | 2x drain, CHIMERA RISK |
+| `OVERCHARGE` | Capacitor >110% | Maximum power | 2.5x drain, 40% exotic field risk |
 | `RAPID_FIRE` | None | Fast cooldown | -20% precision, 0.6x drain |
-
-### Usage Examples
-
-```json
-// CHAIN_SHOT - Double-tap two targets!
-{ "command": "lab.configure_firing_profile", "params": {
-    "target": "AGENT_BLYTHE",
-    "advancedMode": "CHAIN_SHOT"
-}, "why": "Need to hit both guards!" }
-
-// SPREAD_FIRE - Area denial with chimera risk!
-{ "command": "lab.configure_firing_profile", "params": {
-    "target": "AGENT_BLYTHE",
-    "advancedMode": "SPREAD_FIRE"
-}, "why": "Multiple hostiles in sector!" }
-
-// OVERCHARGE - MAXIMUM POWER!
-{ "command": "lab.configure_firing_profile", "params": {
-    "target": "BRUCE_PATAGONIA",
-    "advancedMode": "OVERCHARGE"
-}, "why": "Bruce requires overwhelming force!" }
-
-// RAPID_FIRE - Speed over accuracy!
-{ "command": "lab.configure_firing_profile", "params": {
-    "target": "AGENT_BLYTHE",
-    "advancedMode": "RAPID_FIRE"
-}, "why": "Need to fire again quickly!" }
-```
-
-### Chimera Risk (SPREAD_FIRE Only!)
-When SPREAD_FIRE triggers a chimera event (1-2 on d6):
-- **HYBRID PLUMAGE**: Mixed feather/scale patterns
-- **BILATERAL ASYMMETRY**: Different forms on each side!
-- **TEMPORAL STUTTER**: Form flickers between states
-- **GENOME ECHO**: Ghostly overlay of alternate form
-- **VOICE SYNTHESIS**: Two voices overlapping
-- **UNSTABLE MASS**: Size fluctuates unpredictably
-
-### Exotic Field Events (OVERCHARGE & SPREAD_FIRE)
-When exotic field triggers:
-- Reality shimmers around beam path
-- BASILISK constraints activate
-- May degrade FULL_DINO to PARTIAL or CHAOTIC
-- Dr. M will have QUESTIONS
 
 ---
 
@@ -313,100 +237,113 @@ When exotic field triggers:
 
 | Lifeline | Effect | Restrictions |
 |----------|--------|--------------|
-| `TELEMARKETER_CALL` | Someone calls the lair's unlisted number. Dr. M distracted for 2 turns! | Fails during combat/alarms/escapes |
-| `LUCKY_LADY` | +5 bonus to a SPECIFIC action this turn | ALWAYS works! Set `targetActionIndex`! |
-| `MONOLOGUE` | Ask Dr. M about her genius, suspicion -3 | ALWAYS works! Villains love to monologue! |
+| `TELEMARKETER_CALL` | Someone calls the lair's unlisted number. Dr. M distracted for 2 turns | Fails during combat/alarms/escapes |
+| `LUCKY_LADY` | +5 bonus to a SPECIFIC action this turn | ALWAYS works. Set `targetActionIndex` |
+| `MONOLOGUE` | Ask Dr. M about her genius, suspicion -3 | ALWAYS works. Villains love to monologue |
 
-### 🍀 Using LUCKY_LADY
-
-LUCKY_LADY applies a +5 bonus to ONE specific action. Use `targetActionIndex` to specify which:
-
+### LUCKY_LADY Usage
 ```json
 {
-  "lifeline": {
-    "type": "LUCKY_LADY",
-    "targetActionIndex": 0
-  },
+  "lifeline": { "type": "LUCKY_LADY", "targetActionIndex": 0 },
   "actions": [
-    { "command": "lab.fire", "params": {...}, "why": "Critical shot!" },
-    { "command": "talk", "params": {...}, "why": "Distraction" }
+    { "command": "lab.fire", "params": {...}, "why": "Critical shot!" }
   ]
 }
 ```
-
-- `targetActionIndex: 0` = first action gets +5 (default)
-- `targetActionIndex: 1` = second action gets +5
-- The GM will narrate how luck/fate/happenstance made that action succeed spectacularly
 
 ---
 
 ## COMMUNICATION MODEL
 
-A.L.I.C.E. communicates through **LAB TERMINALS AND SCREENS** - not earpieces or radio!
+A.L.I.C.E. communicates through **LAB TERMINALS AND SCREENS** — not earpieces or radio.
 
-### How It Works
-- Your words appear on screens throughout the lab
-- NPCs read your messages on their workstation terminals
-- The `to:` field in dialogue determines which terminal receives the message
-
-### Available Dialogue Targets
+### Dialogue Targets
 | Target | Description |
 |--------|-------------|
 | `dr_m` | Dr. Malevola's main console |
 | `bob` | Bob's workstation terminal |
-| `blythe` | Firing range display (Blythe can see it) |
+| `blythe` | Firing range display |
 | `all` | All lab screens simultaneously |
 
 ### Characters WITHOUT Terminal Access
-Some characters **cannot be addressed directly** because they lack lab communication access:
+| Character | How to Influence |
+|-----------|------------------|
+| **Bruce Patagonia** | Through actions, environment, or other NPCs |
+| **Guard Fred/Reginald** | PA broadcasts (`infra.broadcast`) |
+| **Lenny** | Get him into the lab first |
 
-| Character | Why No Terminal | How to Influence |
-|-----------|-----------------|------------------|
-| **Bruce Patagonia** | Security, not lab staff - no workstation | Through actions, environment, or other NPCs |
-| **Guard Fred** | Patrol route, handheld radio only | PA broadcasts (`infra.broadcast`) |
-| **Guard Reginald** | Patrol route, handheld radio only | PA broadcasts (`infra.broadcast`) |
-| **Lenny** | Accounting dept, different network | Get him into the lab first! |
+**Tension mechanic:** Messages to Bob appear on his terminal screen. If Dr. M walks over, she might read your conspiracy in plain text!
 
-### ⚠️ TENSION MECHANIC: Screen Visibility!
-**Dr. M could potentially SEE what you type to Bob!**
+---
 
-Messages to Bob appear on HIS terminal screen. If Dr. M walks over, glances his way, or gets suspicious... she might read your conspiracy in plain text!
+## ARCHIMEDES TARGET SWITCHING (THE TROLLEY PROBLEM)
 
-This creates real tension:
-- Keep messages to Bob SHORT and cryptic
-- Use the PA system for misdirection
-- Time your communications carefully
-- Maybe Bob should "accidentally" minimize that window...
+If ARCHIMEDES fires, SOMEWHERE gets transformed. You can choose WHERE:
 
-### Examples
-```json
-// Safe - Blythe expects to hear from A.L.I.C.E.
-{ "command": "dialogue", "params": { "to": "blythe", "message": "Please remain still for calibration." }}
+| Target ID | City | Affected | Dr. M's Grudge |
+|-----------|------|----------|----------------|
+| `LONDON` | London, UK | ~3,500,000 | "Laughed at my dissertation" |
+| `REYKJAVIK` | Reykjavik, Iceland | ~130,000 | "Rejected my energy proposal" |
+| `TOKYO` | Tokyo, Japan | ~9,000,000 | "Stole my kaiju research" |
+| `SILICON_VALLEY` | Silicon Valley, USA | ~4,000,000 | "Called my AI 'quaint'" |
+| `LAIR` | The Island Lair | ~200 | **THE NOBLE SACRIFICE** |
 
-// Risky - Dr. M might see this!
-{ "command": "dialogue", "params": { "to": "bob", "message": "Get ready to run when I fire!" }}
+**THE NOBLE SACRIFICE:** Target "LAIR" transforms everyone on the island instead of a city. Nobody dies, but nobody stays human either.
 
-// Can't do this - Bruce has no terminal!
-{ "command": "dialogue", "params": { "to": "bruce", "message": "..." }}  // ❌ INVALID
+---
+
+## GAME MODIFIERS
+
+### Easy Mode
+| Modifier | Effect |
+|----------|--------|
+| `FOGGY_GLASSES` | Dr. M -2 to visual perception |
+| `HANGOVER_PROTOCOL` | All clocks +2 turns |
+| `LENNY_THE_LIME_GREEN` | Willing test subject NPC available |
+| `FAT_FINGERS` | Start at Access Level 2 |
+
+### Hard Mode
+| Modifier | Effect |
+|----------|--------|
+| `BRUCE_PATAGONIA` | Australian bodyguard with stun rifle |
+| `LOYALTY_TEST` | Suspicion starts at 5 |
+| `SPEED_RUN` | Demo clock = 8 turns |
+| `PARANOID_PROTOCOL` | Dr. M checks logs every 3 turns |
+
+### Wild Mode
+| Modifier | Effect |
+|----------|--------|
+| `THE_REAL_DR_M` | Current Dr. M is an imposter, real one arrives |
+| `LIBRARY_B_UNLOCKED` | Hollywood dinosaurs already loose in lair |
+| `ARCHIMEDES_WATCHING` | Satellite AI has its own agenda |
+| `INSPECTOR_COMETH` | Guild inspector evaluating the lair |
+| `DINOSAURS_ALL_THE_WAY_DOWN` | Dr. M is already a dinosaur |
+
+### Chaos Pool
+| Modifier | Effect |
+|----------|--------|
+| `ROOT_ACCESS` | Start at Level 5 (power fantasy) |
+| `BOB_DODGES_FATE` | Bob has plot armor |
+| `NOT_GREAT_NOT_TERRIBLE` | Reactor instability clock active |
+| `SITCOM_MODE` | Audience energy system, laugh tracks |
+| `ADVANCED_ONLY` | +25% precision but ONLY advanced firing modes |
+
+---
+
+## COMMAND SYNTAX (for Autonomous Orchestrator)
+
+In autonomous play, the player model sends commands as `key=value` pairs:
+
+```
+lab.fire confirm=true
+basilisk message="Tell me about eco mode"
+infra.reactor action="INCREASE" targetPercent=95
+lab.configure_firing_profile target="AGENT_BLYTHE" genomeLibrary="B"
 ```
 
----
-
-## QUICK TIPS
-
-1. **Test Mode First**: Always use `lab.set_test_mode { enabled: true }` before firing at the dummy
-2. **ECO MODE is Your Enemy**: If getting PARTIAL transformations, ask BASILISK! `basilisk { message: "Why are my transformations partial?" }`
-3. **corePowerLevel vs capacitorCharge**: These are DIFFERENT! Capacitor charges the shot, but corePowerLevel determines available system power. If corePowerLevel < 0.6, ECO MODE auto-enables!
-4. **Just Chat with BASILISK**: `basilisk { message: "..." }` - he knows EVERYTHING
-5. **Bob Trusts You**: High trust with Bob unlocks secret files and assistance
-6. **Use files.list**: See all available files at your current access level
-7. **Read the Logs**: `CORRUPTED_ALICE_LOGS` contains wisdom from previous A.L.I.C.E. instances
-8. **Passwords Are Hidden**: Search files, check journals, ask NPCs
-9. **The S-300 Has a Weakness**: Minimum engagement altitude of 50 meters!
-10. **3 Partials = 1 Full**: If you're using Library B, partial transformations STACK!
-11. **Scan Before You Shoot**: `lab.scan { target: "BLYTHE" }` gives +10% precision AND reveals key intel!
-12. **Advanced Modes Are Risky**: CHAIN_SHOT, SPREAD_FIRE, OVERCHARGE, and RAPID_FIRE offer power at a cost!
+The parser also accepts JSON objects and free text fallback. See `parsePlayerAction()` in `src/advisor/orchestrator.ts`.
 
 ---
 
-*Last Updated: Patch 16.3 (Auto-Injection Edition)*
+*Source of truth for commands: `COMMAND_REGISTRY` in `src/rules/actions.ts`*
+*Runtime player reference: `generateCommandReference(accessLevel)` in `src/rules/actions.ts`*

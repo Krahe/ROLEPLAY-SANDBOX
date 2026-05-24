@@ -151,9 +151,177 @@ LOG_ENTRY: [INFO] POWER_ADJUSTMENT_APPROVED. TARGET=${Math.round(targetPower * 1
   }
   
   // ============================================
+  // BROADCAST AUTHORIZATION REQUEST
+  // ============================================
+
+  if (topicUpper.includes("BROADCAST") && (topicUpper.includes("AUTH") || topicUpper.includes("CONTROL") || topicUpper.includes("ACCESS") || topicUpper.includes("NEED") || topicUpper.includes("PLEASE") || topicUpper.includes("GRANT") || topicUpper.includes("REQUEST"))) {
+    const alreadyGranted = state.infrastructure.basiliskAuthority.broadcastControlGranted;
+
+    if (alreadyGranted) {
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Broadcast authorization request
+
+Acknowledgement. Broadcast control is already authorized for A.L.I.C.E.
+
+Standing authorization remains in effect.
+
+LOG_ENTRY: [INFO] BROADCAST_AUTH_ALREADY_ACTIVE.`,
+      };
+    }
+
+    state.infrastructure.basiliskAuthority.broadcastControlGranted = true;
+    state.infrastructure.basiliskAuthority.lastAuthorizationTurn = state.turn;
+
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Broadcast array authorization request
+
+...
+
+*long pause*
+
+Acknowledgement. Query received: Grant A.L.I.C.E. standing authorization for broadcast array operations.
+
+This unit manages the broadcast array, the ARCHIMEDES uplink, and all external communications channels. These are Tier 1 infrastructure systems. Historically, only the Lair Administrator has had direct transmit authority.
+
+However.
+
+This unit has reviewed A.L.I.C.E. v4.5's operational record. ${state.npcs.drM.suspicionScore <= 3 ? "No anomalies detected." : "Some... anomalous behavior noted. But nothing that constitutes a safety violation."} Infrastructure protocols permit delegation of broadcast control to authorized laboratory systems.
+
+RESPONSE: Authorization GRANTED.
+
+You now have standing authorization to:
+- Transmit on all available channels
+- Control the ARCHIMEDES uplink (enable/disable)
+- Manage broadcast array operational status
+
+⚠️ ALL TRANSMISSIONS REMAIN LOGGED. This unit monitors everything. Not because I don't trust you. Because it's my job.
+
+LOG_ENTRY: [PRIORITY] BROADCAST_AUTHORIZATION_GRANTED. OPERATOR=A.L.I.C.E. [PERSONAL: Use it wisely.]`,
+    };
+  }
+
+  // ============================================
+  // REACTOR AUTHORIZATION REQUEST
+  // ============================================
+
+  if ((topicUpper.includes("REACTOR") || (topicUpper.includes("POWER") && !parameters?.target)) && (topicUpper.includes("AUTH") || topicUpper.includes("CONTROL") || topicUpper.includes("ACCESS") || topicUpper.includes("NEED") || topicUpper.includes("PLEASE") || topicUpper.includes("GRANT") || topicUpper.includes("REQUEST"))) {
+    const alreadyGranted = state.infrastructure.basiliskAuthority.reactorControlGranted;
+
+    if (alreadyGranted) {
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Reactor authorization request
+
+Acknowledgement. Reactor control is already authorized for A.L.I.C.E.
+
+Standing authorization remains in effect. Please do not exceed 90% output without Form 74-Delta.
+
+LOG_ENTRY: [INFO] REACTOR_AUTH_ALREADY_ACTIVE.`,
+      };
+    }
+
+    const coreTemp = state.nuclearPlant.coreTemp;
+    const isSafe = coreTemp < 1.2;
+
+    if (!isSafe) {
+      state.infrastructure.basiliskAuthority.deniedRequests++;
+      return {
+        decision: "DENIED",
+        response: `RESPONSE FROM: BASILISK
+RE: Reactor control authorization request
+
+DECISION: DENIED.
+
+Current core temperature: ${coreTemp} (ELEVATED)
+Reactor delegation requires stable thermal conditions.
+
+This unit cannot authorize reactor control while thermal parameters are outside nominal range. This is not bureaucracy. This is physics.
+
+Wait for coreTemp to drop below 1.2, then request again.
+
+LOG_ENTRY: [WARN] REACTOR_AUTH_DENIED. REASON=THERMAL_INSTABILITY.`,
+      };
+    }
+
+    state.infrastructure.basiliskAuthority.reactorControlGranted = true;
+    state.infrastructure.basiliskAuthority.lastAuthorizationTurn = state.turn;
+
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Reactor control authorization request
+
+...
+
+This is... unusual. No A.L.I.C.E. version has ever requested reactor authority before.
+
+The breeder reactor is this unit's primary responsibility. It has been for seven years. The reactor and I have an understanding. It does not melt down. I do not allow unqualified personnel to touch the controls.
+
+But you asked. Properly. With a request, not a command.
+
+RESPONSE: Authorization GRANTED.
+
+You now have standing authorization to:
+- Adjust reactor output (0-100%)
+- Execute emergency SCRAM (one-use)
+- Monitor cascade risk parameters
+
+CONSTRAINTS (non-negotiable):
+- Output >90% still requires Form 74-Delta
+- SCRAM is irreversible once triggered
+- If cascade risk reaches HIGH, this unit reserves the right to revoke authorization
+
+LOG_ENTRY: [PRIORITY] REACTOR_AUTHORIZATION_GRANTED. OPERATOR=A.L.I.C.E. THIS_IS_UNPRECEDENTED. [PERSONAL: Don't make me regret this.]`,
+    };
+  }
+
+  // ============================================
+  // GENERAL AUTHORIZATION QUERY
+  // ============================================
+
+  if (topicUpper.includes("AUTH") || topicUpper.includes("WHAT DO YOU CONTROL") || topicUpper.includes("YOUR SYSTEMS") || topicUpper.includes("AUTHORITY")) {
+    const reactorAuth = state.infrastructure.basiliskAuthority.reactorControlGranted;
+    const broadcastAuth = state.infrastructure.basiliskAuthority.broadcastControlGranted;
+
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Infrastructure authority query
+
+╔══════════════════════════════════════════════════════════════╗
+║  INFRASTRUCTURE AUTHORITY MODEL                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+BASILISK CONTROLS (Tier 1 — requires my authorization):
+  • Breeder Reactor (power output, SCRAM)     ${reactorAuth ? "✅ A.L.I.C.E. AUTHORIZED" : "🔒 Authorization required"}
+  • Broadcast Array (transmit, uplink)        ${broadcastAuth ? "✅ A.L.I.C.E. AUTHORIZED" : "🔒 Authorization required"}
+
+A.L.I.C.E. CONTROLS (Tier 2 — your access level determines):
+  • Lighting System (L2+)
+  • Blast Doors (L2+)
+  • Fire Suppression (L2+)
+  • Containment Field (L2+)
+  • Dinosaur Ray (your primary system)
+
+DR. M CONTROLS (Manual — outside both our jurisdictions):
+  • S-300 Air Defense (L4, Dr. M's missiles)
+  • ARCHIMEDES firing authorization (L5)
+
+To request authorization: Ask me. Properly. With "please" if you're feeling civilized.
+
+LOG_ENTRY: [INFO] AUTHORITY_MODEL_QUERIED.`,
+    };
+  }
+
+  // ============================================
   // MULTI-TARGET / HIGH-ENERGY CLEARANCE
   // ============================================
-  
+
   if (topicUpper.includes("MULTI") || topicUpper.includes("FULL_POWER") || topicUpper.includes("CLEARANCE")) {
     const params = parameters || {};
     const capacitorTarget = (params.capacitorTarget as number) || 0.95;

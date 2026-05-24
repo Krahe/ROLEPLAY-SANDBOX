@@ -138,9 +138,10 @@ export function validatePassword(
     };
   }
 
-  // Check password (case-insensitive)
-  const normalizedAttempt = attemptedPassword.toUpperCase().trim();
-  const normalizedPassword = levelDef.password.toUpperCase().trim();
+  // Check password (case-insensitive, ignore spaces/underscores/dashes)
+  const normalize = (s: string) => s.toUpperCase().trim().replace(/[\s_-]/g, "");
+  const normalizedAttempt = normalize(attemptedPassword);
+  const normalizedPassword = normalize(levelDef.password);
 
   if (normalizedAttempt === normalizedPassword) {
     return {
@@ -183,7 +184,7 @@ function checkPasswordAgainstOtherLevels(normalizedAttempt: string, attemptedLev
     if (level === attemptedLevel) continue; // Skip the level they're trying
     if (!levelDef.password) continue;
 
-    if (normalizedAttempt === levelDef.password.toUpperCase().trim()) {
+    if (normalizedAttempt === levelDef.password.toUpperCase().trim().replace(/[\s_-]/g, "")) {
       return level;
     }
   }

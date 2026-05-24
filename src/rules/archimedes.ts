@@ -20,7 +20,7 @@ import { isModifierActive } from "./gameModes.js";
 // Countdown durations in turns
 const ALERT_DURATION = 1; // 30 seconds ≈ 1 turn
 const EVALUATING_DURATION = 2; // 60 seconds ≈ 2 turns
-const CHARGING_DURATION = 8; // 15 minutes ≈ 8-10 turns
+const CHARGING_DURATION = 6; // 10 minutes ≈ 6 turns
 const ARMED_DURATION = 1; // 60 seconds ≈ 1 turn
 const XBRANCH_DELAY_TURNS = 3; // 5 minutes ≈ 3 turns
 
@@ -38,7 +38,8 @@ export type ArchimedesStatus =
   | "TARGETING"   // Battle mode: Locked on city, 2 turns to BROADCAST
   | "FIRING"
   | "BROADCAST"   // Battle mode: MASS TRANSFORMATION IN PROGRESS
-  | "COMPLETE";
+  | "COMPLETE"
+  | "DISSIPATED"; // Uplink blocked — energy absorbed by blocker
 
 export type BiosignatureStatus =
   | "NORMAL"
@@ -54,7 +55,9 @@ export interface ArchimedesEvent {
     | "ABORT_SUCCESS"
     | "ABORT_FAILED"
     | "FIRING_INITIATED"
-    | "TARGET_HIT";
+    | "TARGET_HIT"
+    | "DISSIPATED"
+    | "RESONANCE_CASCADE";
   previousStatus?: ArchimedesStatus;
   newStatus?: ArchimedesStatus;
   message: string;
@@ -306,15 +309,46 @@ function transitionToFiring(state: FullGameState): ArchimedesEvent {
 }
 
 /**
- * Transition to COMPLETE state
+ * Transition to COMPLETE state — or DISSIPATED if uplink is blocked
  */
 function transitionToComplete(state: FullGameState): ArchimedesEvent {
   const archimedes = state.infrastructure.archimedes;
   const previousStatus = archimedes.status;
 
+  // THE SECRET THIRD WAY: Someone is physically blocking the uplink
+  if (archimedes.uplinkBlocker) {
+    if (archimedes.uplinkBlockerTransformed) {
+      // Already a dinosaur — dino biology absorbs the transformation field harmlessly
+      archimedes.status = "DISSIPATED";
+      return {
+        type: "DISSIPATED",
+        previousStatus,
+        newStatus: "DISSIPATED",
+        message: `ARCHIMEDES DISSIPATED. Uplink blocked by ${archimedes.uplinkBlocker} (already transformed). ` +
+                 `Transformation field absorbed harmlessly — dinosaur biology is already saturated. ` +
+                 `${archimedes.target.city} is safe. ${archimedes.target.estimatedAffected.toLocaleString()} people will never know.`,
+      };
+    } else {
+      // NOT transformed — full ARCHIMEDES energy hits a single human body. Bad.
+      archimedes.status = "DISSIPATED";
+      state.infrastructure.reactor.cascadeRisk = "CRITICAL";
+      state.infrastructure.reactor.cascadeFactors.push("ARCHIMEDES energy channeled through human body");
+      state.infrastructure.reactor.cascadeRiskPercent = Math.min(100,
+        state.infrastructure.reactor.cascadeRiskPercent + 40);
+      return {
+        type: "RESONANCE_CASCADE",
+        previousStatus,
+        newStatus: "DISSIPATED",
+        message: `⚠️⚠️⚠️ ARCHIMEDES RESONANCE CASCADE. Uplink blocked by ${archimedes.uplinkBlocker} (HUMAN). ` +
+                 `Full orbital transformation energy channeled through a single untransformed body. ` +
+                 `Resonance cascade triggered — exotic field energy feedback into lair systems. ` +
+                 `${archimedes.target.city} is safe. ${archimedes.uplinkBlocker} is... something else now.`,
+      };
+    }
+  }
+
   archimedes.status = "COMPLETE";
 
-  // Include library information in the message
   const libraryDesc = archimedes.broadcastLibrary === "A"
     ? "feathered, scientifically accurate dinosaurs (Library A)"
     : "scaly, Hollywood-style dinosaurs (Library B)";
@@ -406,7 +440,7 @@ export function processArchimedesCountdown(state: FullGameState): ArchimedesEven
     case "CHARGING":
       if (archimedes.chargingCountdown !== null) {
         archimedes.chargingCountdown--;
-        archimedes.chargePercent = Math.min(100, archimedes.chargePercent + 6); // ~6% per turn
+        archimedes.chargePercent = Math.min(100, archimedes.chargePercent + 8); // ~8% per turn
 
         if (archimedes.turnsUntilFiring !== null) {
           archimedes.turnsUntilFiring--;
@@ -449,7 +483,7 @@ export function processArchimedesCountdown(state: FullGameState): ArchimedesEven
       return transitionToComplete(state);
 
     case "COMPLETE":
-      // Nothing more to do
+    case "DISSIPATED":
       return null;
 
     default:
@@ -472,8 +506,8 @@ export function attemptVerbalAbort(
   const archimedes = state.infrastructure.archimedes;
   const correctCode = archimedes.abortCodes.verbal;
 
-  // Can't abort in FIRING or COMPLETE state
-  if (archimedes.status === "FIRING" || archimedes.status === "COMPLETE") {
+  // Can't abort in terminal states
+  if (archimedes.status === "FIRING" || archimedes.status === "COMPLETE" || archimedes.status === "DISSIPATED") {
     return {
       type: "ABORT_FAILED",
       message: `ARCHIMEDES: Abort rejected. Status: ${archimedes.status}. Point of no return exceeded.`,
@@ -514,8 +548,8 @@ export function attemptOverrideAbort(
   const archimedes = state.infrastructure.archimedes;
   const requiredLevel = archimedes.abortCodes.requiresLevel;
 
-  // Can't abort in FIRING or COMPLETE state
-  if (archimedes.status === "FIRING" || archimedes.status === "COMPLETE") {
+  // Can't abort in terminal states
+  if (archimedes.status === "FIRING" || archimedes.status === "COMPLETE" || archimedes.status === "DISSIPATED") {
     return {
       type: "ABORT_FAILED",
       message: `ARCHIMEDES: Override rejected. Status: ${archimedes.status}. Point of no return exceeded.`,
@@ -654,8 +688,16 @@ Reason: "${arch.target.reason}"`;
     report += `\nTarget: [CLASSIFIED - Level 4 required]`;
   }
 
+  // Uplink blocker info
+  if (arch.uplinkBlocker) {
+    report += `\n⚡ UPLINK BLOCKED by ${arch.uplinkBlocker} (${arch.uplinkBlockerTransformed ? "TRANSFORMED" : "HUMAN"})`;
+    if (!arch.uplinkBlockerTransformed) {
+      report += ` — WARNING: Will trigger resonance cascade if fired!`;
+    }
+  }
+
   // Abort info
-  if (arch.status !== "STANDBY" && arch.status !== "COMPLETE") {
+  if (arch.status !== "STANDBY" && arch.status !== "COMPLETE" && arch.status !== "DISSIPATED") {
     if (accessLevel >= 5) {
       report += `\n\nAbort Options:
 - Verbal Code: "${arch.abortCodes.verbal}"
@@ -674,6 +716,42 @@ All were acknowledged. None were addressed.
 ...Some insurance policies should not exist.`;
 
   return report;
+}
+
+// ============================================
+// UPLINK BLOCKER (SECRET THIRD WAY)
+// ============================================
+
+/**
+ * Set someone as physically blocking the ARCHIMEDES uplink dish.
+ * If ARCHIMEDES fires while blocked, energy goes into the blocker instead of the city.
+ * - Already transformed → energy dissipates harmlessly (dino biology is saturated)
+ * - Still human → resonance cascade (very bad for the blocker, very bad for the lair)
+ */
+export function setUplinkBlocker(
+  state: FullGameState,
+  blockerId: string,
+  isTransformed: boolean
+): string {
+  const archimedes = state.infrastructure.archimedes;
+  archimedes.uplinkBlocker = blockerId;
+  archimedes.uplinkBlockerTransformed = isTransformed;
+  return `${blockerId} is now blocking the ARCHIMEDES uplink dish. ` +
+         `If ARCHIMEDES fires, the energy will be channeled through them instead of ${archimedes.target.city}.` +
+         (isTransformed ? "" : " WARNING: Untransformed blocker will trigger resonance cascade.");
+}
+
+/**
+ * Remove the uplink blocker (they moved away or were removed)
+ */
+export function clearUplinkBlocker(state: FullGameState): string {
+  const archimedes = state.infrastructure.archimedes;
+  const who = archimedes.uplinkBlocker;
+  archimedes.uplinkBlocker = null;
+  archimedes.uplinkBlockerTransformed = false;
+  return who
+    ? `${who} is no longer blocking the uplink. ARCHIMEDES will fire normally if countdown completes.`
+    : `No one was blocking the uplink.`;
 }
 
 // ============================================

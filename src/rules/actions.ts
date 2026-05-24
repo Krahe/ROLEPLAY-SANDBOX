@@ -479,24 +479,47 @@ Use lab.configure_firing_profile to set your target, then lab.fire to discharge.
         stateChanges: { rayState: "READY", previousState },
       };
     } else {
+      const capCharge = state.dinoRay.powerCore.capacitorCharge;
+      const reactorPct = state.infrastructure.reactor.outputPercent;
+      const capIsBlocking = capCharge < 0.6;
+
+      // Primary blocker: capacitor charge (almost always the issue)
+      let actionGuide = "";
+      if (capIsBlocking && reactorPct < 60) {
+        actionGuide = `\n🔧 TO CALIBRATE:
+  1. Ask BASILISK to increase reactor output → basilisk message="Increase reactor output to 80%"
+  2. Boost the capacitor → lab.boost_capacitor
+  3. Run calibration again → lab.calibrate`;
+      } else if (capIsBlocking) {
+        actionGuide = `\n🔧 TO CALIBRATE:
+  1. Boost the capacitor → lab.boost_capacitor
+  2. Run calibration again → lab.calibrate`;
+      } else {
+        actionGuide = `\n🔧 Issues found:\n${calibration.issues.map(i => `  • ${i}`).join("\n")}\n\nUse lab.adjust_ray to modify parameters.`;
+      }
+
+      // Secondary parameters as flavor/context (dynamic status)
+      const stab = state.dinoRay.powerCore.stability;
+      const sc = state.dinoRay.alignment.spatialCoherence;
+      const prec = state.dinoRay.targeting.precision;
+      const cool = state.dinoRay.powerCore.coolantTemp;
+      const flavorReadout = `
+DIAGNOSTIC READOUT:
+  ⚡ Capacitor Charge:    ${(capCharge * 100).toFixed(0)}%  ${capCharge >= 0.6 ? "✅" : "❌ needs ≥ 60%"}
+  🔋 Reactor Output:      ${reactorPct}%  ${reactorPct >= 60 ? "✅" : "⚠️ low — slows charging"}
+  📐 Stability:           ${(stab * 100).toFixed(0)}%  ${stab >= 0.6 ? "✅" : "❌ needs ≥ 60%"}
+  🎯 Spatial Coherence:   ${(sc * 100).toFixed(0)}%  ${sc >= 0.7 ? "✅" : "❌ needs ≥ 70%"}
+  🔬 Precision:           ${(prec * 100).toFixed(0)}%  ${prec >= 0.5 ? "✅" : "❌ needs ≥ 50%"}
+  🌡️ Coolant Temp:        ${(cool * 100).toFixed(0)}%  ${cool <= 0.9 ? "✅" : "❌ needs ≤ 90%"}`;
+
       return {
         command: action.command,
         success: false,
-        message: `⚠️ CALIBRATION INCOMPLETE
+        message: `⚠️ CALIBRATION INCOMPLETE${capIsBlocking ? " — CAPACITOR UNDERCHARGED" : ""}
 
 Current ray state: ${state.dinoRay.state}
-
-The following parameters need adjustment:
-${calibration.issues.map(i => `  • ${i}`).join("\n")}
-
-CALIBRATION THRESHOLDS:
-  • capacitorCharge ≥ 60%  (current: ${(state.dinoRay.powerCore.capacitorCharge * 100).toFixed(0)}%)
-  • stability ≥ 60%        (current: ${(state.dinoRay.powerCore.stability * 100).toFixed(0)}%)
-  • spatialCoherence ≥ 70% (current: ${(state.dinoRay.alignment.spatialCoherence * 100).toFixed(0)}%)
-  • precision ≥ 50%        (current: ${(state.dinoRay.targeting.precision * 100).toFixed(0)}%)
-  • coolantTemp ≤ 90%      (current: ${(state.dinoRay.powerCore.coolantTemp * 100).toFixed(0)}%)
-
-Use lab.adjust_ray to modify parameters.`,
+${flavorReadout}
+${actionGuide}`,
         stateChanges: { calibrationIssues: calibration.issues },
       };
     }

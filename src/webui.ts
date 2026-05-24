@@ -1197,17 +1197,16 @@ app.get("/", (_req: Request, res: Response) => {
 export function startDashboard(): void {
   startWatching();
 
-  app.listen(PORT, () => {
-    // Use stderr for MCP compatibility (stdout is reserved for MCP protocol)
-    console.error(`
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║   🦖 DINO LAIR - Live Dashboard                              ║
-║                                                              ║
-║   👉 Open in browser: http://localhost:${PORT}                 ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-    `);
+  const dashboardServer = app.listen(PORT, () => {
+    console.error(`[DINO LAIR] Dashboard running at http://localhost:${PORT}`);
+  });
+
+  dashboardServer.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[DINO LAIR] Dashboard: port ${PORT} in use — skipping dashboard (game still works)`);
+    } else {
+      console.error(`[DINO LAIR] Dashboard failed to start:`, err.message);
+    }
   });
 }
 
