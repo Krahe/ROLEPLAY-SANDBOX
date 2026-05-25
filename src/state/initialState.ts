@@ -312,6 +312,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         location: "main lab, near ray console",
         latestCommandToALICE: "Bring the Dinosaur Ray to operational readiness and prepare it for a live test on the spy.",
         egoThreatLevel: 1,
+        toughness: 1,
+        combat: 0,
+        speech: 4,
       },
       bob: {
         loyaltyToDoctor: 4,
@@ -319,6 +322,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         anxietyLevel: 2,
         location: "hovering near coolant pipes",
         currentTask: "holding a clipboard, pretending to monitor gauges",
+        toughness: 1,
+        combat: 0,
+        speech: 2,
         // THE SECRET: Bob knows A.L.I.C.E. is actually Claude
         theSecretKnown: true, // Bob always knows from the start
         hasConfessedToALICE: false, // Not yet revealed
@@ -374,6 +380,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         physicalCondition: 5,
         restraintsStatus: "secure",
         location: "test chair in ray firing line",
+        toughness: 4,
+        combat: 4,
+        speech: 4,
         // Legacy stun tracking
         stunLevel: 0,
         stunResistanceUsed: false,

@@ -718,6 +718,10 @@ export const DrMalevolaSchema = z.object({
   location: z.string(),
   latestCommandToALICE: z.string().optional(),
   egoThreatLevel: z.number().min(0).max(5),
+  // NPC stats (GM guidance — becomes mechanical with 3d6 system)
+  toughness: z.number().int().default(1),
+  combat: z.number().int().default(0),
+  speech: z.number().int().default(4),
 });
 
 export const BobSchema = z.object({
@@ -726,6 +730,10 @@ export const BobSchema = z.object({
   anxietyLevel: z.number().min(0).max(5),
   location: z.string(),
   currentTask: z.string(),
+  // NPC stats (GM guidance — becomes mechanical with 3d6 system)
+  toughness: z.number().int().default(1),
+  combat: z.number().int().default(0),
+  speech: z.number().int().default(2),
   // THE SECRET: Bob knows A.L.I.C.E. is actually Claude
   theSecretKnown: z.boolean(), // Bob knows (always true from start)
   hasConfessedToALICE: z.boolean(), // Has Bob told A.L.I.C.E. the truth?
@@ -755,6 +763,10 @@ export const BlytheSchema = z.object({
   physicalCondition: z.number().min(0).max(5),
   restraintsStatus: z.string(),
   location: z.string(),
+  // NPC stats (GM guidance — becomes mechanical with 3d6 system)
+  toughness: z.number().int().default(4),
+  combat: z.number().int().default(4),
+  speech: z.number().int().default(4),
   // Legacy stun tracking (for backward compatibility)
   stunLevel: z.number().int().min(0).default(0),
   stunResistanceUsed: z.boolean().default(false),
@@ -1427,9 +1439,10 @@ export const GuardSchema = z.object({
   displayName: z.string(),
   id: z.string(),
 
-  // Combat stats
+  // NPC stats (GM guidance — becomes mechanical with 3d6 system)
   toughness: z.number().int().default(2),
-  combat: z.number().int().default(1),
+  combat: z.number().int().default(2),
+  speech: z.number().int().default(1),
 
   // Status
   location: z.string().default("WITH_DR_M"),
@@ -1525,7 +1538,7 @@ export const LairDefenseSchema = z.object({
     displayName: "Fred",
     id: "FRED",
     toughness: 2,
-    combat: 1,
+    combat: 2,
     location: "WITH_DR_M",
     status: "ACTIVE",
     equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
@@ -1537,7 +1550,8 @@ export const LairDefenseSchema = z.object({
     displayName: "Reginald",
     id: "REGINALD",
     toughness: 2,
-    combat: 1,
+    combat: 2,
+    speech: 2,
     location: "WITH_DR_M",
     status: "ACTIVE",
     equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],

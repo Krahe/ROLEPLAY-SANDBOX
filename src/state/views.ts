@@ -795,6 +795,9 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         mood: compressed.m.dm,
         location: compressed.npc.drM.loc,
         egoThreatLevel: 0,
+        toughness: 1,
+        combat: 0,
+        speech: 4,
       },
       bob: {
         loyaltyToDoctor: 3,
@@ -806,26 +809,30 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         hasConfessedToALICE: compressed.npc.bob.conf,
         confessionTurn: compressed.npc.bob.conf ? compressed.t - 1 : null,
         stunLevel: compressed.npc.bob.stun,
-        transformationState: createTransformationStateFromForm(compressed.m.bobx || null), // v2.1.0 fix: restore Bob's transformation!
-        // BOB_DODGES_FATE (restored from compressed if available)
-        hasPlotArmor: false, // Will be re-set by modifier application
+        transformationState: createTransformationStateFromForm(compressed.m.bobx || null),
+        hasPlotArmor: false,
         fatesDodged: 0,
+        toughness: 1,
+        combat: 0,
+        speech: 2,
       },
       blythe: {
         composure: compressed.m.bc,
-        trustInALICE: compressed.m.blt ?? 2, // v2.0.1 fix: restore saved trust
+        trustInALICE: compressed.m.blt ?? 2,
         physicalCondition: 4,
         restraintsStatus: compressed.npc.blythe.rest,
         location: compressed.npc.blythe.loc,
-        transformationState: createTransformationStateFromForm(compressed.m.bx || null), // v2.1.0 fix: restore Blythe's transformation!
+        transformationState: createTransformationStateFromForm(compressed.m.bx || null),
         stunLevel: compressed.npc.blythe.stun,
         stunResistanceUsed: false,
         spyTrainingBonus: 1,
         autoInjectorUsed: false,
-        // Escape tracking (v2.5.0: preserve escape state!)
         hasEscaped: compressed.npc.blythe.esc ?? false,
-        escapeTurn: compressed.npc.blythe.esc ? compressed.t - 1 : null, // Estimate
-        escapeMethod: null, // Can't fully preserve method, null is safe
+        escapeTurn: compressed.npc.blythe.esc ? compressed.t - 1 : null,
+        escapeMethod: null,
+        toughness: 4,
+        combat: 4,
+        speech: 4,
       },
       // Gadgets reset to minimal state on decompression
       blytheGadgets: {

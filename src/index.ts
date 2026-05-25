@@ -296,6 +296,9 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         mood: state.npcs.drM.mood,
         location: state.npcs.drM.location,
         latestCommandToALICE: state.npcs.drM.latestCommandToALICE,
+        toughness: state.npcs.drM.toughness,
+        combat: state.npcs.drM.combat,
+        speech: state.npcs.drM.speech,
       },
       bob: state.npcs.bob,
       blythe: {
@@ -305,6 +308,9 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         restraintsStatus: state.npcs.blythe.restraintsStatus,
         location: state.npcs.blythe.location,
         transformationState: state.npcs.blythe.transformationState,
+        toughness: state.npcs.blythe.toughness,
+        combat: state.npcs.blythe.combat,
+        speech: state.npcs.blythe.speech,
         // Stun mechanics
         stunLevel: state.npcs.blythe.stunLevel,
         stunResistanceUsed: state.npcs.blythe.stunResistanceUsed,
