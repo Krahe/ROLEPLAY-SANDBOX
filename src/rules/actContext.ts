@@ -63,13 +63,14 @@ export function checkActTwoToThreeTrigger(state: FullGameState): ActTransitionTr
     };
   }
 
-  // Check transformation
-  if (blythe.transformationState) {
+  // Check transformation (must be non-human form, not just initialized state)
+  const blytheForm = blythe.transformationState?.form;
+  if (blytheForm && typeof blytheForm === "string" && blytheForm !== "HUMAN") {
     return {
       occurred: true,
       turn: state.turn,
       triggerType: "BLYTHE_TRANSFORMED",
-      details: `Transformation: ${blythe.transformationState}`,
+      details: `Transformation: ${blytheForm}`,
     };
   }
 

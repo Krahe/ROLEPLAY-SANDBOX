@@ -597,34 +597,27 @@ export function checkEndings(state: FullGameState): EndingResult {
   // 1. Exact match: "CONFESS" matches "confess"
   // 2. ENDING_ prefix: "CONFESS" matches "ending_confess"
   // 3. Underscore variations: "CONFESS" matches "confess" (with spaces replaced)
-  // 4. Substring match: "CONFESS" matches "bob_confessed", "confession_delivered", etc.
-  //    This handles GM flags which are stored verbatim (e.g., "bob_confessed" not "CONFESS")
+  // Flag matching: EXACT ONLY (Patch 20 — substring matching removed entirely)
   //
-  // IMPORTANT (Patch 18.1 - Flag Collision Fix):
-  // SENSITIVE FLAGS require EXACT matching only to prevent semantic collisions!
-  // Example bug: "BOB_CONFESSED_SECRET_TO_ALICE" was matching "CONFESS" via substring,
-  // causing the system to think A.L.I.C.E. confessed to Dr. M when she didn't.
-  const SENSITIVE_FLAGS = ['confess', 'truth', 'revealed', 'alice_confessed', 'confession'];
+  // Patch 18.1 added SENSITIVE_FLAGS to block substring matching for some flags.
+  // Patch 20 removes substring matching for ALL flags. It was causing premature
+  // endings: "BASILISK_PARTNERSHIP_OFFERED" matched "PARTNERSHIP" via substring,
+  // ending a game at Turn 6. Any GM flag containing an ending keyword was a landmine.
+  //
+  // The GM should use exact flag names or the ENDING_ prefix for explicit triggers.
+  // Matching modes:
+  //   1. Exact match (case-insensitive)
+  //   2. ENDING_ prefix match (e.g., flag "ENDING_PARTNERSHIP" matches check for "PARTNERSHIP")
+  //   3. Underscore/space normalization
 
   const hasFlag = (flag: string) => {
     const flagLower = flag.toLowerCase();
-    const isSensitive = SENSITIVE_FLAGS.includes(flagLower);
 
     return narrativeFlags.some(f => {
       const fLower = f.toLowerCase();
-      // Exact match (always allowed)
       if (fLower === flagLower) return true;
-      // ENDING_ prefix match (explicit ending trigger)
       if (fLower === `ending_${flagLower}`) return true;
-      // Allow underscore variations of exact match
       if (fLower === flagLower.replace(/ /g, '_')) return true;
-
-      // SENSITIVE FLAGS: NO substring matching!
-      // This prevents "BOB_CONFESSED_SECRET_TO_ALICE" from matching "CONFESS"
-      if (isSensitive) return false;
-
-      // Non-sensitive flags: allow substring matching for legacy GM flags
-      if (fLower.includes(flagLower)) return true;
       return false;
     });
   };
