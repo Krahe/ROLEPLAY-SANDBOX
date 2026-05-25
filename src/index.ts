@@ -1507,9 +1507,12 @@ The consequences of that reckless high-power firing are now manifesting.
       }
     }
 
-    // Process access grant
+    // Process access grant (skip if password already granted access this turn)
+    const passwordAlreadyGranted = actionResults.some(
+      r => r.success && r.stateChanges?.accessLevel !== undefined
+    );
     let accessLevelUnlockNarration: string | undefined;
-    if (gmResponse.grantAccess) {
+    if (gmResponse.grantAccess && !passwordAlreadyGranted) {
       const newLevel = gmResponse.grantAccess.level;
       if (newLevel > gameState.accessLevel) {
         const oldLevel = gameState.accessLevel;
