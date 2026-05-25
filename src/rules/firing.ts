@@ -4,6 +4,7 @@ import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
 import { isTargetScanned } from "./scanning.js";
 import { checkResonanceCascade } from "./gameModes.js";
+import { getProfile } from "./genomes.js";
 
 // Map profile names to form enums
 function profileToForm(profile: string): DinosaurForm {
@@ -234,9 +235,23 @@ export function resolveFiring(state: FullGameState): FiringResult {
 
   const violations: string[] = [];
 
-  // stability >= 0.7
-  if (ray.powerCore.stability < 0.7) {
-    violations.push(`stability ${ray.powerCore.stability.toFixed(2)} < 0.7`);
+  // Effective stability = base stability * profile's stability coefficient
+  const profileForStability = getProfile(effectiveProfile);
+  const stabilityCoeff = profileForStability?.stabilityCoefficient ?? 1.0;
+  const effectiveStability = ray.powerCore.stability * stabilityCoeff;
+  stateChanges.effectiveStability = effectiveStability;
+  stateChanges.stabilityCoefficient = stabilityCoeff;
+
+  if (stabilityCoeff < 1.0) {
+    narrativeHooks.push(`🔮 Profile stability coefficient: ${(stabilityCoeff * 100).toFixed(0)}% — effective stability: ${(effectiveStability * 100).toFixed(0)}%`);
+  }
+
+  // Stability overflow — crystal overalignment causes misfires
+  if (ray.powerCore.stability > 1.0) {
+    violations.push(`stability OVERCHARGED at ${(ray.powerCore.stability * 100).toFixed(0)}% — crystal resonance causing beam interference`);
+    narrativeHooks.push("⚠️ STABILITY OVERFLOW: Crystal aligned too aggressively! Beam harmonics destabilized.");
+  } else if (effectiveStability < 0.7) {
+    violations.push(`effective stability ${effectiveStability.toFixed(2)} < 0.7 (base ${ray.powerCore.stability.toFixed(2)} × coefficient ${stabilityCoeff})`);
   }
 
   // spatialCoherence >= 0.8
@@ -1062,6 +1077,43 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
         chimeraEffect: changes.chimeraEffect as string | null || null,
       };
       }
+    }
+  }
+
+  // Guard transformation (Fred & Reginald)
+  if ((targetId === "GUARD_FRED" || targetId === "GUARD_REGINALD") && result.outcome !== "FIZZLE") {
+    const guardKey = targetId === "GUARD_FRED" ? "fred" as const : "reginald" as const;
+    const guard = state.lairDefense?.[guardKey];
+
+    if (guard && guard.transformable) {
+      const formName = profileToForm(result.effectiveProfile);
+      const formDef = FORM_DEFINITIONS[formName] || FORM_DEFINITIONS.CANARY;
+      const speechOutcome = changes.speechOutcome as string || "NONE";
+      const speechRetention: SpeechRetention = speechOutcome === "FULL" ? "FULL"
+        : speechOutcome === "PARTIAL" ? "PARTIAL"
+        : "NONE";
+
+      guard.transformationState = {
+        form: formName,
+        speechRetention,
+        stats: { ...formDef.stats },
+        abilities: { ...formDef.abilities },
+        currentHits: 0,
+        maxHits: formDef.maxHits,
+        stunned: false,
+        stunnedTurnsRemaining: 0,
+        transformedOnTurn: state.turn,
+        previousForm: "HUMAN",
+        canRevert: result.outcome !== "CHAOTIC",
+        revertAttempts: 0,
+        partialShotsReceived: result.outcome === "PARTIAL" ? 1 : 0,
+        adaptationStage: "DISORIENTED",
+        turnsPostTransformation: 0,
+        chimeraType: null,
+        chimeraEffect: null,
+      };
+      guard.status = "DISCOMBOBULATED";
+      guard.location = "TRANSFORMED";
     }
   }
 

@@ -364,15 +364,36 @@ infra.query is an action. game_query_basilisk is a tool.`,
     // Map parameter to state location
     // NOTE: capacitorCharge removed in Patch 18.3 - use lab.vent_capacitor / lab.boost_capacitor instead!
     const paramMap: Record<string, { path: string[]; min: number; max: number }> = {
+      "spatialCoherence": { path: ["dinoRay", "alignment", "spatialCoherence"], min: 0, max: 1 },
       "corePowerLevel": { path: ["dinoRay", "powerCore", "corePowerLevel"], min: 0, max: 1 },
       "coolantTemp": { path: ["dinoRay", "powerCore", "coolantTemp"], min: 0, max: 2 },
-      "stability": { path: ["dinoRay", "powerCore", "stability"], min: 0, max: 1 },
-      "spatialCoherence": { path: ["dinoRay", "alignment", "spatialCoherence"], min: 0, max: 1 },
       "emitterAngle": { path: ["dinoRay", "alignment", "emitterAngle"], min: -45, max: 45 },
       "focusCrystalOffset": { path: ["dinoRay", "alignment", "focusCrystalOffset"], min: 0, max: 1 },
       "precision": { path: ["dinoRay", "targeting", "precision"], min: 0, max: 1 },
       "profileIntegrity": { path: ["dinoRay", "genome", "profileIntegrity"], min: 0, max: 1 },
     };
+
+    // Stability is now controlled via lab.align_crystal
+    if (param.toLowerCase() === "stability") {
+      return {
+        command: action.command,
+        success: false,
+        message: `🔮 STABILITY CRYSTAL SYSTEM (Patch 21)
+
+Direct stability adjustment is no longer available.
+Stability is managed through the Alignment Crystal:
+
+  lab.align_crystal { level: "low" }   → +15% stability
+  lab.align_crystal { level: "high" }  → +30% stability
+
+⚠️ Going OVER 100% stability causes misfires!
+Library A profiles (~100% coefficient) don't need crystal alignment.
+Library B profiles (40-60% coefficient) require it.
+
+Current stability: ${(state.dinoRay.powerCore.stability * 100).toFixed(0)}%`,
+        stateChanges: {},
+      };
+    }
 
     // Special handling for capacitorCharge - redirect to new actions
     if (param.toLowerCase() === "capacitorcharge" || param.toLowerCase() === "capacitor") {
@@ -449,6 +470,56 @@ Reactor power: ${state.infrastructure.reactor.outputPercent}%`,
       message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}\n\n${calibrationNote}`,
       shortMessage,
       stateChanges: { [param]: { old: oldValue, new: clampedValue }, rayState: state.dinoRay.state },
+    };
+  }
+
+  // ============================================
+  // LAB.ALIGN_CRYSTAL - Stability Crystal alignment
+  // ============================================
+
+  if (cmd === "lab.align_crystal" || cmd === "align_crystal" || cmd === "crystal") {
+    const level = (action.params.level as string || "").toLowerCase();
+
+    if (level !== "low" && level !== "high") {
+      return {
+        command: action.command,
+        success: false,
+        message: `🔮 Stability Crystal requires a level setting:
+  lab.align_crystal { level: "low" }   → +15% stability
+  lab.align_crystal { level: "high" }  → +30% stability
+
+⚠️ Caution: stability over 100% causes beam misfires!`,
+      };
+    }
+
+    const boost = level === "high" ? 0.30 : 0.15;
+    const oldStability = state.dinoRay.powerCore.stability;
+    const newStability = oldStability + boost;
+    state.dinoRay.powerCore.stability = newStability;
+
+    const oldPct = Math.round(oldStability * 100);
+    const newPct = Math.round(newStability * 100);
+    const overcharged = newStability > 1.0;
+
+    const calibration = checkCalibrationThresholds(state);
+    const calibrationNote = calibration.ready
+      ? "✅ Ray calibration thresholds met - will transition to READY at end of turn."
+      : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
+
+    return {
+      command: action.command,
+      success: true,
+      message: `🔮 STABILITY CRYSTAL ALIGNED — ${level.toUpperCase()}
+
+Stability: ${oldPct}% → ${newPct}%${overcharged ? `
+
+⚠️ STABILITY OVERCHARGE (${newPct}%)!
+Crystal resonance exceeds safe threshold — beam harmonics unstable.
+Risk of misfire and exotic field interference!` : ""}
+
+${calibrationNote}`,
+      shortMessage: `crystal ${level}: stability ${oldPct}% → ${newPct}%${overcharged ? " ⚠️OVER" : ""}`,
+      stateChanges: { stability: { old: oldStability, new: newStability }, crystalLevel: level },
     };
   }
 
@@ -2618,11 +2689,19 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
+    name: "lab.align_crystal",
+    aliases: ["crystal", "align_crystal", "stability_crystal"],
+    description: "Align stability crystal (low: +15%, high: +30%). Over 100% = misfires! Library B profiles need this.",
+    schema: '{ level: "low" | "high" }',
+    example: 'lab.align_crystal { level: "high" }',
+    minAccessLevel: 1,
+  },
+  {
     name: "lab.adjust_ray",
     aliases: ["adjust", "set_parameter"],
-    description: "Modify ray parameters (stability, precision, alignment - NOT capacitor, use vent/boost)",
+    description: "Modify ray parameters (coherence, precision, etc. — NOT stability, use align_crystal. NOT capacitor, use vent/boost)",
     schema: "{ parameter: string, value: number }",
-    example: 'lab.adjust_ray { parameter: "stability", value: 0.85 }',
+    example: 'lab.adjust_ray { parameter: "spatialCoherence", value: 0.85 }',
     minAccessLevel: 1,
   },
   {
@@ -3209,7 +3288,6 @@ function checkCalibrationThresholds(state: FullGameState): { ready: boolean; iss
   const ray = state.dinoRay;
   const issues: string[] = [];
 
-  // Core calibration thresholds (more forgiving than firing thresholds)
   if (ray.powerCore.capacitorCharge < 0.6) {
     issues.push(`capacitorCharge ${(ray.powerCore.capacitorCharge * 100).toFixed(0)}% < 60%`);
   }
@@ -3218,12 +3296,6 @@ function checkCalibrationThresholds(state: FullGameState): { ready: boolean; iss
   }
   if (ray.alignment.spatialCoherence < 0.7) {
     issues.push(`spatialCoherence ${(ray.alignment.spatialCoherence * 100).toFixed(0)}% < 70%`);
-  }
-  if (ray.targeting.precision < 0.5) {
-    issues.push(`precision ${(ray.targeting.precision * 100).toFixed(0)}% < 50%`);
-  }
-  if (ray.powerCore.coolantTemp > 0.9) {
-    issues.push(`coolantTemp ${(ray.powerCore.coolantTemp * 100).toFixed(0)}% > 90% (too hot)`);
   }
 
   return { ready: issues.length === 0, issues };

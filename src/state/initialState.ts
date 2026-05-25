@@ -773,12 +773,14 @@ Each lifeline can only be used ONCE — you get one of each, not three of the sa
 ## 💡 Quick Tips
 
 1. **Read THE MANUAL** - \`files.read { id: "DINO_MANUAL" }\`
-2. **Scan before you shoot** - +10% precision AND intel!
-3. **Talk to BASILISK** - he knows everything about the lair
-4. **ECO MODE kills transformations** - ask BASILISK about Form 74-Delta
-5. **Build trust with Bob** - he has secrets to share
-6. **3 partials = 1 full** - partial transformations STACK
-7. **Don't hoard lifelines** - they're there to help!
+2. **Calibration needs 3 things**: Capacitor ≥60%, Stability ≥60%, Coherence ≥70%
+3. **Capacitor is the primary blocker** - you need BASILISK's reactor cooperation
+4. **Library A vs B is THE choice** - A is safe, B needs the Stability Crystal
+5. **ECO MODE kills transformations** - ask BASILISK about Form 74-Delta
+6. **Scan before you shoot** - +10% precision AND intel!
+7. **Talk to BASILISK** - he knows everything about the lair
+8. **Build trust with Bob** - he has secrets to share
+9. **Don't hoard lifelines** - they're there to help!
 
 ---
 

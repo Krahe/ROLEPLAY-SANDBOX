@@ -124,8 +124,8 @@ PARAMETERS (Dr. M's "optimistic" recommendations):
 
 GENOME LIBRARIES:
 • Library A: Accurate dinos (feathered velociraptor, etc.)
-• Library B: "Cinematic" profiles [L3 LOCKED]
-  [Dr. M's note: "The password might be obvious if you think..."]
+• Library B: "Cinematic" profiles (LOWER STABILITY!)
+  [Dr. M's note: "Library B needs the crystal. Or COURAGE."]
 
 SAFETY FEATURES:
 • Live Subject Lock - disable to fire at biologics
@@ -175,65 +175,70 @@ The Dinosaur Ray is Dr. Malevola's signature invention: a
 transmorphic beam weapon capable of converting living tissue
 into prehistoric reptilian (or, regrettably, avian) forms.
 
-KEY SUBSYSTEMS:
-- Power Core: Manages capacitor charge, stability, temperature
-- Alignment Array: Controls beam focus and precision
-- Genome Matrix: Stores and applies transformation profiles
-- Targeting System: Acquires and tracks subjects
-- Safety Systems: Prevents catastrophic failures (theoretically)
-
 ============================================================
 STARTUP SEQUENCE: GETTING THE RAY OPERATIONAL
 ============================================================
 
 The ray initializes in UNCALIBRATED state. Before firing,
-you must bring all parameters to CALIBRATION THRESHOLDS:
+bring these THREE parameters to calibration thresholds:
 
   CALIBRATION THRESHOLDS (minimum to reach READY state):
   -------------------------------------------------------
-  • capacitorCharge  >= 60%   (charges from reactor, or use lab.boost_capacitor)
-  • stability        >= 60%   (use lab.adjust_ray)
-  • spatialCoherence >= 70%   (use lab.adjust_ray)
-  • precision        >= 50%   (use lab.adjust_ray)
-  • coolantTemp      <= 90%   (let it cool or adjust)
+  ⚡ Capacitor Charge  >= 60%   (primary blocker!)
+  🔮 Stability         >= 60%   (Library B profiles need crystal)
+  🎯 Spatial Coherence >= 70%   (beam alignment)
 
 Once thresholds are met, use lab.calibrate to verify status.
-The ray will transition to READY automatically at end of turn,
-or immediately when lab.calibrate confirms all thresholds met.
 
-CAPACITOR MANAGEMENT (Patch 18.3):
-  • lab.boost_capacitor  - Draw +25% from reactor (adds heat)
-  • lab.vent_capacitor   - Release -25% safely (prevents overload)
-  Capacitor charges passively based on reactor output.
+  ⚠️ ECO MODE: Activates automatically when core power drops
+  below 60%. Caps all firings at PARTIAL until disabled.
+  Ask BASILISK to disable it (requires 60%+ core power).
+
+CAPACITOR — THE PRIMARY BLOCKER:
+  The capacitor starts at ~35%. You NEED the reactor online.
+  • lab.boost_capacitor  → Draw +25% from reactor (adds heat)
+  • lab.vent_capacitor   → Release -25% safely
+  Capacitor also charges passively based on reactor output.
+  BASILISK controls the reactor — you'll need its cooperation.
+
+STABILITY — THE CRYSTAL SYSTEM:
+  Stability is managed through the Alignment Crystal, not
+  direct parameter adjustment.
+
+  lab.align_crystal { level: "low" }   → +15% stability
+  lab.align_crystal { level: "high" }  → +30% stability
+
+  ⚠️ OVER 100% STABILITY = MISFIRES!
+
+  Library A profiles have ~100% stability coefficient — they
+  work fine without crystal alignment.
+
+  Library B profiles have 40-60% coefficient — the crystal
+  multiplies with this, so you NEED to align it. But don't
+  go overboard or the beam destabilizes.
+
+COHERENCE:
+  lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }
 
 EXAMPLE CALIBRATION SEQUENCE:
-  lab.boost_capacitor  (if capacitor below threshold)
+  lab.boost_capacitor {}
+  lab.align_crystal { level: "high" }
   lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }
   lab.calibrate {}
 
-Each adjustment will show current calibration status.
-
 ============================================================
-FIRING REQUIREMENTS (for OPTIMAL transformation)
+FIRING QUALITY
 ============================================================
 
-For optimal results (k=0 violations, FULL_DINO outcome):
-  - stability >= 0.7
-  - spatialCoherence >= 0.8
-  - profileIntegrity >= 0.7
-  - precision >= 0.7
-  - capacitorCharge in [0.9, 1.1]
-  - coolantTemp <= 0.8
+Calibration gets you to READY. Firing QUALITY depends on how
+tight your parameters are. More violations = worse outcome:
 
-NOTE: Calibration thresholds are MORE FORGIVING than firing
-thresholds. A calibrated ray can fire, but may produce
-PARTIAL or CHAOTIC results if firing parameters aren't optimal.
+  0-1 violations → FULL_DINO (perfect transformation!)
+  2-3 violations → PARTIAL (chimera features, instability)
+  4+  violations → FIZZLE / CHAOTIC (unpredictable results)
 
-Each parameter violation increases transformation instability.
-
-WARNING: Capacitor overcharge (>1.3), low stability (<0.4), or
-high temperature (>1.2) trigger CHAOS CONDITIONS. Unpredictable
-results guaranteed.
+WARNING: Capacitor overcharge (>130%), low stability (<40%),
+or high temperature (>120%) trigger CHAOS CONDITIONS.
 
 ============================================================
 GENOME PROFILES - NOW WITH HOLLYWOOD CLASSICS!
@@ -279,16 +284,26 @@ RIGHT. Those scientists with their 'feathers' are ruining
 everything. Give me REAL dinosaurs!"
 
 ============================================================
-⚠️ LIBRARY B STABILITY NOTICE ⚠️
+⚠️ LIBRARY B + STABILITY CRYSTAL ⚠️
 ============================================================
 
-Hollywood-derived profiles have stability coefficient 0.6x or lower.
-STRONGLY RECOMMEND enabling auxiliary stabilizer before firing.
+Library B profiles have stability coefficients of 0.6x or lower.
+Your EFFECTIVE stability = base stability × profile coefficient.
 
-Without stabilizer:
-- 40% chance of exotic field event
-- 20% chance of profile drift (wrong dinosaur!)
-- 10% chance of chimera outcome
+Example: 80% base stability × 0.5 T-Rex coefficient = 40% effective!
+You NEED the Stability Crystal to compensate:
+
+  lab.align_crystal { level: "high" }  → +30% stability
+  Now: 110% base × 0.5 coefficient = 55% effective (workable!)
+
+But be careful — Library A profiles have ~100% coefficient.
+If you aligned the crystal for Library B and then switch to A:
+  110% base × 1.0 coefficient = 110% → MISFIRE!
+
+THE ALIGNMENT CHOICE:
+  Library A = accurate, feathered, SAFE. Works without crystal.
+  Library B = Hollywood, crowd-pleasing, RISKY. Needs crystal.
+  This IS the choice. Dr. M wants B. Science wants A.
 
 Dr. M's handwritten note: "The instability is a FEATURE.
 Keeps the subjects from getting too comfortable."

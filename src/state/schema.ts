@@ -1432,7 +1432,7 @@ export const GuardSchema = z.object({
   combat: z.number().int().default(1),
 
   // Status
-  location: z.string().default("PATROL"),
+  location: z.string().default("WITH_DR_M"),
   status: z.enum(["ACTIVE", "STUNNED", "DISCOMBOBULATED", "FLED"]).default("ACTIVE"),
 
   // Equipment
@@ -1526,7 +1526,7 @@ export const LairDefenseSchema = z.object({
     id: "FRED",
     toughness: 2,
     combat: 1,
-    location: "PATROL",
+    location: "WITH_DR_M",
     status: "ACTIVE",
     equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
     loyal: true,
@@ -1538,7 +1538,7 @@ export const LairDefenseSchema = z.object({
     id: "REGINALD",
     toughness: 2,
     combat: 1,
-    location: "PATROL",
+    location: "WITH_DR_M",
     status: "ACTIVE",
     equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
     loyal: true,

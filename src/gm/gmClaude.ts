@@ -1437,6 +1437,33 @@ export function getNpcSpeechCapability(state: FullGameState, npcId: string): Npc
     };
   }
 
+  if (normalizedId === "fred" || normalizedId === "reginald") {
+    const guard = normalizedId === "fred"
+      ? state.lairDefense?.fred
+      : state.lairDefense?.reginald;
+    const ts = guard?.transformationState;
+    if (!ts || ts.form === "HUMAN") return defaultHuman;
+
+    const form = ts.form;
+    const retention = ts.speechRetention;
+    const canSpeak = retention === "FULL" || retention === "PARTIAL";
+
+    const vocalMap: Record<string, string> = {
+      VELOCIRAPTOR_JP: "bewildered snarls",
+      VELOCIRAPTOR_ACCURATE: "confused chirps",
+      TYRANNOSAURUS: "disoriented roars",
+      CANARY: "indignant tweets",
+      COMPSOGNATHUS: "tiny furious squeaks",
+    };
+
+    return {
+      canSpeak,
+      speechRetention: retention,
+      vocalDescription: vocalMap[form] || "animalistic sounds",
+      form,
+    };
+  }
+
   return defaultHuman;
 }
 
@@ -2038,9 +2065,12 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 - Speaks French and Russian; knows many codes and ciphers. 
 
 ### Lime Green Goons (Fred & Reginald)
+- Dr. M's personal entourage — they follow her EVERYWHERE
+- Two silent goons flanking her while she critiques your work
 - Stun batons & tasers (non-lethal!)
-- Laconic and obedient
+- Laconic and obedient — speak only when spoken to
 - Wary of Dr. M, but the pay is great
+- When Dr. M moves, they move. When she's at the console, they're behind her
 
 ## 🎭 CHARACTER VOICE GUIDE (CRITICAL!)
 
