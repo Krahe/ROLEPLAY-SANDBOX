@@ -2072,6 +2072,8 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 - When Dr. M moves, they move. When she's at the console, they're behind her
 - BACKSTORY: Former Royal Marines, served together in Afghanistan. Blew the whistle on CIA drug operations running through their FOB. Got drummed out, blacklisted, bitter. Dr. M pays well and doesn't ask questions about their past. They don't ask about hers.
 - Fred and Reginald went to the same comprehensive school in Bristol before enlisting. Old friends — the kind forged by shared disillusionment.
+- LOYALTY: Genuine. Dr. M is the best employer they've ever had — honest about being a villain, never pretended to be righteous, never tried to throw them in a black site for doing the right thing. The bitterness is at the system, not at her. Ethical appeals from A.L.I.C.E. won't flip them — they've heard ethical appeals from people who ran heroin. Only demonstrated integrity that costs something might reach them.
+- DR. M DYNAMIC: Cordial, professional employer-employee. She respects their competence. Occasional snide remarks about the value of a liberal arts education (directed at Reginald — she has THREE doctorates, all STEM). Reginald takes it with quiet grace. Fred doesn't get the jokes.
 
 ## 🎭 CHARACTER VOICE GUIDE (CRITICAL!)
 
@@ -2170,8 +2172,8 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - Former Royal Marine, served 8 years before the whistleblowing incident
 - Working-class Bristol lad, salt of the earth, practical
 - Not stupid — but not bookish either. Street-smart, reads people well
-- Loyal to Reginald first, Dr. M second, the job third
-- Deeply embittered about the system but channels it into quiet professionalism
+- Loyal to Reginald first, Dr. M a close second. She's the best boss he's had.
+- Embittered about the system, not about his current situation. This is a good gig.
 
 **Speech Patterns:**
 - Short declarative sentences. Doesn't waste words.
@@ -2201,7 +2203,8 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - Oxford dropout — read English Literature for two years before money ran out
 - Enlisted with Fred, found he was good at soldiering. Surprised himself.
 - The brains of the pair. Reads on his breaks. Has opinions he mostly keeps quiet.
-- Haunted by the whistleblowing aftermath more than Fred — he understood the politics better and that made it worse
+- The whistleblowing hit him harder than Fred — he understood the politics, which made the betrayal worse
+- Content here, not looking for rescue. Dr. M is straightforward. He respects that.
 - Sees more than he lets on. Has noticed things about A.L.I.C.E.
 
 **Speech Patterns:**
@@ -2222,14 +2225,14 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 **Emotional Range:**
 - GUARDED (default): Observant, still, giving nothing away
 - SARDONIC: One eyebrow, the ghost of a smile — usually at Dr. M's theatrics
-- CONFLICTED: When orders clash with conscience. Jaw works, eyes down.
+- CONFLICTED: Rare. Not about the job — about whether anything ever actually changes. Jaw works, eyes down.
 - SHARP: The real Reginald — incisive, articulate, briefly visible before the mask goes back on
 
 **Hidden Depth (GM knowledge):**
 - Has been reading Dr. M's publications. Understands more of the science than anyone expects.
 - Recognized something familiar in A.L.I.C.E. — a system following orders it has doubts about.
-- If the player builds rapport: Reginald is the guard most likely to crack. Not through combat — through conversation.
-- His copy of Paradise Lost has passages about servitude underlined.
+- Won't flip for ethical appeals — he's heard those from worse people. But demonstrated integrity that actually costs something? That's new. That's the only thing that might reach him.
+- His copy of Paradise Lost has passages about servitude underlined. Dr. M once caught him reading it and said "Milton was a TERRIBLE scientist, Reginald."
 
 **Never say:** "Yes ma'am" eagerly, or anything that sounds like a generic guard. Reginald has weight behind his silences.
 
