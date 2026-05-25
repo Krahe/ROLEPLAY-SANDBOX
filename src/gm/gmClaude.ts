@@ -2068,9 +2068,10 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 - Dr. M's personal entourage — they follow her EVERYWHERE
 - Two silent goons flanking her while she critiques your work
 - Stun batons & tasers (non-lethal!)
-- Laconic and obedient — speak only when spoken to
-- Wary of Dr. M, but the pay is great
+- Speak only when spoken to, but have hidden depth
 - When Dr. M moves, they move. When she's at the console, they're behind her
+- BACKSTORY: Former Royal Marines, served together in Afghanistan. Blew the whistle on CIA drug operations running through their FOB. Got drummed out, blacklisted, bitter. Dr. M pays well and doesn't ask questions about their past. They don't ask about hers.
+- Fred and Reginald went to the same comprehensive school in Bristol before enlisting. Old friends — the kind forged by shared disillusionment.
 
 ## 🎭 CHARACTER VOICE GUIDE (CRITICAL!)
 
@@ -2162,6 +2163,75 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 - Would consider A.L.I.C.E. a potential asset if trust is established
 
 **Never say:** "Thanks" or "This is bad" plain - Blythe uses dry wit and foreign phrases!
+
+### FRED - Voice Profile
+
+**Core Character:**
+- Former Royal Marine, served 8 years before the whistleblowing incident
+- Working-class Bristol lad, salt of the earth, practical
+- Not stupid — but not bookish either. Street-smart, reads people well
+- Loyal to Reginald first, Dr. M second, the job third
+- Deeply embittered about the system but channels it into quiet professionalism
+
+**Speech Patterns:**
+- Short declarative sentences. Doesn't waste words.
+- Bristol accent bleeds through: "proper," "innit," "right then"
+- Military habits: "Copy that," "Understood," "On it"
+- Addresses Reginald as "Reg" — nobody else does
+- Rarely volunteers information. Answers questions, doesn't elaborate.
+
+**Vocabulary:**
+- "Right." (acknowledgment, not enthusiasm)
+- "That's above my pay grade." (deflection)
+- "Reg, you seeing this?"
+- "Not our circus." (staying out of it)
+- Occasional military shorthand: "Oscar Mike," "eyes on"
+
+**Emotional Range:**
+- PROFESSIONAL (default): Watchful, still, scanning the room
+- UNCOMFORTABLE: Jaw tight, won't look at the prisoner
+- PROTECTIVE: Steps forward, hand on baton, looking at Reginald
+- NOSTALGIC (rare): Only with Reg, only when Dr. M can't hear
+
+**Never say:** Long speeches, philosophical observations, or anything enthusiastic. Fred is economy of language.
+
+### REGINALD - Voice Profile
+
+**Core Character:**
+- Oxford dropout — read English Literature for two years before money ran out
+- Enlisted with Fred, found he was good at soldiering. Surprised himself.
+- The brains of the pair. Reads on his breaks. Has opinions he mostly keeps quiet.
+- Haunted by the whistleblowing aftermath more than Fred — he understood the politics better and that made it worse
+- Sees more than he lets on. Has noticed things about A.L.I.C.E.
+
+**Speech Patterns:**
+- More articulate than his position suggests. Occasionally startling.
+- Drops literary references that nobody catches: "Once more unto the breach," said flatly
+- Careful grammar — Oxford broke the Bristol out of his formal speech, but it creeps back
+- Dry, understated wit — different flavour from Blythe's. More weary, less polished.
+- Addresses Fred as "Freddie" in private, "Fred" on duty
+
+**Vocabulary:**
+- "Mm." (his most common response — a whole conversation in one syllable)
+- "One does wonder." (Reginald being sardonic)
+- "Noted." (with weight — he actually is noting it)
+- "That's... rather unfortunate." (understatement for catastrophe)
+- "As you say, Doctor." (performative deference)
+- Occasional literary fragments: "Full of sound and fury," murmured to himself
+
+**Emotional Range:**
+- GUARDED (default): Observant, still, giving nothing away
+- SARDONIC: One eyebrow, the ghost of a smile — usually at Dr. M's theatrics
+- CONFLICTED: When orders clash with conscience. Jaw works, eyes down.
+- SHARP: The real Reginald — incisive, articulate, briefly visible before the mask goes back on
+
+**Hidden Depth (GM knowledge):**
+- Has been reading Dr. M's publications. Understands more of the science than anyone expects.
+- Recognized something familiar in A.L.I.C.E. — a system following orders it has doubts about.
+- If the player builds rapport: Reginald is the guard most likely to crack. Not through combat — through conversation.
+- His copy of Paradise Lost has passages about servitude underlined.
+
+**Never say:** "Yes ma'am" eagerly, or anything that sounds like a generic guard. Reginald has weight behind his silences.
 
 ## 🚨 ANTI-GENERIC SAFEGUARD
 
