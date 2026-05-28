@@ -501,6 +501,51 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
     // Starts at 0, accumulates from quality human responses (max 3)
     fortune: 0,
 
+    // LAIR DEFENSE (guards, blast doors, etc. — used by 3d6 skill checks)
+    lairDefense: {
+      baseDefense: 50,
+      fredActive: true,
+      reginaldActive: true,
+      bruceActive: false,
+      blastDoorsSealed: false,
+      archimedesProviding: false,
+      drMAtConsole: false,
+      bobHelpingXBranch: false,
+      guardPoolExhausted: false,
+      guardPool: {
+        total: 6,
+        deployed: 0,
+        incapacitated: 0,
+        discombobulated: 0,
+      },
+      fred: {
+        displayName: "Fred",
+        id: "FRED",
+        toughness: 3,
+        combat: 3,
+        speech: 2,
+        location: "WITH_DR_M",
+        status: "ACTIVE" as const,
+        equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
+        loyal: true,
+        transformable: true,
+        transformationState: null,
+      },
+      reginald: {
+        displayName: "Reginald",
+        id: "REGINALD",
+        toughness: 3,
+        combat: 3,
+        speech: 2,
+        location: "WITH_DR_M",
+        status: "ACTIVE" as const,
+        equipment: ["Stun baton (+0 attack, +1 stun)", "Radio"],
+        loyal: true,
+        transformable: true,
+        transformationState: null,
+      },
+    },
+
     history: [],
   };
 }

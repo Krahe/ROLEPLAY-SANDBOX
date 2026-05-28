@@ -21,6 +21,7 @@ import {
   switchArchimedesTarget,
   switchBroadcastLibrary,
 } from "./infrastructure.js";
+import { signalAntiSatMissile } from "./archimedes.js";
 import {
   FORM_DEFINITIONS,
   performDexCheck,
@@ -2305,6 +2306,25 @@ Just ask naturally!`,
   // ============================================
 
   if (cmd.includes("infra.archimedes") || cmd.includes("archimedes") || cmd.includes("satellite")) {
+    // Signal the anti-satellite missile from X-Branch submarine
+    if (cmd.includes("signal_anti_sat") || cmd.includes("signalAntiSat") ||
+        cmd.includes("antisatellite") || cmd.includes("anti_sat") || cmd.includes("antisat") ||
+        (cmd.includes("signal") && (cmd.includes("missile") || cmd.includes("sub")))) {
+      if (state.accessLevel < 4) {
+        return {
+          command: action.command,
+          success: false,
+          message: "ACCESS DENIED — Level 4 required for X-Branch military operations.",
+        };
+      }
+      const event = signalAntiSatMissile(state);
+      return {
+        command: action.command,
+        success: event.type === "STATUS_CHANGE",
+        message: event.message,
+      };
+    }
+
     // Check if this is a target switching command
     if (cmd.includes("switchtarget") || cmd.includes("switch_target") ||
         (cmd.includes("target") && action.params.target)) {
@@ -2960,6 +2980,14 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     schema: "{ target: 'LONDON'|'REYKJAVIK'|'TOKYO'|'SILICON_VALLEY'|'LAIR' }",
     example: 'infra.archimedes.switchTarget { target: "LAIR" }',
     minAccessLevel: 4, // OR weapons authorization
+  },
+  {
+    name: "infra.archimedes.signalAntiSat",
+    aliases: ["signal_anti_sat", "antisatellite", "anti_sat_missile"],
+    description: "Signal X-Branch submarine to prepare anti-satellite missile (Level 4+). One shot — disable S-300 first for best odds.",
+    schema: "(no parameters)",
+    example: "infra.archimedes.signalAntiSat",
+    minAccessLevel: 4,
   },
   {
     name: "infra.archimedes.switchLibrary",

@@ -55,6 +55,12 @@ import {
 import { checkAchievements, AchievementTriggerContext } from "../rules/achievements.js";
 import { checkFiringRestrictions } from "../rules/clockEvents.js";
 import { advanceInvasion, checkBroadcastInfluence } from "../rules/invasion.js";
+import {
+  rollSkillCheck,
+  getNpcStat,
+  getAdaptationPenalty,
+  SkillCheckResult,
+} from "../rules/dice.js";
 
 // ============================================
 // TYPES
@@ -530,6 +536,84 @@ export class GameRunner {
   }
 
   /**
+   * Process 3d6 skill checks requested by GM
+   */
+  processSkillChecks(
+    state: FullGameState,
+    gmResponse: GMResponse,
+    luckyLadyInfo?: { active: boolean; targetIndex: number },
+  ): SkillCheckResult[] {
+    const results: SkillCheckResult[] = [];
+
+    if (!gmResponse.skillCheckRequests || gmResponse.skillCheckRequests.length === 0) {
+      (state as Record<string, unknown>).lastTurnSkillChecks = [];
+      return results;
+    }
+
+    for (const req of gmResponse.skillCheckRequests) {
+      const statValue = getNpcStat(state, req.npc, req.stat);
+      const autoMods: Array<{ source: string; value: number }> = [];
+
+      const adaptPenalty = getAdaptationPenalty(state, req.npc);
+      if (adaptPenalty !== 0) {
+        autoMods.push({ source: "adaptation", value: adaptPenalty });
+      }
+
+      if (state.fortune && state.fortune > 0) {
+        autoMods.push({ source: "fortune", value: 1 });
+        state.fortune--;
+      }
+
+      if (luckyLadyInfo?.active) {
+        autoMods.push({ source: "LUCKY_LADY", value: 5 });
+      }
+
+      const result = rollSkillCheck(req, statValue, autoMods);
+      results.push(result);
+
+      const deltas = result.success ? req.applyOnSuccess : req.applyOnFailure;
+      if (deltas) {
+        if (deltas.drM_suspicion_delta) {
+          state.npcs.drM.suspicionScore = Math.max(0, Math.min(10,
+            state.npcs.drM.suspicionScore + (deltas.drM_suspicion_delta as number)));
+        }
+        if (deltas.bob_anxiety_delta) {
+          state.npcs.bob.anxietyLevel = Math.max(0, Math.min(5,
+            state.npcs.bob.anxietyLevel + (deltas.bob_anxiety_delta as number)));
+        }
+        if (deltas.bob_trust_delta) {
+          state.npcs.bob.trustInALICE = Math.max(0, Math.min(5,
+            state.npcs.bob.trustInALICE + (deltas.bob_trust_delta as number)));
+        }
+        if (deltas.blythe_trust_delta) {
+          state.npcs.blythe.trustInALICE = Math.max(0, Math.min(5,
+            state.npcs.blythe.trustInALICE + (deltas.blythe_trust_delta as number)));
+        }
+      }
+
+      if (this.verbose) {
+        console.error(`SKILL CHECK: ${result.display}`);
+      }
+    }
+
+    (state as Record<string, unknown>).lastTurnSkillChecks = results.map(r => ({
+      id: r.request.id,
+      description: r.request.description,
+      dice: r.dice,
+      finalResult: r.finalResult,
+      targetNumber: r.request.targetNumber,
+      success: r.success,
+      margin: r.margin,
+      outcome: r.outcome,
+      display: r.display,
+      onSuccess: r.request.onSuccess,
+      onFailure: r.request.onFailure,
+    }));
+
+    return results;
+  }
+
+  /**
    * Process ARCHIMEDES system
    */
   processArchimedes(state: FullGameState, gmResponse: GMResponse): ArchimedesEvent | null {
@@ -798,6 +882,9 @@ export class GameRunner {
 
     // Apply GM overrides
     this.applyGMOverrides(state, gmResponse);
+
+    // Process 3d6 skill checks requested by GM
+    const skillCheckResults = this.processSkillChecks(state, gmResponse, preResult.luckyLadyInfo);
 
     // Process ARCHIMEDES
     const archimedesEvent = this.processArchimedes(state, gmResponse);
