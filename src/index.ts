@@ -26,6 +26,7 @@ import {
   ArchimedesEvent,
 } from "./rules/archimedes.js";
 import { formatAccessLevelUnlockDisplay } from "./rules/passwords.js";
+import { rollSkillCheck, getNpcStat, getAdaptationPenalty, SkillCheckResult } from "./rules/dice.js";
 import {
   checkActTransition,
   createStateFromHandoff,
@@ -1557,6 +1558,77 @@ The consequences of that reckless high-power firing are now manifesting.
     }
 
     // ============================================
+    // 3d6 SKILL CHECK RESOLUTION
+    // ============================================
+    let skillCheckResults: SkillCheckResult[] = [];
+    if (gmResponse.skillCheckRequests && gmResponse.skillCheckRequests.length > 0) {
+      for (const req of gmResponse.skillCheckRequests) {
+        const statValue = getNpcStat(gameState, req.npc, req.stat);
+        const autoMods: Array<{ source: string; value: number }> = [];
+
+        // Adaptation penalty
+        const adaptPenalty = getAdaptationPenalty(gameState, req.npc);
+        if (adaptPenalty !== 0) {
+          autoMods.push({ source: "adaptation", value: adaptPenalty });
+        }
+
+        // Fortune bonus
+        if (gameState.fortune && gameState.fortune > 0) {
+          autoMods.push({ source: "fortune", value: 1 });
+          gameState.fortune--;
+        }
+
+        // LUCKY_LADY — applies if active this turn
+        if (luckyLadyInfo?.active) {
+          autoMods.push({ source: "LUCKY_LADY", value: 5 });
+        }
+
+        const result = rollSkillCheck(req, statValue, autoMods);
+        skillCheckResults.push(result);
+
+        // Apply simple state deltas
+        const deltas = result.success ? req.applyOnSuccess : req.applyOnFailure;
+        if (deltas) {
+          if (deltas.drM_suspicion_delta) {
+            gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10,
+              gameState.npcs.drM.suspicionScore + (deltas.drM_suspicion_delta as number)));
+          }
+          if (deltas.bob_anxiety_delta) {
+            gameState.npcs.bob.anxietyLevel = Math.max(0, Math.min(5,
+              gameState.npcs.bob.anxietyLevel + (deltas.bob_anxiety_delta as number)));
+          }
+          if (deltas.bob_trust_delta) {
+            gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5,
+              gameState.npcs.bob.trustInALICE + (deltas.bob_trust_delta as number)));
+          }
+          if (deltas.blythe_trust_delta) {
+            gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5,
+              gameState.npcs.blythe.trustInALICE + (deltas.blythe_trust_delta as number)));
+          }
+        }
+
+        console.error(`SKILL CHECK: ${result.display}`);
+      }
+
+      // Store results for GM context next turn
+      (gameState as Record<string, unknown>).lastTurnSkillChecks = skillCheckResults.map(r => ({
+        id: r.request.id,
+        description: r.request.description,
+        dice: r.dice,
+        finalResult: r.finalResult,
+        targetNumber: r.request.targetNumber,
+        success: r.success,
+        margin: r.margin,
+        outcome: r.outcome,
+        display: r.display,
+        onSuccess: r.request.onSuccess,
+        onFailure: r.request.onFailure,
+      }));
+    } else {
+      (gameState as Record<string, unknown>).lastTurnSkillChecks = [];
+    }
+
+    // ============================================
     // END GM DIRECTIVE PROCESSING
     // ============================================
 
@@ -1940,6 +2012,14 @@ Turns played: ${gameState.turn}
     // Add Bob transformation if it happened
     if (bobTransformationNarration) {
       combinedNarration.push(bobTransformationNarration);
+    }
+
+    // Add skill check results
+    if (skillCheckResults.length > 0) {
+      combinedNarration.push(
+        "━━━ SKILL CHECKS ━━━\n" +
+        skillCheckResults.map(r => r.display).join("\n")
+      );
     }
 
     // ============================================

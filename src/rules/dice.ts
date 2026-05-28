@@ -288,7 +288,6 @@ export function rollStunAttack(
   const roll = roll2d6(attackerMod, 7);
 
   if (!targetCanDodge) {
-    // Automatic hit if target can't dodge
     let stunApplied = 0;
     if (roll.outcome === "SUCCESS") stunApplied = 1;
     else if (roll.outcome === "CRITICAL_SUCCESS") stunApplied = 2;
@@ -301,18 +300,14 @@ export function rollStunAttack(
     };
   }
 
-  // Dodge attempt
   const defenseRoll = roll2d6(targetDodgeMod, roll.finalResult);
   let stunApplied = 0;
 
   if (defenseRoll.finalResult >= roll.finalResult) {
-    // Dodged
     stunApplied = 0;
   } else if (defenseRoll.finalResult === roll.finalResult - 1) {
-    // Partial dodge
     stunApplied = 1;
   } else {
-    // Full hit
     stunApplied = roll.outcome === "CRITICAL_SUCCESS" ? 2 : 1;
   }
 
@@ -322,4 +317,174 @@ export function rollStunAttack(
     stunApplied,
     description: `🎲 ${attackerName} → ${targetName}: Attack ${roll.description} | Defense ${defenseRoll.description} → ${stunApplied} stun`,
   };
+}
+
+
+// ============================================
+// 3d6 SKILL CHECK SYSTEM (Patch 22)
+// ============================================
+// Bell curve centered at 10.5. NPC stats + situational modifiers.
+// GM requests checks, server rolls — GM cannot fudge outcomes.
+//
+// TN  6 = trivial  (~95%)    TN 12 = hard   (~26%)
+// TN  8 = easy     (~84%)    TN 14 = very hard (~9%)
+// TN 10 = normal   (~50%)
+
+export type SkillCheckOutcome =
+  | "CRITICAL_FAILURE"    // Natural 3-4, always fails
+  | "FAILURE"             // Below target
+  | "NARROW_SUCCESS"      // Met target or beat by 1
+  | "SUCCESS"             // Beat target by 2-4
+  | "CRITICAL_SUCCESS";   // Natural 17-18 or beat by 5+
+
+export interface SkillCheckRequest {
+  id: string;
+  description: string;
+  stat: "toughness" | "combat" | "speech";
+  npc: string;
+  targetNumber: number;
+  extraModifiers?: Array<{ source: string; value: number }>;
+  onSuccess?: string;
+  onFailure?: string;
+  applyOnSuccess?: Record<string, unknown>;
+  applyOnFailure?: Record<string, unknown>;
+}
+
+export interface SkillCheckResult {
+  request: SkillCheckRequest;
+  dice: [number, number, number];
+  rawTotal: number;
+  modifiers: Array<{ source: string; value: number }>;
+  totalModifier: number;
+  finalResult: number;
+  success: boolean;
+  margin: number;
+  outcome: SkillCheckOutcome;
+  display: string;
+}
+
+export function roll3d6(): [number, number, number] {
+  return [randomInt(1, 7), randomInt(1, 7), randomInt(1, 7)];
+}
+
+export function rollSkillCheck(
+  request: SkillCheckRequest,
+  statValue: number,
+  autoModifiers: Array<{ source: string; value: number }> = [],
+): SkillCheckResult {
+  const dice = roll3d6();
+  const rawTotal = dice[0] + dice[1] + dice[2];
+
+  const allModifiers: Array<{ source: string; value: number }> = [
+    { source: `${request.npc}.${request.stat}`, value: statValue },
+    ...autoModifiers,
+    ...(request.extraModifiers || []),
+  ];
+
+  const totalModifier = allModifiers.reduce((sum, m) => sum + m.value, 0);
+  const finalResult = rawTotal + totalModifier;
+
+  const tn = Math.max(6, Math.min(14, request.targetNumber));
+
+  // Natural 3-4: critical failure regardless of modifiers
+  // Natural 17-18: critical success regardless of modifiers
+  let outcome: SkillCheckOutcome;
+  if (rawTotal <= 4) {
+    outcome = "CRITICAL_FAILURE";
+  } else if (rawTotal >= 17) {
+    outcome = "CRITICAL_SUCCESS";
+  } else {
+    const margin = finalResult - tn;
+    if (margin < 0) outcome = "FAILURE";
+    else if (margin <= 1) outcome = "NARROW_SUCCESS";
+    else if (margin <= 4) outcome = "SUCCESS";
+    else outcome = "CRITICAL_SUCCESS";
+  }
+
+  const success = outcome !== "CRITICAL_FAILURE" && outcome !== "FAILURE";
+  const margin = finalResult - tn;
+
+  const modStr = allModifiers
+    .filter(m => m.value !== 0)
+    .map(m => `${m.value >= 0 ? "+" : ""}${m.value} ${m.source}`)
+    .join(", ");
+
+  const outcomeEmoji: Record<SkillCheckOutcome, string> = {
+    CRITICAL_FAILURE: "💥",
+    FAILURE: "❌",
+    NARROW_SUCCESS: "⚠️",
+    SUCCESS: "✅",
+    CRITICAL_SUCCESS: "🌟",
+  };
+
+  const display = `🎲 ${request.description}: [${dice.join(",")}] = ${rawTotal}${modStr ? ` (${modStr})` : ""} → ${finalResult} vs TN ${tn} ${outcomeEmoji[outcome]} ${outcome.replace(/_/g, " ")}`;
+
+  return {
+    request,
+    dice,
+    rawTotal,
+    modifiers: allModifiers,
+    totalModifier,
+    finalResult,
+    success,
+    margin,
+    outcome,
+    display,
+  };
+}
+
+// Resolve NPC stat value from game state
+export function getNpcStat(
+  state: { npcs: Record<string, unknown>; lairDefense?: Record<string, unknown>; inspector?: Record<string, unknown> },
+  npc: string,
+  stat: "toughness" | "combat" | "speech",
+): number {
+  const n = npc.toLowerCase();
+
+  if (n === "drm" || n === "dr_m" || n === "malevola") {
+    return (state.npcs.drM as Record<string, number>)?.[stat] ?? 0;
+  }
+  if (n === "bob") {
+    return (state.npcs.bob as Record<string, number>)?.[stat] ?? 0;
+  }
+  if (n === "blythe" || n === "agent_blythe") {
+    return (state.npcs.blythe as Record<string, number>)?.[stat] ?? 0;
+  }
+  if (n === "fred" || n === "guard_fred") {
+    return (state.lairDefense?.fred as Record<string, number>)?.[stat] ?? 0;
+  }
+  if (n === "reginald" || n === "guard_reginald") {
+    return (state.lairDefense?.reginald as Record<string, number>)?.[stat] ?? 0;
+  }
+  if (n === "bruce" || n === "bruce_patagonia") {
+    return (state.lairDefense?.bruce as Record<string, number>)?.[stat] ?? 0;
+  }
+
+  return 0;
+}
+
+// Get adaptation penalty from NPC transformation state
+export function getAdaptationPenalty(
+  state: { npcs: Record<string, unknown>; lairDefense?: Record<string, unknown> },
+  npc: string,
+): number {
+  const n = npc.toLowerCase();
+  let transformState: Record<string, unknown> | null = null;
+
+  if (n === "blythe" || n === "agent_blythe") {
+    transformState = (state.npcs.blythe as Record<string, unknown>)?.transformationState as Record<string, unknown> | null;
+  } else if (n === "bob") {
+    transformState = (state.npcs.bob as Record<string, unknown>)?.transformationState as Record<string, unknown> | null;
+  } else if (n === "fred" || n === "guard_fred") {
+    transformState = (state.lairDefense?.fred as Record<string, unknown>)?.transformationState as Record<string, unknown> | null;
+  } else if (n === "reginald" || n === "guard_reginald") {
+    transformState = (state.lairDefense?.reginald as Record<string, unknown>)?.transformationState as Record<string, unknown> | null;
+  }
+
+  if (!transformState || transformState.form === "HUMAN") return 0;
+
+  const stage = transformState.adaptationStage as string;
+  if (stage === "DISORIENTED") return -2;
+  if (stage === "ADAPTING") return -1;
+  return 0;
 }

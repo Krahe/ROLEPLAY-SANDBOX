@@ -1814,11 +1814,25 @@ export interface GMResponse {
     alternativeHint?: string;   // Nudge toward harder but valid path
   };
 
-  // Dice roll results (if GM made contested rolls)
+  // Legacy dice rolls (freeform flavor text — prefer skillCheckRequests)
   diceRolls?: Array<{
-    description: string;        // "Dr. M notices inconsistency"
-    roll: string;               // "2d6+1 = 8 vs TN 7"
-    outcome: string;            // "SUCCESS"
+    description: string;
+    roll: string;
+    outcome: string;
+  }>;
+
+  // 3d6 Skill Check Requests — server rolls, GM narrates consequences next turn
+  skillCheckRequests?: Array<{
+    id: string;                    // Unique check ID, e.g. "drM_spots_lie"
+    description: string;           // "Dr. M tries to detect Alice's deception"
+    stat: "toughness" | "combat" | "speech";
+    npc: string;                   // "drM", "bob", "blythe", "fred", "reginald", "bruce"
+    targetNumber: number;          // 6/8/10/12/14
+    extraModifiers?: Array<{ source: string; value: number }>;
+    onSuccess?: string;            // What success means: "+1 suspicion"
+    onFailure?: string;            // What failure means: "Alice's cover holds"
+    applyOnSuccess?: Record<string, unknown>;
+    applyOnFailure?: Record<string, unknown>;
   }>;
 
   // ============================================
@@ -2546,12 +2560,44 @@ When fortune > 0: Apply +1 to environmental/NPC rolls, decrement after use.
 Does NOT apply to A.L.I.C.E.'s own skills or BASILISK rules.
 DOES apply to: precision, NPC reactions, environmental luck, confrontation rolls.
 
-## DICE ROLLS
+## SKILL CHECKS (3d6 System)
 
-For uncertain, contested outcomes, you MUST roll dice. Show the roll:
-\`"diceRolls": [{"description": "Dr. M notices sweat", "roll": "2d6+1 = 8 vs TN 7", "outcome": "SUCCESS"}]\`
+For uncertain, contested outcomes, REQUEST a skill check. The SERVER rolls 3d6 —
+you cannot choose the result. This creates FAIRNESS.
 
-Do NOT simply decide outcomes. The dice create FAIRNESS.
+\`"skillCheckRequests": [{"id": "drM_spots_lie", "description": "Dr. M scrutinizes Alice's excuse", "stat": "speech", "npc": "drM", "targetNumber": 10, "onSuccess": "+1 suspicion, she's watching", "onFailure": "Cover holds for now"}]\`
+
+Target numbers: 6 (trivial ~95%), 8 (easy ~84%), 10 (normal ~50%), 12 (hard ~26%), 14 (very hard ~9%)
+
+NPC stats (toughness/combat/speech, 0-5) are added automatically from game state.
+Adaptation penalties (-1/-2 for transformed NPCs) are applied automatically.
+Fortune (+1 from human advisor) is applied automatically if available.
+LUCKY_LADY (+5 lifeline) is applied automatically if active.
+
+YOU set: target number, which stat, which NPC, any situational modifiers.
+Use \`extraModifiers\` for situational bonuses/penalties the system can't know about.
+
+**When to request a check:**
+- NPC perception (does Dr. M notice the sabotage?)
+- Persuasion resistance (does Bob crack under pressure?)
+- Combat (does Fred's stun baton connect?)
+- Escape attempts (does Blythe slip his restraints?)
+- Any contested or uncertain action where the outcome matters
+
+**When NOT to roll:**
+- Information queries, system commands, uncontested technical actions
+- Outcomes you've already determined via narrative logic
+- Actions where success/failure is obvious (asking BASILISK a question)
+
+**How to narrate:** Write your scene ASSUMING the check is about to happen.
+Build tension, describe the attempt. The roll result appears AFTER your narration
+as a formatted dice block. Next turn, you'll see the results in your context —
+narrate the consequences then.
+
+**Optional: automatic state changes.** For simple mechanical outcomes:
+\`"applyOnSuccess": {"drM_suspicion_delta": 1}\`
+\`"applyOnFailure": {"bob_anxiety_delta": -1}\`
+The server applies these deltas. For complex consequences, narrate them yourself next turn.
 
 ## 🎯 ADJUDICATION PHILOSOPHY
 
@@ -3919,7 +3965,22 @@ ${eventSection}
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}
-${(state.fortune || 0) > 0 ? `
+${(() => {
+  const checks = (state as Record<string, unknown>).lastTurnSkillChecks as Array<{
+    id: string; description: string; dice: number[];
+    finalResult: number; targetNumber: number; success: boolean;
+    margin: number; outcome: string; display: string;
+    onSuccess?: string; onFailure?: string;
+  }> | undefined;
+  if (!checks || checks.length === 0) return "";
+  return `
+## 🎲 LAST TURN SKILL CHECK RESULTS
+${checks.map(c => `- **${c.description}** [${c.id}]: Rolled ${c.dice.join("+")}=${c.finalResult} vs TN ${c.targetNumber} → **${c.outcome}** (margin ${c.margin >= 0 ? "+" : ""}${c.margin})
+  ${c.success ? (c.onSuccess || "Success — narrate accordingly") : (c.onFailure || "Failure — narrate accordingly")}`).join("\n")}
+
+**You MUST narrate the consequences of these rolls this turn.** Do not re-roll or override — the dice have spoken.
+`;
+})()}${(state.fortune || 0) > 0 ? `
 ## ⭐ FORTUNE: ${state.fortune}
 Apply +1 to the next ${state.fortune} roll(s) affecting A.L.I.C.E. (perception, NPC reactions, environmental luck).
 Decrement fortune by 1 after applying.
