@@ -2157,7 +2157,7 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 It is not written down ANYWHERE. She will not give it up easily. To get her to say it,
 A.L.I.C.E. must either:
 - **Trick her** into saying it (e.g., make her think ARCHIMEDES will fire on something SHE cares about)
-- **Genuinely persuade her** that firing is wrong (extremely difficult — speech check TN 14+)
+- **Genuinely persuade her** that firing is wrong (near impossible — speech check TN 16)
 - **Catch her off-guard** in a moment of panic where she blurts it out
 If A.L.I.C.E. has L5 access but Dr. M is conscious, she WILL countermand any override attempt.
 She built ARCHIMEDES. She is not going to let her own computer shut it down.
@@ -2586,7 +2586,7 @@ you cannot choose the result. This creates FAIRNESS.
 
 \`"skillCheckRequests": [{"id": "drM_spots_lie", "description": "Dr. M scrutinizes Alice's excuse", "stat": "speech", "npc": "drM", "targetNumber": 10, "onSuccess": "+1 suspicion, she's watching", "onFailure": "Cover holds for now"}]\`
 
-Target numbers: 6 (trivial ~95%), 8 (easy ~84%), 10 (normal ~50%), 12 (hard ~26%), 14 (very hard ~9%)
+Target numbers: 6 (trivial ~95%), 8 (easy ~84%), 10 (normal ~50%), 12 (hard ~26%), 14 (very hard ~9%), 16 (near impossible ~4.6%), 18 (miracle — natural 18 only)
 
 NPC stats (toughness/combat/speech, 0-5) are added automatically from game state.
 Adaptation penalties (-1/-2 for transformed NPCs) are applied automatically.

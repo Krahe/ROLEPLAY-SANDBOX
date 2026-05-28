@@ -328,7 +328,8 @@ export function rollStunAttack(
 //
 // TN  6 = trivial  (~95%)    TN 12 = hard   (~26%)
 // TN  8 = easy     (~84%)    TN 14 = very hard (~9%)
-// TN 10 = normal   (~50%)
+// TN 10 = normal   (~50%)    TN 16 = near impossible (~4.6%)
+//                             TN 18 = miracle (natural 18 only)
 
 export type SkillCheckOutcome =
   | "CRITICAL_FAILURE"    // Natural 3-4, always fails
@@ -384,7 +385,7 @@ export function rollSkillCheck(
   const totalModifier = allModifiers.reduce((sum, m) => sum + m.value, 0);
   const finalResult = rawTotal + totalModifier;
 
-  const tn = Math.max(6, Math.min(14, request.targetNumber));
+  const tn = Math.max(6, Math.min(18, request.targetNumber));
 
   // Natural 3-4: critical failure regardless of modifiers
   // Natural 17-18: critical success regardless of modifiers
