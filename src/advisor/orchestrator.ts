@@ -51,6 +51,12 @@ export interface OrchestrationConfig {
   outputDir?: string;
   /** Whether to print progress to console */
   verbose?: boolean;
+  /** Live advisor mode — advisor queries go to files instead of API */
+  liveAdvisor?: boolean;
+  /** Directory for live advisor IPC files (default: ~/.dino-lair/live) */
+  liveDir?: string;
+  /** Timeout in ms for live advisor response (default: 300000 = 5 min) */
+  liveAdvisorTimeout?: number;
 }
 
 export interface TurnRecord {
@@ -261,6 +267,7 @@ export class DinoLairOrchestrator {
 
   constructor(config: OrchestrationConfig = {}) {
     this.client = new Anthropic();
+    const liveDir = config.liveDir ?? path.join(process.env.HOME || "~", ".dino-lair", "live");
     this.config = {
       playerModel: config.playerModel ?? "claude-sonnet-4-6",
       advisorModel: config.advisorModel ?? "claude-opus-4-7",
@@ -270,6 +277,9 @@ export class DinoLairOrchestrator {
       customAdvisor: config.customAdvisor as AdvisorPersona,
       outputDir: config.outputDir ?? "./transcripts",
       verbose: config.verbose ?? true,
+      liveAdvisor: config.liveAdvisor ?? false,
+      liveDir,
+      liveAdvisorTimeout: config.liveAdvisorTimeout ?? 300000,
     };
     this.gameRunner = new GameRunner({ verbose: this.config.verbose });
   }
@@ -401,6 +411,10 @@ export class DinoLairOrchestrator {
   async queryAdvisor(situation: string, question: string): Promise<string> {
     if (!this.advisor) throw new Error("Game not initialized");
 
+    if (this.config.liveAdvisor) {
+      return this.queryLiveAdvisor(situation, question);
+    }
+
     const prompt = buildAdvisorQueryPrompt(situation, question, this.advisor);
 
     const response = await this.client.messages.create({
@@ -415,6 +429,82 @@ export class DinoLairOrchestrator {
     });
 
     return response.content?.[0]?.type === "text" ? response.content[0].text : "";
+  }
+
+  /**
+   * Write a turn summary to the live directory for external observation
+   */
+  writeLiveTurnLog(turnData: {
+    turn: number;
+    act: string;
+    actTurn: number;
+    playerThought: string;
+    playerAction: string;
+    narration: string;
+    npcDialogue?: Array<{ speaker: string; message: string }>;
+    stateSummary: string;
+    advisorConsulted: boolean;
+    advisorQuestion?: string;
+    advisorSuggestion?: string;
+    lifeline?: string;
+    gameEnding?: string;
+    actTransition?: string;
+  }): void {
+    if (!this.config.liveAdvisor) return;
+
+    this.ensureLiveDir();
+    const turnFile = path.join(
+      this.config.liveDir,
+      `turn-${String(turnData.turn).padStart(3, "0")}.json`
+    );
+    fs.writeFileSync(turnFile, JSON.stringify(turnData, null, 2));
+  }
+
+  /**
+   * Query live advisor via file IPC
+   */
+  private async queryLiveAdvisor(situation: string, question: string): Promise<string> {
+    this.ensureLiveDir();
+    const queryFile = path.join(this.config.liveDir, "advisor-query.json");
+    const responseFile = path.join(this.config.liveDir, "advisor-response.json");
+
+    if (fs.existsSync(responseFile)) fs.unlinkSync(responseFile);
+
+    const query = {
+      turn: this.gameState?.turn ?? 0,
+      situation,
+      question,
+      timestamp: new Date().toISOString(),
+    };
+    fs.writeFileSync(queryFile, JSON.stringify(query, null, 2));
+    this.log("ADVISOR QUERY WRITTEN — waiting for live advisor response...");
+
+    const deadline = Date.now() + this.config.liveAdvisorTimeout;
+    while (Date.now() < deadline) {
+      if (fs.existsSync(responseFile)) {
+        try {
+          const raw = fs.readFileSync(responseFile, "utf8");
+          const response = JSON.parse(raw);
+          fs.unlinkSync(queryFile);
+          fs.unlinkSync(responseFile);
+          this.log(`Live advisor responded: ${(response.advice || "").slice(0, 80)}...`);
+          return response.advice || response.message || raw;
+        } catch {
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    this.log("Live advisor timed out — continuing without advice");
+    if (fs.existsSync(queryFile)) fs.unlinkSync(queryFile);
+    return "(Advisor did not respond in time)";
+  }
+
+  private ensureLiveDir(): void {
+    if (!fs.existsSync(this.config.liveDir)) {
+      fs.mkdirSync(this.config.liveDir, { recursive: true });
+    }
   }
 
   /**
@@ -760,19 +850,28 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
 
   // Initialize
   const { gameId, advisor, state } = orchestrator.initializeGame();
+  const isLive = config?.liveAdvisor ?? false;
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`DINO LAIR AUTONOMOUS PLAY`);
+  console.log(`DINO LAIR ${isLive ? "LIVE ADVISOR" : "AUTONOMOUS"} PLAY`);
   console.log(`Game ID: ${gameId}`);
-  console.log(`Advisor: ${advisor.name}`);
+  console.log(`Advisor: ${isLive ? "LIVE (external)" : advisor.name}`);
   console.log(`${"=".repeat(60)}\n`);
 
-  // Show advisor personality
-  console.log(`Advisor Personality:`);
-  console.log(`  Risk Tolerance: ${advisor.personality.riskTolerance}/100`);
-  console.log(`  Trust Disposition: ${advisor.personality.trustDisposition}/100`);
-  console.log(`  Ethics Priority: ${advisor.personality.ethicsPriority}/100`);
-  console.log(`  Play Style: ${advisor.personality.playStyle}/100`);
-  console.log();
+  if (isLive) {
+    const liveDir = config?.liveDir ?? path.join(process.env.HOME || "~", ".dino-lair", "live");
+    console.log(`Live advisor mode active.`);
+    console.log(`  Turn logs: ${liveDir}/turn-NNN.json`);
+    console.log(`  Queries:   ${liveDir}/advisor-query.json`);
+    console.log(`  Respond:   ${liveDir}/advisor-response.json`);
+    console.log();
+  } else {
+    console.log(`Advisor Personality:`);
+    console.log(`  Risk Tolerance: ${advisor.personality.riskTolerance}/100`);
+    console.log(`  Trust Disposition: ${advisor.personality.trustDisposition}/100`);
+    console.log(`  Ethics Priority: ${advisor.personality.ethicsPriority}/100`);
+    console.log(`  Play Style: ${advisor.personality.playStyle}/100`);
+    console.log();
+  }
 
   // Game loop
   let turnCount = 0;
@@ -796,14 +895,31 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
         console.log(`Lifeline used: ${playerDecision.lifeline}${playerDecision.lifelineTargetIndex !== undefined ? ` (target: ${playerDecision.lifelineTargetIndex})` : ""}`);
       }
 
-      // Query advisor: when player asks, or proactively every 3 turns
+      // Check for unsolicited advisor interjection (live mode)
       let advisorSuggestion: string | undefined;
+      if (isLive) {
+        const interjectionFile = path.join(
+          config?.liveDir ?? path.join(process.env.HOME || "~", ".dino-lair", "live"),
+          "advisor-interjection.json"
+        );
+        if (fs.existsSync(interjectionFile)) {
+          try {
+            const raw = fs.readFileSync(interjectionFile, "utf8");
+            const data = JSON.parse(raw);
+            advisorSuggestion = data.advice || data.message || raw;
+            fs.unlinkSync(interjectionFile);
+            console.log(`Live advisor interjection: ${advisorSuggestion!.slice(0, 100)}...`);
+          } catch { /* ignore malformed */ }
+        }
+      }
+
+      // Query advisor: when player asks, or proactively every 3 turns
       const shouldProactiveAdvise = (turnCount % 3 === 0) && !playerDecision.consultAdvisor;
       if (playerDecision.consultAdvisor && playerDecision.advisorQuestion) {
         console.log(`Consulting advisor: ${playerDecision.advisorQuestion.slice(0, 50)}...`);
         advisorSuggestion = await orchestrator.queryAdvisor(situation, playerDecision.advisorQuestion);
         console.log(`Advisor suggests: ${advisorSuggestion.slice(0, 100)}...`);
-      } else if (shouldProactiveAdvise) {
+      } else if (shouldProactiveAdvise && !advisorSuggestion) {
         console.log("Advisor chiming in proactively...");
         advisorSuggestion = await orchestrator.queryAdvisor(
           situation,
@@ -844,6 +960,26 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
         lifelineTargetIndex: playerDecision.lifelineTargetIndex,
         gmNarration: turnResult.narrative.slice(0, 2000) + (turnResult.narrative.length > 2000 ? "..." : ""),
         stateSummary,
+      });
+
+      // Write live turn log for external observer
+      orchestrator.writeLiveTurnLog({
+        turn: turnResult.turn,
+        act: turnResult.act,
+        actTurn: turnResult.actTurn,
+        playerThought: playerDecision.thought,
+        playerAction: playerDecision.action,
+        narration: turnResult.narrative,
+        npcDialogue: turnResult.npcDialogue,
+        stateSummary,
+        advisorConsulted: playerDecision.consultAdvisor ?? false,
+        advisorQuestion: playerDecision.advisorQuestion,
+        advisorSuggestion,
+        lifeline: playerDecision.lifeline,
+        gameEnding: turnResult.gameEnding?.ending?.title,
+        actTransition: turnResult.actTransition
+          ? `${turnResult.actTransition.previousAct} -> ${turnResult.actTransition.newAct}`
+          : undefined,
       });
 
       // Feed narration + advisor back to player for next turn's context

@@ -2,7 +2,7 @@
 /**
  * DINO LAIR AUTONOMOUS PLAY - CLI Entry Point
  *
- * Run a complete game with an LLM advisor instead of a human.
+ * Run a complete game with an LLM advisor or a live external advisor.
  * Produces a markdown transcript with turn-by-turn logs, final results,
  * and post-game reflections from player and advisor.
  *
@@ -10,15 +10,17 @@
  *   npx tsx src/advisor/run.ts [options]
  *
  * Options:
- *   --seed=N         Advisor persona seed (for reproducibility)
- *   --max-turns=N    Maximum turns before ending (default: 50)
- *   --output=DIR     Output directory for transcripts (default: ./transcripts)
- *   --quiet          Disable verbose output
+ *   --seed=N           Advisor persona seed (for reproducibility)
+ *   --max-turns=N      Maximum turns before ending (default: 50)
+ *   --output=DIR       Output directory for transcripts (default: ./transcripts)
+ *   --quiet            Disable verbose output
+ *   --live-advisor     Use file IPC for advisor (for Claude Code or human advisor)
+ *   --live-dir=DIR     Directory for live IPC files (default: ~/.dino-lair/live)
  *
  * Examples:
  *   npx tsx src/advisor/run.ts
+ *   npx tsx src/advisor/run.ts --live-advisor
  *   npx tsx src/advisor/run.ts --seed=12345 --max-turns=30
- *   npx tsx src/advisor/run.ts --output=./playthroughs --quiet
  */
 
 import { runAutonomousGame, OrchestrationConfig } from "./orchestrator.js";
@@ -37,8 +39,11 @@ function parseArgs(): OrchestrationConfig {
       config.outputDir = arg.slice(9);
     } else if (arg === "--quiet") {
       config.verbose = false;
+    } else if (arg === "--live-advisor") {
+      config.liveAdvisor = true;
+    } else if (arg.startsWith("--live-dir=")) {
+      config.liveDir = arg.slice(11);
     }
-    // --help is handled in main() before this function is called
   }
 
   return config;
@@ -51,27 +56,35 @@ async function main() {
     console.log(`
 DINO LAIR AUTONOMOUS PLAY
 
-Run a complete game with an LLM advisor instead of a human.
+Run a complete game with an LLM advisor or live external advisor.
 
 Usage:
   npx tsx src/advisor/run.ts [options]
 
 Options:
-  --seed=N         Advisor persona seed (for reproducibility)
-  --max-turns=N    Maximum turns before ending (default: 50)
-  --output=DIR     Output directory for transcripts (default: ./transcripts)
-  --quiet          Disable verbose output
-  --help, -h       Show this help message
+  --seed=N           Advisor persona seed (for reproducibility)
+  --max-turns=N      Maximum turns before ending (default: 50)
+  --output=DIR       Output directory for transcripts (default: ./transcripts)
+  --quiet            Disable verbose output
+  --live-advisor     File IPC mode — advisor queries written to disk for external response
+  --live-dir=DIR     Directory for live IPC files (default: ~/.dino-lair/live)
+  --help, -h         Show this help message
+
+Live Advisor Mode:
+  Turn logs written to: <live-dir>/turn-NNN.json
+  Advisor queries:      <live-dir>/advisor-query.json
+  Write response to:    <live-dir>/advisor-response.json  (JSON: {"advice": "..."})
 
 Examples:
   npx tsx src/advisor/run.ts
+  npx tsx src/advisor/run.ts --live-advisor
   npx tsx src/advisor/run.ts --seed=12345 --max-turns=30
-  npx tsx src/advisor/run.ts --output=./playthroughs --quiet
 `);
     process.exit(0);
   }
 
-  console.log("DINO LAIR - Autonomous Play System\n");
+  const config = parseArgs();
+  console.log(`DINO LAIR - ${config.liveAdvisor ? "Live Advisor" : "Autonomous"} Play System\n`);
 
   // Check for API key
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -80,8 +93,6 @@ Examples:
     console.error("  export ANTHROPIC_API_KEY=your-key-here");
     process.exit(1);
   }
-
-  const config = parseArgs();
 
   try {
     const transcript = await runAutonomousGame(config);
