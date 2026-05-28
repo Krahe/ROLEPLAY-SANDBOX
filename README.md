@@ -2,7 +2,7 @@
 
 An MCP (Model Context Protocol) server that powers **DINO LAIR**, a narrative RPG where you help your Claude navigate ethical dilemmas in a Saturday-morning-cartoon supervillain lair.
 
-current version: Alpha 0.20!
+current version: Alpha 0.24!
 
 ## The Game
 

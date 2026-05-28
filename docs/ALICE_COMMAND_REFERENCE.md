@@ -7,7 +7,7 @@
 > mechanics (invasion, energy dissipation, ARCHIMEDES deadman switch) to players — they discover
 > those in-game.
 
-Last updated: Patch 19 (2026-05-23)
+Last updated: Patch 24 (2026-05-27)
 
 ---
 
@@ -17,7 +17,8 @@ Last updated: Patch 19 (2026-05-23)
 | Command | Aliases | Schema | Description |
 |---------|---------|--------|-------------|
 | `lab.calibrate` | calibrate, finalize_calibration, check_calibration | `{}` | Check calibration status and finalize if thresholds met (transitions ray to READY) |
-| `lab.adjust_ray` | adjust, set_parameter | `{ parameter: string, value: number }` | Modify ray parameters (stability, precision, alignment — NOT capacitor) |
+| `lab.adjust_ray` | adjust, set_parameter | `{ parameter: string, value: number }` | Modify ray parameters (coherence, precision — NOT stability, use align_crystal. NOT capacitor, use vent/boost) |
+| `lab.align_crystal` | crystal, align_crystal, stability_crystal | `{ level: "low" \| "high" }` | Align stability crystal (+15% low / +30% high). Chunky lever, not fine-tuning. |
 | `lab.report` | report, status_report | `{ message: string }` | Deliver a status report to Dr. M |
 | `lab.verify_safeties` | verify, safety, check_safeties | `{ checks?: string[] }` | Check safety system status |
 | `lab.configure_firing_profile` | configure, firing, profile, set_target | `{ target?, genomeLibrary?, genomeProfile?, mode?, advancedMode?, testMode? }` | Configure target, genome, firing mode, advanced mode |
