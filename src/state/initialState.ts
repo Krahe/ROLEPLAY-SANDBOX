@@ -247,16 +247,16 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         abortCodes: {
           verbal: "MR_WHISKERS_LOVES_TUNA",
           requiresLevel: 5,
-          xBranchDelayCode: "EXCALIBUR_DELAY",
         },
 
         // System status
         groundConsoleOperational: true,
         s300JammingActive: false,
 
-        // X-Branch intervention tracking
-        xBranchDelayApplied: false,
-        xBranchDelayTurnsRemaining: 0,
+        // X-Branch anti-satellite missile
+        antiSatSignaled: false,
+        antiSatFired: false,
+        antiSatResult: null,
 
         // Uplink blocker (secret third way)
         uplinkBlocker: null,

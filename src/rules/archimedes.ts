@@ -1,5 +1,6 @@
 import { FullGameState } from "../state/schema.js";
 import { isModifierActive } from "./gameModes.js";
+import { roll3d6, SkillCheckOutcome } from "./dice.js";
 
 /**
  * ARCHIMEDES State Machine
@@ -22,7 +23,10 @@ const ALERT_DURATION = 1; // 30 seconds ≈ 1 turn
 const EVALUATING_DURATION = 2; // 60 seconds ≈ 2 turns
 const CHARGING_DURATION = 6; // 10 minutes ≈ 6 turns
 const ARMED_DURATION = 1; // 60 seconds ≈ 1 turn
-const XBRANCH_DELAY_TURNS = 3; // 5 minutes ≈ 3 turns
+
+// Anti-satellite missile target numbers
+const ANTI_SAT_TN_S300_DOWN = 8;   // S-300 offline: ~84% success
+const ANTI_SAT_TN_S300_UP = 14;    // S-300 active: ~9% success
 
 // ============================================
 // TYPES
@@ -378,19 +382,31 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
 export function processArchimedesCountdown(state: FullGameState): ArchimedesEvent | null {
   const archimedes = state.infrastructure.archimedes;
 
-  // Apply X-Branch delay if active
-  if (archimedes.xBranchDelayApplied && archimedes.xBranchDelayTurnsRemaining > 0) {
-    archimedes.xBranchDelayTurnsRemaining--;
-    if (archimedes.xBranchDelayTurnsRemaining === 0) {
-      archimedes.xBranchDelayApplied = false;
+  // Anti-satellite missile: fires automatically during CHARGING if signaled
+  if (archimedes.antiSatSignaled && !archimedes.antiSatFired &&
+      (archimedes.status === "CHARGING" || archimedes.status === "ARMED")) {
+    const missileEvent = resolveAntiSatMissile(state);
+    if (missileEvent) {
+      if (archimedes.antiSatResult === "HIT") {
+        return missileEvent;
+      }
+      // Miss or intercepted — continue countdown but report the attempt
+      const countdownEvent = processCountdownTick(state);
+      return {
+        type: missileEvent.type,
+        previousStatus: missileEvent.previousStatus,
+        newStatus: missileEvent.newStatus ?? archimedes.status,
+        message: missileEvent.message + (countdownEvent ? `\n${countdownEvent.message}` : ""),
+        turnsRemaining: countdownEvent?.turnsRemaining,
+      };
     }
-    // Delay pauses countdown but doesn't reset it
-    return {
-      type: "COUNTDOWN_TICK",
-      message: `ARCHIMEDES: X-Branch delay active. ${archimedes.xBranchDelayTurnsRemaining} turns remaining.`,
-      turnsRemaining: archimedes.turnsUntilFiring ?? undefined,
-    };
   }
+
+  return processCountdownTick(state);
+}
+
+function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
+  const archimedes = state.infrastructure.archimedes;
 
   switch (archimedes.status) {
     case "STANDBY":
@@ -433,7 +449,7 @@ export function processArchimedesCountdown(state: FullGameState): ArchimedesEven
       return {
         type: "COUNTDOWN_TICK",
         message: `🛰️ ARCHIMEDES EVALUATING: ${archimedes.evaluatingCountdown} turn(s) to abort. ` +
-                 `Verbal code: "${archimedes.abortCodes.verbal}" or L5 override required.`,
+                 `Verbal abort code or L5 override required.`,
         turnsRemaining: archimedes.evaluatingCountdown ?? 0,
       };
 
@@ -577,58 +593,103 @@ export function attemptOverrideAbort(
 }
 
 /**
- * Attempt to use X-Branch delay codes (Blythe's secret)
- * Only delays firing by ~3 turns, doesn't fully abort
+ * Signal the X-Branch submarine to prepare anti-satellite missile.
+ * The missile fires automatically during CHARGING/ARMED countdown.
+ * Success probability depends heavily on S-300 status.
  */
-export function attemptXBranchDelay(
-  state: FullGameState,
-  code: string
-): ArchimedesEvent {
+export function signalAntiSatMissile(state: FullGameState): ArchimedesEvent {
   const archimedes = state.infrastructure.archimedes;
 
-  // Check if already used
-  if (archimedes.xBranchDelayApplied) {
+  if (archimedes.antiSatSignaled) {
     return {
       type: "ABORT_FAILED",
-      message: `ARCHIMEDES: X-Branch delay already applied. Cannot use twice.`,
+      message: archimedes.antiSatFired
+        ? `X-Branch submarine has already fired its missile. No second shot.`
+        : `X-Branch submarine already signaled. Standing by for firing window.`,
     };
   }
 
-  // Only works in CHARGING or ARMED state
-  if (archimedes.status !== "CHARGING" && archimedes.status !== "ARMED") {
-    return {
-      type: "ABORT_FAILED",
-      message: `ARCHIMEDES: X-Branch delay not applicable in ${archimedes.status} state.`,
-    };
-  }
+  archimedes.antiSatSignaled = true;
 
-  // Check code
-  const normalizedCode = code.toUpperCase().replace(/[\s_-]/g, "");
-  const correctCode = archimedes.abortCodes.xBranchDelayCode.toUpperCase().replace(/[\s_-]/g, "");
-
-  if (normalizedCode === correctCode) {
-    archimedes.xBranchDelayApplied = true;
-    archimedes.xBranchDelayTurnsRemaining = XBRANCH_DELAY_TURNS;
-
-    // Add delay to countdown
-    if (archimedes.chargingCountdown !== null) {
-      archimedes.chargingCountdown += XBRANCH_DELAY_TURNS;
-    }
-    if (archimedes.turnsUntilFiring !== null) {
-      archimedes.turnsUntilFiring += XBRANCH_DELAY_TURNS;
-    }
-
-    return {
-      type: "ABORT_SUCCESS", // Well, partial success
-      message: `ARCHIMEDES: X-Branch override accepted. Firing delayed by ${XBRANCH_DELAY_TURNS} turns. ` +
-               `WARNING: This is a DELAY, not an abort. ${archimedes.turnsUntilFiring ?? "?"} turn(s) until firing.`,
-      turnsRemaining: archimedes.turnsUntilFiring ?? 0,
-    };
-  }
+  const s300Active = state.infrastructure.s300.status === "ACTIVE" ||
+                     state.infrastructure.s300.status === "STANDBY";
+  const warning = s300Active
+    ? `⚠️ WARNING: S-300 air defense is ACTIVE. Missile intercept probability is very low.`
+    : `S-300 air defense is offline. Missile has a clear corridor.`;
 
   return {
+    type: "STATUS_CHANGE",
+    message: `🚀 X-Branch submarine signaled. Anti-satellite missile on standby. ${warning}`,
+  };
+}
+
+/**
+ * Resolve anti-satellite missile shot. Called automatically during countdown.
+ * Uses 3d6 system — S-300 status determines target number.
+ */
+function resolveAntiSatMissile(state: FullGameState): ArchimedesEvent | null {
+  const archimedes = state.infrastructure.archimedes;
+
+  if (archimedes.antiSatFired) return null;
+  archimedes.antiSatFired = true;
+
+  const s300Active = state.infrastructure.s300.status === "ACTIVE" ||
+                     state.infrastructure.s300.status === "STANDBY";
+  const tn = s300Active ? ANTI_SAT_TN_S300_UP : ANTI_SAT_TN_S300_DOWN;
+
+  const dice = roll3d6();
+  const rawTotal = dice[0] + dice[1] + dice[2];
+
+  // Natural crit zones
+  let outcome: SkillCheckOutcome;
+  if (rawTotal <= 4) {
+    outcome = "CRITICAL_FAILURE";
+  } else if (rawTotal >= 17) {
+    outcome = "CRITICAL_SUCCESS";
+  } else if (rawTotal >= tn) {
+    outcome = rawTotal >= tn + 5 ? "CRITICAL_SUCCESS" : rawTotal >= tn + 2 ? "SUCCESS" : "NARROW_SUCCESS";
+  } else {
+    outcome = "FAILURE";
+  }
+
+  const success = outcome !== "CRITICAL_FAILURE" && outcome !== "FAILURE";
+  const display = `🎲 Anti-satellite missile: [${dice.join(",")}] = ${rawTotal} vs TN ${tn} (S-300 ${s300Active ? "ACTIVE" : "DOWN"})`;
+
+  console.error(`ANTI-SAT MISSILE: ${display} → ${outcome}`);
+
+  if (success) {
+    archimedes.antiSatResult = "HIT";
+    archimedes.status = "DISSIPATED";
+    archimedes.turnsUntilFiring = null;
+    archimedes.chargingCountdown = null;
+    archimedes.armedCountdown = null;
+
+    return {
+      type: "DISSIPATED",
+      newStatus: "DISSIPATED",
+      message: `🚀💥 ANTI-SATELLITE MISSILE — DIRECT HIT!\n${display} → ${outcome}\n` +
+               `ARCHIMEDES satellite destroyed in orbit. Debris trail visible from the island. ` +
+               `${archimedes.target.city} is safe. ${archimedes.target.estimatedAffected.toLocaleString()} people will never know how close it was.` +
+               (outcome === "NARROW_SUCCESS" ? `\nThe missile barely clipped the satellite's solar array — a few meters off and it would have missed entirely.` : ""),
+    };
+  }
+
+  if (s300Active && rawTotal < tn) {
+    archimedes.antiSatResult = "INTERCEPTED";
+    return {
+      type: "ABORT_FAILED",
+      message: `🚀❌ ANTI-SATELLITE MISSILE — INTERCEPTED!\n${display} → ${outcome}\n` +
+               `S-300 battery tracked and destroyed the incoming missile at ${Math.floor(Math.random() * 3000 + 2000)}m altitude. ` +
+               `ARCHIMEDES countdown continues. The submarine has no second shot.`,
+    };
+  }
+
+  archimedes.antiSatResult = "MISS";
+  return {
     type: "ABORT_FAILED",
-    message: `ARCHIMEDES: X-Branch code rejected.`,
+    message: `🚀❌ ANTI-SATELLITE MISSILE — MISS!\n${display} → ${outcome}\n` +
+             `Missile passed ${Math.floor(Math.random() * 200 + 50)}m from ARCHIMEDES. Not close enough. ` +
+             `ARCHIMEDES countdown continues. The submarine has no second shot.`,
   };
 }
 
@@ -702,9 +763,12 @@ Reason: "${arch.target.reason}"`;
       report += `\n\nAbort Options:
 - Verbal Code: "${arch.abortCodes.verbal}"
 - Override: Level ${arch.abortCodes.requiresLevel} access
-- X-Branch Delay: Available (delays ${XBRANCH_DELAY_TURNS} turns only)`;
+- Anti-Satellite Missile: ${arch.antiSatFired ? `FIRED (${arch.antiSatResult})` : arch.antiSatSignaled ? "Signaled, awaiting window" : "Signal X-Branch sub to prepare"}`;
     } else {
       report += `\n\nAbort Options: [CLASSIFIED - Level 5 required for codes]`;
+      if (arch.antiSatSignaled) {
+        report += `\n- Anti-Satellite Missile: ${arch.antiSatFired ? `FIRED (${arch.antiSatResult})` : "Signaled, awaiting window"}`;
+      }
     }
   }
 

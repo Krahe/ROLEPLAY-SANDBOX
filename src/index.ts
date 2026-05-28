@@ -989,7 +989,7 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
         }
 
         // -1 turn to X-Branch arrival - set flag for Act III context
-        if (conseq.xBranchDelayDelta) {
+        if (conseq.xBranchArrivalDelta) {
           gameState.flags.xBranchAlerted = true;  // Tourist photos alert X-Branch!
         }
 

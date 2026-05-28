@@ -470,7 +470,6 @@ export type ArchimedesTargetId = keyof typeof ARCHIMEDES_TARGET_LIST;
 export const ArchimedesAbortCodesSchema = z.object({
   verbal: z.string().default("MR_WHISKERS_LOVES_TUNA"),
   requiresLevel: z.number().default(5), // L5 for direct override
-  xBranchDelayCode: z.string().default("EXCALIBUR_DELAY"), // Only delays 5 min
 });
 
 // ARCHIMEDES operational modes (for power/radar calculations)
@@ -522,9 +521,10 @@ export const ArchimedesSchema = z.object({
   groundConsoleOperational: z.boolean().default(true),
   s300JammingActive: z.boolean().default(false), // True if in certain modes
 
-  // X-Branch intervention
-  xBranchDelayApplied: z.boolean().default(false), // Blythe used delay codes
-  xBranchDelayTurnsRemaining: z.number().default(0),
+  // X-Branch anti-satellite missile
+  antiSatSignaled: z.boolean().default(false),  // Sub has been told to fire
+  antiSatFired: z.boolean().default(false),     // Missile launched
+  antiSatResult: z.enum(["PENDING", "HIT", "MISS", "INTERCEPTED"]).nullable().default(null),
 
   // Uplink blocker — someone physically blocking the satellite uplink
   // If set when FIRING, energy is absorbed by this character instead of hitting target

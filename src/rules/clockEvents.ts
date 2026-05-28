@@ -305,7 +305,7 @@ export interface FiringRestrictionResult {
   warning?: string;            // Warning shown BEFORE firing (allows player to reconsider)
   consequences?: {             // Consequences that apply IF they fire anyway
     suspicionDelta?: number;   // +suspicion from Dr. M
-    xBranchDelayDelta?: number; // Negative = X-Branch arrives SOONER
+    xBranchArrivalDelta?: number; // Negative = X-Branch helicopter team arrives SOONER
     narrativeHook?: string;    // What happens narratively
   };
 }
@@ -326,7 +326,7 @@ High-power firing during tourist helicopter overflight will:
 Dr. M said NO high-power firing. Proceed anyway?`,
         consequences: {
           suspicionDelta: 2,
-          xBranchDelayDelta: -1,  // -1 turn = they arrive SOONER
+          xBranchArrivalDelta: -1,  // -1 turn = they arrive SOONER
           narrativeHook: `The flash of the DinoRay catches the tourists' attention. Cameras flash.
 Dr. M's voice cuts through: "A.L.I.C.E.! I SPECIFICALLY said—"
 She pauses, checks her phone. "Tourist photos are already on social media. X-Branch will see this."`,

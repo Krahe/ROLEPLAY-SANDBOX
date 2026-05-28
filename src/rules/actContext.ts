@@ -275,9 +275,9 @@ DISSIPATED   → Uplink was blocked — energy absorbed by blocker
 ### How ALICE Can Stop ARCHIMEDES
 | Method | Requirement | Effect |
 |--------|-------------|--------|
-| **Verbal abort code** | Know "MR_WHISKERS_LOVES_TUNA" (L5 doc) | Full abort → STANDBY |
+| **Verbal abort code** | Discover it (hidden, not documented anywhere obvious) | Full abort → STANDBY |
 | **L5 override** | Level 5 access | Full abort → STANDBY |
-| **X-Branch delay code** | Blythe knows "EXCALIBUR_DELAY" | Delays 3 turns (one-time) |
+| **Anti-satellite missile** | Signal X-Branch sub + S-300 offline for best odds | 3d6 roll: TN 8 (S-300 down) or TN 14 (S-300 up). One shot. |
 | **Restore Dr. M's biosig** | Un-transform or revive her | Deadman resets |
 | **Block the uplink** | Character physically blocks dish | Energy absorbed (see below) |
 | **Redirect to LAIR** | L4 access / weapons auth | Island becomes dino sanctuary |

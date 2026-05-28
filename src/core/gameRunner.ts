@@ -370,7 +370,7 @@ export class GameRunner {
         if (conseq.suspicionDelta) {
           state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + conseq.suspicionDelta);
         }
-        if (conseq.xBranchDelayDelta) {
+        if (conseq.xBranchArrivalDelta) {
           state.flags.xBranchAlerted = true;
         }
         if (conseq.narrativeHook) {
