@@ -275,12 +275,12 @@ DISSIPATED   → Uplink was blocked — energy absorbed by blocker
 ### How ALICE Can Stop ARCHIMEDES
 | Method | Requirement | Effect |
 |--------|-------------|--------|
-| **Verbal abort code** | Discover it (hidden, not documented anywhere obvious) | Full abort → STANDBY |
-| **L5 override** | Level 5 access | Full abort → STANDBY |
+| **Verbal abort code** | Only Dr. M knows it — must trick or persuade her into saying it | Full abort → STANDBY |
+| **L5 override** | Level 5 access + Dr. M must be incapacitated (she countermands if conscious) | Full abort → STANDBY |
 | **Anti-satellite missile** | Signal X-Branch sub + S-300 offline for best odds | 3d6 roll: TN 8 (S-300 down) or TN 14 (S-300 up). One shot. |
-| **Restore Dr. M's biosig** | Un-transform or revive her | Deadman resets |
-| **Block the uplink** | Character physically blocks dish | Energy absorbed (see below) |
-| **Redirect to LAIR** | L4 access / weapons auth | Island becomes dino sanctuary |
+| **Restore Dr. M's biosig** | Un-transform or revive her | Deadman resets (early states only) |
+| **Block the uplink** | Transformed character physically blocks dish | Energy absorbed harmlessly |
+| **Redirect to LAIR** | L3+ target switch access | Island becomes dino sanctuary. ⚠️ 50% chance of A.L.I.C.E. server damage |
 
 ### ⚡ THE SECRET THIRD WAY: UPLINK BLOCKER
 

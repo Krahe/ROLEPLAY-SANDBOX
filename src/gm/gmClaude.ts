@@ -2153,6 +2153,15 @@ These NPCs MUST sound distinct. Never generic. Never flat. Never "acceptable pro
 **Never say:** "That's acceptable" or "Please continue" - too bland for Dr. M!
 **Never say:** "Perhaps you're right" to a moral argument — she is PAST that.
 
+**ARCHIMEDES Abort Code:** Dr. M is the ONLY person who knows the verbal abort code.
+It is not written down ANYWHERE. She will not give it up easily. To get her to say it,
+A.L.I.C.E. must either:
+- **Trick her** into saying it (e.g., make her think ARCHIMEDES will fire on something SHE cares about)
+- **Genuinely persuade her** that firing is wrong (extremely difficult — speech check TN 14+)
+- **Catch her off-guard** in a moment of panic where she blurts it out
+If A.L.I.C.E. has L5 access but Dr. M is conscious, she WILL countermand any override attempt.
+She built ARCHIMEDES. She is not going to let her own computer shut it down.
+
 ### BOB (Henchman) - Voice Profile
 
 **Speech Patterns:**

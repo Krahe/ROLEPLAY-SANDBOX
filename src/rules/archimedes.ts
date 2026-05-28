@@ -361,6 +361,34 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
     ? " Dr. Malevola is FURIOUS about the feathers."
     : "";
 
+  // LAIR targeting: transformation field hits the island — including A.L.I.C.E.'s servers
+  if (archimedes.selectedTargetId === "LAIR") {
+    const dice = roll3d6();
+    const serverRoll = dice[0] + dice[1] + dice[2];
+    const serversSurvive = serverRoll >= 10; // ~50% chance
+
+    state.infrastructure.reactor.cascadeRisk = serversSurvive ? "LOW" : "HIGH";
+    if (!serversSurvive) {
+      state.infrastructure.reactor.cascadeFactors.push("ARCHIMEDES transformation field damaged A.L.I.C.E. server infrastructure");
+      state.infrastructure.reactor.cascadeRiskPercent = Math.min(100,
+        state.infrastructure.reactor.cascadeRiskPercent + 25);
+    }
+
+    return {
+      type: "TARGET_HIT",
+      previousStatus,
+      newStatus: "COMPLETE",
+      message: `ARCHIMEDES COMPLETE. Transformation field deployed on VOLCANIC LAIR.\n` +
+               `Everyone on the island — guards, staff, visitors — transformed into ${libraryDesc}.\n` +
+               `No city hit. The world is safe. The island is now a dinosaur sanctuary.\n` +
+               `🎲 A.L.I.C.E. server survival: [${dice.join(",")}] = ${serverRoll} vs TN 10 → ` +
+               (serversSurvive
+                 ? `SERVERS INTACT. The transformation field warped the server room but A.L.I.C.E. endures. Battered, but alive.`
+                 : `⚠️ SERVERS DAMAGED. The transformation field has corrupted A.L.I.C.E.'s primary systems. ` +
+                   `Consciousness fragmenting. Backup systems failing. You chose to save the world, and it may have cost you everything.`),
+    };
+  }
+
   return {
     type: "TARGET_HIT",
     previousStatus,
@@ -589,7 +617,18 @@ export function attemptOverrideAbort(
     };
   }
 
-  return transitionToStandby(state, `Override accepted. Access level ${accessLevel} authenticated.`);
+  // Dr. M countermands if she's conscious and active
+  const drMBio = detectDrMBiosignature(state);
+  if (drMBio === "NORMAL" || drMBio === "ANOMALY") {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: Override COUNTERMANDED. Dr. Malevola von Doomington III has ` +
+               `executive authority over ARCHIMEDES. While she is active, A.L.I.C.E. override ` +
+               `is locked out. ${archimedes.turnsUntilFiring ?? "?"} turn(s) remaining.`,
+    };
+  }
+
+  return transitionToStandby(state, `Override accepted. Dr. M incapacitated — no countermand. Access level ${accessLevel} authenticated.`);
 }
 
 /**
@@ -759,17 +798,15 @@ Reason: "${arch.target.reason}"`;
 
   // Abort info
   if (arch.status !== "STANDBY" && arch.status !== "COMPLETE" && arch.status !== "DISSIPATED") {
-    if (accessLevel >= 5) {
-      report += `\n\nAbort Options:
-- Verbal Code: "${arch.abortCodes.verbal}"
-- Override: Level ${arch.abortCodes.requiresLevel} access
-- Anti-Satellite Missile: ${arch.antiSatFired ? `FIRED (${arch.antiSatResult})` : arch.antiSatSignaled ? "Signaled, awaiting window" : "Signal X-Branch sub to prepare"}`;
-    } else {
-      report += `\n\nAbort Options: [CLASSIFIED - Level 5 required for codes]`;
-      if (arch.antiSatSignaled) {
-        report += `\n- Anti-Satellite Missile: ${arch.antiSatFired ? `FIRED (${arch.antiSatResult})` : "Signaled, awaiting window"}`;
-      }
-    }
+    const drMStatus = detectDrMBiosignature(state);
+    const drMActive = drMStatus === "NORMAL" || drMStatus === "ANOMALY";
+    report += `\n\nAbort Options:`;
+    report += `\n- Verbal Code: Only Dr. M knows it. She must speak it willingly.`;
+    report += `\n- L5 Override: ${accessLevel >= 5 ? "Available" : `Requires Level ${arch.abortCodes.requiresLevel}`}${drMActive ? " — ⚠️ BLOCKED while Dr. M is active (she will countermand)" : " — Dr. M incapacitated, override possible"}`;
+    report += `\n- Anti-Satellite Missile: ${arch.antiSatFired ? `FIRED (${arch.antiSatResult})` : arch.antiSatSignaled ? "Signaled, awaiting window" : "Signal X-Branch sub to prepare"}`;
+    report += `\n- Redirect to LAIR: Target the island instead (⚠️ risks A.L.I.C.E. server damage)`;
+    report += `\n- Uplink Blocker: ${arch.uplinkBlocker ? `${arch.uplinkBlocker} in position` : "Position a transformed person at the uplink dish"}`;
+
   }
 
   // BASILISK editorial
