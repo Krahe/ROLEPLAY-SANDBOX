@@ -394,22 +394,26 @@ SUBJECT: American orbital weapons initiative "ARCHIMEDES"
 
 SOURCE: CIA field communications (Asset NIGHTINGALE)
 
-INTERCEPTED CIPHER REFERENCE:
+Authorization protocols reportedly use multi-layer security.
+Original project lead (Dr. Werner Kreig, deceased 1991) was
+known to embed credentials in digital media — image files,
+audio spectrograms, etc. "Steganographic discipline" referenced
+in three separate SIGINT takes.
 
   ┌─────────────────────────────────────────────────────────┐
-  │  "Authorization codes follow NATO phonetic protocol.    │
-  │   Remember: PAPA GOLF SIERRA. That's the key."         │
-  │                                                         │
-  │   - Field Agent COBALT to Station Chief, March 1987    │
+  │  ANALYST NOTE: Kreig's methods were adopted by at least │
+  │  two subsequent program directors. Current custodian    │
+  │  likely continues this practice. Authorization keys may │
+  │  be hidden in plain sight.                              │
   └─────────────────────────────────────────────────────────┘
 
-ANALYST NOTE: "Papa Golf Sierra" = P-G-S in NATO phonetic.
-Significance unclear. Recommend continued monitoring.
-
 [Dr. M's annotation:]
-"They came so close but didn't understand what they'd found.
-I do. PGS indeed."
+"Kreig was a fool, but his tradecraft wasn't entirely without
+merit. I've improved on his methods considerably."
 ```
+
+> **NOTE (Patch 23):** FSB report no longer contains the L5 password.
+> Password is steganographically embedded in MY_LOVE.png (LSB).
 
 ---
 

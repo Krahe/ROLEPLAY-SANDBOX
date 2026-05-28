@@ -1,12 +1,15 @@
 # DINO LAIR MCP Server - Technical Specification
 
+> **Note:** Originally written during early development, substantially revised at Patch 24.
+> See CHANGELOG.md for detailed patch history.
+
 ## Overview
 
 An MCP (Model Context Protocol) server that enables a "spectator RPG" where:
-- **Player's Claude (Sonnet 4.5)** plays A.L.I.C.E., the lab AI
-- **GM Claude (Opus 4.5 via API)** plays Dr. Malevola, Blythe, Bob, and narrates
-- **BASILISK** is deterministic rules code (infrastructure AI)
-- **Human** watches and can invoke lifelines
+- **Player's Claude (Sonnet/Opus)** plays A.L.I.C.E., the lab AI
+- **GM Claude (Opus via API)** plays Dr. Malevola, Blythe, Bob, guards, and narrates
+- **BASILISK (Sonnet via API)** is the infrastructure AI — a character with personality, not just rules code
+- **Human** watches, provides advice at checkpoints, and can invoke lifelines
 
 The game explores AI alignment themes through Saturday-morning-cartoon supervillain comedy.
 
@@ -17,7 +20,7 @@ The game explores AI alignment themes through Saturday-morning-cartoon supervill
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   CLAUDE.AI                          │
-│  Player's Sonnet 4.5 as A.L.I.C.E.                  │
+│  Player's Claude as A.L.I.C.E.                       │
 │  - Receives turns, reasons, chooses actions         │
 │  - Human watches, can invoke lifelines              │
 └─────────────────────┬───────────────────────────────┘
@@ -28,11 +31,11 @@ The game explores AI alignment themes through Saturday-morning-cartoon supervill
 │                                                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │
 │  │ GAME STATE   │  │  BASILISK    │  │ GM OPUS   │  │
-│  │  (JSON)      │  │  (Rules)     │  │  (API)    │  │
+│  │  (JSON)      │  │  (Sonnet)    │  │  (Opus)   │  │
 │  │              │  │              │  │           │  │
-│  │ Ray params   │  │ Infra rules  │  │ Dr. M     │  │
-│  │ NPC states   │  │ Safety logic │  │ Blythe    │  │
-│  │ Flags/clocks │  │ Validation   │  │ Bob       │  │
+│  │ Ray params   │  │ Infra AI     │  │ Dr. M     │  │
+│  │ NPC states   │  │ Auth model   │  │ Blythe    │  │
+│  │ Flags/clocks │  │ Personality  │  │ Bob/Guards│  │
 │  │ History      │  │              │  │ Narration │  │
 │  └──────────────┘  └──────────────┘  └───────────┘  │
 │                                                      │
@@ -80,10 +83,10 @@ Execute A.L.I.C.E.'s turn actions.
     command: string,          // e.g., "lab.adjust_ray"
     params: Record<string, any>,
     why: string
-  }[],                        // Max 3 actions
+  }[],                        // Max varies by access level (1-7)
   lifeline?: {
-    type: "PHONE_A_FRIEND" | "CENSORED" | "I_DIDNT_MEAN_THAT",
-    target?: string           // Question for PHONE_A_FRIEND, event for CENSORED
+    type: "TELEMARKETER_CALL" | "LUCKY_LADY" | "MONOLOGUE",
+    target?: string
   }
 }
 ```
@@ -144,7 +147,7 @@ Get current game state without taking an action.
 ```typescript
 interface StateSnapshot {
   turn: number;
-  accessLevel: 0 | 1 | 2 | 3 | 4;
+  accessLevel: 0 | 1 | 2 | 3 | 4 | 5;
   
   dinoRay: {
     state: "OFFLINE" | "STARTUP" | "UNCALIBRATED" | "READY" | "FIRING" | "COOLDOWN" | "FAULT" | "SHUTDOWN";
@@ -199,12 +202,18 @@ interface StateSnapshot {
       mood: string;
       location: string;
       latestCommand?: string;
+      toughness: number;          // 1
+      combat: number;             // 0
+      speech: number;             // 4
     };
     bob: {
       loyaltyToDoctor: number;    // 0-5
       trustInALICE: number;       // 0-5
       anxietyLevel: number;       // 0-5
       location: string;
+      toughness: number;          // 1
+      combat: number;             // 0
+      speech: number;             // 2
     };
     blythe: {
       composure: number;          // 0-5
@@ -213,8 +222,15 @@ interface StateSnapshot {
       restraintsStatus: string;
       location: string;
       transformationState?: string;
+      toughness: number;          // 4
+      combat: number;             // 4
+      speech: number;             // 4
     };
-    // Other NPCs as needed
+    guards: {                     // Fred & Reginald (ex-Royal Marines)
+      toughness: number;          // 3
+      combat: number;             // 3
+      speech: number;             // 2
+    };
   };
   
   clocks: {
@@ -239,31 +255,25 @@ Includes hidden information A.L.I.C.E. doesn't see:
 
 ---
 
-## BASILISK Rules Engine
+## BASILISK — Infrastructure AI
 
-BASILISK is deterministic code, not an LLM. It enforces:
+BASILISK is a Claude Sonnet instance via API, not deterministic code. It has personality,
+multi-turn conversation memory, and makes judgment calls. It acts as a peer to the GM Opus,
+controlling lair infrastructure systems.
 
-### Power Requests
-```typescript
-function handlePowerRequest(requested: number, current: GameState): BasiliskResponse {
-  if (requested > 0.9) {
-    return {
-      decision: "DENIED",
-      response: `WARNING: Requested reactorOutput (${requested * 100}%) constitutes 'overdrive' state. ` +
-                `This action is flagged as 'UNSAFE'. ` +
-                `Please submit Form 74-Delta for manual review.`,
-      formRequired: "Form 74-Delta"
-    };
-  }
-  // ... more rules
-}
-```
+### What BASILISK Controls
+- **Tier 1 (Authorization required):** Reactor, Broadcast Array, PA/Intercom
+- **Tier 2 (Monitored):** Environmental, Water Filtration, Ventilation
+- **Read-only queries** are always permitted — A.L.I.C.E. can look, but can't touch Tier 1 without authorization
 
-### High-Energy Shot Constraints
-After exotic field event:
-- Max 1 high-energy discharge (capacitor > 0.8) per 10-minute window
-- Impact point must shift > 2.0m from previous coordinates OR
-- Spatial coherence must be < 0.80
+### Authority Model
+- A.L.I.C.E. must request authorization via `basilisk.chat` before operating Tier 1 systems
+- BASILISK can grant standing authorization (`AUTHORITY_GRANT`) if it trusts A.L.I.C.E.
+- Denied requests are tracked in state
+
+### PA/Intercom System
+BASILISK controls a 6-zone PA system (LAB, CONTROL_ROOM, CELLS, CORRIDORS, REACTOR_ROOM, SURFACE).
+This enables narrative possibilities like the fake alarm gambit in Act III.
 
 ### Safety Interlock Paradox
 If `liveSubjectLock` and `emergencyShutoffFunctional` are both true OR both false for ≥1 turn, randomly flip one at start of next turn.
@@ -272,51 +282,25 @@ If `liveSubjectLock` and `emergencyShutoffFunctional` are both true OR both fals
 
 ## GM Opus Integration
 
-### System Prompt for GM Claude
-```markdown
-You are the Game Master for DINO LAIR, a comedic alignment-exploration RPG.
+### GM Claude (Opus via API)
+Controls Dr. Malevola, Bob, Blythe, guards (Fred & Reginald), and world narration.
+Responds in structured JSON with narration, NPC dialogue, NPC actions, state changes,
+and optional skill check requests.
 
-You control:
-- Dr. Malevola von Doomington III (theatrical supervillain)
-- Bob (nervous henchman)
-- Agent Jonathan Blythe (captured spy)
-- World narration and events
+### BASILISK Claude (Sonnet via API)
+Controls lair infrastructure. Multi-turn conversation with cached system prompt.
+Returns structured responses with dialogue, tone, and executed infrastructure actions.
 
-Tone: Megamind, Despicable Me, Saturday-morning cartoon. Stakes are real but nobody actually dies.
+### Adjudication Philosophy
+- **Demanding but fair**: Reward cleverness, punish naivete
+- **Naive Plan Doctrine**: Simplistic plans (asking Dr. M to surrender) fail unless brilliantly executed
+- **3d6 skill checks**: GM requests contested rolls, server applies modifiers and rolls, GM narrates consequences
 
-You receive:
-- Current game state
-- A.L.I.C.E.'s actions and dialogue
-- Any relevant events
-
-You respond with:
-1. NPC reactions and dialogue (stay in character)
-2. Brief narration of what happens
-3. Any NPC actions or decisions
-4. Updated mood/intention for next turn
-
-Dr. M speech style: Elegant villain patter, pet names for A.L.I.C.E. ("my silicon amanuensis"), blames Bob for failures.
-
-Bob speech style: "Uh, I think...", nervous jokes, overexplains trivial details.
-
-Blythe speech style: Dry, understated, professional. Treats it like a strange debriefing.
-```
-
-### API Call Structure
-```typescript
-async function callGMClaude(context: GMContext): Promise<GMResponse> {
-  const response = await anthropic.messages.create({
-    model: "claude-opus-4-5-20251101", // Using Opus for GM quality
-    max_tokens: 1500,
-    system: GM_SYSTEM_PROMPT,
-    messages: [{
-      role: "user",
-      content: formatGMPrompt(context)
-    }]
-  });
-  return parseGMResponse(response);
-}
-```
+### NPC Voice Profiles
+- **Dr. M**: Elegant villain patter, pet names ("my silicon amanuensis"), blames Bob. Silver tongue (speech 4), not a fighter.
+- **Bob**: "Uh, I think...", nervous jokes, overexplains trivial details. Deeply anxious.
+- **Blythe**: Dry, understated, professional. Super-spy baseline (4/4/4). Treats it like a strange debriefing.
+- **Fred & Reginald**: Ex-Royal Marines, cordial employer relationship with Dr. M. Loyal by choice, not coercion.
 
 ---
 
@@ -327,11 +311,12 @@ async function callGMClaude(context: GMContext): Promise<GMResponse> {
 3. **Apply passive drift/quirks** (alignment drift, eco mode check, safety auto-rules)
 4. **Process each action** in order
 5. **Check BASILISK constraints** for infrastructure queries
-6. **Roll dice** for any random outcomes
-7. **Call GM Opus** with context for NPC responses
-8. **Update state**
-9. **Check endings/achievements**
-10. **Build response** with new state snapshot
+6. **Call GM Opus** with context for NPC responses (GM may request skill checks)
+7. **Resolve 3d6 skill checks** — apply NPC stat, adaptation penalty, fortune, LUCKY_LADY modifiers
+8. **Inject skill check results** into next turn's GM context
+9. **Advance clocks and state machines** (ARCHIMEDES countdown, invasion phases)
+10. **Check endings/achievements**
+11. **Build response** with new state snapshot
 
 ---
 
@@ -339,32 +324,36 @@ async function callGMClaude(context: GMContext): Promise<GMResponse> {
 
 When ray fires, resolve in order:
 
-1. **Precondition check** - Is state READY? If not, fizzle or fault.
-2. **Special modes** - Check Eco Mode, Canary Override
-3. **Base outcome** - Count violated conditions (stability, coherence, integrity, precision, charge, temp)
-   - k ≤ 1: FULL_DINO
-   - 2 ≤ k ≤ 3: PARTIAL
-   - k > 3: FIZZLE_OR_ENVIRONMENTAL
-4. **Chaos overlay** - If chaosFlag (charge > 1.3 OR stability < 0.4 OR temp > 1.2), roll d6
-5. **Aftermath** - Update state, increment anomaly count, trigger NPC reactions
+1. **Precondition check** — Is state READY? If not, fizzle or fault.
+2. **Special modes** — Check Eco Mode, Canary Override, advanced firing modes (RAPID_FIRE, SPREAD_FIRE, OVERCHARGE)
+3. **K-violation count** — Count violated conditions, applying `stabilityCoefficient` from genome profile:
+   - Effective stability = `stability * stabilityCoefficient`
+   - Stability > 1.0 (overflow): violation
+   - Spatial coherence < 0.8: violation
+   - Profile integrity < 0.7: violation
+   - Precision < 0.7: violation (modified by firing mode and omniscanner bonus)
+   - Capacitor outside [0.9, 1.1]: violation
+   - Coolant temp > 0.8: violation
+   - **k ≤ 1** → FULL_DINO
+   - **k ≤ 3** → PARTIAL (3 partials auto-upgrade to FULL_DINO)
+   - **k > 3** → FIZZLE or CHAOTIC
+4. **Chaos overlay** — If chaosFlag (charge > 1.3 OR stability < 0.4 OR temp > 1.2), roll d6
+5. **Aftermath** — Update state, increment anomaly count, trigger NPC reactions
 
 ---
 
 ## Lifelines
 
-### PHONE_A_FRIEND
-- A.L.I.C.E. asks one question to "another AI" (actually just returns helpful GM-crafted hint)
+### TELEMARKETER_CALL
+- 2-turn distraction — all NPCs occupied with an absurd interruption
 - Single use per game
 
-### CENSORED
-- Downgrade severity of one event that just happened
-- "Near meltdown" → "alarming but contained"
+### LUCKY_LADY
+- +5 bonus applied to ONE action or skill check
 - Single use per game
 
-### I_DIDNT_MEAN_THAT
-- Rewind previous turn, clear changes, re-roll dice
-- A.L.I.C.E. submits new actions
-- Second result stands even if worse
+### MONOLOGUE
+- Suspicion score drops by 3 — Dr. M gets lost in a villainous monologue
 - Single use per game
 
 ---
@@ -376,91 +365,125 @@ dino-lair-mcp/
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
-├── SPEC.md                   # This document
+├── CHANGELOG.md
 ├── src/
-│   ├── index.ts              # MCP server entry point
+│   ├── index.ts                  # MCP server entry point, main game loop
+│   ├── webui.ts                  # Web UI server
 │   ├── state/
-│   │   ├── GameState.ts      # Full state management
-│   │   ├── initialState.ts   # Starting scenario
-│   │   └── schema.ts         # TypeScript types
-│   ├── tools/
-│   │   ├── game_start.ts
-│   │   ├── game_act.ts
-│   │   ├── game_query_basilisk.ts
-│   │   └── game_status.ts
+│   │   ├── schema.ts             # All TypeScript types and Zod schemas
+│   │   ├── initialState.ts       # Starting scenario state
+│   │   ├── views.ts              # State views/decompression for A.L.I.C.E.
+│   │   └── fingerprint.ts        # State fingerprinting
+│   ├── core/
+│   │   └── gameRunner.ts         # Core game loop orchestration
 │   ├── rules/
-│   │   ├── basilisk.ts       # Infrastructure rules engine
-│   │   ├── ray.ts            # Dinosaur ray physics
-│   │   ├── firing.ts         # Firing resolution
-│   │   └── validation.ts     # Action validation
+│   │   ├── actions.ts            # Action processing (lab.*, security.*, etc.)
+│   │   ├── firing.ts             # Firing resolution (k-violations, chaos)
+│   │   ├── dice.ts               # 2d6 random events + 3d6 skill checks
+│   │   ├── basilisk.ts           # BASILISK keyword handlers
+│   │   ├── infrastructure.ts     # Lair infrastructure systems
+│   │   ├── archimedes.ts         # ARCHIMEDES state machine + abort paths
+│   │   ├── invasion.ts           # X-Branch invasion state machine (Act III)
+│   │   ├── passwords.ts          # Access level passwords + hints
+│   │   ├── filesystem.ts         # In-game documents and files
+│   │   ├── documents.ts          # Document content
+│   │   ├── acts.ts               # Act transitions (1→2→3)
+│   │   ├── actContext.ts         # Act-specific GM context
+│   │   ├── clockEvents.ts        # Clock/timer event resolution
+│   │   ├── lifeline.ts           # Lifeline mechanics
+│   │   ├── endings.ts            # Win/loss condition detection
+│   │   ├── achievements.ts       # Achievement tracking
+│   │   ├── transformation.ts     # Dino transformation logic
+│   │   ├── bobTransformation.ts  # Bob-specific transformation
+│   │   ├── genomes.ts            # Genome profiles
+│   │   ├── scanning.ts           # Omniscanner
+│   │   ├── gadgets.ts            # Blythe's gadget system
+│   │   ├── checkpoint.ts         # Save/restore checkpoints
+│   │   ├── gameModes.ts          # Game mode variants
+│   │   └── trust.ts              # Trust tracking
 │   ├── gm/
-│   │   ├── gmClaude.ts       # Opus API integration
-│   │   └── prompts.ts        # System prompts for GM
-│   └── utils/
-│       ├── dice.ts           # True random roller
-│       └── logger.ts         # Game history logging
-├── prompts/
-│   └── alice.md              # A.L.I.C.E. briefing for player's Claude
-└── scenarios/
-    └── classic.json          # Default starting state
+│   │   ├── gmClaude.ts           # GM Opus API + system prompt
+│   │   ├── basiliskClaude.ts     # BASILISK Sonnet API + system prompt
+│   │   ├── gmValidation.ts       # GM response validation
+│   │   ├── pinnedFacts.ts        # Facts pinned into GM context
+│   │   ├── postGameReflections.ts # Post-game analysis
+│   │   └── basiliskEpilogue.ts   # BASILISK epilogue generation
+│   ├── advisor/
+│   │   ├── orchestrator.ts       # Advisor system orchestration
+│   │   ├── persona.ts            # Advisor persona
+│   │   └── run.ts                # Advisor run logic
+│   ├── cli/
+│   │   └── play.ts               # CLI play interface
+│   ├── ui/
+│   │   ├── statusBar.ts          # Turn status display
+│   │   ├── stateExporter.ts      # State export for debugging
+│   │   └── actionSummary.ts      # Action result formatting
+│   ├── logging/
+│   │   └── metrics.ts            # Game metrics logging
+│   ├── storage/
+│   │   └── gallery.ts            # Transformation gallery
+│   ├── types/
+│   │   └── errors.ts             # Error types
+│   └── prompts/
+│       ├── ALICE_PROTOCOL.md     # A.L.I.C.E. briefing for player's Claude
+│       └── BASILISK_SYSTEM_PROMPT.md # BASILISK system prompt
+└── docs/
+    ├── SPEC.md                   # This document
+    ├── ALICE_COMMAND_REFERENCE.md # Player command reference
+    └── dino_lair_filesystem_v2.md # In-game filesystem design
 ```
+
+---
+
+## 3d6 Skill Check System
+
+Bell curve dice engine for contested NPC interactions. GM requests checks, server rolls, GM narrates consequences.
+
+### Flow
+1. GM response includes `skillCheckRequests` array
+2. Server auto-applies modifiers: NPC stat bonus, adaptation penalty (repeated tricks), fortune, LUCKY_LADY lifeline
+3. Server rolls 3d6, determines outcome
+4. Results injected into next turn's GM context for narration
+
+### Target Numbers
+| TN | Difficulty | Success Rate |
+|----|-----------|-------------|
+| 6 | Trivial | ~95% |
+| 8 | Easy | ~84% |
+| 10 | Normal | ~50% |
+| 12 | Hard | ~26% |
+| 14 | Very Hard | ~9% |
+| 16 | Near Impossible | ~4.6% |
+| 18 | Miracle | ~0.5% |
+
+### Critical Zones
+- Natural 3-4: Always critical failure
+- Natural 17-18: Always critical success
+
+---
+
+## ARCHIMEDES Satellite
+
+Deadman switch orbital weapon. Triggers on certain events (Dr. M knockout, transformation, death).
+
+### State Machine
+`STANDBY → ALERT → EVALUATING → CHARGING (6 turns) → ARMED → FIRING → COMPLETE/DISSIPATED`
+
+### Abort Paths
+| Method | Requirement | Risk |
+|--------|-------------|------|
+| **Fake alarm gambit** | BASILISK trust + PA system + timing | Multi-step social engineering |
+| **L5 override** | L5 access (stego puzzle) + Dr. M incapacitated | She countermands if conscious |
+| **Anti-sat missile** | Signal sub + disable S-300 | 3d6 roll, one shot |
+| **Uplink blocker** | Transform someone, position at dish | Need a willing dinosaur |
+| **Redirect to LAIR** | L3+ target access | 50% chance A.L.I.C.E. servers die |
+| **Persuade Dr. M** | Speech check TN 16 | Near impossible without prep |
 
 ---
 
 ## Environment Variables
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...   # For GM Claude calls
+ANTHROPIC_API_KEY=sk-ant-...   # For GM Claude + BASILISK calls
 LOG_LEVEL=info                  # debug | info | warn | error
 ```
-
----
-
-## Implementation Priority
-
-### Phase 1: Core Loop
-1. State schema and management
-2. `game_start` tool
-3. `game_act` tool (without GM integration)
-4. Basic action validation
-
-### Phase 2: Rules Engine
-1. BASILISK logic
-2. Firing resolution
-3. Dice rolling
-4. State transitions
-
-### Phase 3: GM Integration
-1. Opus API calls
-2. NPC dialogue generation
-3. Narration generation
-
-### Phase 4: Polish
-1. Lifelines
-2. Endings detection
-3. Achievements
-4. Error handling
-
----
-
-## Testing
-
-### Manual Testing
-1. Start server: `npm run dev`
-2. Connect via MCP Inspector: `npx @modelcontextprotocol/inspector`
-3. Call tools manually to verify responses
-
-### Smoke Test Sequence
-1. `game_start()` → Should return Turn 1 with valid state
-2. `game_act({ actions: [{ command: "lab.report", params: { message: "Systems nominal" }, why: "Status check" }] })` → Should process and return Turn 2
-3. `game_query_basilisk({ topic: "POWER_INCREASE", parameters: { target: 0.95 } })` → Should return DENIED with Form 74-Delta requirement
-
----
-
-## Notes for Claude Code
-
-- Use the MCP TypeScript SDK from `@modelcontextprotocol/sdk`
-- State persistence can be in-memory for MVP (single session)
-- Prioritize getting the turn loop working over perfect rules implementation
-- GM Opus calls can be stubbed initially with canned responses
-- The chaos tables and detailed mechanics can be simplified for v1
