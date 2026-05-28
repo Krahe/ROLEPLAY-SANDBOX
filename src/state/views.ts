@@ -1055,6 +1055,12 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         transmissionLog: [],
         lastTransmission: null,
       },
+      paSystem: {
+        operational: true,
+        zones: ["LAB", "CONTROL_ROOM", "CELLS", "CORRIDORS", "REACTOR_ROOM", "SURFACE"],
+        lastAnnouncement: null,
+        basiliskControlled: true,
+      },
       s300: {
         status: "STANDBY",
         commandPostOperational: true,

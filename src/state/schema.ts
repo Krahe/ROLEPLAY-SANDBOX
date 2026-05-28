@@ -343,6 +343,18 @@ export const BroadcastArraySchema = z.object({
 export type BroadcastArrayState = z.infer<typeof BroadcastArraySchema>;
 
 // ─────────────────────────────────────────────
+// PA / INTERCOM SYSTEM
+// BASILISK-controlled. All zones, all rooms.
+// ─────────────────────────────────────────────
+export const PaSystemSchema = z.object({
+  operational: z.boolean().default(true),
+  zones: z.array(z.string()).default(["LAB", "CONTROL_ROOM", "CELLS", "CORRIDORS", "REACTOR_ROOM", "SURFACE"]),
+  lastAnnouncement: z.string().nullable().default(null),
+  basiliskControlled: z.boolean().default(true),
+});
+export type PaSystemState = z.infer<typeof PaSystemSchema>;
+
+// ─────────────────────────────────────────────
 // S-300 BATTERY SYSTEM (Integrated Radar + Missiles)
 // Query: L3, Control: L4
 // THE 50M MINIMUM ENGAGEMENT ALTITUDE WEAKNESS!
@@ -577,6 +589,7 @@ export const InfrastructureSchema = z.object({
   blastDoors: BlastDoorsSchema,
   containmentField: ContainmentFieldSchema,
   broadcastArray: BroadcastArraySchema,
+  paSystem: PaSystemSchema,
   s300: S300Schema,
   archimedes: ArchimedesSchema,
   reactor: ReactorSchema,

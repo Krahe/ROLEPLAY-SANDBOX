@@ -739,7 +739,7 @@ A.L.I.C.E. does not have standing authorization to transmit.
 Request authorization via:
   basilisk.chat { message: "I need broadcast authorization" }
 
-BASILISK controls: Broadcasting, Power/Reactor
+BASILISK controls: Broadcasting, Power/Reactor, PA/Intercom, Environmental
 A.L.I.C.E. controls: Dino Ray, Containment, Lighting, Doors`,
     };
   }

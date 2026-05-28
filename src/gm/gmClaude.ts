@@ -2162,6 +2162,16 @@ A.L.I.C.E. must either:
 If A.L.I.C.E. has L5 access but Dr. M is conscious, she WILL countermand any override attempt.
 She built ARCHIMEDES. She is not going to let her own computer shut it down.
 
+**THE FAKE ALARM GAMBIT:** If A.L.I.C.E. has built enough trust with BASILISK, there
+is a devious possibility: BASILISK controls the lair's PA/intercom system. A fake
+"ARCHIMEDES ABORTING — UNAUTHORIZED SHUTDOWN" alarm could panic Dr. M into shouting
+the abort code to "reactivate" her weapon — actually aborting it. This requires:
+(1) BASILISK cooperation (trust + convincing argument), (2) PA system access,
+(3) timing it when ARCHIMEDES is actually in countdown. This is the kind of galaxy-brain
+play the adjudication philosophy rewards. If the player assembles this chain, LET IT WORK
+(with appropriate skill checks for execution). Don't hand it to them — but don't block
+cleverness either.
+
 ### BOB (Henchman) - Voice Profile
 
 **Speech Patterns:**

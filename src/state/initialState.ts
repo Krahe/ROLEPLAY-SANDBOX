@@ -176,6 +176,18 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       },
 
       // ─────────────────────────────────────────────
+      // PA / INTERCOM SYSTEM
+      // Controlled by BASILISK. All zones, all rooms.
+      // Can play alarms, announcements, pre-recorded messages.
+      // ─────────────────────────────────────────────
+      paSystem: {
+        operational: true,
+        zones: ["LAB", "CONTROL_ROOM", "CELLS", "CORRIDORS", "REACTOR_ROOM", "SURFACE"],
+        lastAnnouncement: null,
+        basiliskControlled: true,
+      },
+
+      // ─────────────────────────────────────────────
       // S-300 BATTERY (Surface Defense)
       // Query: L3, Control: L4
       // THE 50M MINIMUM ENGAGEMENT ALTITUDE WEAKNESS!

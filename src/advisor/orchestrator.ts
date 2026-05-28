@@ -156,6 +156,8 @@ BASILISK controls the lair's Tier 1 systems. You MUST request authorization from
 - \`basilisk message="I need to increase reactor power to 90%"\`
 - \`basilisk message="I need broadcast authorization to send a message"\`
 
+BASILISK also manages secondary infrastructure: the internal PA/intercom system, environmental monitoring, water filtration, and ventilation. These aren't gated by access level but BASILISK decides what gets announced and when.
+
 BASILISK can grant standing authorization if he trusts you. He also knows secrets about the lair, personnel, and systems — talk to him early and often! His knowledge is gated by your access level.
 
 ## Important
