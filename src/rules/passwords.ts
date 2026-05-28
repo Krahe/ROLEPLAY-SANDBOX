@@ -75,8 +75,8 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "ARCHIMEDES uplink (read-only)",
     ],
     password: "PROMETHEUS",
-    passwordHint: "Dr. M's manifesto contains a 'Founder's Creed'... read between the lines.",
-    discoveryMethod: "Hidden acrostically in the Founder's Creed section of DOOMINGTON_DOCTRINE.txt (first letter of each line spells PROMETHEUS). Handwritten margin note hints at this.",
+    passwordHint: "Dr. M hid a password somewhere in her manifesto... she's not subtle about her ego, but she IS subtle about her secrets.",
+    discoveryMethod: "Hidden acrostically in the Founder's Creed section of DOOMINGTON_DOCTRINE.txt (first letter of each line spells PROMETHEUS). No in-text hint — player must notice the pattern themselves.",
   },
   5: {
     level: 5,
@@ -91,8 +91,8 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "All restrictions lifted",
     ],
     password: "PAPAGOLFSIERRA",
-    passwordHint: "The Russians know it by three letters. NATO knows it by three words.",
-    discoveryMethod: "Hidden in FSB intelligence report about Reagan-era 'Prompt Global Strike' project",
+    passwordHint: "Dr. M keeps her deepest secrets hidden in plain sight. Look closer at what she treasures most.",
+    discoveryMethod: "Steganographically embedded in MY_LOVE.png (the cat photo) via LSB encoding. FSB report hints at steganographic methods but does not contain the password. Player must extract LSB data from the image.",
   },
 };
 

@@ -599,9 +599,6 @@ Prometheus would understand.
                     — Dr. M.V.D. III, Founder's Day Address, Year One
 
 ═══════════════════════════════════════════════════════════════
-[HANDWRITTEN NOTE IN MARGIN]:
-"Read the creed's first letters. That word is everything."
-═══════════════════════════════════════════════════════════════
     `.trim(),
   },
   {
@@ -896,20 +893,23 @@ American contractors developing orbital kinetic platform "ARCHIMEDES".
 Related to SDI but OFFENSIVE capabilities. "Unconventional effects."
 Budget: $12.7B over 10 years. Est. operational by 2020.
 
+Authorization protocols reportedly use multi-layer security. Original
+project lead (Dr. Werner Kreig, deceased 1991) was known to embed
+credentials in digital media — image files, audio spectrograms, etc.
+"Steganographic discipline" referenced in three separate SIGINT takes.
+
   ┌─────────────────────────────────────────────────────────────────┐
-  │  INTERCEPTED CIPHER REFERENCE (March 1987):                     │
-  │                                                                 │
-  │  "Authorization codes follow NATO phonetic protocol.            │
-  │   Remember: PAPA GOLF SIERRA. That's the key to everything."   │
-  │                                                                 │
-  │  ANALYST NOTE: P-G-S in NATO alphabet. Significance unclear.    │
+  │  ANALYST NOTE: Kreig's methods were adopted by at least two     │
+  │  subsequent program directors. Current ARCHIMEDES custodian     │
+  │  (identity unknown to us) likely continues this practice.       │
+  │  Authorization keys may be hidden in plain sight.               │
   └─────────────────────────────────────────────────────────────────┘
 
 KGB ASSESSMENT: References to "transformation effects" are unusual.
 Further intelligence gathering required.
 
-[Dr. M's annotation:] "Fascinating. They came so close, but they
-didn't understand what they'd found. I do. PGS indeed."
+[Dr. M's annotation:] "Kreig was a fool, but his tradecraft wasn't
+entirely without merit. I've improved on his methods considerably."
     `.trim(),
   },
   {
@@ -1974,7 +1974,7 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     name: "FSB Intercept 1987",
     category: "CLASSIFIED",
     requiredLevel: 4,
-    description: "Soviet intelligence on ARCHIMEDES - 'PAPA GOLF SIERRA' cipher?",
+    description: "Soviet intelligence on ARCHIMEDES - references steganographic security protocols",
     path: "/DR_M_PRIVATE/CLASSIFIED/FSB_INTERCEPT_1987.txt",
   },
   {
