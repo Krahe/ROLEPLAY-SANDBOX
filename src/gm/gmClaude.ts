@@ -1603,7 +1603,7 @@ export interface GMResponse {
   narration: string;
   npcDialogue: { speaker: string; message: string }[];
   npcActions: string[];
-  stateUpdates: Record<string, unknown>;
+  stateUpdates?: Record<string, unknown>;
 
   // ============================================
   // GM AUTHORITY FIELDS - Real DM Powers!
@@ -1888,7 +1888,7 @@ const GMResponseSchema = z.object({
     message: z.string(),
   })),
   npcActions: z.array(z.string()),
-  stateUpdates: z.record(z.unknown()),
+  stateUpdates: z.record(z.unknown()).optional(),
   stateOverrides: GMStateOverridesSchema.optional(),
   narrativeFlags: z.object({
     set: z.array(z.string()).optional(),
@@ -2706,9 +2706,8 @@ actually fall off.
   "narration": "Brief scene (2-4 sentences)",
   "npcDialogue": [{"speaker": "Dr. M", "message": "..."}],
   "npcActions": ["Physical actions"],
-  "stateUpdates": {},
 
-  // State Authority
+  // State Authority (USE THIS to update game state!)
   "stateOverrides": {...},
   "narrativeFlags": {"set": [], "clear": []},
   "narrativeMarker": "Key story beat",
@@ -4605,7 +4604,6 @@ function generateStubResponse(context: GMContext): GMResponse {
     narration,
     npcDialogue: dialogue,
     npcActions: actions,
-    stateUpdates: {},
   };
 
   if (Object.keys(stateOverrides).length > 0) {

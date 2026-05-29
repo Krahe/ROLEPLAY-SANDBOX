@@ -383,7 +383,7 @@ export class DinoLairOrchestrator {
       : { type: "enabled" as const, budget_tokens: 2000 };
     const response = await this.client.messages.create({
       model: this.config.playerModel,
-      max_tokens: playerAdaptive ? 4096 : 1024,
+      max_tokens: playerAdaptive ? 4096 : 4096,
       thinking: playerThinking,
       system: buildPlayerSystemPrompt(this.gameState?.accessLevel ?? 1),
       messages: this.playerHistory,
@@ -443,7 +443,7 @@ export class DinoLairOrchestrator {
       : { type: "enabled" as const, budget_tokens: 1500 };
     const response = await this.client.messages.create({
       model: this.config.advisorModel,
-      max_tokens: advisorAdaptive ? 2048 : 512,
+      max_tokens: advisorAdaptive ? 2048 : 2048,
       thinking: advisorThinking,
       messages: [
         {
