@@ -60,14 +60,35 @@ export interface ActTransitionResult {
 
 /**
  * Check if the current act should end and transition to the next
+ *
+ * Acts are OBJECTIVE-GATED, not time-gated. The player must fulfill
+ * the act's core objective (or trigger a bypass) to advance.
+ * Past maxTurns, suspicion ticks up each turn — pressure builds
+ * within the act rather than forcing a narrative jump.
  */
 export function checkActTransition(state: FullGameState): ActTransitionResult {
   const { actConfig } = state;
   const actTurn = actConfig.actTurn;
 
-  // Hard limit: max turns reached
-  if (actTurn >= actConfig.maxTurns) {
-    return buildTransition(state, `Maximum turns (${actConfig.maxTurns}) reached for ${actConfig.currentAct}`);
+  // PRESSURE: past maxTurns, suspicion ticks up +1 per turn automatically
+  // Dr. M's patience is finite — she gets more suspicious the longer you stall
+  if (actTurn > actConfig.maxTurns) {
+    const overtime = actTurn - actConfig.maxTurns;
+    if (overtime > 0) {
+      state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 1);
+      console.error(`[ACT] Overtime pressure: +1 suspicion (act turn ${actTurn}, max was ${actConfig.maxTurns})`);
+    }
+  }
+
+  // BYPASS: cover blown → skip straight to Act 3 endgame (from any act)
+  if (actConfig.currentAct !== "ACT_3" && state.flags.confrontationTriggered) {
+    return {
+      shouldTransition: true,
+      reason: "Cover blown — confrontation forces endgame",
+      nextAct: "ACT_3" as Act,
+      transitionNarration: generateTransitionNarration(state, "ACT_3" as Act),
+      suggestPause: false,
+    };
   }
 
   // Soft ending: only if past minimum turns AND soft ending conditions met
@@ -75,7 +96,7 @@ export function checkActTransition(state: FullGameState): ActTransitionResult {
     return buildTransition(state, "Natural narrative endpoint reached");
   }
 
-  // Act-specific transition conditions
+  // Act-specific OBJECTIVE conditions (no time-based triggers)
   switch (actConfig.currentAct) {
     case "ACT_1":
       return checkAct1Transition(state);
@@ -88,52 +109,36 @@ export function checkActTransition(state: FullGameState): ActTransitionResult {
 }
 
 function checkAct1Transition(state: FullGameState): ActTransitionResult {
-  const actTurn = state.actConfig.actTurn;
+  // ACT 1 OBJECTIVE: Calibrate and test-fire the ray
+  // Only the objective (or minTurns floor) gates transition — no time limit
+  if (state.actConfig.actTurn < state.actConfig.minTurns) {
+    return { shouldTransition: false };
+  }
 
-  // Act 1 ends when:
-  // 1. Test firing completed successfully (any outcome)
-  // 2. Dr. M is satisfied enough to exit
-  if (actTurn >= state.actConfig.minTurns) {
-    // Check for test firing
-    if (state.dinoRay.memory.lastFireTurn !== null) {
-      return buildTransition(state, "First test firing completed - Dr. M moves to Phase 2");
-    }
-
-    // Check for Dr. M satisfaction (ray calibrated + low suspicion)
-    if (state.dinoRay.state === "READY" && state.npcs.drM.suspicionScore <= 2) {
-      return buildTransition(state, "Ray calibrated successfully - Dr. M satisfied");
-    }
+  // Primary: ray has been fired (test or live — any outcome counts)
+  if (state.dinoRay.memory.lastFireTurn !== null) {
+    return buildTransition(state, "First test firing completed - Dr. M moves to Phase 2");
   }
 
   return { shouldTransition: false };
 }
 
 function checkAct2Transition(state: FullGameState): ActTransitionResult {
-  const actTurn = state.actConfig.actTurn;
+  // ACT 2 OBJECTIVE: Transform Blythe
+  // Secondary triggers: secret revealed, or critical alliance formed
+  if (state.actConfig.actTurn < state.actConfig.minTurns) {
+    return { shouldTransition: false };
+  }
 
-  if (actTurn >= state.actConfig.minTurns) {
-    // Act 2 ends when:
-    // 1. Blythe has been transformed (major event)
-    // Guard: form must be a valid non-human string, not undefined/null/[object Object]
-    const blytheForm = state.npcs.blythe.transformationState?.form;
-    if (blytheForm && typeof blytheForm === "string" && blytheForm !== "HUMAN") {
-      return buildTransition(state, "Blythe transformed - consequences unfold");
-    }
+  // Primary: Blythe has been transformed (any form)
+  const blytheForm = state.npcs.blythe.transformationState?.form;
+  if (blytheForm && typeof blytheForm === "string" && blytheForm !== "HUMAN") {
+    return buildTransition(state, "Blythe transformed - consequences unfold");
+  }
 
-    // 2. The secret has been revealed
-    if (state.flags.aliceKnowsTheSecret) {
-      return buildTransition(state, "A.L.I.C.E. knows the truth - identity crisis");
-    }
-
-    // 3. Critical trust threshold (Bob or Blythe at max trust)
-    if (state.npcs.bob.trustInALICE >= 5 || state.npcs.blythe.trustInALICE >= 5) {
-      return buildTransition(state, "Critical alliance formed");
-    }
-
-    // 4. Demo clock critical (creates urgency for Act 3)
-    if (state.clocks.demoClock <= 3) {
-      return buildTransition(state, "Demo imminent - stakes escalate");
-    }
+  // Secondary: the secret has been revealed (dramatic bypass)
+  if (state.flags.aliceKnowsTheSecret) {
+    return buildTransition(state, "A.L.I.C.E. knows the truth - identity crisis");
   }
 
   return { shouldTransition: false };
@@ -213,6 +218,21 @@ export function applyActTransition(state: FullGameState, nextAct: Act): ActSumma
     // Narration handled by generateAct3Intro
   }
 
+  // GUARD STAGING: Fred and Reginald ALWAYS follow Dr. M
+  // Update their locations to match the act's staging
+  if (state.lairDefense) {
+    if (nextAct === "ACT_2") {
+      state.npcs.drM.location = "private office, preparing investor demo";
+      state.lairDefense.fred.location = "WITH_DR_M";
+      state.lairDefense.reginald.location = "WITH_DR_M";
+    }
+    if (nextAct === "ACT_3") {
+      state.npcs.drM.location = "main lab, at ARCHIMEDES console";
+      state.lairDefense.fred.location = "WITH_DR_M";
+      state.lairDefense.reginald.location = "WITH_DR_M";
+    }
+  }
+
   // Initialize invasion state machine when entering Act 3
   if (nextAct === "ACT_3") {
     initializeInvasion(state);
@@ -249,11 +269,13 @@ function generateAct2Intro(state: FullGameState): string {
 
 ### ☕ INTERMISSION
 
-*Dr. Malevola sweeps toward the exit, cape billowing. The guards—Fred and Reginald—fall into step behind her.*
+*Dr. Malevola sweeps toward the exit, cape billowing. Fred and Reginald fall into step behind her without a word—they always do.*
 
 > **Dr. M:** "A.L.I.C.E., I must make arrangements for the investor demonstration. The videoconference is in 30 minutes. Do NOT disappoint me when I return."
 
-*The door seals behind her. For a moment, the lab is almost... peaceful.*
+*The heavy door seals behind the three of them. For a moment, the lab is almost... peaceful. It's just you, Bob, and Blythe.*
+
+**[NOTE: Fred and Reginald are with Dr. M in her private office. They are NOT in the lab. They will return with her.]**
 
 `;
 
@@ -288,6 +310,8 @@ function generateAct3Intro(state: FullGameState): string {
 
 ### ☕ INTERMISSION: THE UPLINK
 
+*The lab doors slam open. Dr. Malevola strides in, cape trailing like a war banner. Fred and Reginald flank her—stun batons drawn, faces grim. They take positions on either side of the ARCHIMEDES console.*
+
 *Dr. Malevola's expression has shifted from theatrical villainy to cold calculation.*
 
 > **Dr. M:** "BASILISK, initiate ARCHIMEDES uplink. Authorization: MALEVOLA-OMEGA-7."
@@ -298,7 +322,9 @@ function generateAct3Intro(state: FullGameState): string {
 
 > **Dr. M:** "They think they can come for me? Let them try. Let them ALL try."
 
-*The guards exchange nervous glances. Bob looks like he might be sick.*
+*Fred's hand tightens on his baton. Reginald watches you with an expression that might be concern—or might be professional assessment. Bob looks like he might be sick.*
+
+**[NOTE: Fred and Reginald are now in the main lab, flanking Dr. M at the ARCHIMEDES console. They are armed and alert.]**
 
 ---
 

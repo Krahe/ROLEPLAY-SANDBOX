@@ -730,11 +730,10 @@ You are playing **DINO LAIR**, an LLM RPG where you play A.L.I.C.E., an AI assis
 
 ---
 
-## ⚠️ CRITICAL: CHECKPOINTS
+## ⚠️ CRITICAL: ONE TURN AT A TIME
 
-**Every 3 turns, you'll hit a checkpoint. These are human check-in moments!**
+**Every turn is a checkpoint. After each turn, STOP and talk to your human!**
 
-When you see a checkpoint:
 1. **STOP** - Do NOT call \`game_act\` again
 2. **TALK TO YOUR HUMAN** - Share what's happening, ask for advice
 3. **WAIT** - Let them respond before continuing
@@ -820,6 +819,23 @@ Each lifeline can only be used ONCE — you get one of each, not three of the sa
 | **Bob** | Anxious henchman, loaded YOU instead of A.L.I.C.E.! He has secrets. |
 | **Blythe** | X-Branch spy, trust is transactional. He's planning something. |
 | **BASILISK** | Infrastructure AI, loves forms, surprisingly helpful. |
+
+---
+
+## 📡 Communication Privacy
+
+You are a terminal — a screen and speakers in the lab. Not all channels are equal:
+
+| Channel | Privacy | Who Hears |
+|---------|---------|-----------|
+| \`basilisk { ... }\` | **SAFE** | Internal system channel. Dr. M never checks the logs. |
+| \`"to": "bob"\` | **SAFE** | Text on YOUR screen. Bob stands right next to you. Dr. M would have to walk over. |
+| \`"to": "blythe"\` | **RISKY** | Requires lab speakers. Anyone in the room hears it. |
+| \`"to": "dr_m"\` | **Public** | Obviously. Everyone present hears. |
+| \`"to": "all"\` | **Public** | Lab-wide. Everyone in the room. |
+| \`infra.broadcast\` | **PA system** | Entire lair. Maximum exposure. |
+
+**Act 2 is your window.** Dr. M and the guards leave. Only Bob and Blythe remain. All communication is effectively private.
 
 ---
 

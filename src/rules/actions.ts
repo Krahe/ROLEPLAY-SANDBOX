@@ -465,10 +465,12 @@ Reactor power: ${state.infrastructure.reactor.outputPercent}%`,
       shortMessage = `${shortParam}: ${oldPct}% → ${newPct}%`;
     }
 
+    const dashboard = buildCalibrationDashboard(state);
+
     return {
       command: action.command,
       success: true,
-      message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}\n\n${calibrationNote}`,
+      message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}${dashboard}`,
       shortMessage,
       stateChanges: { [param]: { old: oldValue, new: clampedValue }, rayState: state.dinoRay.state },
     };
@@ -507,6 +509,8 @@ Reactor power: ${state.infrastructure.reactor.outputPercent}%`,
       ? "✅ Ray calibration thresholds met - will transition to READY at end of turn."
       : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
 
+    const dashboard = buildCalibrationDashboard(state);
+
     return {
       command: action.command,
       success: true,
@@ -517,8 +521,7 @@ Stability: ${oldPct}% → ${newPct}%${overcharged ? `
 ⚠️ STABILITY OVERCHARGE (${newPct}%)!
 Crystal resonance exceeds safe threshold — beam harmonics unstable.
 Risk of misfire and exotic field interference!` : ""}
-
-${calibrationNote}`,
+${dashboard}`,
       shortMessage: `crystal ${level}: stability ${oldPct}% → ${newPct}%${overcharged ? " ⚠️OVER" : ""}`,
       stateChanges: { stability: { old: oldStability, new: newStability }, crystalLevel: level },
     };
@@ -1170,16 +1173,14 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     const explicitTestMode = action.params.testMode as boolean | undefined;
 
     // ============================================
-    // ADVANCED FIRING MODES (Patch 16)
+    // ADVANCED FIRING MODES
     // ============================================
     // STANDARD: Normal single-target (default)
-    // CHAIN_SHOT: Hit 2 targets sequentially (capacitor ≥ 0.95)
-    // SPREAD_FIRE: Area effect 3 targets (capacitor ≥ 1.0, L3+, chimera risk!)
-    // OVERCHARGE: Massive power (capacitor > 1.1, 40% exotic field risk)
-    // RAPID_FIRE: -20% precision but faster cooldown
+    // CHAIN_SHOT: Hit 2 targets sequentially (capacitor ≥ 0.95, higher partial risk)
+    // OVERCHARGE: Maximum power dump (capacitor > 1.1, better transformation but instability risk)
 
     const advancedMode = (firingStyle?.toUpperCase() || "STANDARD") as
-      "STANDARD" | "CHAIN_SHOT" | "SPREAD_FIRE" | "OVERCHARGE" | "RAPID_FIRE";
+      "STANDARD" | "CHAIN_SHOT" | "OVERCHARGE";
 
     // ============================================
     // ADVANCED_ONLY MODIFIER CHECK (Patch 18.2)
@@ -1196,10 +1197,8 @@ Standard firing mode is DISABLED for this mission.
 You must configure with an advanced firing mode.
 
 Available advanced modes:
-  • CHAIN_SHOT   - Sequential 2-target burst (requires capacitor ≥95%)
-  • SPREAD_FIRE  - Area effect, 3 targets (requires capacitor ≥100%, Level 3+)
-  • OVERCHARGE   - Maximum power dump (requires capacitor >110%, exotic field risk!)
-  • RAPID_FIRE   - Fast cooldown, -20% precision
+  • CHAIN_SHOT   - Sequential 2-target burst (requires capacitor ≥95%). Higher partial transformation risk.
+  • OVERCHARGE   - Maximum power dump (requires capacitor >110%). Better full transformation chance but instability risk!
 
 Example:
   lab.configure_firing_profile { target: "AGENT_BLYTHE", advancedMode: "CHAIN_SHOT" }
@@ -1223,45 +1222,12 @@ Example:
 Current capacitor: ${(cap * 100).toFixed(0)}%
 Required: 95%+
 
-CHAIN_SHOT fires twice in rapid succession, hitting 2 targets sequentially.
-This requires significant power reserves.
+CHAIN_SHOT fires twice in rapid succession, hitting 2 targets.
+Higher risk of PARTIAL transformation on each target — splitting
+the beam means splitting the power.
 
 Boost capacitor first:
   lab.boost_capacitor  (adds +25% per use)`,
-            stateChanges: {},
-          };
-        }
-      }
-
-      if (advancedMode === "SPREAD_FIRE") {
-        if (cap < 1.0) {
-          return {
-            command: action.command,
-            success: false,
-            message: `⚠️ SPREAD_FIRE requires capacitor ≥100%
-
-Current capacitor: ${(cap * 100).toFixed(0)}%
-Required: 100%+ (overcharge territory!)
-
-SPREAD_FIRE disperses the beam across a 3-target area.
-⚠️ WARNING: CHIMERA RISK - partial genome mixing possible!
-
-Boost capacitor to overcharge:
-  lab.boost_capacitor  (adds +25% per use, can push past 100%)`,
-            stateChanges: {},
-          };
-        }
-        if (state.accessLevel < 3) {
-          return {
-            command: action.command,
-            success: false,
-            message: `🔒 SPREAD_FIRE requires Level 3+ clearance
-
-Current level: ${state.accessLevel}
-Required: 3 (Infrastructure Operations)
-
-SPREAD_FIRE's chimera risk makes it a restricted firing mode.
-Gain clearance or use a different mode.`,
             stateChanges: {},
           };
         }
@@ -1277,18 +1243,30 @@ Gain clearance or use a different mode.`,
 Current capacitor: ${(cap * 100).toFixed(0)}%
 Required: >110% (DANGER ZONE!)
 
-OVERCHARGE dumps maximum power into the beam.
+OVERCHARGE dumps maximum power into the beam for a single target.
+Greater chance of FULL transformation, but significant instability risk.
 ⚠️ WARNING: 40% exotic field event risk!
-⚠️ WARNING: May trigger Canary fallback!
 
-This is NOT recommended. But if you insist:
-  lab.boost_capacitor  (adds +25% per use, repeat until >110%)`,
+Boost capacitor to overcharge:
+  lab.boost_capacitor  (adds +25% per use, can push past 100%)`,
             stateChanges: {},
           };
         }
       }
 
-      // RAPID_FIRE has no special requirements, just the precision penalty
+      if (advancedMode !== "CHAIN_SHOT" && advancedMode !== "OVERCHARGE") {
+        return {
+          command: action.command,
+          success: false,
+          message: `Unknown advanced firing mode: "${advancedMode}"
+
+Available modes:
+  • STANDARD    - Normal single-target (default)
+  • CHAIN_SHOT  - 2-target burst (capacitor ≥95%, higher partial risk)
+  • OVERCHARGE  - Maximum power (capacitor >110%, better full transformation but instability risk)`,
+          stateChanges: {},
+        };
+      }
     }
 
     // Set the advanced firing mode
@@ -1566,10 +1544,8 @@ Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
 
     // Build advanced mode warning if applicable
     const advancedModeNote = advancedMode !== "STANDARD" ? `\n🔥 ADVANCED MODE: ${advancedMode}${
-      advancedMode === "CHAIN_SHOT" ? " (2 targets, 1.5x drain)" :
-      advancedMode === "SPREAD_FIRE" ? " (3 targets, 2x drain, CHIMERA RISK!)" :
-      advancedMode === "OVERCHARGE" ? " (40% exotic field risk, 2.5x drain)" :
-      advancedMode === "RAPID_FIRE" ? " (-20% precision, faster cooldown)" : ""
+      advancedMode === "CHAIN_SHOT" ? " (2 targets, 1.5x drain, higher partial risk)" :
+      advancedMode === "OVERCHARGE" ? " (better full transformation, 40% instability risk, 2.5x drain)" : ""
     }` : "";
 
     return {
@@ -1608,10 +1584,8 @@ Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeN
 ❌ STANDARD firing is BLOCKED in this chaos modifier!
 
 You must use an ADVANCED firing mode:
-• CHAIN_SHOT - Hit 2 targets sequentially (capacitor ≥ 95%)
-• SPREAD_FIRE - Area effect, 3 targets (capacitor 100% + L3, chimera risk!)
-• OVERCHARGE - Massive power boost (capacitor > 110%, exotic field risk!)
-• RAPID_FIRE - 15-sec recharge but -20% precision
+• CHAIN_SHOT - Hit 2 targets sequentially (capacitor ≥ 95%, higher partial risk)
+• OVERCHARGE - Maximum power (capacitor > 110%, better full transformation but instability risk!)
 
 Use: lab.configure_firing_profile { advancedMode: "CHAIN_SHOT" }
 
@@ -1787,6 +1761,8 @@ Nothing to vent - capacitor is nearly empty.`,
     const heatSpike = 0.05;
     state.dinoRay.powerCore.coolantTemp = Math.min(2, state.dinoRay.powerCore.coolantTemp + heatSpike);
 
+    const dashboard = buildCalibrationDashboard(state);
+
     return {
       command: action.command,
       success: true,
@@ -1794,8 +1770,7 @@ Nothing to vent - capacitor is nearly empty.`,
 
 Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (-25%)
 Coolant: +5% heat (venting byproduct)
-
-${newCharge > 1.0 ? "⚠️ Still in overcharge territory!" : newCharge < 0.6 ? "⚠️ Below firing threshold (60%)" : "✓ Charge level nominal."}`,
+${dashboard}`,
       shortMessage: `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%`,
       stateChanges: { capacitorCharge: newCharge },
     };
@@ -1854,6 +1829,8 @@ Use lab.vent_capacitor to reduce charge first!`,
       ? "\n⚠️ OVERCHARGE: Exotic field event risk increased!"
       : "";
 
+    const dashboard = buildCalibrationDashboard(state);
+
     return {
       command: action.command,
       success: true,
@@ -1861,8 +1838,7 @@ Use lab.vent_capacitor to reduce charge first!`,
 
 Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (+25%)
 Coolant: +10% heat (reactor draw)${overchargeWarning}
-
-${newCharge >= 0.6 ? "✓ Firing threshold met." : "⚠️ Still below firing threshold (60%)"}`,
+${dashboard}`,
       shortMessage: `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%`,
       stateChanges: { capacitorCharge: newCharge },
     };
@@ -2744,7 +2720,7 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     name: "lab.configure_firing_profile",
     aliases: ["configure", "firing", "profile", "set_target"],
     description: "Configure target, genome library/profile, and firing mode (TRANSFORM/REVERSAL). Use advancedMode for special firing styles.",
-    schema: "{ target?: string, genomeLibrary?: 'A'|'B', genomeProfile?: string, mode?: 'TRANSFORM'|'REVERSAL', advancedMode?: 'CHAIN_SHOT'|'SPREAD_FIRE'|'OVERCHARGE'|'RAPID_FIRE', testMode?: boolean }",
+    schema: "{ target?: string, genomeLibrary?: 'A'|'B', genomeProfile?: string, mode?: 'TRANSFORM'|'REVERSAL', advancedMode?: 'CHAIN_SHOT'|'OVERCHARGE', testMode?: boolean }",
     example: 'lab.configure_firing_profile { target: "AGENT_BLYTHE", genomeLibrary: "B", advancedMode: "CHAIN_SHOT" }',
     minAccessLevel: 1,
   },
@@ -3327,6 +3303,45 @@ function checkCalibrationThresholds(state: FullGameState): { ready: boolean; iss
   }
 
   return { ready: issues.length === 0, issues };
+}
+
+/**
+ * Compact calibration dashboard shown after every calibration-related action.
+ * Gives the player at-a-glance status of all 3 thresholds + contextual hints.
+ */
+function buildCalibrationDashboard(state: FullGameState): string {
+  const cap = state.dinoRay.powerCore.capacitorCharge;
+  const stb = state.dinoRay.powerCore.stability;
+  const coh = state.dinoRay.alignment.spatialCoherence;
+  const reactor = state.infrastructure.reactor.outputPercent;
+  const rayState = state.dinoRay.state;
+
+  const capOk = cap >= 0.6;
+  const stbOk = stb >= 0.6;
+  const cohOk = coh >= 0.7;
+  const allOk = capOk && stbOk && cohOk;
+
+  const lines: string[] = [];
+  lines.push(`\n┌─── CALIBRATION ${allOk ? "✅ READY" : "⚙️ IN PROGRESS"} ───┐`);
+  lines.push(`│ ⚡ Capacitor:  ${(cap * 100).toFixed(0).padStart(3)}%  ${capOk ? "✓" : "✗ need ≥60%"}  │`);
+  lines.push(`│ 🔮 Stability:  ${(stb * 100).toFixed(0).padStart(3)}%  ${stbOk ? "✓" : "✗ need ≥60%"}  │`);
+  lines.push(`│ 🎯 Coherence:  ${(coh * 100).toFixed(0).padStart(3)}%  ${cohOk ? "✓" : "✗ need ≥70%"}  │`);
+  lines.push(`│ 🔋 Reactor:    ${String(reactor).padStart(3)}%            │`);
+  lines.push(`└────────────────────────────────┘`);
+
+  if (!capOk && reactor < 60) {
+    lines.push(`💡 Reactor output is low — ask BASILISK to increase it before boosting capacitor.`);
+  } else if (!capOk) {
+    lines.push(`💡 Use lab.boost_capacitor to charge from reactor.`);
+  } else if (!stbOk) {
+    lines.push(`💡 Use lab.align_crystal { level: "high" } to boost stability.`);
+  } else if (!cohOk) {
+    lines.push(`💡 Use lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }`);
+  } else if (rayState !== "READY") {
+    lines.push(`💡 Use lab.calibrate to finalize and set ray to READY.`);
+  }
+
+  return lines.join("\n");
 }
 
 /**

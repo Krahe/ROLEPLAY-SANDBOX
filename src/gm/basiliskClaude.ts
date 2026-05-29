@@ -33,6 +33,17 @@ let cachedCommandReference: string | null = null;
 let basiliskConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
 const MAX_BASILISK_HISTORY = 50; // Keep last 25 exchanges (50 messages)
 
+let basiliskModelOverride: string | null = null;
+
+export function getBasiliskModel(): string {
+  return basiliskModelOverride ?? "claude-sonnet-4-6";
+}
+
+export function setBasiliskModel(model: string): void {
+  basiliskModelOverride = model;
+  console.error(`[BASILISK] Model set to: ${model}`);
+}
+
 export function resetBasiliskConversation(): void {
   basiliskConversationHistory = [];
 }
@@ -595,7 +606,7 @@ export async function callBasilisk(
     ];
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: getBasiliskModel(),
       max_tokens: 2000,
       system: systemBlocks,
       messages,

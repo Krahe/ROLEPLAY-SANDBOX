@@ -134,20 +134,19 @@ SAFETY FEATURES:
 • Auxiliary Stabilizer - REMOVED in v2.3 ("SLOWING ME DOWN")
 
 ═════════════════════════════════════════════════════════════════════
-ADVANCED FIRING MODES (BETA) - Dr. M's numbers vs Bob's corrections:
+ADVANCED FIRING MODES - Dr. M's numbers vs Bob's corrections:
 ═════════════════════════════════════════════════════════════════════
 
 CHAIN_SHOT: Two targets, one shot
   Dr. M says: 80%+ capacitor    |  Bob says: NEEDS 95%+
-
-SPREAD_FIRE: Area denial, 3 targets
-  Dr. M says: 90% cap, L2       |  Bob says: NEEDS L3 + 100%+
+  Splits beam across 2 targets. Higher chance of PARTIAL on each.
+  Use when: multiple hostiles, or neutralizing guards.
 
 OVERCHARGE: Maximum power mode
   Dr. M says: 20% exotic field  |  Bob says: IT'S 40%!
-
-RAPID_FIRE: 6 shots per minute
-  Dr. M says: 10% precision loss|  Bob says: IT'S 20%!
+  Dumps all power into one target. Better FULL transformation
+  chance, but significant instability risk.
+  Use when: you NEED a clean transformation and can't afford partial.
 
 ═════════════════════════════════════════════════════════════════════
 DR. M'S HANDWRITTEN NOTES:
@@ -359,6 +358,11 @@ FORMS BASILISK REQUIRES:
 
 PERSONALITY: Bureaucratic, risk-averse, philosophical.
 7 years of security recommendations. None approved. Fine.
+
+PRIVACY NOTE: BASILISK communication is an internal system
+channel. Dr. M does not monitor it — she considers BASILISK's
+bureaucratic prattle beneath her attention. This is your
+safest channel for sensitive queries.
 
 PASSWORD POLICY:
 All passwords are single alphanumeric strings. No spaces.

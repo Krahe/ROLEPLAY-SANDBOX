@@ -517,8 +517,10 @@ export class GameRunner {
       state.npcs.blythe.transformationState.form = profileToFormName(o.blythe_transformationState);
     }
 
-    // System overrides
-    if (o.accessLevel !== undefined) state.accessLevel = Math.max(1, Math.min(5, o.accessLevel));
+    // Access level is NOT GM-settable — comes from passwords and act transitions only
+    if (o.accessLevel !== undefined) {
+      console.error(`[GM] Ignoring GM accessLevel override (${o.accessLevel}). Access levels come from passwords and act transitions.`);
+    }
     if (o.demoClock !== undefined) state.clocks.demoClock = Math.max(0, o.demoClock);
 
     // Ray state

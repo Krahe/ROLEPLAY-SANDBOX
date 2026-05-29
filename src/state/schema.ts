@@ -28,22 +28,22 @@ export const ACT_CONFIGS = {
   ACT_1: {
     name: "Calibration",
     minTurns: 4,
-    maxTurns: 6,
-    description: "Setup, learning mechanics, the genome library choice",
-    endConditions: ["Test firing completed", "Dr. M satisfied and exits"],
+    maxTurns: 8,     // suspicion pressure starts after 8; no forced transition
+    description: "Calibrate and test-fire the ray. Core objective: fire the ray.",
+    endConditions: ["Ray fired (any outcome)"],
   },
   ACT_2: {
     name: "The Blythe Problem",
-    minTurns: 8,
-    maxTurns: 12,
-    description: "Moral dilemmas, transformation decisions, alliance building",
-    endConditions: ["Major transformation event", "Secret revealed", "Critical trust threshold"],
+    minTurns: 6,
+    maxTurns: 10,    // suspicion pressure starts after 10; no forced transition
+    description: "Transform Blythe. The central moral dilemma of the game.",
+    endConditions: ["Blythe transformed (any form)", "Secret revealed (bypass)"],
   },
   ACT_3: {
     name: "Dino City",
-    minTurns: 6,
-    maxTurns: 10,
-    description: "Global stakes, raid, resolution of core values",
+    minTurns: 4,
+    maxTurns: 8,     // suspicion pressure starts after 8; game ends via endings
+    description: "Stop ARCHIMEDES, save who you can, survive.",
     endConditions: ["Any game ending triggered"],
   },
 } as const;
@@ -79,18 +79,10 @@ export const GenomeLibraryEnum = z.enum(["A", "B"]);
 // Firing mode - TRANSFORM is default, REVERSAL requires Level 3
 export const FiringModeEnum = z.enum(["TRANSFORM", "REVERSAL"]);
 
-// Advanced firing modes - adds risk/reward tradeoffs!
-// STANDARD: Normal single-target firing (default)
-// CHAIN_SHOT: Hit 2 targets sequentially (capacitor ≥ 0.95, 90-sec cooldown)
-// SPREAD_FIRE: Area effect 3 targets (capacitor ≥ 1.0 + L3, chimera risk!)
-// OVERCHARGE: Massive power (capacitor > 1.1, 40% exotic field risk)
-// RAPID_FIRE: 15-sec recharge but -20% precision
 export const AdvancedFiringModeEnum = z.enum([
   "STANDARD",
   "CHAIN_SHOT",
-  "SPREAD_FIRE",
   "OVERCHARGE",
-  "RAPID_FIRE",
 ]);
 
 export const GenomeMatrixSchema = z.object({
@@ -713,8 +705,7 @@ export const TransformationStateSchema = z.object({
   adaptationStage: AdaptationStageEnum.default("ADAPTED"), // HUMAN = already adapted to body
   turnsPostTransformation: z.number().int().min(0).default(0), // Turns since transformation
 
-  // CHIMERA SYSTEM (SPREAD_FIRE chaos outcomes)
-  // When genome matrices overlap during dispersal firing, weird hybrid effects occur
+  // CHIMERA SYSTEM (chaos outcomes from instability or OVERCHARGE)
   // Types: HYBRID_PLUMAGE, VOICE_BLEND, LIMB_SWAP, SIZE_FLUX, INSTINCT_BLEED
   chimeraType: z.string().nullable().optional(),
   chimeraEffect: z.string().nullable().optional(),
@@ -1688,6 +1679,9 @@ export const FlagsSchema = z.object({
   // Patch 18.1: Explicit A.L.I.C.E. confession during confrontation
   // This is separate from narrative flags to avoid semantic collision
   aliceConfessedDuringConfrontation: z.boolean().optional(),
+
+  // Patch 19: Custom resolution limiter — GM gets ONE custom bypass per game
+  customResolutionUsed: z.boolean().optional(),
 
   // Patch 18.1: GM Error Recovery
   // When GM API fails, this flag prevents ending triggers that turn

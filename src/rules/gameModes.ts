@@ -2835,10 +2835,8 @@ export function buildModifierPromptSection(state: FullGameState): string {
     lines.push("A.L.I.C.E. has +25% precision bonus, but CANNOT use STANDARD firing!");
     lines.push("");
     lines.push("AVAILABLE ADVANCED MODES:");
-    lines.push("- **CHAIN_SHOT**: Hit 2 targets sequentially (capacitor ≥ 95%)");
-    lines.push("- **SPREAD_FIRE**: Area effect, 3 targets, chimera risk!");
-    lines.push("- **OVERCHARGE**: Massive power, exotic field risk!");
-    lines.push("- **RAPID_FIRE**: Fast recharge, -20% precision");
+    lines.push("- **CHAIN_SHOT**: Hit 2 targets sequentially (capacitor ≥ 95%, higher partial risk)");
+    lines.push("- **OVERCHARGE**: Maximum power (capacitor > 110%, better full transformation but instability risk!)");
     lines.push("");
     lines.push("BLOCKED: STANDARD mode (basic single-target firing)");
     lines.push("");

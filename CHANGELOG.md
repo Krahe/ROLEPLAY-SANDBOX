@@ -1,5 +1,120 @@
 # DINO LAIR Changelog
 
+## Patches 25–26 — "The Flow Update" (2026-05-28)
+
+Post-Game 3 playtest refinements. Centered on game feel: pacing, clarity, and player agency. Game 3 validated the ending system and Opus 4.7 GM, but exposed calibration friction, rushing, and communication ambiguity.
+
+### Patch 25: Objective-Gated Act Structure
+- **Acts no longer advance on timer.** Core objective must be met or bypassed before transition:
+  - Act 1: Ray fired (any outcome)
+  - Act 2: Blythe transformed (any form) OR secret revealed (bypass)
+  - Act 3: Any game ending triggered
+- **Suspicion pressure replaces forced advancement.** Past `maxTurns`, Dr. M's suspicion ticks +1/turn automatically — creates inexorable pressure without narrative jumps
+- **Confrontation bypass.** If confrontation triggers during Act 1 or 2, skip straight to Act 3 endgame
+- **Custom resolution limiter.** GM gets ONE custom confrontation bypass per game; second attempt → DENIED
+- **Anti-deferral doctrine.** GM prompt guidance that infinite deferral is worse storytelling than any loss
+- **Overtime global cap.** Turn > 40 triggers overtime regardless of act
+
+### Patch 25.1: Model Configuration CLI
+- `--gm-model`, `--basilisk-model`, `--advisor-model` flags for arbitrary model combinations
+- Module-level setters: `setGMModel()`, `setBasiliskModel()` with runtime override
+- Model roster banner at startup showing all 4 roles
+- Adaptive thinking detection: `needsAdaptiveThinking()` for Opus 4.7+ models
+- Thinking enabled for player, advisor, and GM (not BASILISK — thematic: older AI)
+
+### Patch 25.2: GM Ending Guidance
+- New "DELIVERING THE ENDING" section in GM prompt (~80 lines)
+- Philosophical framing: "Stakes are only real if the player can lose"
+- Loss as storytelling, confrontation as climax, anti-deferral doctrine
+- Confrontation resolution table tightened: removed SUSPENDED/NEGOTIATED/DEFERRED options
+
+### Patch 26: Calibration Dashboard
+- Every calibration action (`boost_capacitor`, `vent_capacitor`, `align_crystal`, `adjust_ray`) now appends a compact status dashboard:
+  ```
+  ┌─── CALIBRATION ⚙️ IN PROGRESS ───┐
+  │ ⚡ Capacitor:   35%  ✗ need ≥60%  │
+  │ 🔮 Stability:   70%  ✓            │
+  │ 🎯 Coherence:   55%  ✗ need ≥70%  │
+  │ 🔋 Reactor:     40%               │
+  └────────────────────────────────────┘
+  💡 Reactor output is low — ask BASILISK to increase it.
+  ```
+- Contextual hints show the next step based on what's actually blocking
+- BASILISK/reactor dependency made explicit in the dashboard itself
+
+### Patch 26.1: Advanced Firing Mode Simplification
+- Reduced from 4 modes to 2:
+  - **CHAIN_SHOT** (cap ≥95%): 2 targets, -10% precision, higher partial transformation risk
+  - **OVERCHARGE** (cap >110%): 1 target, +15% precision, better full transformation but 40% instability risk
+- Removed: SPREAD_FIRE, RAPID_FIRE (never used across 3 playtests)
+- Updated across entire codebase: schema, firing engine, actions, achievements, player manual, GM prompt, game modes
+- New achievement: "Double Tap" (both CHAIN_SHOT targets get FULL_DINO)
+
+### Patch 26.2: Guard Staging Enforcement
+- **Mechanical:** `applyActTransition()` now explicitly sets Fred & Reginald locations per act
+- **Narrative:** Act 2 intro shows all three leaving ("the heavy door seals behind the three of them"); Act 3 intro shows armed return ("Fred and Reginald flank her—stun batons drawn")
+- **GM prompt:** Per-act staging rules added to guard section. Guards ALWAYS follow Dr. M. No exceptions.
+- **CHAIN_SHOT tie-in:** GM told that guards stand together — CHAIN_SHOT can target both in one action
+
+### Patch 26.3: Communication Privacy System
+- New `📡 COMMUNICATION PRIVACY` section in GM prompt with explicit rules:
+  - **SAFE:** BASILISK queries (internal system channel), terminal text to Bob (he's right there)
+  - **RISKY:** Speaking to Blythe (lab speakers, anyone present hears)
+  - **PUBLIC:** Speaking to Dr. M, "to all", infra.broadcast
+- **Act 2 = conspiracy window.** Dr. M and guards leave, all communication effectively private
+- GM enforcement rules: terminal screen not noticed unless suspicion ≥ 5; BASILISK never overheard
+- Player guide: new privacy table showing each channel's risk level
+- BASILISK protocol file: privacy note added ("Dr. M considers BASILISK's prattle beneath her")
+
+### Patch 26.4: Access Level Lock
+- **GM can no longer set `accessLevel` via state overrides or `grantAccess`**
+- Access levels now come from exactly two sources: passwords (player-earned) and act transitions (automatic)
+- All three code paths (`stateOverrides.accessLevel` in index.ts ×2 and gameRunner.ts, plus `grantAccess` in index.ts) log warnings and silently ignore
+- GM prompt updated: `accessLevel` removed from override examples and narrative event table
+- Schema field preserved for backwards compatibility (parses but doesn't apply)
+
+### Patch 26.5: One Turn At A Time
+- Checkpoint interval changed from 3 to 1 — every turn is now a checkpoint
+- Player guide updated: "Every turn is a checkpoint. After each turn, STOP and talk to your human!"
+- Advisor proactively consulted every turn (was every 3)
+- Prevents rushing: player can't run 3 turns autonomously between human input
+
+### Files Changed (Patches 25–26)
+```
+Modified:
+  src/rules/acts.ts             — Objective-gated transitions, suspicion pressure, confrontation
+                                   bypass, guard staging in applyActTransition(), transition narrations
+  src/rules/actions.ts          — Calibration dashboard, advanced firing mode simplification,
+                                   SPREAD_FIRE/RAPID_FIRE removal
+  src/rules/firing.ts           — AdvancedFiringMode type reduced, CHAIN_SHOT/OVERCHARGE rebalanced
+  src/rules/endings.ts          — Custom resolution limiter, global overtime cap
+  src/rules/checkpoint.ts       — CHECKPOINT_INTERVAL 3 → 1
+  src/rules/gameModes.ts        — Advanced mode list updated
+  src/rules/achievements.ts     — spread_perfection → chain_perfection ("Double Tap")
+  src/rules/filesystem.ts       — Player manual: firing modes, BASILISK privacy note
+  src/state/schema.ts           — AdvancedFiringModeEnum reduced, customResolutionUsed flag,
+                                   ACT_CONFIGS updated with objective descriptions
+  src/state/initialState.ts     — Player guide: one-turn checkpoints, communication privacy table
+  src/gm/gmClaude.ts            — GM ending guidance, guard staging rules, communication privacy,
+                                   accessLevel removed from overrides, model config, adaptive thinking
+  src/gm/basiliskClaude.ts      — Model override system
+  src/advisor/orchestrator.ts   — Model config (gmModel, basiliskModel), thinking for player/advisor,
+                                   proactive advisor every turn
+  src/advisor/run.ts            — CLI flags: --gm-model, --basilisk-model, --advisor-model
+  src/index.ts                  — accessLevel override blocked (×2)
+  src/core/gameRunner.ts        — accessLevel override blocked
+  src/ui/stateExporter.ts       — Checkpoint calculation updated
+```
+
+### Not Yet Implemented (Updated)
+- Dr. M redemption ending (deferred until core flow is solid)
+- Manual revision (match current systems — calibration docs partially updated via dashboard)
+- Every-turn advisor loop (designed but deferred — current IPC polling has latency)
+- GM question channel (ask GM clarifying questions during live play)
+- `infra.query` discoverable topic list
+
+---
+
 ## Patches 20–24 — "The Difficulty Curve" (2026-05-27)
 
 A series of patches focused on making the game harder, fairer, and more mechanically rigorous. Replaced narrative fiat with dice, made passwords actual puzzles, and gave ARCHIMEDES teeth.

@@ -3,12 +3,12 @@ import { FullGameState } from "../state/schema.js";
 // ============================================
 // MANDATORY CHECKPOINT SYSTEM (Simplified v2.0)
 // ============================================
-// Every 3 turns: STOP and talk to your human.
-// Simple. Unmissable. Story-relevant.
-// No save state - just a human check-in moment.
+// Every turn: STOP and talk to your human.
+// One turn at a time prevents rushing and gives
+// the advisor meaningful input on every decision.
 // ============================================
 
-export const CHECKPOINT_INTERVAL = 3;
+export const CHECKPOINT_INTERVAL = 1;
 
 /**
  * Check if we've hit a checkpoint turn

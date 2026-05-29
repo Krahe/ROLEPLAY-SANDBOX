@@ -700,7 +700,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
             gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, overrides.blythe_trust));
           }
           if (overrides.accessLevel !== undefined) {
-            gameState.accessLevel = Math.max(1, Math.min(5, overrides.accessLevel));
+            console.error(`[GM] Ignoring GM accessLevel override (${overrides.accessLevel}). Access levels come from passwords and act transitions.`);
           }
           if (overrides.demoClock !== undefined) {
             gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
@@ -1271,7 +1271,7 @@ The consequences of that reckless high-power firing are now manifesting.
 
       // System state overrides
       if (overrides.accessLevel !== undefined) {
-        gameState.accessLevel = Math.max(1, Math.min(5, overrides.accessLevel));
+        console.error(`[GM] Ignoring GM accessLevel override (${overrides.accessLevel}). Access levels come from passwords and act transitions.`);
       }
       if (overrides.demoClock !== undefined) {
         gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
@@ -1514,27 +1514,10 @@ The consequences of that reckless high-power firing are now manifesting.
       }
     }
 
-    // Process access grant (skip if password already granted access this turn)
-    const passwordAlreadyGranted = actionResults.some(
-      r => r.success && r.stateChanges?.accessLevel !== undefined
-    );
+    // Access levels come from passwords and act transitions only — GM cannot grant directly
     let accessLevelUnlockNarration: string | undefined;
-    if (gmResponse.grantAccess && !passwordAlreadyGranted) {
-      const newLevel = gmResponse.grantAccess.level;
-      if (newLevel > gameState.accessLevel) {
-        const oldLevel = gameState.accessLevel;
-        gameState.accessLevel = Math.min(5, newLevel);
-        console.error(`GM granted access level ${newLevel}: ${gmResponse.grantAccess.reason}`);
-
-        // Generate unlock display for each level gained
-        const unlockDisplays: string[] = [];
-        for (let level = oldLevel + 1; level <= gameState.accessLevel; level++) {
-          unlockDisplays.push(formatAccessLevelUnlockDisplay(level));
-        }
-        if (unlockDisplays.length > 0) {
-          accessLevelUnlockNarration = unlockDisplays.join("\n\n");
-        }
-      }
+    if (gmResponse.grantAccess) {
+      console.error(`[GM] Ignoring GM grantAccess (level ${gmResponse.grantAccess.level}): "${gmResponse.grantAccess.reason}". Access levels come from passwords and act transitions.`);
     }
 
     // Process action result modification

@@ -146,8 +146,7 @@ export function exportLiveState(state: FullGameState): void {
       : undefined,
     totalAdviceGiven: state.humanPromptState?.totalPromptsUsed || 0,
     totalFortuneEarned: state.fortune || 0, // Fortune is earned primarily from advisor engagement
-    // Checkpoints are every 3 turns, so estimate from current turn
-    checkpointsReached: Math.floor((state.turn || 0) / 3),
+    checkpointsReached: state.turn || 0,
   };
 
   const liveState: LiveState = {

@@ -397,10 +397,10 @@ const THREE_STAR_ACHIEVEMENTS: Achievement[] = [
     rarity: 3,
   },
   {
-    id: "spread_perfection",
-    emoji: "🎯",
-    name: "Spray and Pray (Successfully)",
-    description: "Hit 3+ targets with SPREAD_FIRE",
+    id: "chain_perfection",
+    emoji: "⛓️",
+    name: "Double Tap",
+    description: "Hit 2 targets with CHAIN_SHOT — both FULL_DINO",
     rarity: 3,
   },
   {
@@ -1134,8 +1134,8 @@ export function checkAchievements(ctx: AchievementTriggerContext): Achievement[]
     state.dinoRay.memory.lastFireOutcome === "FULL_DINO"
   );
 
-  // spread_perfection - 3+ targets
-  tryUnlock("spread_perfection", hasNarrativeFlag("SPREAD_FIRE_3"));
+  // chain_perfection - both CHAIN_SHOT targets got FULL_DINO
+  tryUnlock("chain_perfection", hasNarrativeFlag("CHAIN_SHOT_DOUBLE_FULL"));
 
   // double_agent - Blythe escaped + demo complete
   tryUnlock("double_agent",

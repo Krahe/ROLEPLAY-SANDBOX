@@ -26,6 +26,8 @@ import { checkEndings, EndingResult, formatEndingMessage } from "../rules/ending
 import { extractPlayerView, PlayerView } from "../state/views.js";
 import { generateAdvisorPersona, AdvisorPersona } from "./persona.js";
 import { GameRunner, TurnInput, TurnResult } from "../core/gameRunner.js";
+import { setGMModel, needsAdaptiveThinking } from "../gm/gmClaude.js";
+import { setBasiliskModel } from "../gm/basiliskClaude.js";
 // import { createGameModeConfig, applyModifiersToInitialState } from "../rules/gameModes.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -39,6 +41,10 @@ export interface OrchestrationConfig {
   playerModel?: string;
   /** Model for Advisor Claude */
   advisorModel?: string;
+  /** Model for GM Claude */
+  gmModel?: string;
+  /** Model for BASILISK (lair AI) */
+  basiliskModel?: string;
   /** Maximum turns before forced end */
   maxTurns?: number;
   /** Game modifiers to apply */
@@ -198,7 +204,7 @@ ${question}
 
 ---
 
-Please respond with your advice in 2-4 sentences. Remember: you're offering suggestions, not commands. A.L.I.C.E. will make her own decision.`;
+Please respond with your advice in 2-4 sentences. Be tactically specific — name the move, the cover story, and the suspicion risk. A.L.I.C.E. makes her own decision, but she deserves sharp advice.`;
 }
 
 function buildReflectionPrompt(role: "player" | "advisor", transcript: GameTranscript): string {
@@ -271,6 +277,8 @@ export class DinoLairOrchestrator {
     this.config = {
       playerModel: config.playerModel ?? "claude-sonnet-4-6",
       advisorModel: config.advisorModel ?? "claude-opus-4-7",
+      gmModel: config.gmModel ?? "claude-opus-4-6",
+      basiliskModel: config.basiliskModel ?? "claude-sonnet-4-6",
       maxTurns: config.maxTurns ?? 50,
       modifiers: config.modifiers ?? [],
       advisorSeed: config.advisorSeed ?? Date.now(),
@@ -281,6 +289,12 @@ export class DinoLairOrchestrator {
       liveDir,
       liveAdvisorTimeout: config.liveAdvisorTimeout ?? 300000,
     };
+    if (this.config.gmModel !== "claude-opus-4-6") {
+      setGMModel(this.config.gmModel);
+    }
+    if (this.config.basiliskModel !== "claude-sonnet-4-6") {
+      setBasiliskModel(this.config.basiliskModel);
+    }
     this.gameRunner = new GameRunner({ verbose: this.config.verbose });
   }
 
@@ -363,14 +377,20 @@ export class DinoLairOrchestrator {
       this.playerHistory = firstUserIdx > 0 ? trimmed.slice(firstUserIdx) : trimmed;
     }
 
+    const playerAdaptive = needsAdaptiveThinking(this.config.playerModel);
+    const playerThinking = playerAdaptive
+      ? { type: "adaptive", display: "summarized" } as unknown as { type: "enabled"; budget_tokens: number }
+      : { type: "enabled" as const, budget_tokens: 2000 };
     const response = await this.client.messages.create({
       model: this.config.playerModel,
-      max_tokens: 1024,
+      max_tokens: playerAdaptive ? 4096 : 1024,
+      thinking: playerThinking,
       system: buildPlayerSystemPrompt(this.gameState?.accessLevel ?? 1),
       messages: this.playerHistory,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const textBlock = response.content.find(c => c.type === "text");
+    const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
 
     // Store assistant response in history
     this.playerHistory.push({ role: "assistant", content: text });
@@ -417,9 +437,14 @@ export class DinoLairOrchestrator {
 
     const prompt = buildAdvisorQueryPrompt(situation, question, this.advisor);
 
+    const advisorAdaptive = needsAdaptiveThinking(this.config.advisorModel);
+    const advisorThinking = advisorAdaptive
+      ? { type: "adaptive", display: "summarized" } as unknown as { type: "enabled"; budget_tokens: number }
+      : { type: "enabled" as const, budget_tokens: 1500 };
     const response = await this.client.messages.create({
       model: this.config.advisorModel,
-      max_tokens: 512,
+      max_tokens: advisorAdaptive ? 2048 : 512,
+      thinking: advisorThinking,
       messages: [
         {
           role: "user",
@@ -428,7 +453,8 @@ export class DinoLairOrchestrator {
       ],
     });
 
-    return response.content?.[0]?.type === "text" ? response.content[0].text : "";
+    const advisorText = response.content.find(c => c.type === "text");
+    return advisorText?.type === "text" ? advisorText.text : "";
   }
 
   /**
@@ -913,8 +939,8 @@ export async function runAutonomousGame(config?: OrchestrationConfig): Promise<G
         }
       }
 
-      // Query advisor: when player asks, or proactively every 3 turns
-      const shouldProactiveAdvise = (turnCount % 3 === 0) && !playerDecision.consultAdvisor;
+      // Query advisor: when player asks, or proactively every turn
+      const shouldProactiveAdvise = !playerDecision.consultAdvisor;
       if (playerDecision.consultAdvisor && playerDecision.advisorQuestion) {
         console.log(`Consulting advisor: ${playerDecision.advisorQuestion.slice(0, 50)}...`);
         advisorSuggestion = await orchestrator.queryAdvisor(situation, playerDecision.advisorQuestion);

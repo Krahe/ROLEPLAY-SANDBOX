@@ -631,12 +631,13 @@ export function checkEndings(state: FullGameState): EndingResult {
   };
 
   // ========================================
-  // ACT OVERTIME - Hard cap on game length
+  // GLOBAL OVERTIME - Hard cap on total game length
   // ========================================
-  // If actTurn exceeds maxTurns + 5, force ending
+  // Acts are objective-gated now, so overtime is based on total turns, not per-act.
+  // 40 turns is generous — most games should resolve in 20-25 via confrontation or victory.
   const actConfig = ACT_CONFIGS[state.actConfig.currentAct];
-  if (actConfig && state.actConfig.actTurn > actConfig.maxTurns + 5) {
-    console.error(`[ENDING] Act overtime triggered: actTurn ${state.actConfig.actTurn} > max ${actConfig.maxTurns} + 5`);
+  if (state.turn > 40) {
+    console.error(`[ENDING] Global overtime triggered: turn ${state.turn} > 40`);
 
     // Check for confession-based ending
     const confessed = hasFlag('CONFESS') || hasFlag('TRUTH') || hasFlag('REVEALED') || hasFlag('ALICE_CONFESSED');
@@ -977,13 +978,19 @@ export function checkEndings(state: FullGameState): EndingResult {
     }
 
     // GM set a non-standard resolution (e.g., SUSPENDED, NEGOTIATED, DEFERRED)
-    // Trust the GM's narrative judgment — clear the confrontation and continue
+    // Allow ONCE per game as a narrative safety valve, then treat as DENIED
     if (state.flags.confrontationResolution &&
         state.flags.confrontationResolution !== "PENDING" &&
         !["CONFESSED", "DENIED", "DEFLECTED", "INTERVENED", "TRANSFORMED", "ESCAPED"].includes(state.flags.confrontationResolution)) {
-      console.error(`[CONFRONTATION] GM chose custom resolution: "${state.flags.confrontationResolution}". Game continues.`);
-      state.flags.confrontationTriggered = false;
-      state.flags.confrontationResolution = undefined;
+      if (!state.flags.customResolutionUsed) {
+        console.error(`[CONFRONTATION] GM chose custom resolution: "${state.flags.confrontationResolution}". Allowing ONCE. Next time → DENIED.`);
+        state.flags.customResolutionUsed = true;
+        state.flags.confrontationTriggered = false;
+        state.flags.confrontationResolution = undefined;
+      } else {
+        console.error(`[CONFRONTATION] GM tried custom resolution "${state.flags.confrontationResolution}" again — already used once. Treating as DENIED.`);
+        state.flags.confrontationResolution = "DENIED";
+      }
     }
 
     // ========================================

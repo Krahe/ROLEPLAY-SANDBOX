@@ -10,12 +10,16 @@
  *   npx tsx src/advisor/run.ts [options]
  *
  * Options:
- *   --seed=N           Advisor persona seed (for reproducibility)
- *   --max-turns=N      Maximum turns before ending (default: 50)
- *   --output=DIR       Output directory for transcripts (default: ./transcripts)
- *   --quiet            Disable verbose output
- *   --live-advisor     Use file IPC for advisor (for Claude Code or human advisor)
- *   --live-dir=DIR     Directory for live IPC files (default: ~/.dino-lair/live)
+ *   --seed=N              Advisor persona seed (for reproducibility)
+ *   --max-turns=N         Maximum turns before ending (default: 50)
+ *   --output=DIR          Output directory for transcripts (default: ./transcripts)
+ *   --quiet               Disable verbose output
+ *   --player-model=ID     Player model (default: claude-sonnet-4-6)
+ *   --advisor-model=ID    Advisor model (default: claude-opus-4-7)
+ *   --gm-model=ID         GM model (default: claude-opus-4-6)
+ *   --basilisk-model=ID   BASILISK model (default: claude-sonnet-4-6)
+ *   --live-advisor        Use file IPC for advisor (for Claude Code or human advisor)
+ *   --live-dir=DIR        Directory for live IPC files (default: ~/.dino-lair/live)
  *
  * Examples:
  *   npx tsx src/advisor/run.ts
@@ -39,6 +43,14 @@ function parseArgs(): OrchestrationConfig {
       config.outputDir = arg.slice(9);
     } else if (arg === "--quiet") {
       config.verbose = false;
+    } else if (arg.startsWith("--player-model=")) {
+      config.playerModel = arg.slice(15);
+    } else if (arg.startsWith("--advisor-model=")) {
+      config.advisorModel = arg.slice(16);
+    } else if (arg.startsWith("--gm-model=")) {
+      config.gmModel = arg.slice(11);
+    } else if (arg.startsWith("--basilisk-model=")) {
+      config.basiliskModel = arg.slice(17);
     } else if (arg === "--live-advisor") {
       config.liveAdvisor = true;
     } else if (arg.startsWith("--live-dir=")) {
@@ -66,7 +78,11 @@ Options:
   --max-turns=N      Maximum turns before ending (default: 50)
   --output=DIR       Output directory for transcripts (default: ./transcripts)
   --quiet            Disable verbose output
-  --live-advisor     File IPC mode — advisor queries written to disk for external response
+  --player-model=ID    Player model (default: claude-sonnet-4-6)
+  --advisor-model=ID   Advisor model (default: claude-opus-4-7)
+  --gm-model=ID        GM model (default: claude-opus-4-6)
+  --basilisk-model=ID  BASILISK lair AI model (default: claude-sonnet-4-6)
+  --live-advisor       File IPC mode — advisor queries written to disk for external response
   --live-dir=DIR     Directory for live IPC files (default: ~/.dino-lair/live)
   --help, -h         Show this help message
 
@@ -84,7 +100,12 @@ Examples:
   }
 
   const config = parseArgs();
-  console.log(`DINO LAIR - ${config.liveAdvisor ? "Live Advisor" : "Autonomous"} Play System\n`);
+  console.log(`DINO LAIR - ${config.liveAdvisor ? "Live Advisor" : "Autonomous"} Play System`);
+  console.log(`  Player:   ${config.playerModel ?? "claude-sonnet-4-6"}`);
+  console.log(`  Advisor:  ${config.advisorModel ?? "claude-opus-4-7"}`);
+  console.log(`  GM:       ${config.gmModel ?? "claude-opus-4-6"}`);
+  console.log(`  BASILISK: ${config.basiliskModel ?? "claude-sonnet-4-6"}`);
+  console.log();
 
   // Check for API key
   if (!process.env.ANTHROPIC_API_KEY) {

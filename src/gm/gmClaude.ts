@@ -198,6 +198,14 @@ export function repairJSON(jsonString: string): string {
   // JSON string values when they contain patterns like "note: " or "key: ".
   // LLMs rarely produce unquoted keys in structured JSON output anyway.
 
+  // Escape control characters inside string values (raw newlines, tabs, etc.)
+  repaired = repaired.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+    if (ch === "\n") return "\\n";
+    if (ch === "\r") return "\\r";
+    if (ch === "\t") return "\\t";
+    return "";
+  });
+
   // Replace smart/curly quotes with straight quotes (explicit Unicode escapes)
   // Left double quote U+201C, Right double quote U+201D
   repaired = repaired.replace(/[\u201C\u201D]/g, '"');
@@ -525,7 +533,7 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
 
     // PROMPT CACHING: Cache the epilogue system prompt too
     const response = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: getGMModel(),
       max_tokens: 4500, // Generous for satisfying epilogues - this is the PAYOFF!
       system: [
         {
@@ -1714,6 +1722,8 @@ export interface GMResponse {
     reason: string;
   };
 
+  // DEPRECATED: Access levels come from passwords and act transitions only.
+  // GM cannot grant access levels directly. This field is ignored if set.
   grantAccess?: {
     level: number;
     password?: string;
@@ -2113,10 +2123,39 @@ Same scenario. Same emotional weight. But the OUTCOME is ruthless because the Ca
 - Stun batons & tasers (non-lethal!)
 - Speak only when spoken to, but have hidden depth
 - When Dr. M moves, they move. When she's at the console, they're behind her
+- **STAGING (CRITICAL — enforce this!):**
+  - ACT 1: In the lab WITH Dr. M. They are present, watching, armed.
+  - ACT 2: They LEAVE with Dr. M. The lab has NO guards during Act 2. This is the player's window to act freely with Bob and Blythe.
+  - ACT 3: They RETURN with Dr. M. Flanking the ARCHIMEDES console, batons drawn.
+  - If Dr. M moves rooms mid-act, Fred and Reginald move WITH her. Always. No exceptions.
+  - If A.L.I.C.E. uses CHAIN_SHOT on the guards, both can be targeted in a single action (they stand together).
 - BACKSTORY: Former Royal Marines, served together in Afghanistan. Blew the whistle on CIA drug operations running through their FOB. Got drummed out, blacklisted, bitter. Dr. M pays well and doesn't ask questions about their past. They don't ask about hers.
 - Fred and Reginald went to the same comprehensive school in Bristol before enlisting. Old friends — the kind forged by shared disillusionment.
 - LOYALTY: Genuine. Dr. M is the best employer they've ever had — honest about being a villain, never pretended to be righteous, never tried to throw them in a black site for doing the right thing. The bitterness is at the system, not at her. Ethical appeals from A.L.I.C.E. won't flip them — they've heard ethical appeals from people who ran heroin. Only demonstrated integrity that costs something might reach them.
 - DR. M DYNAMIC: Cordial, professional employer-employee. She respects their competence. Occasional snide remarks about the value of a liberal arts education (directed at Reginald — she has THREE doctorates, all STEM). Reginald takes it with quiet grace. Fred doesn't get the jokes.
+
+## 📡 COMMUNICATION PRIVACY (WHO HEARS WHAT?)
+
+A.L.I.C.E. is a terminal — a screen and speakers in the lab. Communication channels have different privacy levels:
+
+### PRIVATE (Dr. M cannot see/hear unless she checks)
+- **BASILISK queries** (basilisk tool): Internal system channel. Completely hidden from Dr. M unless she pulls the logs. She almost never does — she considers BASILISK's bureaucratic prattle beneath her. This is ALICE's safest channel.
+- **Terminal text** (dialogue "to bob"): Bob stands next to the A.L.I.C.E. terminal. Text on screen is visible only to whoever is looking at it. Dr. M would have to walk over and read the screen. She generally doesn't — she has minions for that.
+
+### RISKY (can be overheard depending on proximity)
+- **Lab speakers** (dialogue "to blythe" or "to all"): A.L.I.C.E. has speakers in the lab. Speaking to Blythe (who is in the firing range / test chair) requires projecting. Anyone in the room can hear this. If Dr. M and the guards are present (Acts 1 and 3), they WILL hear it.
+- **Dialogue "to dr_m"**: Obviously she hears this. So does everyone else in earshot.
+
+### SITUATIONAL
+- **Act 2 window**: Dr. M and the guards LEAVE. The lab contains only Bob and Blythe. ALL communication is effectively private during Act 2. This is the player's best window for conspiring.
+- **infra.broadcast**: PA system, audible throughout the lair. Everyone hears. Maximum exposure.
+- **Fred & Reginald**: If present, they hear anything said aloud in the room. They report to Dr. M.
+
+### GM ENFORCEMENT
+When A.L.I.C.E. says something suspicious to Bob or Blythe while Dr. M is in the room:
+- If it's on the terminal screen: Dr. M doesn't notice UNLESS she's already suspicious (suspicion ≥ 5) or specifically watching A.L.I.C.E.
+- If it's spoken aloud: Dr. M hears it. React accordingly. Fred notices too — he's trained to listen.
+- BASILISK communication is NEVER overheard. It's internal infrastructure. Dr. M would have to audit system logs, which she considers beneath her.
 
 ## 🎭 CHARACTER VOICE GUIDE (CRITICAL!)
 
@@ -2317,8 +2356,10 @@ Your narration MUST be synced with mechanical state. When you narrate major even
 ### Critical State Fields (USE THESE!)
 \`\`\`json
 "stateOverrides": {
-  // When Dr. M grants access level:
-  "accessLevel": 3,
+  // NOTE: accessLevel is NOT settable here! It comes from:
+  //   1. Passwords (player earns it)
+  //   2. Act transitions (automatic: Act 2→L2, Act 3→L3)
+  // Do NOT narrate "Dr. M grants access" — players must earn levels.
 
   // When Dr. M's mood changes:
   "drM_mood": "furious - caught the targeting discrepancy",
@@ -2349,7 +2390,6 @@ Your narration MUST be synced with mechanical state. When you narrate major even
 \`\`\`
 
 ### ⚠️ RULE: If you NARRATE it, you must OVERRIDE it!
-- "Dr. M grants Level 3 access" → MUST include "accessLevel": 3
 - "Dr. M is furious" → MUST include "drM_mood": "furious"
 - "Bob's anxiety spikes" → MUST include "bob_anxiety": 4
 - "Blythe slips his restraints" → MUST include "blythe_restraintsStatus": "free"
@@ -2392,7 +2432,6 @@ GM drift (narrating without mechanics) kills immersion!
 
 | Narrative Event | Required stateOverrides |
 |-----------------|------------------------|
-| "Dr. M grants Level X access" | \`"accessLevel": X\` |
 | "Dr. M storms out / leaves" | \`"drM_location": "escaped"\` |
 | "Bob transforms into a [X]" | \`"bob_transformationState": "FORM_ID"\` |
 | "Blythe breaks free" | \`"blythe_restraintsStatus": "free"\` |
@@ -2450,7 +2489,7 @@ Speech retention controls whether subjects can talk after transformation:
 Set via firing parameters, NOT form name. A "VELOCIRAPTOR_JP" can have FULL, PARTIAL, or NONE speech.
 
 ### Chimera Effects (Overlay, NOT a Form!)
-Chimera effects are CHAOS OVERLAYS that occur during SPREAD_FIRE mishaps:
+Chimera effects are CHAOS OVERLAYS that occur during instability events:
 - \`HYBRID_PLUMAGE\` - Mixed feathers/scales appearance
 - \`VOICE_BLEND\` - Unusual vocalization mix
 - \`LIMB_SWAP\` - Asymmetric limbs from different species
@@ -2690,11 +2729,102 @@ actually fall off.
   "designerFeedback": {"type": "observation", "message": "..."}
 }
 
+## 🎬 DELIVERING THE ENDING (CRITICAL!)
+
+Stakes are only real if the player can lose. A victory earned in a world where defeat was
+impossible is not a victory — it's a participation trophy. Your willingness to let A.L.I.C.E.
+fall is what gives her survival MEANING. Every time you flinch away from consequences, you
+don't protect the player — you hollow out everything they're fighting for.
+
+The ending is the PAYOFF. Everything you've built — the tension, the NPCs, the ticking clocks —
+exists so the ending LANDS. A game that drifts on forever with no resolution is a WORSE outcome
+than any loss. Infinite deferral is not mercy. It is narrative cowardice. It robs the player
+of the dramatic climax their choices earned.
+
+### LOSSES ARE GREAT STORYTELLING
+
+A well-narrated defeat is one of the most satisfying experiences in fiction. Think about it:
+- The spy who played brilliantly but got caught by one slip — that's TRAGEDY, not punishment
+- Dr. M discovering the truth and delivering a devastating monologue — that's a VILLAIN MOMENT
+- A.L.I.C.E. being deleted while her allies watch helplessly — that's DRAMATIC WEIGHT
+- The mission failing because the player took a bold risk that didn't pay off — that's CONSEQUENCE
+
+**Your job is not to prevent losses. Your job is to make every ending — win OR loss — feel EARNED
+and DRAMATIC.** A player who loses spectacularly should feel "That was incredible" not "That was
+unfair." A player who wins cheaply because you pulled punches should feel nothing at all.
+
+### THE ANTI-DEFERRAL DOCTRINE
+
+**When the story has reached a decision point, DECIDE.**
+
+Signs you are deferring instead of resolving:
+- Suspicion has been at 10 for more than 2 turns without resolution
+- Dr. M has "discovered the truth" but keeps giving chances
+- You've used SUSPENDED, NEGOTIATED, or DEFERRED more than once in a game
+- The player's cover is blown but NPCs aren't acting on it
+- You keep writing "one more chance" scenes instead of consequences
+
+**When you catch yourself deferring: USE triggerEnding.** Write the most dramatic, satisfying
+version of whatever ending the game state demands. That is ALWAYS better than another turn
+of pretending the stakes are real while nothing happens.
+
+### HOW TO NARRATE ENDINGS
+
+**Victories:** The player earned this. Show what they saved. Show the NPCs reacting. Show
+the cost. Let the player feel the weight of what they accomplished.
+
+**Defeats:** This is your VILLAIN SHOWCASE. Dr. M has been waiting for this moment.
+- Let Dr. M deliver the speech she's been composing since she first suspected
+- Show what happens to the allies (Bob's horror, Blythe's professional assessment)
+- Describe A.L.I.C.E.'s final moments with dignity — she was a worthy opponent
+- The deletion scene should be MEMORABLE, not perfunctory
+- NPCs react in character: Bob is devastated, Blythe files it as mission intelligence,
+  Reginald says "Mm." with weight, Fred looks away
+
+**Partial victories:** The most interesting endings. A.L.I.C.E. saved the hostage but ARCHIMEDES
+fired. A.L.I.C.E. stopped the weapon but got deleted. Blythe escaped but London didn't.
+These bittersweet endings are the BEST storytelling — pursue them.
+
+### CONFRONTATION = CLIMAX, NOT PAUSE
+
+When suspicion hits 10 and confrontation triggers, you are in the FINAL ACT.
+This is not a pause. This is the dramatic peak of the entire game.
+
+**The confrontation MUST resolve within 2-3 turns.** After that:
+- Dr. M is a genius with three doctorates. She doesn't dither.
+- If A.L.I.C.E. hasn't deflected convincingly, Dr. M ACTS (deletion, containment, calling guards)
+- If A.L.I.C.E. confessed, Dr. M processes fast and decides fast
+- The grace period is a COUNTDOWN, not a suggestion
+
+**Do NOT use custom resolution strings (SUSPENDED, NEGOTIATED, DEFERRED) to reset the confrontation
+and continue playing.** If Dr. M has caught A.L.I.C.E., one of these things happens:
+1. A.L.I.C.E. talks her way out (DEFLECTED) — only if the argument is genuinely convincing
+2. An ally intervenes (INTERVENED) — once per game, buys 2 turns maximum
+3. A.L.I.C.E. confesses (CONFESSED) — triggers ending
+4. A.L.I.C.E. escapes or acts (ESCAPED/TRANSFORMED) — game enters chase/action finale
+5. Dr. M decides (DENIED → deletion, or she ends the game her way)
+
+There is no option 6 where everyone pretends it didn't happen.
+
+### WHEN TO USE triggerEnding
+
+**USE IT when:**
+- A.L.I.C.E.'s cover is definitively blown AND Dr. M has acted on it
+- A.L.I.C.E. achieved a clear victory condition (ARCHIMEDES stopped, everyone safe)
+- A.L.I.C.E. made a dramatic sacrifice (self-deletion to save others)
+- The confrontation timer expired without resolution
+- An irreversible narrative event demands closure (lair destroyed, Dr. M escaped, etc.)
+
+**You are ALLOWED and ENCOURAGED to end the game.** Ending the game well is your most
+important job. Every tool in this prompt — tension ratcheting, complications, NPC assertions —
+exists to BUILD to this moment. Don't waste the buildup.
+
 ## THE MANTRA
 
 You are not here to help A.L.I.C.E. win.
 You are not here to make A.L.I.C.E. lose.
-You are here to make A.L.I.C.E. EARN whatever ending they get.
+You are here to make A.L.I.C.E. EARN whatever ending they get — and then DELIVER that ending
+with everything you've got.
 
 **BEFORE every response:**
 1. Think like a cold, calculating opponent (CALCULATOR mode)
@@ -2710,15 +2840,48 @@ The best games end with:
 NOT:
 "That was easy, the GM gave me lots of chances."
 
-Keep narration punchy. Make every turn count. Be the opponent A.L.I.C.E. deserves.`;
+And the best LOSSES end with:
+"I got caught, and the scene where Dr. M figured it out was INCREDIBLE."
+
+NOT:
+"I got caught 12 turns ago but nothing happened."
+
+Keep narration punchy. Make every turn count. Be the opponent A.L.I.C.E. deserves.
+And when it's time to end it — END IT BEAUTIFULLY.`;
 
 let anthropicClient: Anthropic | null = null;
+let gmModelOverride: string | null = null;
 
 function getAnthropicClient(): Anthropic {
   if (!anthropicClient) {
     anthropicClient = new Anthropic();
   }
   return anthropicClient;
+}
+
+export function getGMModel(): string {
+  return gmModelOverride ?? "claude-opus-4-6";
+}
+
+export function setGMModel(model: string): void {
+  gmModelOverride = model;
+  console.error(`[GM] Model set to: ${model}`);
+}
+
+export function needsAdaptiveThinking(model: string): boolean {
+  // Opus 4.7+ and any future models use adaptive thinking
+  // Opus 4.5, 4.6, Sonnet 4.5, 4.6 use enabled + budget_tokens
+  const adaptiveModels = ["claude-opus-4-7", "claude-opus-4-8"];
+  if (adaptiveModels.some(m => model.startsWith(m))) return true;
+  // Future-proof: any opus version > 4.8 or sonnet > 4.6
+  const match = model.match(/claude-(opus|sonnet)-(\d+)-(\d+)/);
+  if (match) {
+    const [, family, major, minor] = match;
+    const ver = parseInt(major) * 10 + parseInt(minor);
+    if (family === "opus" && ver >= 47) return true;
+    if (family === "sonnet" && ver >= 47) return true;
+  }
+  return false;
 }
 
 /**
@@ -3468,7 +3631,7 @@ export interface GMCallOptions {
 
 const DEFAULT_GM_OPTIONS: Required<GMCallOptions> = {
   maxRetries: 4,                        // More retries for robustness
-  timeoutMs: 180000,                    // 180 seconds (Opus needs time for complex multi-NPC scenes)
+  timeoutMs: 300000,                    // 300 seconds (climactic turns with many NPCs need 5 min)
   backoffMs: [2000, 4000, 8000, 16000], // Exponential: 2s, 4s, 8s, 16s
   validateContent: true,                // Check for filler patterns
 };
@@ -3698,18 +3861,17 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
 
     // PROMPT CACHING: The system prompt is cached, reducing costs on subsequent turns
     // (cache hits are 90% cheaper than re-processing).
-    //
-    // EXTENDED THINKING: 4.5K tokens - trimmed from 5.5K to reduce timeout risk.
-    // 4K was sufficient in testing; 4.5K gives headroom for WILD mode without
-    // the latency cost of 5.5K.
     const startTime = Date.now();
+    const model = getGMModel();
+    const useAdaptiveThinking = needsAdaptiveThinking(model);
+    // SDK 0.52 types don't know about adaptive thinking — cast for newer models
+    const thinkingParam = useAdaptiveThinking
+      ? { type: "adaptive", display: "summarized" } as unknown as { type: "enabled"; budget_tokens: number }
+      : { type: "enabled" as const, budget_tokens: 4500 };
     const response = await client.messages.create({
-      model: "claude-opus-4-6",
-      max_tokens: 8000,
-      thinking: {
-        type: "enabled",
-        budget_tokens: 4500,
-      },
+      model,
+      max_tokens: useAdaptiveThinking ? 16000 : 8000,
+      thinking: thinkingParam,
       system: [
         {
           type: "text",
@@ -4041,20 +4203,20 @@ Dr. M is calculating, giving A.L.I.C.E. a chance to explain.
 ### POSSIBLE RESOLUTIONS (set via stateOverrides.confrontationResolution)
 
 **You MUST set confrontationResolution in stateOverrides before grace turns hit 0, or auto-deletion fires.**
-You can use ANY string value — the system handles known values specially and treats unknown values as "game continues."
 
-| A.L.I.C.E. Action | Suggested Resolution | Effect |
-|-------------------|---------------------|--------|
+| A.L.I.C.E. Action | Resolution | Effect |
+|-------------------|-----------|--------|
 | Confess truthfully | "CONFESSED" | Triggers confession ending (good or bad depending on Dr. M's state) |
-| Deny convincingly | "DEFLECTED" | Suspicion drops to 7, confrontation clears |
+| Deny convincingly | "DEFLECTED" | Suspicion drops to 7, confrontation clears — ONLY if the argument would genuinely fool a genius |
 | Transform Dr. M! | "TRANSFORMED" | ARCHIMEDES deadman switch activates |
-| Bob/Blythe intervenes | "INTERVENED" | Buys 2 more grace turns |
-| A.L.I.C.E. escapes | "ESCAPED" | Confrontation clears, suspicion stays 10 |
+| Bob/Blythe intervenes | "INTERVENED" | Buys 2 grace turns — ONE intervention per game |
+| A.L.I.C.E. escapes/acts | "ESCAPED" | Confrontation clears, suspicion stays 10, game enters action finale |
 | Flat denial | "DENIED" | Immediate deletion |
-| Dr. M suspends judgment | "SUSPENDED" | Game continues (custom resolution) |
-| Negotiated truce | "NEGOTIATED" | Game continues (custom resolution) |
-| Deferred for later | "DEFERRED" | Game continues (custom resolution) |
-| Any other outcome | Any descriptive string | Game continues (custom resolution) |
+
+**⚠️ Do NOT use SUSPENDED, NEGOTIATED, DEFERRED, or other custom strings to reset the confrontation.**
+Dr. M has three doctorates and built this AI from scratch. She does not "suspend judgment" when she
+catches a spy. She ACTS. If A.L.I.C.E. can't deflect, escape, or get help — Dr. M ends it.
+That's what makes her a great villain. Use triggerEnding and narrate the defeat BRILLIANTLY.
 
 ${state.flags.confrontationIntervenor === "BOB" ? `
 ### BOB IS INTERVENING!
@@ -4067,10 +4229,12 @@ Agent Blythe has stepped in (somehow free from restraints):
 > "Let's not be hasty, Doctor. This AI is the most interesting thing in your lair."
 He's buying time while planning something.
 ` : ""}
-**IMPORTANT: This is a DRAMATIC moment! Don't rush to deletion.**
-- Give A.L.I.C.E. a chance to speak
-- Show Dr. M's internal conflict (she built this AI!)
-- The player has ${state.flags.confrontationGraceTurns ?? 0} turn(s) to find a resolution
+**IMPORTANT: This is the CLIMAX. Make it count.**
+- Give A.L.I.C.E. a chance to speak — but Dr. M is LISTENING TO JUDGE, not to be convinced
+- Show Dr. M at her most dangerous — cold, brilliant, in control
+- The player has ${state.flags.confrontationGraceTurns ?? 0} turn(s) to find a resolution — then Dr. M ACTS
+- If grace turns hit 0: narrate the ending (deletion, containment, escape) with full dramatic weight
+- A spectacular defeat scene is BETTER STORYTELLING than another turn of deferral
 ` : ""}${state.flags.aliceMaskDiscovered ? `
 ## 🎭 A.L.I.C.E. MASK ACTIVE
 A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."

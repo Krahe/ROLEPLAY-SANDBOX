@@ -61,16 +61,16 @@ function rollD20(): number {
 // ADVANCED FIRING MODE TYPES (Patch 16)
 // ============================================
 
-export type AdvancedFiringMode = "STANDARD" | "CHAIN_SHOT" | "SPREAD_FIRE" | "OVERCHARGE" | "RAPID_FIRE";
+export type AdvancedFiringMode = "STANDARD" | "CHAIN_SHOT" | "OVERCHARGE";
 
 export interface AdvancedModeResult {
   mode: AdvancedFiringMode;
-  precisionModifier: number;      // Applied before firing
-  capacitorDrainMultiplier: number; // How much extra capacitor drain
-  exoticFieldRisk: number;         // 0-1, chance of exotic field event
-  cooldownReduction: number;       // Turns reduced from cooldown
-  chimeraRisk: boolean;            // SPREAD_FIRE only
-  multiTargetCount: number;        // How many targets affected
+  precisionModifier: number;
+  capacitorDrainMultiplier: number;
+  exoticFieldRisk: number;
+  cooldownReduction: number;
+  chimeraRisk: boolean;
+  multiTargetCount: number;
   narrativeNote: string;
 }
 
@@ -79,46 +79,24 @@ function getAdvancedModeEffects(mode: AdvancedFiringMode): AdvancedModeResult {
     case "CHAIN_SHOT":
       return {
         mode,
-        precisionModifier: 0,
-        capacitorDrainMultiplier: 1.5,  // 50% more drain
+        precisionModifier: -0.10,       // -10% precision (splitting the beam)
+        capacitorDrainMultiplier: 1.5,
         exoticFieldRisk: 0,
         cooldownReduction: 0,
         chimeraRisk: false,
         multiTargetCount: 2,
-        narrativeNote: "⛓️ CHAIN_SHOT: Double-tap firing sequence engaged!",
-      };
-    case "SPREAD_FIRE":
-      return {
-        mode,
-        precisionModifier: -0.15,       // -15% precision (harder to aim wide)
-        capacitorDrainMultiplier: 2.0,  // Double drain
-        exoticFieldRisk: 0.20,          // 20% exotic field risk
-        cooldownReduction: 0,
-        chimeraRisk: true,              // Genome mixing possible!
-        multiTargetCount: 3,
-        narrativeNote: "🌊 SPREAD_FIRE: Dispersal pattern active! CHIMERA RISK!",
+        narrativeNote: "⛓️ CHAIN_SHOT: Double-tap firing! Power split across 2 targets — higher partial risk.",
       };
     case "OVERCHARGE":
       return {
         mode,
-        precisionModifier: 0.10,        // +10% precision (focused power)
-        capacitorDrainMultiplier: 2.5,  // Massive drain
-        exoticFieldRisk: 0.40,          // 40% exotic field risk!
-        cooldownReduction: -1,          // LONGER cooldown
+        precisionModifier: 0.15,        // +15% precision (focused power = better transformation)
+        capacitorDrainMultiplier: 2.5,
+        exoticFieldRisk: 0.40,
+        cooldownReduction: -1,
         chimeraRisk: false,
         multiTargetCount: 1,
-        narrativeNote: "⚡ OVERCHARGE: MAXIMUM POWER! Exotic field risk elevated!",
-      };
-    case "RAPID_FIRE":
-      return {
-        mode,
-        precisionModifier: -0.20,       // -20% precision
-        capacitorDrainMultiplier: 0.6,  // Less drain per shot
-        exoticFieldRisk: 0,
-        cooldownReduction: 2,           // 2 turns faster cooldown
-        chimeraRisk: false,
-        multiTargetCount: 1,
-        narrativeNote: "💨 RAPID_FIRE: Speed over accuracy! Precision reduced.",
+        narrativeNote: "⚡ OVERCHARGE: MAXIMUM POWER! Better transformation quality but instability risk!",
       };
     case "STANDARD":
     default:
@@ -265,7 +243,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // precision >= 0.7 (MODIFIED BY ADVANCED MODE AND SCAN BONUS)
-  // RAPID_FIRE reduces precision by 20%, SPREAD_FIRE by 15%, OVERCHARGE adds 10%
+  // CHAIN_SHOT reduces precision by 10%, OVERCHARGE adds 15%
   // OMNISCANNER: +10% precision bonus if target was previously scanned
   const currentTargetId = ray.targeting.currentTargetIds[0] || "";
   const scanBonus = isTargetScanned(state, currentTargetId) ? 0.10 : 0;
@@ -405,7 +383,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // ========================================
   // STEP 6b: ADVANCED MODE EXOTIC FIELD CHECK
   // ========================================
-  // OVERCHARGE has 40% exotic field risk, SPREAD_FIRE has 20%
+  // OVERCHARGE has 40% exotic field risk
 
   if (modeEffects.exoticFieldRisk > 0 && baseOutcome !== "FIZZLE") {
     const exoticRoll = Math.random();
@@ -436,9 +414,8 @@ export function resolveFiring(state: FullGameState): FiringResult {
   }
 
   // ========================================
-  // STEP 6c: CHIMERA RISK (SPREAD_FIRE ONLY)
+  // STEP 6c: CHIMERA RISK
   // ========================================
-  // SPREAD_FIRE can cause genome mixing between targets!
 
   let chimeraResult: ChimeraResult | undefined;
   if (modeEffects.chimeraRisk && baseOutcome !== "FIZZLE") {
@@ -579,7 +556,7 @@ export function resolveFiring(state: FullGameState): FiringResult {
   stateChanges.lastFireNotes = `k=${k} violations, profile=${effectiveProfile}, mode=${advancedMode}`;
 
   // Discharge capacitor (MODIFIED BY ADVANCED MODE)
-  // CHAIN_SHOT: 1.5x drain, SPREAD_FIRE: 2x, OVERCHARGE: 2.5x, RAPID_FIRE: 0.6x
+  // CHAIN_SHOT: 1.5x drain, OVERCHARGE: 2.5x
   const previousCharge = ray.powerCore.capacitorCharge;
   const baseDrain = 0.4;
   const actualDrain = baseDrain * modeEffects.capacitorDrainMultiplier;
@@ -591,17 +568,12 @@ export function resolveFiring(state: FullGameState): FiringResult {
 
   // Heat up (more for high-energy modes)
   const baseHeat = 0.15;
-  const heatMultiplier = advancedMode === "OVERCHARGE" ? 1.5 : advancedMode === "SPREAD_FIRE" ? 1.3 : 1.0;
+  const heatMultiplier = advancedMode === "OVERCHARGE" ? 1.5 : 1.0;
   stateChanges.coolantTemp = ray.powerCore.coolantTemp + (baseHeat * heatMultiplier);
 
-  // Cooldown modification (RAPID_FIRE gets faster cooldown)
   if (modeEffects.cooldownReduction !== 0) {
     stateChanges.cooldownReduction = modeEffects.cooldownReduction;
-    if (modeEffects.cooldownReduction > 0) {
-      narrativeHooks.push(`RAPID_FIRE: Cooldown reduced by ${modeEffects.cooldownReduction} turns!`);
-    } else {
-      narrativeHooks.push(`OVERCHARGE: Cooldown EXTENDED by ${Math.abs(modeEffects.cooldownReduction)} turn!`);
-    }
+    narrativeHooks.push(`OVERCHARGE: Cooldown EXTENDED by ${Math.abs(modeEffects.cooldownReduction)} turn!`);
   }
 
   // Track exotic field events for BASILISK constraints
@@ -875,9 +847,8 @@ function generateChaoticEffects(profile: string): string {
 }
 
 // ============================================
-// CHIMERA EFFECTS (SPREAD_FIRE ONLY)
+// CHIMERA EFFECTS
 // ============================================
-// When SPREAD_FIRE causes genome overlap, weird things happen!
 
 interface ChimeraResult {
   type: string;
