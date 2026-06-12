@@ -120,6 +120,21 @@ export interface TurnLogEntry {
   activeEvents: string[];
   gmNarrativeSummary: string;
   flagsSet: string[];
+  // ============================================
+  // FULL-FIDELITY CAPTURE (added 2026-06-12, pre-playtest)
+  // ============================================
+  // The turn JSONL is the complete machine-readable playtest record.
+  // Claude Desktop conversation export misses tool-call internals; this
+  // doesn't. Summary fields above are kept for quick scanning; the fields
+  // below carry everything needed to reconstruct (and tune from) a turn:
+  // full fire configs, full result messages (outcome tiers, scan blocks,
+  // chaos events, field intensity), ALICE's thought and per-action why.
+  thought: string;
+  playerActions: { command: string; params: unknown; why: string }[];
+  actionResultsFull: { command: string; success: boolean; message: string }[];
+  aliceDialogue: { to: string; message: string }[];
+  gmNarration: string;
+  lifelineUsed: string | null;
 }
 
 export function logTurnToJSONL(entry: TurnLogEntry): void {

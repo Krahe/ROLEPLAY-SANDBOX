@@ -2045,6 +2045,17 @@ Turns played: ${gameState.turn}
       activeEvents,
       gmNarrativeSummary: gmResponse.narration.split(".").slice(0, 2).join(".") + ".",
       flagsSet: (gameState.flags as Record<string, unknown>).narrativeFlags as string[] || [],
+      // Full-fidelity capture (2026-06-12): the complete playtest record.
+      thought: params.thought,
+      playerActions: params.actions.map(a => ({ command: a.command, params: a.params, why: a.why })),
+      actionResultsFull: actionResults.map(r => ({
+        command: r.command,
+        success: r.success,
+        message: r.message ?? "",
+      })),
+      aliceDialogue: params.dialogue?.map(d => ({ to: d.to, message: d.message })) || [],
+      gmNarration: gmResponse.narration,
+      lifelineUsed: lifelineResult ? lifelineResult.type : null,
     };
     logTurnToJSONL(turnLogEntry);
 
