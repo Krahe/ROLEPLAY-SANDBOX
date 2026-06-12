@@ -176,6 +176,12 @@ The product collapses fast. A single bad factor tanks the whole shot. *That is t
 - **Brute-force override (the load-bearing rule):** in OVERCHARGE, `library_coefficient` and `integrity` are both treated as **1.0** in the stability formula. A discharge with more potential than the profile envelope can contain forces even an incoherent Library B waveform through. Stability reduces to `power_match × alignment_match`.
 - `power_match` degrades with overshoot (`1.0 − overshoot/0.3`) — greedier overcharge costs fidelity.
 - *Separately,* a **chaos roll fires** with severity `(capacitor − profile.max) × 10` whenever the transformation lands (FULL/PARTIAL) — the exotic field event is the non-negotiable price of the spectacle.
+- **Severity bands (wired 2026-06-12):** the severity value selects a field-intensity band that weights which pool the event draws from (pools derive from each entry's severity tag):
+  - **FLICKER** (severity < 1.0, overshoot < 0.10): 55% mild / 45% serious / **no facility-scale cascade**. Disciplined overcharge risks serious-but-local (collateral transformation, EMP, poltergeist are all live), never the cascade.
+  - **SURGE** (1.0–2.0): 25% mild / 70% serious / 5% cascade.
+  - **RUPTURE** (≥ 2.0, overshoot ≥ 0.20): 5% mild / 75% serious / **20% cascade**. One reckless shot in five goes facility-scale.
+  - EXOTIC primary outcomes (chaos-conditions runaway: capacitor > 1.3, thermal runaway, catastrophic misalignment) always roll RUPTURE-band (severity 2.5).
+  - Fire-result hooks name the band (`field intensity: SURGE`) — consequence attribution at the trigger, not forewarning at the scan.
 - The transformation still attempts — the target is still hit per alignment check.
 - Outcome tier proceeds from the (overridden) stability formula; chaos table outcome lands *on top*.
 - INORGANIC stacking: the ×0.5 coefficient and CHIMERA clamp still apply — brute force does not make a Swiffer a better canvas.

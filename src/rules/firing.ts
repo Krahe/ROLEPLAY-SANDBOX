@@ -76,7 +76,46 @@ export interface ChaosFizzleResult {
   name: string;
   description: string;
   mechanical: string;
-  severity: "harmless" | "comedic" | "energetic";
+  severity: "harmless" | "comedic" | "energetic" | "catastrophic";
+  /** How hard the envelope was pushed when this event fired (set by rollChaosFizzle). */
+  fieldIntensity?: ChaosFieldIntensity;
+}
+
+/**
+ * Field-intensity bands (§8): the chaos roll knows how hard the envelope was
+ * pushed. Severity input = (capacitor − profile.max_capacitor) × 10 for
+ * OVERCHARGE fires; EXOTIC primaries (runaway conditions) use
+ * EXOTIC_FIELD_SEVERITY.
+ *
+ *   FLICKER  (severity < 1.0, overshoot < 0.10): disciplined overcharge.
+ *            Mild-leaning, NO facility-scale cascade — but the serious pool
+ *            (collateral transformation, EMP, poltergeist…) stays live.
+ *   SURGE    (1.0–2.0): the field is loose. Serious-leaning; cascade possible.
+ *   RUPTURE  (≥ 2.0, overshoot ≥ 0.20): reckless. One in five facility-scale.
+ *
+ * Pool membership derives from each entry's own severity tag — re-tag an
+ * entry and the bands follow.
+ */
+export type ChaosFieldIntensity = "FLICKER" | "SURGE" | "RUPTURE";
+
+const CHAOS_BAND_WEIGHTS: Record<
+  ChaosFieldIntensity,
+  { mild: number; serious: number; catastrophic: number }
+> = {
+  FLICKER: { mild: 55, serious: 45, catastrophic: 0 },
+  SURGE: { mild: 25, serious: 70, catastrophic: 5 },
+  RUPTURE: { mild: 5, serious: 75, catastrophic: 20 },
+};
+
+/** Severity used for EXOTIC primary outcomes — chaosConditionsActive means the
+ * configuration was already in runaway territory (capacitor > 1.3, thermal
+ * runaway, or catastrophic misalignment). Always RUPTURE-band. */
+const EXOTIC_FIELD_SEVERITY = 2.5;
+
+export function chaosFieldIntensity(severity: number): ChaosFieldIntensity {
+  if (severity < 1.0) return "FLICKER";
+  if (severity < 2.0) return "SURGE";
+  return "RUPTURE";
 }
 
 // ============================================
@@ -981,16 +1020,26 @@ function resolveStandardFire(state: FullGameState, params: StandardFireParams): 
   // Per §8: stability tier proceeds; chaos table fires ON TOP of FULL/PARTIAL.
   let chaosEvent: ChaosFizzleResult | undefined;
   if (isOvercharge && (primary.tier === "FULL" || primary.tier === "PARTIAL")) {
-    chaosEvent = rollChaosFizzle(state);
-    narrativeHooks.push(`🌟 OVERCHARGE Hollywood path: transformation lands AND exotic field event fires.`);
+    // Severity per §8: (capacitor − profile.max) × 10. Disciplined overshoot
+    // (< 0.10) rolls FLICKER; greed escalates through SURGE to RUPTURE.
+    const overchargeSeverity = Math.max(
+      0,
+      (ray.powerCore.capacitorCharge - profile.maxCapacitor) * 10,
+    );
+    chaosEvent = rollChaosFizzle(overchargeSeverity);
+    narrativeHooks.push(
+      `🌟 OVERCHARGE Hollywood path: transformation lands AND exotic field event fires (field intensity: ${chaosEvent.fieldIntensity}).`,
+    );
     environmentalEffects.push(chaosEvent.description);
   }
 
   // -- EXOTIC primary outcome -----------------------------------------------
-  // The chaos table IS the outcome — energetic failure, no transform.
+  // The chaos table IS the outcome — energetic failure, no transform. The
+  // configuration was already in runaway territory, so this is always
+  // RUPTURE-band (EXOTIC_FIELD_SEVERITY).
   if (primary.tier === "EXOTIC") {
-    chaosEvent = rollChaosFizzle(state);
-    narrativeHooks.push(`⚠️ EXOTIC FAILURE: energetic discharge — chaos lands instead of transformation.`);
+    chaosEvent = rollChaosFizzle(EXOTIC_FIELD_SEVERITY);
+    narrativeHooks.push(`⚠️ EXOTIC FAILURE: energetic discharge — chaos lands instead of transformation (field intensity: ${chaosEvent.fieldIntensity}).`);
     environmentalEffects.push(chaosEvent.description);
   }
 
@@ -1340,12 +1389,43 @@ export function resolveFiring(state: FullGameState): FiringResult {
 // CHAOS FIZZLE TABLE (d20)
 // ============================================
 
-function rollChaosFizzle(state: FullGameState): ChaosFizzleResult {
-  const roll = rollD20();
-  return getChaosFizzleEffect(roll, state);
+/**
+ * Severity-banded chaos roll (§8, wired 2026-06-12 per Krahe — "players
+ * should genuinely feel reason for caution"). The severity input selects a
+ * field-intensity band (FLICKER / SURGE / RUPTURE); the band weights which
+ * pool the event draws from. Pools derive from the entries' own severity
+ * tags. crypto.randomInt throughout — the dice can't lie.
+ *
+ * Future (tbd item 15): exoticFieldSaturation counter feeds back into
+ * severity so chaos compounds across a game; region/failure-type wiring.
+ */
+export function rollChaosFizzle(severity: number): ChaosFizzleResult {
+  const intensity = chaosFieldIntensity(severity);
+  const weights = CHAOS_BAND_WEIGHTS[intensity];
+
+  const entries = Object.values(CHAOS_TABLE);
+  const pools = {
+    mild: entries.filter(e => e.severity === "harmless" || e.severity === "comedic"),
+    serious: entries.filter(e => e.severity === "energetic"),
+    catastrophic: entries.filter(e => e.severity === "catastrophic"),
+  };
+
+  const percentile = randomInt(1, 101); // 1-100
+  const pool =
+    percentile <= weights.mild
+      ? pools.mild
+      : percentile <= weights.mild + weights.serious
+        ? pools.serious
+        : pools.catastrophic;
+
+  const picked = pool.length > 0 ? pool[randomInt(0, pool.length)] : getChaosFizzleEffect(rollD20());
+  return { ...picked, fieldIntensity: intensity };
 }
 
-function getChaosFizzleEffect(roll: number, state: FullGameState): ChaosFizzleResult {
+function getChaosFizzleEffect(roll: number): ChaosFizzleResult {
+  return CHAOS_TABLE[roll] || CHAOS_TABLE[1];
+}
+
   // ============================================
   // CHAOS TABLE (rewritten 2026-06-07 per Krahe — sharper failure energy)
   // ============================================
@@ -1365,7 +1445,7 @@ function getChaosFizzleEffect(roll: number, state: FullGameState): ChaosFizzleRe
   //   - Variety: atmospheric weirdness, environmental hazards, collateral
   //     transformation, chimeric fusion, mass mini-transformations,
   //     facility-wide consequences, catastrophic events.
-  const effects: Record<number, ChaosFizzleResult> = {
+const CHAOS_TABLE: Record<number, ChaosFizzleResult> = {
     1: {
       roll: 1,
       name: "Spectral Plumage Drift",
@@ -1504,12 +1584,9 @@ function getChaosFizzleEffect(roll: number, state: FullGameState): ChaosFizzleRe
       name: "Resonance Cascade Initiated",
       description: "The fire couples back into the ray's own core, or into ARCHIMEDES if it's linked. The exotic field doesn't dissipate — it amplifies. Alarms cascade across the facility. Dr. M emergency-stops everything. BASILISK is screaming. If ARCHIMEDES was charging, the cascade is now its problem too.",
       mechanical: "If ARCHIMEDES linked (CHARGING/ARMED/FIRING): cascadeTriggered = true; existing cascade logic fires. Otherwise: ray enters FAULT state for 3+ turns. structuralIntegrity -= heavy. suspicionScore += 3. Lab partially evacuated. Catastrophic — game state shifts meaningfully.",
-      severity: "energetic",
+      severity: "catastrophic",
     },
-  };
-
-  return effects[roll] || effects[1];
-}
+};
 
 // ============================================
 // HELPER FUNCTIONS
