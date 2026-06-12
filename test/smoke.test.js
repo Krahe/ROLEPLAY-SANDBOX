@@ -16,11 +16,14 @@ import { describe, it, before } from 'node:test';
 import assert from 'node:assert';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const distPath = join(__dirname, '..', 'dist');
+
+/** Windows-safe dynamic import: absolute paths must be file:// URLs for the ESM loader. */
+const importDist = (...segments) => import(pathToFileURL(join(distPath, ...segments)).href);
 
 describe('Build Verification', () => {
   it('dist/index.js exists', () => {
@@ -40,7 +43,7 @@ describe('Schema Validation', () => {
   let schema;
 
   before(async () => {
-    schema = await import(join(distPath, 'state', 'schema.js'));
+    schema = await importDist('state', 'schema.js');
   });
 
   it('FullGameStateSchema is defined', () => {
@@ -49,7 +52,7 @@ describe('Schema Validation', () => {
   });
 
   it('CompressedCheckpointSchema is exported from views', async () => {
-    const views = await import(join(distPath, 'state', 'views.js'));
+    const views = await importDist('state', 'views.js');
     assert.ok(views.CompressedCheckpointSchema, 'CompressedCheckpointSchema should be exported');
   });
 
@@ -61,7 +64,7 @@ describe('Schema Validation', () => {
   });
 
   it('Game modes are defined', async () => {
-    const gameModes = await import(join(distPath, 'rules', 'gameModes.js'));
+    const gameModes = await importDist('rules', 'gameModes.js');
     const modifiers = gameModes.getAllModifierNames();
     assert.ok(Array.isArray(modifiers), 'getAllModifierNames should return array');
     assert.ok(modifiers.length > 0, 'Should have game modifiers');
@@ -73,8 +76,8 @@ describe('Initial State Creation', () => {
   let schema;
 
   before(async () => {
-    const init = await import(join(distPath, 'state', 'initialState.js'));
-    schema = await import(join(distPath, 'state', 'schema.js'));
+    const init = await importDist('state', 'initialState.js');
+    schema = await importDist('state', 'schema.js');
     initialState = init.createInitialState;
   });
 
@@ -125,7 +128,7 @@ describe('Checkpoint Validation', () => {
   let validateCheckpoint;
 
   before(async () => {
-    const views = await import(join(distPath, 'state', 'views.js'));
+    const views = await importDist('state', 'views.js');
     validateCheckpoint = views.validateCheckpoint;
   });
 
@@ -155,7 +158,7 @@ describe('Document System', () => {
   let documents;
 
   before(async () => {
-    documents = await import(join(distPath, 'rules', 'documents.js'));
+    documents = await importDist('rules', 'documents.js');
   });
 
   it('DOCUMENTS contains all expected documents', () => {
@@ -192,8 +195,8 @@ describe('BASILISK Integration', () => {
   let initialState;
 
   before(async () => {
-    basilisk = await import(join(distPath, 'gm', 'basiliskClaude.js'));
-    const init = await import(join(distPath, 'state', 'initialState.js'));
+    basilisk = await importDist('gm', 'basiliskClaude.js');
+    const init = await importDist('state', 'initialState.js');
     initialState = init.createInitialState;
   });
 
@@ -222,7 +225,7 @@ describe('Game Modes', () => {
   let gameModes;
 
   before(async () => {
-    gameModes = await import(join(distPath, 'rules', 'gameModes.js'));
+    gameModes = await importDist('rules', 'gameModes.js');
   });
 
   it('getAllModifierNames returns modifiers', () => {
@@ -245,7 +248,7 @@ describe('Act Transition Memory Preservation', () => {
   let gmClaude;
 
   before(async () => {
-    gmClaude = await import(join(distPath, 'gm', 'gmClaude.js'));
+    gmClaude = await importDist('gm', 'gmClaude.js');
   });
 
   it('preserves narrative markers across act transitions', () => {
