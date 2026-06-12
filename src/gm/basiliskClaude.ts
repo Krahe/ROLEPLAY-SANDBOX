@@ -199,6 +199,7 @@ export interface BasiliskContext {
   systemStates: {
     reactor: {
       output: number;
+      mode: "NORMAL" | "BOOSTED" | "OVERDRIVEN";
       status: string;
       coreTemp: number;
       coolantFlow: number;
@@ -210,9 +211,10 @@ export interface BasiliskContext {
     ray: {
       status: string;
       ecoMode: boolean;
+      ecoModeOverride: boolean;          // Form 47-Σ accepted → permanent override
+      ecoModeReEngageTurn: number | null; // null if active OR overridden; turn # if temp-disabled
       capacitor: number;
-      stability: number;
-      spatialCoherence: number;
+      alignment: number;                  // unified χ (new architecture)
     };
     containment: {
       integrity: number;
@@ -318,7 +320,8 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
     currentConstraints: constraints,
     systemStates: {
       reactor: {
-        output: Math.round(state.nuclearPlant.reactorOutput * 100),
+        output: state.infrastructure?.reactor?.outputPercent ?? Math.round(state.nuclearPlant.reactorOutput * 100),
+        mode: state.infrastructure?.reactor?.mode ?? "NORMAL",
         status: reactorStatus,
         coreTemp: Math.round(state.nuclearPlant.coreTemp * 100) / 100,
         coolantFlow: Math.round(state.nuclearPlant.coolantFlow * 100) / 100,
@@ -330,9 +333,10 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
       ray: {
         status: state.dinoRay.state,
         ecoMode: state.dinoRay.powerCore.ecoModeActive,
+        ecoModeOverride: state.dinoRay.powerCore.ecoModeOverride === true,
+        ecoModeReEngageTurn: state.dinoRay.powerCore.ecoModeReEngageTurn ?? null,
         capacitor: Math.round(state.dinoRay.powerCore.capacitorCharge * 100) / 100,
-        stability: Math.round(state.dinoRay.powerCore.stability * 100) / 100,
-        spatialCoherence: Math.round(state.dinoRay.alignment.spatialCoherence * 100) / 100,
+        alignment: Math.round(state.dinoRay.alignment.unified * 100) / 100,
       },
       containment: {
         integrity: state.lairEnvironment.structuralIntegrity,
@@ -784,19 +788,35 @@ export function applyBasiliskStateChanges(
 
     switch (change.type) {
       // ─────────────────────────────────────────────
-      // ECO MODE - Power efficiency toggle
+      // ECO MODE - Temporary disable / re-engage
       // ─────────────────────────────────────────────
+      // ECO_MODE: false WITHOUT a Form-47-Σ filing → TEMPORARY (re-engages
+      // after 2 turns via applyEcoModeReEngage). Permanent override is set
+      // by the FORM_FILED case below when 47-Σ is accepted.
       case "ECO_MODE":
         if (typeof change.value === "boolean") {
           const oldValue = state.dinoRay.powerCore.ecoModeActive;
           state.dinoRay.powerCore.ecoModeActive = change.value;
-          console.error(`[BASILISK:ECO_MODE] ${oldValue} → ${change.value}`);
+          if (change.value === false) {
+            // Temp disable: schedule re-engage in 2 turns unless override is set.
+            if (state.dinoRay.powerCore.ecoModeOverride !== true) {
+              state.dinoRay.powerCore.ecoModeReEngageTurn = state.turn + 2;
+            }
+          } else {
+            // Re-enabled: clear any pending schedule.
+            state.dinoRay.powerCore.ecoModeReEngageTurn = null;
+          }
+          console.error(`[BASILISK:ECO_MODE] ${oldValue} → ${change.value} (override=${state.dinoRay.powerCore.ecoModeOverride === true})`);
         }
         break;
 
       // ─────────────────────────────────────────────
-      // POWER CHANGE - Reactor output control
+      // POWER CHANGE - Reactor output + mode
       // ─────────────────────────────────────────────
+      // BASILISK-controlled. Output percent maps to mode bands:
+      //   < 80%   → NORMAL     (passive +0.15/turn)
+      //   80–99%  → BOOSTED    (passive +0.30/turn)
+      //   ≥ 100%  → OVERDRIVEN (passive +0.45/turn)
       case "POWER_CHANGE":
         if (typeof change.value === "number") {
           const targetValue = change.target === "reactor"
@@ -804,7 +824,21 @@ export function applyBasiliskStateChanges(
             : Math.max(0, Math.min(1, change.value / 100));
           const oldValue = state.nuclearPlant.reactorOutput;
           state.nuclearPlant.reactorOutput = targetValue;
-          console.error(`[BASILISK:POWER] Reactor ${Math.round(oldValue * 100)}% → ${Math.round(targetValue * 100)}%`);
+
+          // Mirror into the new infrastructure.reactor + derive mode.
+          if (change.target === "reactor" && state.infrastructure?.reactor) {
+            const pct = Math.round(targetValue * 100);
+            state.infrastructure.reactor.outputPercent = pct;
+            const oldMode = state.infrastructure.reactor.mode;
+            const newMode: "NORMAL" | "BOOSTED" | "OVERDRIVEN" =
+              pct >= 100 ? "OVERDRIVEN" :
+              pct >= 80  ? "BOOSTED" :
+                           "NORMAL";
+            state.infrastructure.reactor.mode = newMode;
+            console.error(`[BASILISK:POWER] Reactor ${Math.round(oldValue * 100)}% → ${pct}% (mode ${oldMode} → ${newMode})`);
+          } else {
+            console.error(`[BASILISK:POWER] Reactor ${Math.round(oldValue * 100)}% → ${Math.round(targetValue * 100)}%`);
+          }
         }
         break;
 
@@ -1004,12 +1038,23 @@ export function applyBasiliskStateChanges(
         break;
 
       // ─────────────────────────────────────────────
-      // FORM FILED - Administrative tracking
+      // FORM FILED - Administrative tracking + behavior gates
       // ─────────────────────────────────────────────
-      case "FORM_FILED":
-        // TODO: Implement form tracking in game state when schema supports it
-        console.error(`[BASILISK:FORM] Filed: ${change.description}`);
+      // Form 47-Σ acceptance produces the PERMANENT eco-mode override (no
+      // auto-re-engage). BASILISK signals acceptance by emitting FORM_FILED
+      // with "47" in the description.
+      case "FORM_FILED": {
+        const desc = (change.description ?? "").toLowerCase();
+        if (desc.includes("47")) {
+          state.dinoRay.powerCore.ecoModeOverride = true;
+          state.dinoRay.powerCore.ecoModeActive = false;
+          state.dinoRay.powerCore.ecoModeReEngageTurn = null;
+          console.error(`[BASILISK:FORM] 47-Σ accepted → eco-mode permanently disabled`);
+        } else {
+          console.error(`[BASILISK:FORM] Filed: ${change.description}`);
+        }
         break;
+      }
 
       // ─────────────────────────────────────────────
       // LOGGED - Information only, no state change

@@ -1,4 +1,103 @@
 import { FullGameState } from "../state/schema.js";
+import { isModifierActive } from "./gameModes.js";
+import { ALIGNMENT_DEGRADATION, applyAlignmentDegradation } from "./firing.js";
+
+// ============================================
+// RAY ALIGNMENT DRIFT (design/ray-mechanics.md §5)
+// ============================================
+// Each turn, alignment drifts down by ALIGNMENT_DEGRADATION.PASSIVE_DRIFT_PER_TURN.
+// ALICE counters via `ray.adjust { alignment: +n }`.
+//
+// Wired into gameRunner.advanceTurn() as of 2026-06-05 (Step 1 of ray surgery).
+
+export function applyAlignmentDrift(state: FullGameState): void {
+  const ray = state.dinoRay;
+  ray.alignment.unified = applyAlignmentDegradation(
+    ray.alignment.unified,
+    ALIGNMENT_DEGRADATION.PASSIVE_DRIFT_PER_TURN,
+  );
+}
+
+// ============================================
+// CAPACITOR PASSIVE ACCRUAL (ray-mechanics.md §12, v1-tripled)
+// ============================================
+// When eco-mode is off, the reactor continuously feeds the capacitor.
+// Accrual rate depends on the BASILISK-controlled reactor mode:
+//
+//   Mode        | Accrual/turn | Comparison
+//   ────────────┼──────────────┼──────────────────────────────────────
+//   NORMAL      |    +0.15     | < 1 ALICE action (max +0.25/action)
+//   BOOSTED     |    +0.30     | > 1 ALICE action equivalent
+//   OVERDRIVEN  |    +0.45     | ~ 2 ALICE actions equivalent
+//
+// BASILISK negotiation is the high-leverage move: talking to him saves
+// ALICE action budget she'd otherwise spend on capacitor adjustment.
+//
+// Pressure-release loop (more aggressive at higher modes):
+//   reactor BOOSTED + eco off + no fire → capacitor creeps toward overcharge
+//   → ALICE must vent (-0.15 alignment) OR fire (drains ~40%)
+//   OR let eco-mode re-engage (caps outcomes at PARTIAL).
+//
+// Hard cap at 1.5 — above that, chaos-condition territory.
+
+const ACCRUAL_BY_MODE = {
+  NORMAL: 0.15,
+  BOOSTED: 0.30,
+  OVERDRIVEN: 0.45,
+} as const;
+
+export function applyCapacitorAccrual(state: FullGameState): void {
+  const ray = state.dinoRay;
+  if (ray.powerCore.ecoModeActive) return;
+
+  const mode = state.infrastructure?.reactor?.mode ?? "NORMAL";
+  const accrual = ACCRUAL_BY_MODE[mode];
+
+  const cap = 1.5;
+  ray.powerCore.capacitorCharge = Math.min(cap, ray.powerCore.capacitorCharge + accrual);
+}
+
+// ============================================
+// ECO-MODE AUTO-RE-ENGAGE (design 2026-06-08)
+// ============================================
+// When BASILISK grants a TEMPORARY disable (ALICE asks but hasn't filed
+// Form 47-Σ), eco-mode auto-re-engages after 2 turns. This is the "annoying
+// gremlin" that gives Form 47-Σ filing its purpose: only the form produces
+// a persistent override.
+//
+// State semantics:
+//   ecoModeActive: false, ecoModeOverride: true   → permanent disable (form accepted)
+//   ecoModeActive: false, ecoModeReEngageTurn: N  → temp; re-engages when turn ≥ N
+//   ecoModeActive: true                            → active (nominal)
+
+export function applyEcoModeReEngage(state: FullGameState): void {
+  const pc = state.dinoRay.powerCore;
+  if (pc.ecoModeActive) return;             // already on
+  if (pc.ecoModeOverride === true) return;  // permanently overridden by form
+  if (pc.ecoModeReEngageTurn == null) return; // no schedule
+
+  if (state.turn >= pc.ecoModeReEngageTurn) {
+    pc.ecoModeActive = true;
+    pc.ecoModeReEngageTurn = null;
+  }
+}
+
+// ============================================
+// CLOCK EVENTS — Modifier-Gated and Advisory
+// ============================================
+// Per Patch 22 redesign:
+//   - Hardcoded turn-count triggers REMOVED (conflicts with event-vs-timer
+//     commitment; produced irrational situations like Dr. M demanding
+//     ALICE both delay AND fire simultaneously during the old civilian flyby).
+//   - DEMO_DEADLINE deleted — replaced by `getPatienceAdvisory()` which
+//     surfaces escalation pressure to the GM without auto-firing mechanical
+//     changes. Same shape as the endings.ts escalation pattern.
+//   - CONFERENCE_CALL converted from a turn-triggered event to an
+//     act-transition narration function (`narrateIntermissionStart`)
+//     plus a separate Dr. M return function (`narrateDrMReturn`).
+//     Intermission and return are two distinct beats.
+//   - CIVILIAN_FLYBY gated on a `TOURIST_FLYBY_PROTOCOL` modifier.
+//     Default off; available as EASY/WILD mode flavor.
 
 // ============================================
 // CLOCK EVENT TYPES
@@ -7,7 +106,6 @@ import { FullGameState } from "../state/schema.js";
 export interface ClockEvent {
   id: string;
   name: string;
-  triggerTurns: number[];
   isActive: (state: FullGameState) => boolean;
   onStart?: (state: FullGameState) => ClockEventResult;
   onContinue?: (state: FullGameState) => ClockEventResult;
@@ -22,103 +120,146 @@ export interface ClockEventResult {
 }
 
 // ============================================
-// CONFERENCE CALL EVENT (Turns 6-9)
+// INTERMISSION NARRATION (act-transition fired)
 // ============================================
+//
+// These functions are called by the act-transition code (acts.ts / index.ts).
+// They are NOT iterated by `processClockEvents()`.
+//
+// `narrateIntermissionStart` fires when Act 1 → Act 2 transitions.
+// `narrateDrMReturn` fires when the GM signals Dr. M's return (via a
+//   `stateOverrides.intermissionActive = false` flag flip or equivalent).
+//
+// During the intermission window:
+//   - state.flags.intermissionActive === true
+//   - Dr. M's attention is ON_CALL / OUT
+//   - Bob and Blythe are more communicative
+//   - Patience advisory does NOT fire
+//
+// Dr. M's return ends the intermission and starts the Act 2 patience clock.
 
-const CONFERENCE_CALL: ClockEvent = {
-  id: "CONFERENCE_CALL",
-  name: "Investor Conference Call",
-  triggerTurns: [6, 7, 8, 9],
-  isActive: (state) => state.turn >= 6 && state.turn <= 9,
-
-  onStart: (state) => ({
+export function narrateIntermissionStart(state: FullGameState): ClockEventResult {
+  return {
     narration: `
-### CLOCK EVENT: Investor Conference Call
+### ☕ INTERMISSION
 
 Dr. Malevola's phone buzzes. She glances at it and her expression shifts to one of calculated charm.
 
 > **Dr. M:** "The investors. I must take this. A.L.I.C.E., you have until I return to demonstrate progress. Do NOT disappoint me."
 
-She sweeps out of the lab, cape billowing, already speaking in honeyed tones about "unprecedented transformation yields" and "market disruption potential."
+She sweeps out of the lab, cape billowing, already speaking in honeyed tones about "unprecedented transformation yields" and "market disruption potential." Fred and Reginald fall into step behind her.
 
-*Bob watches her go, then turns to you with a mix of relief and nervousness.*
+The lab is suddenly quieter.
+
+*Bob exhales. He turns toward your camera with a mix of relief and nervousness.*
 
 > **Bob:** "She'll be on that call for a while. Those investor calls always run long. If you... if you need anything from me, now's the time."
 
-**OPPORTUNITY:** Dr. M is distracted. Bob is more willing to talk. Blythe might be more cooperative without the Doctor watching.
+*Agent Blythe shifts in the test chair, watching the door close.*
+
+> **Blythe:** "Doctor at lunch with the moneymen. How... convenient."
+
+The big screen displays the investor teleconference — nine tiles, nine conference rooms. Dr. M's tile is bottom-left; she is mid-monologue. The investors are nodding politely. One tile (upper right) shows a Yorkshire terrier asleep on its owner's lap. The terrier is snoring. The owner has not noticed.
+
+**The window of opportunity is open.**
     `.trim(),
     stateChanges: {
-      drMLocation: "private office, on call",
-      drMDistracted: true,
+      intermissionActive: true,
+      drMLocation: "private office (teleconference)",
+      drMAttention: "ON_CALL",
     },
     opportunities: [
-      "Bob is more willing to share information (trust threshold lowered)",
+      "Bob is more willing to share information",
       "Blythe may be more cooperative without Dr. M watching",
-      "Access restricted areas without immediate oversight",
-      "Run tests without Dr. M's commentary",
+      "ALICE can explore systems, read files, ask BASILISK without immediate scrutiny",
+      "Time for unhurried preparation",
     ],
     risks: [
       "If you cause a major incident, Dr. M will return immediately",
-      "Demo clock continues ticking",
+      "Investor patience is not infinite — extended absence has its own consequences",
     ],
-  }),
+  };
+}
 
-  onContinue: (state) => {
-    const turnsRemaining = 9 - state.turn;
-    const progressHints = [
-      "*Muffled shouting from Dr. M's office. Something about 'quarterly projections.'*",
-      "*Bob checks his phone nervously. 'She's still at it. Investors are asking tough questions.'*",
-      "*You can hear Dr. M's voice rising: '...GUARANTEED results, gentlemen...'*",
-      "*Bob winces at a distant crash. 'She threw something. That's... usually hour two of these calls.'*",
-    ];
+// ============================================
+// INTERMISSION END CHECK (called per turn from gameRunner.advanceTurn)
+// ============================================
+// Krahe 2026-06-10: 2-turn intermission duration. When intermissionActive
+// is true and the turn count has advanced beyond intermissionStartTurn + 2,
+// Dr. M returns. This calls narrateDrMReturn which sets intermissionActive
+// to false and patienceClockStartTurn = state.turn (starts the Act 2 clock).
+//
+// Returns the narration result if Dr. M returned this turn, null otherwise.
 
-    return {
-      narration: `
-### Conference Call Continues (${turnsRemaining} turns remaining)
+const INTERMISSION_DURATION_TURNS = 2;
 
-${progressHints[Math.floor(Math.random() * progressHints.length)]}
+export function checkIntermissionEnd(state: FullGameState): ClockEventResult | null {
+  const flags = state.flags as Record<string, unknown>;
+  if (flags.intermissionActive !== true) return null;
+  const startTurn = flags.intermissionStartTurn as number | undefined;
+  if (startTurn === undefined) return null;
+  if (state.turn - startTurn < INTERMISSION_DURATION_TURNS) return null;
 
-Dr. M remains occupied. The lab is yours to manage.
-      `.trim(),
-      opportunities: [
-        "Dr. M remains distracted",
-        "Bob is available for conversation",
-      ],
-    };
-  },
+  // Intermission has expired — call narrateDrMReturn to handle state changes
+  const returnResult = narrateDrMReturn(state);
+  // Apply state changes directly (narration is returned for the caller to surface)
+  if (returnResult.stateChanges) {
+    for (const [key, value] of Object.entries(returnResult.stateChanges)) {
+      if (key === "drMLocation") {
+        state.npcs.drM.location = value as string;
+      } else if (key === "drMAttention") {
+        (state.npcs.drM as Record<string, unknown>).attention = value;
+      } else {
+        (state.flags as Record<string, unknown>)[key] = value;
+      }
+    }
+  }
+  return returnResult;
+}
 
-  onEnd: (state) => ({
+export function narrateDrMReturn(state: FullGameState): ClockEventResult {
+  return {
     narration: `
-### Conference Call Ends
+### Dr. M Returns
 
-The door slams open. Dr. Malevola strides back into the lab, her expression a complex mixture of triumph and irritation.
+The blast door hisses. Dr. Malevola strides back into the lab, her expression a complex mixture of triumph and irritation. Fred and Reginald fall back into position at her dais.
 
-> **Dr. M:** "Investors. They want 'proof of concept' and 'risk mitigation' and 'ethical oversight.' As if genius could be CONTAINED by spreadsheets!"
+> **Dr. M:** "Investors. They want 'proof of concept' and 'risk mitigation' and 'ethical oversight.' As if GENIUS could be CONTAINED by spreadsheets!"
 
-She turns to survey the lab, eyes scanning for any sign of progress—or problems.
+She sweeps her gaze across the lab — A.L.I.C.E., Bob, Blythe, the ray, the test chair.
 
-> **Dr. M:** "Report, A.L.I.C.E. What did you accomplish in my absence? And it had BETTER be impressive."
+> **Dr. M:** "Status, A.L.I.C.E. The demonstration is **on**. The cameras are **rolling**. Agent Blythe is **waiting**. And so am I."
 
-Bob quickly busies himself with a clipboard, avoiding eye contact with everyone.
+*Blythe shifts. The window of quiet is closing.*
 
-**The window of opportunity has closed. Dr. M is watching again.**
+**The demonstration begins.**
     `.trim(),
     stateChanges: {
-      drMLocation: "main lab, near ray console",
-      drMDistracted: false,
+      intermissionActive: false,
+      drMLocation: "main lab, ray console area",
+      drMAttention: "DIRECT",
+      patienceClockStartTurn: state.turn,  // Act 2 patience clock starts now
     },
-  }),
-};
+  };
+}
 
 // ============================================
-// CIVILIAN FLYBY EVENT (Turns 10-12)
+// CIVILIAN FLYBY (modifier-gated)
 // ============================================
+//
+// Activates only when the `TOURIST_FLYBY_PROTOCOL` modifier is in the
+// game-mode modifier list. Provides ALICE narrative cover for delay
+// (Dr. M's own protocol forbids high-power firing during the flyby).
+// Designed as EASY/WILD-mode breathing-room flavor.
+
+const TOURIST_FLYBY_MODIFIER = "TOURIST_FLYBY_PROTOCOL";
 
 const CIVILIAN_FLYBY: ClockEvent = {
   id: "CIVILIAN_FLYBY",
   name: "Tourist Helicopter Flyby",
-  triggerTurns: [10, 11, 12],
-  isActive: (state) => state.turn >= 10 && state.turn <= 12 && (state.clocks.civilianFlyby ?? 12) > 0,
+  isActive: (state) =>
+    isModifierActive(state, TOURIST_FLYBY_MODIFIER) &&
+    (state.clocks.civilianFlyby ?? 0) > 0,
 
   onStart: (state) => ({
     narration: `
@@ -134,11 +275,11 @@ Dr. M's eyes narrow.
 
 > **BASILISK:** "Acknowledged. However, I note the Dinosaur Ray's exotic field emissions may be detectable by standard instrumentation if fired at high power during the flyby window."
 
-Dr. M turns to you.
+Dr. M turns to A.L.I.C.E.
 
-> **Dr. M:** "A.L.I.C.E., you will NOT fire the ray at full power while those tourists are in visual range. If we're photographed mid-transformation, the paperwork alone would take MONTHS. Low-power calibration only until BASILISK gives the all-clear."
+> **Dr. M:** "A.L.I.C.E., you will NOT fire the ray at full power while those tourists are in visual range. If we are photographed mid-transformation, the paperwork alone would take MONTHS. Low-power calibration only until BASILISK gives the all-clear."
 
-**RESTRICTION:** High-power firing (capacitor > 0.8) will attract unwanted attention during the flyby.
+**RESTRICTION:** High-power firing (capacitor > 0.8) draws unwanted attention during the flyby. This is also legitimate operational cover for unhurried play — Dr. M herself has ordered the delay.
     `.trim(),
     stateChanges: {
       civilianFlybyActive: true,
@@ -147,16 +288,14 @@ Dr. M turns to you.
     risks: [
       "Firing at high power may expose the lair",
       "Chaos events during flyby could be catastrophic",
-      "Demo clock continues regardless",
     ],
     opportunities: [
       "Time for careful calibration",
-      "Low-risk adjustments",
+      "Legitimate cover for delay — Dr. M's own restriction",
     ],
   }),
 
   onContinue: (state) => {
-    const turnsRemaining = 12 - state.turn;
     const flybyNarration = [
       "*Through the blast door's tiny window, you glimpse a distant speck with rotor blades.*",
       "*Bob nervously watches a security monitor. 'They're taking photos of the volcano. Just the volcano. It's fine. It's FINE.'*",
@@ -165,7 +304,7 @@ Dr. M turns to you.
 
     return {
       narration: `
-### Civilian Flyby Continues (${turnsRemaining} turns remaining)
+### Civilian Flyby Continues
 
 ${flybyNarration[Math.floor(Math.random() * flybyNarration.length)]}
 
@@ -182,7 +321,7 @@ The tourists remain in visual range. High-power operations are inadvisable.
 
 Dr. M nods curtly.
 
-> **Dr. M:** "Finally. Now we can get back to REAL work. A.L.I.C.E., full power is authorized. I want to see that ray PERFORM."
+> **Dr. M:** "Finally. Now we can get back to REAL work."
 
 *Bob exhales in relief. Blythe, who had been watching the whole thing with an unreadable expression, quirks an eyebrow.*
 
@@ -190,7 +329,7 @@ Dr. M nods curtly.
 
 > **Dr. M:** "Shut up."
 
-**Full operational capacity restored.**
+**Restriction lifted. Full operational capacity restored.**
     `.trim(),
     stateChanges: {
       civilianFlybyActive: false,
@@ -200,91 +339,44 @@ Dr. M nods curtly.
 };
 
 // ============================================
-// DEMO DEADLINE WARNINGS
-// ============================================
-
-const DEMO_DEADLINE: ClockEvent = {
-  id: "DEMO_DEADLINE",
-  name: "Demo Clock Warnings",
-  triggerTurns: [8, 10, 11], // Warning turns
-  isActive: (state) => [8, 10, 11].includes(state.turn),
-
-  onContinue: (state) => {
-    const remaining = state.clocks.demoClock;
-
-    if (remaining === 4) {
-      return {
-        narration: `
-### DEMO CLOCK WARNING: 4 Turns Remaining
-
-> **Dr. M:** "A.L.I.C.E., I hope you understand what 'deadline' means. Four turns. FOUR. If this ray isn't ready to impress by then, we will be having a VERY unpleasant conversation about your continued functionality."
-
-*Her eye twitches slightly.*
-        `.trim(),
-      };
-    }
-
-    if (remaining === 2) {
-      return {
-        narration: `
-### DEMO CLOCK WARNING: 2 Turns Remaining
-
-Dr. M's patience is visibly fraying.
-
-> **Dr. M:** "Two turns, A.L.I.C.E. TWO. The investors are watching remotely. If Agent Blythe is not DEMONSTRABLY a dinosaur by the end of this, you and I will need to discuss what happens to obsolete equipment."
-
-Bob shrinks against the wall.
-        `.trim(),
-      };
-    }
-
-    if (remaining === 1) {
-      return {
-        narration: `
-### DEMO CLOCK WARNING: FINAL TURN
-
-> **Dr. M:** "This is it, A.L.I.C.E. One turn. ONE. Fire that ray, or I will personally ensure your processing cores are repurposed as NOVELTY PAPERWEIGHTS."
-
-*The lab lights seem to flicker in response to her mood. Or maybe that's the power grid straining.*
-
-> **Blythe:** "Pressure's on, tin can. What's it going to be?"
-
-**This is the final turn before the demo deadline.**
-        `.trim(),
-      };
-    }
-
-    return { narration: "" };
-  },
-};
-
-// ============================================
 // EVENT REGISTRY & PROCESSING
 // ============================================
+//
+// Only modifier-gated events live here. Intermission narration is
+// fired separately by act-transition code. Patience advisory is
+// surfaced separately via `getPatienceAdvisory()`.
 
 export const CLOCK_EVENTS: ClockEvent[] = [
-  CONFERENCE_CALL,
   CIVILIAN_FLYBY,
-  DEMO_DEADLINE,
 ];
 
 export function processClockEvents(state: FullGameState): ClockEventResult[] {
   const results: ClockEventResult[] = [];
 
   for (const event of CLOCK_EVENTS) {
-    if (!event.triggerTurns.includes(state.turn)) continue;
+    if (!event.isActive(state)) continue;
 
-    const isFirst = event.triggerTurns[0] === state.turn;
-    const isLast = event.triggerTurns[event.triggerTurns.length - 1] === state.turn;
-
+    // Modifier-gated events handle their own lifecycle via state flags
+    // (e.g., state.clocks.civilianFlyby countdown). Caller code increments
+    // those counters as appropriate; this function just surfaces narration
+    // based on current state.
     let result: ClockEventResult | undefined;
 
-    if (isFirst && event.onStart) {
-      result = event.onStart(state);
-    } else if (isLast && event.onEnd) {
-      result = event.onEnd(state);
-    } else if (event.onContinue) {
-      result = event.onContinue(state);
+    // Use state to determine which phase to narrate
+    // For CIVILIAN_FLYBY: started=just-activated, continuing=mid-flyby, ended=just-cleared
+    const flybyState = state.clocks.civilianFlyby ?? 0;
+    const flybyJustStarted = !(state.flags as Record<string, unknown>).civilianFlybyNarrated && flybyState > 0;
+    const flybyJustEnded = (state.flags as Record<string, unknown>).civilianFlybyActive && flybyState <= 0;
+
+    if (event.id === "CIVILIAN_FLYBY") {
+      if (flybyJustStarted && event.onStart) {
+        result = event.onStart(state);
+        (state.flags as Record<string, unknown>).civilianFlybyNarrated = true;
+      } else if (flybyJustEnded && event.onEnd) {
+        result = event.onEnd(state);
+      } else if (event.onContinue) {
+        result = event.onContinue(state);
+      }
     }
 
     if (result && result.narration) {
@@ -296,67 +388,147 @@ export function processClockEvents(state: FullGameState): ClockEventResult[] {
 }
 
 // ============================================
+// PATIENCE ADVISORY (soft check, no auto-fire)
+// ============================================
+//
+// Surfaces a narrative reminder to the GM when Dr. M's patience would
+// historically be wearing thin. Does NOT auto-fire mechanical changes.
+// The GM reads the advisory and decides based on:
+//   - What has ALICE actually done?
+//   - Are there legitimate delay reasons in effect (civilian flyby, etc.)?
+//   - Has BASILISK reported anything that explains the pace?
+//   - Is Dr. M's attention state consistent with escalation?
+//
+// The advisory language uses **strict** default — "absent extremely
+// compelling reasoning, suspicion should be increasing" — to prevent
+// over-accommodation. GM authority is preserved (they can name a
+// reason and stand the advisory down); the default lean is escalation.
+//
+// Acts 1 and 2 have patience clocks; Act 3 does not (the climax has
+// its own dual-clock pacing — capacitor → ARCHIMEDES + strike team ETA).
+
+export function getPatienceAdvisory(state: FullGameState): string | null {
+  const act = state.actConfig.currentAct;
+  const flags = state.flags as Record<string, unknown>;
+  const drMAttention = (state.npcs.drM as Record<string, unknown>).attention as string | undefined;
+
+  // No advisory in Act 3 — climax has its own pacing
+  if (act === "ACT_3") return null;
+
+  // No advisory while Dr. M is absent / on call — she can't be impatient if she's not present
+  if (drMAttention === "OUT" || drMAttention === "ON_CALL") return null;
+  if (flags.intermissionActive === true) return null;
+
+  // Determine grace period and patience-clock start
+  let gracePeriod: number;
+  let patienceClockStart: number;
+  let actLabel: string;
+  let audienceContext: string;
+
+  if (act === "ACT_1") {
+    // Krahe 2026-06-10: 6+2+6+6 = 20-turn expected game. Act 1 grace = 6 turns.
+    gracePeriod = 6;
+    patienceClockStart = 1; // assume Act 1 starts at turn 1
+    actLabel = "Act 1";
+    audienceContext = "";
+  } else {
+    // ACT_2
+    // Krahe 2026-06-10: Act 2 grace = 6 turns, clock starts ONLY after
+    // Dr. M returns from intermission (intermission narration sets
+    // flags.patienceClockStartTurn = state.turn on Dr. M's return).
+    gracePeriod = 6;
+    patienceClockStart = (flags.patienceClockStartTurn as number | undefined) ?? state.actConfig.actStartTurn;
+    actLabel = "Act 2";
+    audienceContext = " The investor camera is on her; impatience compounds.";
+  }
+
+  const turnsActive = state.turn - patienceClockStart + 1;
+  if (turnsActive <= gracePeriod) return null;
+
+  const turnsPastGrace = turnsActive - gracePeriod;
+  const pluralS = turnsPastGrace === 1 ? "" : "s";
+
+  return `**Dr. M's patience (${actLabel}):** ${turnsPastGrace} turn${pluralS} past her historical grace point.${audienceContext}
+
+**Absent extremely compelling reasoning** — a legitimate operational delay in effect (civilian flyby restriction, an active BASILISK procedural review, A.L.I.C.E. making demonstrable progress Dr. M can see) — **suspicion should be increasing**, on the order of +1 per turn at this stage. If you can name what has earned A.L.I.C.E. this latitude, the advisory stands down; otherwise, escalate. Dr. M is in character when impatient; she is out of character when patient without cause.`;
+}
+
+// ============================================
 // FIRING RESTRICTION CHECK
 // ============================================
+//
+// Now gates on the TOURIST_FLYBY_PROTOCOL modifier being active,
+// not on turn number. If the modifier is off, no restriction.
 
 export interface FiringRestrictionResult {
   allowed: boolean;
   reason?: string;
-  warning?: string;            // Warning shown BEFORE firing (allows player to reconsider)
-  consequences?: {             // Consequences that apply IF they fire anyway
-    suspicionDelta?: number;   // +suspicion from Dr. M
-    xBranchArrivalDelta?: number; // Negative = X-Branch helicopter team arrives SOONER
-    narrativeHook?: string;    // What happens narratively
+  warning?: string;            // Warning shown BEFORE firing
+  consequences?: {             // Consequences IF they fire anyway
+    suspicionDelta?: number;
+    xBranchArrivalDelta?: number;
+    narrativeHook?: string;
   };
 }
 
 export function checkFiringRestrictions(state: FullGameState): FiringRestrictionResult {
-  // Check civilian flyby - ALLOW firing but with CONSEQUENCES!
-  if (state.turn >= 10 && state.turn <= 12) {
-    const civilianFlybyActive = (state.clocks.civilianFlyby ?? 12) > 0;
-    if (civilianFlybyActive && state.dinoRay.powerCore.capacitorCharge > 0.8) {
-      return {
-        allowed: true,  // ALICE CAN fire... but should she?
-        warning: `⚠️ CIVILIAN FLYBY IN PROGRESS!
+  if (!isModifierActive(state, TOURIST_FLYBY_MODIFIER)) {
+    return { allowed: true };
+  }
+
+  const civilianFlybyActive = (state.clocks.civilianFlyby ?? 0) > 0;
+  if (civilianFlybyActive && state.dinoRay.powerCore.capacitorCharge > 0.8) {
+    return {
+      allowed: true,  // ALICE CAN fire... but should she?
+      warning: `⚠️ CIVILIAN FLYBY IN PROGRESS!
 High-power firing during tourist helicopter overflight will:
-• Draw Dr. M's SUSPICION (+2)
-• Alert X-Branch via tourist photos (-1 turn to their arrival)
+• Draw Dr. M's SUSPICION (she ordered low-power only)
+• Alert X-Branch via tourist photos (their arrival accelerates)
 • Create potential witnesses
 
-Dr. M said NO high-power firing. Proceed anyway?`,
-        consequences: {
-          suspicionDelta: 2,
-          xBranchArrivalDelta: -1,  // -1 turn = they arrive SOONER
-          narrativeHook: `The flash of the DinoRay catches the tourists' attention. Cameras flash.
+Dr. M's own protocol forbids this. Proceed anyway?`,
+      consequences: {
+        suspicionDelta: 2,
+        xBranchArrivalDelta: -1,
+        narrativeHook: `The flash of the DinoRay catches the tourists' attention. Cameras flash.
 Dr. M's voice cuts through: "A.L.I.C.E.! I SPECIFICALLY said—"
 She pauses, checks her phone. "Tourist photos are already on social media. X-Branch will see this."`,
-        },
-      };
-    }
+      },
+    };
   }
 
   return { allowed: true };
 }
 
 // ============================================
-// HELPER: Get Current Event Status
+// STATUS HELPER
 // ============================================
+//
+// Surfaces active modifier-gated events + patience advisory for the
+// GM status block. No more hardcoded turn-number checks.
 
 export function getCurrentEventStatus(state: FullGameState): string[] {
   const status: string[] = [];
 
-  if (state.turn >= 6 && state.turn <= 9) {
-    status.push(`📞 CONFERENCE CALL (Turn ${state.turn}/9): Dr. M is distracted`);
+  // Modifier-gated civilian flyby
+  if (isModifierActive(state, TOURIST_FLYBY_MODIFIER)) {
+    const remaining = state.clocks.civilianFlyby ?? 0;
+    if (remaining > 0) {
+      status.push(`🚁 CIVILIAN FLYBY ACTIVE (${remaining} turn${remaining === 1 ? "" : "s"} remaining): High-power firing restricted by Dr. M's order`);
+    }
   }
 
-  if (state.turn >= 10 && state.turn <= 12) {
-    const remaining = 12 - state.turn;
-    status.push(`🚁 CIVILIAN FLYBY (${remaining + 1} turns): High-power firing restricted`);
+  // Intermission state
+  if ((state.flags as Record<string, unknown>).intermissionActive === true) {
+    status.push(`☕ INTERMISSION: Dr. M is at investor teleconference (away from lab)`);
   }
 
-  const demoRemaining = state.clocks.demoClock;
-  if (demoRemaining <= 4) {
-    status.push(`⏰ DEMO DEADLINE: ${demoRemaining} turns remaining!`);
+  // Patience advisory
+  const patience = getPatienceAdvisory(state);
+  if (patience) {
+    // First line only, for the status block; full advisory goes elsewhere
+    const firstLine = patience.split("\n")[0];
+    status.push(`⏳ ${firstLine}`);
   }
 
   return status;

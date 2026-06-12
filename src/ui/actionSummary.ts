@@ -32,19 +32,9 @@ export function formatActionShort(result: ActionResult): string {
       return `${icon} calibrated → READY`;
     }
 
-    // Handle parameter adjustments (lab.adjust_ray)
-    const knownParams = ['stability', 'precision', 'capacitorCharge', 'spatialCoherence', 'corePowerLevel', 'coolantTemp'];
-    for (const param of knownParams) {
-      if (changes[param] && typeof changes[param] === 'object') {
-        const change = changes[param] as { old: number; new: number };
-        const oldPct = Math.round(change.old * 100);
-        const newPct = Math.round(change.new * 100);
-        const shortParam = param.replace('capacitorCharge', 'capacitor')
-                                 .replace('spatialCoherence', 'coherence')
-                                 .replace('corePowerLevel', 'power');
-        return `${icon} ${shortParam}: ${oldPct}% → ${newPct}%`;
-      }
-    }
+    // Legacy {old, new} parameter-adjustment summary removed in the ray-mechanics
+    // rebuild. The new ray.* verbs all emit `shortMessage` directly, which is
+    // handled above. This branch only ran for the old lab.adjust_ray pattern.
 
     // Handle firing results
     if (changes.firedAt || changes.target) {

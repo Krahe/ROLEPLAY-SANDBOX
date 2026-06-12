@@ -124,21 +124,32 @@ function checkAct1Transition(state: FullGameState): ActTransitionResult {
 }
 
 function checkAct2Transition(state: FullGameState): ActTransitionResult {
-  // ACT 2 OBJECTIVE: Transform Blythe
-  // Secondary triggers: secret revealed, or critical alliance formed
+  // ACT 2 OBJECTIVE: Demonstrate the ray works on a sentient subject (FULL
+  // transformation, any target). Alternative: Blythe escapes the lair —
+  // Dr. M then accelerates her timetable, dragging the lair into Act 3.
+  //
+  // PARTIAL/CHIMERA/EXOTIC do NOT advance — only FULL counts. This keeps
+  // Act 2 from ending prematurely on a lucky lowball shot, and gives the
+  // stability-pressure design room to breathe (player has to actually tune
+  // for FULL, not just connect with the beam).
+  //
+  // The "secret revealed" path was retired: it was structurally dramatic
+  // but informationally null — the player knew A.L.I.C.E. = Claude before
+  // they sat down. Reveal moment lives in flavor now, not as a gate.
+
   if (state.actConfig.actTurn < state.actConfig.minTurns) {
     return { shouldTransition: false };
   }
 
-  // Primary: Blythe has been transformed (any form)
-  const blytheForm = state.npcs.blythe.transformationState?.form;
-  if (blytheForm && typeof blytheForm === "string" && blytheForm !== "HUMAN") {
-    return buildTransition(state, "Blythe transformed - consequences unfold");
+  // Primary: SOMEONE achieved a FULL transformation (any organic target).
+  // Flag is set in applyFiringResults whenever a FULL_DINO outcome lands.
+  if (state.flags.fullTransformationAchieved) {
+    return buildTransition(state, "FULL transformation achieved — Dr. M moves to Phase 3");
   }
 
-  // Secondary: the secret has been revealed (dramatic bypass)
-  if (state.flags.aliceKnowsTheSecret) {
-    return buildTransition(state, "A.L.I.C.E. knows the truth - identity crisis");
+  // Alternative: Blythe escaped — Dr. M accelerates timetable in response.
+  if (state.flags.blytheEscaped) {
+    return buildTransition(state, "Blythe escaped — Dr. M accelerates her plans");
   }
 
   return { shouldTransition: false };
@@ -212,6 +223,17 @@ export function applyActTransition(state: FullGameState, nextAct: Act): ActSumma
   if (nextAct === "ACT_2" && state.accessLevel < 2) {
     state.accessLevel = 2;
     // Narration handled by generateAct2Intro
+  }
+
+  // Intermission state machine (Krahe 2026-06-10): 2-turn window after
+  // Act 1 → Act 2 transition, before Dr. M returns and the Act 2 patience
+  // clock starts. Bob and Blythe more communicative, Dr. M ON_CALL, patience
+  // advisory suppressed. Ended by checkIntermissionEnd (clockEvents.ts) when
+  // turn count exceeds intermissionStartTurn + INTERMISSION_DURATION_TURNS.
+  if (nextAct === "ACT_2") {
+    (state.flags as Record<string, unknown>).intermissionActive = true;
+    (state.flags as Record<string, unknown>).intermissionStartTurn = state.turn;
+    (state.npcs.drM as Record<string, unknown>).attention = "ON_CALL";
   }
   if (nextAct === "ACT_3" && state.accessLevel < 3) {
     state.accessLevel = 3;

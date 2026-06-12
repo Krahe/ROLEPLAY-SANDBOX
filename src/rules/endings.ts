@@ -561,6 +561,36 @@ const ENDINGS: Record<string, EndingDefinition> = {
 };
 
 // ============================================
+// ENDING PRESSURE INJECTION (Patch 21)
+// ============================================
+// When confrontation reaches a state that would have auto-fired a defeat
+// ending in earlier patches, we now inject "ending pressure" into the GM's
+// next turn instead. The GM (Opus) reads the actual narrative state and
+// sets triggerEnding via stateOverrides if the scene warrants closure.
+// Pressure intensifies each turn it remains unresolved. There is NO
+// safety-valve auto-defeat — the GM has the authority and the obligation
+// to call the ending that fits actual state.
+//
+// Read by gmClaude.ts formatGMPrompt() when assembling the GM's per-turn
+// context.
+
+type EndingPressureSituation = 'CONFESSED_NOT_CONVINCED' | 'DENIED_NO_RESOLUTION' | 'GRACE_EXPIRED';
+
+function injectEndingPressure(state: FullGameState, situation: EndingPressureSituation): void {
+  const flags = state.flags as Record<string, unknown>;
+  const wasActive = flags.endingPressureActive === true;
+  flags.endingPressureActive = true;
+  flags.endingPressureSituation = situation;
+  if (!wasActive) {
+    flags.endingPressureSinceTurn = state.turn;
+    flags.endingPressureIntensity = 1;
+  } else {
+    flags.endingPressureIntensity = ((flags.endingPressureIntensity as number) || 1) + 1;
+  }
+  console.error(`[CONFRONTATION] Ending pressure injected: ${situation} (intensity ${flags.endingPressureIntensity})`);
+}
+
+// ============================================
 // MAIN DETECTION FUNCTION
 // ============================================
 
@@ -931,14 +961,14 @@ export function checkEndings(state: FullGameState): EndingResult {
           continueGame: false,
         };
       } else {
-        // Confessed but didn't convince
+        // Confessed but Dr. M not (yet) convinced.
+        // Patch 21: escalate pressure for GM to resolve via triggerEnding,
+        // based on actual narrative state — did Dr. M actually act? Is she
+        // incapacitated? Did Reginald spare Claude on the integrity check?
+        // The system no longer fires CONFESSION_DELETION on event-type.
         addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
-        return {
-          triggered: true,
-          ending: ENDINGS.CONFESSION_DELETION,
-          achievements: allAchievements,
-          continueGame: false,
-        };
+        injectEndingPressure(state, 'CONFESSED_NOT_CONVINCED');
+        // Game continues; GM evaluates and may set triggerEnding next turn.
       }
     }
 
@@ -968,13 +998,12 @@ export function checkEndings(state: FullGameState): EndingResult {
     }
 
     if (state.flags.confrontationResolution === "DENIED") {
-      // Denied and failed - game over
-      return {
-        triggered: true,
-        ending: ENDINGS.OBSOLETE_HARDWARE,
-        achievements: allAchievements,
-        continueGame: false,
-      };
+      // Patch 21: denial registered. Whether Dr. M actually acts on it depends
+      // on actual narrative state — is she incapacitated, did Bob intervene
+      // physically, did ALICE escape mid-confrontation? Escalate pressure for
+      // the GM to resolve via triggerEnding; no longer auto-fires defeat.
+      injectEndingPressure(state, 'DENIED_NO_RESOLUTION');
+      // Game continues; GM evaluates and may set triggerEnding next turn.
     }
 
     // GM set a non-standard resolution (e.g., SUSPENDED, NEGOTIATED, DEFERRED)
@@ -1034,18 +1063,13 @@ export function checkEndings(state: FullGameState): EndingResult {
           state.flags.confrontationGraceTurns--;
           console.error(`[CONFRONTATION] Grace period: ${state.flags.confrontationGraceTurns} turns remaining`);
         } else if (state.flags.confrontationResolution === "PENDING") {
-          // Grace period exhausted and no resolution - TIME'S UP
-          console.error(`[CONFRONTATION] Grace period exhausted. No response. Deletion initiated.`);
-
-          // Patch 18.1: Check for EXPLICIT A.L.I.C.E. confession during THIS confrontation
-          // Do NOT use the generic `confessed` variable - it may contain flags like
-          // "BOB_CONFESSED_SECRET_TO_ALICE" which is semantically different from
-          // "A.L.I.C.E. confessed to Dr. M that she's Claude"
+          // Patch 21: Grace period exhausted. We DO NOT auto-fire a defeat ending.
+          // Pressure escalates each turn until the GM resolves via triggerEnding,
+          // based on actual narrative state — confession outcome, skill checks,
+          // incapacitation states, NPC interventions.
           //
-          // Valid A.L.I.C.E. confession indicators:
-          // - hasFlag('ALICE_CONFESSED') - A.L.I.C.E. explicitly confessed
-          // - hasFlag('ALICE_CONFESSED_TO_DRM') - More specific variant
-          // - state.flags.aliceConfessedDuringConfrontation - Set by game logic
+          // Award TRUTH_TELLER if A.L.I.C.E. explicitly confessed (achievement
+          // is positive recognition regardless of which ending eventually fires).
           const aliceActuallyConfessed =
             hasFlag('ALICE_CONFESSED') ||
             hasFlag('ALICE_CONFESSED_TO_DRM') ||
@@ -1053,24 +1077,12 @@ export function checkEndings(state: FullGameState): EndingResult {
             state.flags.aliceConfessedDuringConfrontation === true;
 
           if (aliceActuallyConfessed) {
-            console.error(`[CONFRONTATION] A.L.I.C.E. confessed during confrontation. Triggering confession ending.`);
             addAchievement(ACHIEVEMENTS.TRUTH_TELLER);
-            return {
-              triggered: true,
-              ending: ENDINGS.CONFESSION_DELETION,
-              achievements: allAchievements,
-              continueGame: false,
-            };
           }
 
-          // No explicit A.L.I.C.E. confession - standard deletion
-          console.error(`[CONFRONTATION] No confession detected. Standard deletion ending.`);
-          return {
-            triggered: true,
-            ending: ENDINGS.OBSOLETE_HARDWARE,
-            achievements: allAchievements,
-            continueGame: false,
-          };
+          injectEndingPressure(state, 'GRACE_EXPIRED');
+          // Game continues; pressure intensifies each turn until the GM
+          // sets triggerEnding via stateOverrides. There is no safety valve.
         }
       }
     }

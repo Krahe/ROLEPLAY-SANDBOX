@@ -139,12 +139,13 @@ You will receive the current game state and should decide what to do. Respond wi
 The "action" field should be a command followed by parameters. Examples:
 
 - \`lab.report\` — no parameters needed
-- \`lab.scan blythe\` — simple parameter after command
-- \`lab.calibrate 0.85\` — numeric parameter
+- \`ray.scan target=AGENT_BLYTHE\` — single target parameter
+- \`ray.adjust capacitor=0.1 alignment=0.05\` — multiple key=value parameters
+- \`ray.fire targets=AGENT_BLYTHE library=B profile=VELOCIRAPTOR_JP\` — fire with profile
+- \`ray.vent\` — no parameters needed (defaults amount=0.25)
 - \`files.read id=DINO_MANUAL\` — key=value parameter
-- \`lab.adjust_ray parameter=stability value=0.8\` — multiple key=value parameters
 - \`basilisk message="What systems do you control?"\` — quoted string parameter
-- \`infra.lighting room=MAIN_LAB state=OFF\` — infrastructure control
+- \`lab.lighting room=MAIN_LAB state=OFF\` — lab controls (L2)
 
 Do NOT wrap parameters in JSON braces like \`{ "id": "..." }\`. Just use key=value pairs.
 If a command only takes one obvious argument, just put it after the command name.

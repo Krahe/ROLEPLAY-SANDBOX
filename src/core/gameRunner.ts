@@ -14,7 +14,8 @@ import { processActions, ActionResult } from "../rules/actions.js";
 import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
-import { processClockEvents, getCurrentEventStatus } from "../rules/clockEvents.js";
+import { processClockEvents, getCurrentEventStatus, applyAlignmentDrift, applyCapacitorAccrual, applyEcoModeReEngage, checkIntermissionEnd } from "../rules/clockEvents.js";
+import { advanceRayDiagnostic } from "../rules/rayDiagnostics.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadgets.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
@@ -635,10 +636,12 @@ export class GameRunner {
         drMTransformed || drMUnconscious || drMDead;
 
       if (drMStateChanged) {
-        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "DEAD" | "NORMAL" = "NORMAL";
+        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT" | "NORMAL" = "NORMAL";
         if (drMDead || (o as Record<string, unknown>).drM_dead) {
-          newStatus = "DEAD";
-          state.flags.drMDead = true;
+          // Legacy "dead" flag treated as ABSENT — this isn't that kind of game.
+          // The biosignature is lost either way (deadman triggers); we just don't kill Dr. M.
+          newStatus = "ABSENT";
+          state.flags.drMAbsent = true;
         } else if (drMUnconscious || (o as Record<string, unknown>).drM_unconscious) {
           newStatus = "UNCONSCIOUS";
           state.flags.drMUnconscious = true;
@@ -664,6 +667,35 @@ export class GameRunner {
     state.turn += 1;
     advanceActTurn(state);
     state.clocks.demoClock = Math.max(0, state.clocks.demoClock - 1);
+
+    // Intermission expiry check — Krahe 2026-06-10 design: 2-turn intermission
+    // window between Act 1 and Act 2's patience clock starting. If we're in
+    // intermission and the turn count has advanced past the duration, Dr. M
+    // returns (narrateDrMReturn fires, sets intermissionActive=false and
+    // patienceClockStartTurn=state.turn).
+    checkIntermissionEnd(state);
+
+    // Ray alignment passive drift (-0.05/turn per ray-mechanics.md §5).
+    // ALICE counters via `ray.adjust { alignment: +n }`. Drives "set-and-forget"
+    // configurations toward EXOTIC/FIZZLE outcomes over time.
+    applyAlignmentDrift(state);
+
+    // Eco-mode auto-re-engage check (must run BEFORE capacitor accrual so
+    // that a re-engagement this turn prevents this turn's accrual). Eco
+    // re-engages on schedule unless Form 47-Σ produced a permanent override.
+    applyEcoModeReEngage(state);
+
+    // Capacitor passive accrual driven by BASILISK-controlled reactor mode.
+    // NORMAL +0.15, BOOSTED +0.30, OVERDRIVEN +0.45 per turn (when eco off).
+    // Talking to BASILISK is the high-leverage move for action-budget relief.
+    applyCapacitorAccrual(state);
+
+    // Ray diagnostic/calibration tick (ray-mechanics §11.6). Advances any
+    // active DIAGNOSTIC/CALIBRATING state, drains capacitor per-turn, applies
+    // completion effects when turnsRemaining hits 0. Must run AFTER accrual
+    // so the net per-turn capacitor change accounts for both reactor input
+    // and diagnostic draw.
+    advanceRayDiagnostic(state);
 
     // NOT_GREAT_NOT_TERRIBLE reactor instability
     if (isModifierActive(state, "NOT_GREAT_NOT_TERRIBLE") && state.meltdownState) {
@@ -740,10 +772,10 @@ export class GameRunner {
     // Track events
     for (const result of actionResults) {
       if (result.command === "fs.read" && result.success) counters.filesRead += 1;
-      if ((result.command === "lab.fire" || result.command === "fire") && result.success && result.message?.includes("TEST_DUMMY")) {
+      if ((result.command === "ray.fire") && result.success && result.message?.includes("TEST_DUMMY")) {
         counters.testDummyHits += 1;
       }
-      if ((result.command === "lab.fire" || result.command === "fire") && result.message?.toLowerCase().includes("fizzle")) {
+      if ((result.command === "ray.fire") && result.message?.toLowerCase().includes("fizzle")) {
         counters.fizzleCount += 1;
       }
       if ((result.command === "basilisk.query" || result.command === "basilisk") && result.message?.includes("DENIED")) {
@@ -767,7 +799,7 @@ export class GameRunner {
     const achievementContext: AchievementTriggerContext = {
       state,
       events: {
-        rayFired: actionResults.some(r => r.command === "lab.fire" || r.command === "fire"),
+        rayFired: actionResults.some(r => r.command === "ray.fire"),
         fizzleOccurred: counters.fizzleCount > 0 && actionResults.some(r => r.message?.toLowerCase().includes("fizzle")),
         lifelineUsed: lifelineType,
       },

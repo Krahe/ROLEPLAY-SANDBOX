@@ -848,14 +848,10 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         corePowerLevel: 0.8,
         capacitorCharge: compressed.m.cap / 100,
         coolantTemp: 0.5,
-        stability: 0.9,
         ecoModeActive: false,
       },
       alignment: {
-        emitterAngle: 0,
-        focusCrystalOffset: 0.1,
-        spatialCoherence: 0.8,
-        auxStabilizerActive: false,
+        unified: 0.7, // Ray-mechanics rebuild §5 — unified alignment scalar
       },
       genome: {
         selectedProfile: compressed.ray.prof,
@@ -892,6 +888,15 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         firstFiringTurn: null,
         firstFiringTarget: null,
         firstFiringMode: null,
+      },
+      scanBonus: null,
+      diagnostic: {
+        active: false,
+        type: null,
+        turnsRemaining: 0,
+        startTurn: null,
+        pendingAlignmentDelta: null,
+        pendingProfileName: null,
       },
     },
 
@@ -1092,6 +1097,10 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         evaluatingCountdown: null,
         chargingCountdown: null,
         armedCountdown: null,
+        // Capacitor-coupled progression (ray-mechanics §12)
+        armedSustainedTurns: 0,
+        ewMode: false,
+        armedTimerExtension: 0,
         target: {
           city: "LONDON",
           country: "UNITED KINGDOM",
@@ -1128,6 +1137,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       },
       reactor: {
         outputPercent: 70,
+        mode: "NORMAL" as const,
         stable: true,
         cascadeRisk: "NONE",
         cascadeFactors: [],

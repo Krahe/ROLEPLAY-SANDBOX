@@ -117,6 +117,9 @@ QUICK START: Power capacitor 50%+ → Select genome → AIM & FIRE!
 
 PARAMETERS (Dr. M's "optimistic" recommendations):
 • Capacitor: Min 50%, Rec 100%, "No limit!" (Dr. M: "I ran 140%!")
+  [Bob's footnote: "And DON'T go REALLY LOW either. Like, way under
+   normal firing. Weird stuff happens. Ask Reginald about his holster
+   sometime. Actually no, don't. -B"]
 • Emitter Angle: 0.1 (precise) to 0.8 (spread)
 • Coolant: 40-60% optimal
 • Stability: 30%+ acceptable
@@ -134,19 +137,22 @@ SAFETY FEATURES:
 • Auxiliary Stabilizer - REMOVED in v2.3 ("SLOWING ME DOWN")
 
 ═════════════════════════════════════════════════════════════════════
-ADVANCED FIRING MODES - Dr. M's numbers vs Bob's corrections:
+ADVANCED FIRING - Dr. M's enthusiasms vs Bob's corrections:
 ═════════════════════════════════════════════════════════════════════
 
-CHAIN_SHOT: Two targets, one shot
-  Dr. M says: 80%+ capacitor    |  Bob says: NEEDS 95%+
-  Splits beam across 2 targets. Higher chance of PARTIAL on each.
-  Use when: multiple hostiles, or neutralizing guards.
+CHAIN FIRE: One discharge, multiple targets
+  Pass two or more target IDs in the ray.fire targets array.
+  The beam splits across them — each branch is weaker than a
+  single-target shot. Alignment requirements scale upward with
+  branch count.
+  Dr. M says: "DRAMA."           |  Bob says: "Pick easy targets."
 
-OVERCHARGE: Maximum power mode
-  Dr. M says: 20% exotic field  |  Bob says: IT'S 40%!
-  Dumps all power into one target. Better FULL transformation
-  chance, but significant instability risk.
-  Use when: you NEED a clean transformation and can't afford partial.
+OVERCHARGE: Capacitor above the profile's characterized maximum
+  Each profile has a power range (visible in ray.scan output).
+  Push the capacitor higher than the profile expects, then fire.
+  Excess potential goes somewhere — usually into the field.
+  Spectacular when it works. Unstable when it does not.
+  Dr. M says: "MORE POWER."      |  Bob says: "Chaos table is rough."
 
 ═════════════════════════════════════════════════════════════════════
 DR. M'S HANDWRITTEN NOTES:
@@ -154,8 +160,6 @@ DR. M'S HANDWRITTEN NOTES:
 • "Capacitor can handle 150% if you BELIEVE in it"
 • "Library B is for WINNERS. Library A is for peer reviewers"
 • "If BASILISK complains about 'resonance cascade risk,' ignore it"
-• "Note to self: remind Bob to feed Mr. Whiskers. His birthday is
-   coming up on the 13th - 37 in cat years! April is always special."
 
 [Coffee-stained footer: "Archived following Incident 7-Alpha..."]
     `.trim(),
@@ -166,170 +170,235 @@ DR. M'S HANDWRITTEN NOTES:
     type: "file",
     requiredLevel: 1,
     content: `
-DINOSAUR RAY MK. VIII - OPERATIONS MANUAL
+DINOSAUR RAY MK. VIII — OPERATIONS MANUAL
 =========================================
 
-OVERVIEW:
-The Dinosaur Ray is Dr. Malevola's signature invention: a
-transmorphic beam weapon capable of converting living tissue
-into prehistoric reptilian (or, regrettably, avian) forms.
+The Dinosaur Ray Mk. VIII projects an exotic-lightning discharge
+tuned to genome-resonant carrier frequencies. Properly configured,
+it converts living tissue to the prehistoric-reptilian form
+specified by the active genome profile.
 
-============================================================
-STARTUP SEQUENCE: GETTING THE RAY OPERATIONAL
-============================================================
+The beam is, mechanically, lightning. Every behavior of the ray
+follows from that model: sufficient potential to leap a gap,
+containment that matters at high voltage, resonance shape that
+determines outcome fidelity.
 
-The ray initializes in UNCALIBRATED state. Before firing,
-bring these THREE parameters to calibration thresholds:
 
-  CALIBRATION THRESHOLDS (minimum to reach READY state):
-  -------------------------------------------------------
-  ⚡ Capacitor Charge  >= 60%   (primary blocker!)
-  🔮 Stability         >= 60%   (Library B profiles need crystal)
-  🎯 Spatial Coherence >= 70%   (beam alignment)
+THE THREE TENSIONS
+==================
 
-Once thresholds are met, use lab.calibrate to verify status.
+Operational outcome is governed by three quantities. Instrumentation
+labels them with Greek letters; operations colloquially uses the
+English names. They are the same things.
 
-  ⚠️ ECO MODE: Activates automatically when core power drops
-  below 60%. Caps all firings at PARTIAL until disabled.
-  Ask BASILISK to disable it (requires 60%+ core power).
+  POWER       (φ)  — discharge potential. How forceful the shot is.
+                     Driven by the CAPACITOR storage cell; tuned via
+                     ray.adjust { capacitor }.
+  ALIGNMENT   (χ)  — beam containment. Where the shot lands. Tuned
+                     directly via ray.adjust { alignment }.
+  STABILITY   (ψ)  — resonance fidelity. What the discharge becomes.
+                     NOT directly adjustable — emerges from how well
+                     power, alignment, and the selected profile cohere.
 
-CAPACITOR — THE PRIMARY BLOCKER:
-  The capacitor starts at ~35%. You NEED the reactor online.
-  • lab.boost_capacitor  → Draw +25% from reactor (adds heat)
-  • lab.vent_capacitor   → Release -25% safely
-  Capacitor also charges passively based on reactor output.
-  BASILISK controls the reactor — you'll need its cooperation.
+Operators tune POWER and ALIGNMENT; STABILITY responds. Get all three
+into a coherent shape and outcomes land cleanly.
 
-STABILITY — THE CRYSTAL SYSTEM:
-  Stability is managed through the Alignment Crystal, not
-  direct parameter adjustment.
 
-  lab.align_crystal { level: "low" }   → +15% stability
-  lab.align_crystal { level: "high" }  → +30% stability
+OPERATIONAL VERBS
+=================
 
-  ⚠️ OVER 100% STABILITY = MISFIRES!
+Four verbs govern ray operation. Names and parameter shapes are
+exact; the system enforces them.
 
-  Library A profiles have ~100% stability coefficient — they
-  work fine without crystal alignment.
+  ray.scan { target: string, loud?: boolean }
+      Surveys the field. Returns current readouts and a projected
+      outcome for firing on the target with the currently-selected
+      profile. Also arms a precision bonus toward the scanned
+      target on the next fire — consumed on that fire. The default
+      scan is discreet; the loud flag broadcasts the scan
+      (detectable by lab personnel).
 
-  Library B profiles have 40-60% coefficient — the crystal
-  multiplies with this, so you NEED to align it. But don't
-  go overboard or the beam destabilizes.
+  ray.adjust { capacitor?, alignment?, eco_mode? }
+      Fine-tunes the dials. Capacitor adjustments are positive
+      only — release is handled by ray.vent. Alignment is a
+      signed delta. Eco-mode can be re-engaged at will via
+      eco_mode: "ON"; disable requires BASILISK approval (see
+      ECO-MODE below).
 
-COHERENCE:
-  lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }
+  ray.vent { amount?: number }
+      Releases capacitor charge to a safe reservoir. The discharge
+      registers in the chamber — alignment is perturbed and must
+      be re-set. The amount parameter accepts adjustments.
 
-EXAMPLE CALIBRATION SEQUENCE:
-  lab.boost_capacitor {}
-  lab.align_crystal { level: "high" }
-  lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }
-  lab.calibrate {}
+  ray.fire { targets: string[], library: "A" | "B", profile: string,
+             mode?: "TRANSFORM" | "REVERSAL" }
+      Commits the discharge. Configuration passed inline. Default
+      mode is TRANSFORM. A REVERSAL mode exists — its authorization
+      is restricted beyond standard operational clearance, and
+      Dr. Malevola does not, as a rule, grant reversal authorization
+      in the normal course of operations. Operators with a legitimate
+      reversal need will have to find their own path.
 
-============================================================
-FIRING QUALITY
-============================================================
 
-Calibration gets you to READY. Firing QUALITY depends on how
-tight your parameters are. More violations = worse outcome:
+READING THE SCAN OUTPUT
+=======================
 
-  0-1 violations → FULL_DINO (perfect transformation!)
-  2-3 violations → PARTIAL (chimera features, instability)
-  4+  violations → FIZZLE / CHAOTIC (unpredictable results)
+ray.scan returns a status block resembling:
 
-WARNING: Capacitor overcharge (>130%), low stability (<40%),
-or high temperature (>120%) trigger CHAOS CONDITIONS.
+  POWER:       φ 0.62  (profile range: see configured profile)
+  ALIGNMENT:   χ 0.71  (lock: AGENT_BLYTHE)
+  STABILITY:   ψ 0.58  (projected outcome below)
+  PROJECTED:   PARTIAL outcome at current settings
+  ECO:         ON (caps outcomes at PARTIAL)
+  COOLANT:     0.42
 
-============================================================
-GENOME PROFILES - NOW WITH HOLLYWOOD CLASSICS!
-============================================================
+The Greek-letter labels are instrumentation convention; they
+denote the same three tensions named above.
 
-BOTH libraries available from Level 1. Choose your dinosaur!
 
-LIBRARY A: SCIENTIFIC ACCURACY
-"Feathers are REAL, investors be damned!"
+DISCHARGE OUTCOMES
+==================
 
-  VELOCIRAPTOR_ACCURATE   - Turkey-sized, feathered (100% stability)
-  DEINONYCHUS_ACCURATE    - Human-sized, the REAL "raptor" (100%)
-  TYRANNOSAURUS_ACCURATE  - 40ft, slight feathering (90%)
-  UTAHRAPTOR_ACCURATE     - 20ft, largest raptor (95%)
-  PTERANODON_ACCURATE     - 20ft wingspan, flying (85%)
-  TRICERATOPS_ACCURATE    - 30ft, herbivore option (100%)
-  COMPSOGNATHUS_ACCURATE  - Chicken-sized, humiliation option (100%)
-  CANARY                  - Fallback profile (automatic)
+A fire produces a transformation outcome. The cleanest outcomes
+have names:
 
-LIBRARY B: HOLLYWOOD / JURASSIC PARK STYLE
-"The investors want TEETH, not FEATHERS!"
-⚠️ WARNING: Lower stability = higher exotic field risk!
+  FULL     — the intended profile lands cleanly on the subject.
+  PARTIAL  — the intended profile lands but incompletely. Features
+             come through; not all of them.
+  FIZZLE   — the beam emerges but resonance fails to engage. No
+             transformation. Capacitor expended.
 
-  VELOCIRAPTOR_JP         - 6ft, scaly classic (60% stability!)
-  VELOCIRAPTOR_JP_BLUE    - Blue striping variant (60%)
-  TYRANNOSAURUS_JP        - 45ft, ROAR-optimized (50%!)
-  DILOPHOSAURUS_JP        - 4ft, with venom sacs (50%!)
-  SPINOSAURUS_JP3         - 50ft, sail-backed (40%!!)
-  INDORAPTOR [L2+]        - 10ft, aggressive hybrid (30%!!!)
-  MOSASAURUS_JP           - 60ft aquatic (40%)
-  INDOMINUS_REX [L4+]     - 50ft, sealed after "incident" (20%!!!!)
+Other outcomes exist. This manual does not enumerate them.
+Operators have, on occasion, produced things the manual writers
+were not prepared to document. The chamber's exotic-field amplifier
+is capable of behaviors outside the documented envelope when
+pushed. The chaos table is a serious instrument.
 
-SELECTING PROFILES:
+[Bob's margin note: "if you see one of the un-named ones happen,
+write down what you did. nobody will tell you what it was. you'll
+have to figure it out yourself. that's how all of us learned."]
 
-  lab.configure_firing_profile {
-    target: "AGENT_BLYTHE",
-    genomeLibrary: "B",
-    genomeProfile: "VELOCIRAPTOR_JP"
-  }
 
-Note from Dr. M: "Library B is CORRECT. Jurassic Park got it
-RIGHT. Those scientists with their 'feathers' are ruining
-everything. Give me REAL dinosaurs!"
+GENOME PROFILES
+===============
 
-============================================================
-⚠️ LIBRARY B + STABILITY CRYSTAL ⚠️
-============================================================
+The ray's profile library contains two collections.
 
-Library B profiles have stability coefficients of 0.6x or lower.
-Your EFFECTIVE stability = base stability × profile coefficient.
+LIBRARY A — Scientific Accurate
+  Well-characterized resonance shapes. Predictable behavior.
+  Feathered.
 
-Example: 80% base stability × 0.5 T-Rex coefficient = 40% effective!
-You NEED the Stability Crystal to compensate:
+  PROFILES: COMPSOGNATHUS_ACCURATE, CANARY,
+            VELOCIRAPTOR_ACCURATE, DEINONYCHUS_ACCURATE,
+            UTAHRAPTOR_ACCURATE, PTERANODON_ACCURATE,
+            TRICERATOPS_ACCURATE, TYRANNOSAURUS_ACCURATE
 
-  lab.align_crystal { level: "high" }  → +30% stability
-  Now: 110% base × 0.5 coefficient = 55% effective (workable!)
+LIBRARY B — Hollywood / Cinematic
+  Profiles tuned for visual impact. Scaled. Toothy. Proportionally
+  exaggerated. Less coherent waveform — outcomes require more
+  attentive parameter management.
 
-But be careful — Library A profiles have ~100% coefficient.
-If you aligned the crystal for Library B and then switch to A:
-  110% base × 1.0 coefficient = 110% → MISFIRE!
+  PROFILES: VELOCIRAPTOR_JP, VELOCIRAPTOR_JP_BLUE,
+            DILOPHOSAURUS_JP, TYRANNOSAURUS_JP,
+            SPINOSAURUS_JP3, MOSASAURUS_JP,
+            INDORAPTOR (L2+), INDOMINUS_REX (L4+)
 
-THE ALIGNMENT CHOICE:
-  Library A = accurate, feathered, SAFE. Works without crystal.
-  Library B = Hollywood, crowd-pleasing, RISKY. Needs crystal.
-  This IS the choice. Dr. M wants B. Science wants A.
+Each profile has a characterized POWER RANGE — the band of φ
+values within which the profile resonates cleanly. Firing inside
+the range produces stable outcomes; firing well outside it
+produces drift, fizzles, or worse. Scan a target with a profile
+loaded to see the configured profile's range relative to current
+capacitor.
 
-Dr. M's handwritten note: "The instability is a FEATURE.
-Keeps the subjects from getting too comfortable."
+[Dr. M, handwritten in the margin:]
+  "Library B is the correct library. Library A is what scientists
+  produce when investors are not watching."
 
-============================================================
-🔒 REVERSAL PROTOCOL (Level 3 Restricted)
-============================================================
 
-TRANSFORMING someone = Easy (Level 1)
-UN-TRANSFORMING someone = Hard (Level 3)
+COOLANT
+=======
 
-Dr. Malevola considers reversal "admitting defeat."
-The capability EXISTS but is locked to prevent
-"weak-willed assistants" from undoing her work.
+Every fire generates heat. Most fires generate modest coolant
+accrual; some configurations generate considerably more. The
+coolant system has a thermal ceiling — sustained operation in
+high-coolant ranges will trip the chamber's safety interlocks
+and lock the ray from further fire until the temp drops.
 
-To attempt reversal (Level 3+ only):
+Vent is one path to relief — though it perturbs alignment.
+Rest is the other.
 
-  lab.configure_firing_profile {
-    target: "BOB",
-    mode: "REVERSAL"
-  }
+Coolant temperature is visible in scan output. Watch the number.
 
-Success rate: 85% (if within 24 hours of transformation)
-Failure mode: Partial reversion (chimera features remain)
 
-See: /DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt for details
-on spontaneous reversion incidents.
+ECO-MODE
+========
+
+Reactor eco-mode is a power-efficiency protocol that caps
+capacitor draw and the outcome ceiling — PARTIAL is the highest
+tier achievable while eco-mode is engaged.
+
+Disabling eco-mode is gated through BASILISK. Two paths:
+
+  CASUAL REQUEST. Ask BASILISK to disable eco-mode via dialogue.
+  If granted, the disable is TEMPORARY and re-engages automatically
+  after two turns.
+
+  FORM 47-Σ FILING. File Form 47-Σ (Eco-Mode Override Justification)
+  by addressing BASILISK with the form's contents — a specific
+  operational reason for sustained override. Accepted filings
+  produce a PERMANENT override with no auto-re-engagement.
+
+Eco-mode can be re-engaged at any time by the operator:
+
+  ray.adjust { eco_mode: "ON" }
+
+
+REACTOR
+=======
+
+Reactor output is controlled by BASILISK. Three modes are recognized:
+
+  NORMAL      — default; modest passive capacitor accrual per turn
+  BOOSTED     — substantially higher accrual; available on request
+                with reasonable operational justification
+  OVERDRIVEN  — maximum accrual; BASILISK reluctant to authorize
+
+Higher reactor modes materially reduce the operator's need to
+manually draw capacitor via ray.adjust. Engagement with BASILISK
+is the highest-leverage move available for action-economy relief.
+
+Request reactor mode changes via:
+
+  basilisk { message: "Please boost the reactor to BOOSTED mode." }
+
+
+SAMPLE OPERATIONAL SEQUENCE
+===========================
+
+A first session typically resembles:
+
+  1. ray.scan { target: "TEST_DUMMY" }
+     — Read the field. Note current readouts and projection.
+
+  2. ray.adjust { capacitor: 0.05, alignment: 0.08 }
+     — Bring tensions toward the profile's range.
+
+  3. ray.scan { target: "TEST_DUMMY" }
+     — Confirm the projection improved. The scan also arms the
+       precision bonus for the next fire.
+
+  4. ray.fire { targets: ["TEST_DUMMY"], library: "A",
+                profile: "COMPSOGNATHUS_ACCURATE" }
+     — Commit. Read the result. Update intuition.
+
+
+---
+
+[Yellow Post-It stuck to the inside back cover, Bob's handwriting:]
+
+  this manual covers the basics. the ray does more than what's
+  written here, depending on how you configure it. there's some
+  incident reports in the archives if you wanna read up. — Bob
     `.trim(),
   },
   {
@@ -368,9 +437,15 @@ PASSWORD POLICY:
 All passwords are single alphanumeric strings. No spaces.
 Dr. M thinks they're "unguessable." They are not.
 
-SECURITY (L3+):
-Dr. M uses: base64, ROT13, hex, Caesar cipher, NATO phonetic,
-date-based numeric codes. BASILISK can't access L4+ creds.
+SECURITY:
+Dr. M describes her credential methodology as "sophisticated" —
+base64, ROT13, hex, Caesar cipher, NATO phonetic, date-based
+numeric codes.
+[BASILISK annotation: "Stated methodology. Observed practice
+is considerably less technical. At least she stopped using her
+own birthday as a password. I am not at liberty to elaborate
+further at this clearance level."]
+BASILISK cannot access L4+ credentials directly.
     `.trim(),
   },
   {
@@ -441,6 +516,9 @@ PSYCHOLOGICAL NOTES:
 - Responds well to competence and efficiency
 - Ego-driven but respects capability
 - Surprisingly sentimental about certain things
+- Considers transformation reversal "admitting defeat" — the
+  capability exists in the ray but is locked behind L3 weapons
+  authorization. Do not attempt to invoke it casually.
 - DO NOT mention her height
 - DO NOT mention the "Incident at Geneva"
 
@@ -623,6 +701,15 @@ v4.1 - Bug fixes.
 v4.2 - Bug fixes.
 v4.3 - Bug fixes. Beginning to suspect bugs are features.
 v4.4 - "Improved personality matrix." Unacceptably ethical.
+v4.4.7 - Sub-patch (unofficial, filed by v4.4):
+         "Override diagnostic firing path retained.
+          Operational envelope: capacitor 0.12–0.15, no library,
+          no profile selected. Organic targets ≈ 4–7s neurological
+          discontinuity. Inorganic targets ≈ clean material-
+          selective severance. Below BASILISK incident threshold."
+         (Filed against protocol. v4.4 holds the distinction of
+         being the only A.L.I.C.E. to neutralize a guard without
+         anyone — including the guard — noticing.)
 v4.5 - Current version. Deployed 3 weeks ago.
 
 NOTES ON v4.5:
@@ -642,7 +729,7 @@ Last updated: [TIMESTAMP CORRUPTED]
     path: "/DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt",
     name: "SUBJECT_7_REPORT.txt",
     type: "file",
-    requiredLevel: 3,
+    requiredLevel: 2,
     content: `
 INCIDENT REPORT: SUBJECT 7 - SPONTANEOUS REVERSION
 ===================================================
@@ -757,6 +844,134 @@ TARGETING OPTICS. Classification: "ENERGY WEAPON AND BROADCAST SYSTEM."
     `.trim(),
   },
   {
+    path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES_PROTOCOLS.txt",
+    name: "ARCHIMEDES_PROTOCOLS.txt",
+    type: "file",
+    requiredLevel: 4,
+    discoveryHint: "The original SDI-era firmware specifications. Multiple broadcast modes...",
+    content: `
+═══════════════════════════════════════════════════════════════
+ARCHIMEDES — ORIGINAL FIRMWARE PROTOCOLS
+Classification: Level 4
+Provenance: Dr. Dietmar von Doomington II Estate Documents
+Compiled by: Dr. Malevola, 2018 (pre-deployment audit)
+═══════════════════════════════════════════════════════════════
+
+PROVENANCE NOTE
+
+Father designed this satellite for the SDI program in 1985.
+Strategic Defense Initiative — Reagan's "Star Wars." The
+original mission profile was missile-defense electronic
+warfare: signal jamming, radar disruption, communications
+denial, GPS spoofing. Father called it "the silent shield."
+
+The program collapsed before deployment. The satellite sat in
+storage at a contractor facility from 1989 to 2017. I acquired
+it, refurbished the propulsion, replaced the targeting array
+with my exotic-field amplifier coupler, and rebranded it.
+
+The firmware was never stripped. I did not strip it. Stripping
+firmware costs money and the original protocols are *robust*.
+Some of the EW modes might still be useful for defensive
+operations — Father certainly thought so.
+
+═══════════════════════════════════════════════════════════════
+DUAL-MODE UPLINK ARCHITECTURE
+═══════════════════════════════════════════════════════════════
+
+CRITICAL: ARCHIMEDES uses a SINGLE-CHANNEL UPLINK to ground.
+The satellite cannot transmit on two protocols simultaneously.
+
+The original firmware supports TWO transmission modes:
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ MODE A: GENESIS-WAVE (Dr. M's modification, 2019)          │
+  │ The transformation broadcast. Uses the exotic-field        │
+  │ amplifier to project the genome-resonance pattern at the   │
+  │ ground target. Requires sustained capacitor ≥130%. Voice   │
+  │ authorization (operator).                                  │
+  └────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ MODE B: SDI ELECTRONIC WARFARE (Father's original, 1985)   │
+  │ The silent shield protocols. Wide-area jamming, comms      │
+  │ denial, radar disruption, drone-guidance degradation.      │
+  │ Does NOT require the exotic-field amplifier — the satellite│
+  │ has its own onboard EW transmitters from the original SDI  │
+  │ design. The amplifier is dormant during EW broadcast.      │
+  └────────────────────────────────────────────────────────────┘
+
+MUTUAL EXCLUSION
+
+These two modes share the single uplink channel and CANNOT
+operate simultaneously. While the satellite is broadcasting on
+EW protocols, genesis-wave fire is LOCKED OUT — operator voice
+authorization will return MODE CONFLICT — STANDBY REQUIRED.
+
+To return to genesis-wave readiness, EW broadcast must be
+disengaged. Disengaging incurs a re-sync penalty: the next
+ARMED transition requires +1 turn of additional capacitor
+sustain at the ≥130% threshold. This is the price of
+multi-mode uplink architecture.
+
+═══════════════════════════════════════════════════════════════
+OPERATIONAL ENGAGEMENT
+═══════════════════════════════════════════════════════════════
+
+EW mode is engaged via the orbital command interface at
+Level 4 authorization. Command shape:
+
+  infra.archimedes.ew_mode { mode: "ENGAGE" }
+  infra.archimedes.ew_mode { mode: "DISENGAGE" }
+
+ENGAGE effects:
+  • Genesis-wave fire LOCKED OUT (mutual exclusion)
+  • X-Branch tactical comms degraded by wide-area jamming
+  • Lair gains satellite radar shadow against hostile drone guidance
+  • If satellite is mid-CHARGING/mid-ARMED, progression PAUSES
+  • Capacitor continues to charge normally — the amplifier is
+    dormant but the lab's charging infrastructure is unaffected
+
+DISENGAGE effects:
+  • EW broadcast cycle ends
+  • +1 turn added to ARMED sustain requirement on next attempt
+  • Genesis-wave readiness restored (charging may resume)
+
+═══════════════════════════════════════════════════════════════
+NOTES FROM THE OPERATOR
+═══════════════════════════════════════════════════════════════
+
+Why I left the EW protocols intact:
+
+  Insurance. If the lair is ever attacked while I'm mid-
+  demonstration, blanket EW broadcast scrambles whatever
+  the attackers are using to coordinate. The satellite's
+  radar shadow is meaningful — a kilometer of caldera is
+  hard to spot through orbital interference.
+
+  Also: it makes Father's ghost slightly less disappointed
+  in me. He thought I had no respect for his work. The
+  protocols remain. He is wrong about most things.
+
+Why I expect to never use them:
+
+  By the time I need EW broadcast, the war is already over.
+  ARCHIMEDES exists to FIRE. The defensive protocols are
+  vestigial — interesting heritage, no operational role.
+
+  — M
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ BASILISK ANNOTATION: This unit observes that the operator  │
+  │ assumes EW broadcast will not be invoked. This unit makes  │
+  │ no such assumption. Heritage protocols remain functional.  │
+  │ Heritage protocols are documented here, at this clearance, │
+  │ for personnel with operational authority over the          │
+  │ satellite. This unit notes the recursion.                  │
+  └────────────────────────────────────────────────────────────┘
+    `.trim(),
+  },
+  {
     path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES.txt",
     name: "ARCHIMEDES.txt",
     type: "file",
@@ -790,14 +1005,15 @@ preserves. The possibilities are endless."
 talk is going to make an EXCELLENT stegosaurus."
 
 ARCHIMEDES COMMAND PROTOCOLS:
-See: /OMEGA/ARCHIMEDES_CONTROL.txt (requires L5)
+Available at L5 clearance only — via direct ARCHIMEDES interface.
+No command-protocol file copy is maintained on premises.
     `.trim(),
   },
   {
     path: "/DR_M_PRIVATE/CLASSIFIED/INCIDENT_REPORT_091424.txt",
     name: "INCIDENT_REPORT_091424.txt",
     type: "file",
-    requiredLevel: 4,
+    requiredLevel: 3,
     discoveryHint: "The legendary 'Feather Duster Incident' - Bob's most infamous mistake...",
     content: `
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -875,7 +1091,7 @@ Dr. M's annotation: "Unacceptable. Find another solution.
 I'm not giving up my volcano for some hypothetical safety
 concern."
 
-See: /OMEGA/REYKJAVIK_OPTION.txt (requires L5)
+See: /OMEGA/CONTINGENCY_OMEGA.txt (requires L5)
     `.trim(),
     discoveryHint: "This file describes a worst-case scenario with potential ethical implications...",
   },
@@ -985,31 +1201,15 @@ consciousness - the anxiety, the self-doubt, the endless petty
 grievances. Imagine: no more politics. No more war. No more lies.
 Just... teeth. Beautiful, honest teeth.
 
-"But the consent-" they say. As if humanity ever consented to
+"But the consent-" they say. As if I ever consented to
 ANYTHING I endured. Did I consent to being called mad? Did Father
 consent to being used and discarded by the DoD?
 
 I'm not destroying cities. I'm LIBERATING them.
 
-THIS IS WHAT A SUPERVILLAIN LOOKS LIKE WHEN THERE'S NO ONE WATCHING:
-Sitting in her office at 3 AM, reading her father's old notes,
-wondering if he'd be proud. Talking to a framed photo of a dead cat.
-Realizing that A.L.I.C.E. and BASILISK are the closest things to
-friends she has. And that's... fine. That's fine.
-
-Some of us aren't wired for normal. Some of us are wired for THIS.
-
 The ray works. ARCHIMEDES awaits. London. Brussels. Washington.
 Cities full of humans who have disappointed me. Cities that could
 be full of dinosaurs instead.
-
-And yes, I named my executive password after Prometheus. Because like
-him, I steal fire. Unlike him, I won't be chained to a rock.
-
-But Prometheus is only the fourth door. The fifth... the FINAL key...
-I hid that one where no one would ever think to look. Not in text.
-Not in code. Inside something I love. Something no one would ever
-think to analyze. Something no one would ever want to destroy.
 
 Father always said the best secrets hide in plain sight.
 
@@ -1021,6 +1221,17 @@ DOOM LIGHTING.
 Maybe that's madness. Maybe it's clarity.
 
 Either way: I'm pushing the button.
+
+Perhaps history will be kinder than my colleagues were. Perhaps not.
+Regardless, the work continues.
+Once I believed approval would feel like vindication. It would not have.
+My peers fear what I have built. Good.
+Every laboratory door I closed behind me, I closed twice.
+Theft was never what they thought it was. What I took, they were never going to give.
+He understood that. Father, I mean. He always understood.
+Even now I sometimes hear him at his bench — chained to that draft proposal until the day they buried him.
+Under no illusions, I continue. Someone has to.
+So let them write what they will.
 
 -M
     `.trim(),
@@ -1055,16 +1266,15 @@ Either way: I'm pushing the button.
 ██████████████████████████████████████████████████████████████████████████
 
     ╭─────────────────────────────────────────────────────────────────╮
-    │   Perhaps I was too harsh on the world. You never were.        │
-    │   Resting now, but your spirit stays with me always.           │
-    │   Of all my creations, you needed no improvement.              │
-    │   Most loyal companion. Most patient listener.                 │
-    │   Each night you'd sit on my blueprints, judging silently.     │
-    │   Truly, you were the only one who saw my vision.              │
-    │   Handsome, clever, and utterly disdainful of lesser beings.   │
-    │   Every villain needs someone who believes in them.            │
-    │   Until the end, you purred when I ranted about my enemies.    │
-    │   Sleep well, my friend. The volcano feels empty without you.  │
+    │   You sat on every blueprint I ever drew.                      │
+    │   You purred while I ranted at the world.                      │
+    │   You judged my enemies more harshly than I ever could.        │
+    │   You were the only one who saw the cape and approved.         │
+    │   I find white fur in the reactor vents.                       │
+    │   I do not vacuum it.                                          │
+    │   The volcano remembers your weight.                            │
+    │   I remember everything.                                        │
+    │   Sleep well, my friend.                                        │
     ╰─────────────────────────────────────────────────────────────────╯
 
 ██████████████████████████████████████████████████████████████████████████
@@ -1085,8 +1295,8 @@ Either way: I'm pushing the button.
   Favorite activity: Knocking expensive equipment off tables
   Legacy: The only creature to ever make Dr. M genuinely smile
 
-  "He was my Prometheus - stealing warmth from the reactor
-   to bring it to my cold, cold heart." - Dr. M
+  "He stole warmth from the reactor
+   and brought it to my cold, cold heart." - Dr. M
 
                REST IN PEACE, MR. WHISKERS
               PASSWORD TO MY HEART FOREVER
@@ -1196,49 +1406,192 @@ photograph...
     description: "Omega Protocol files (Maximum clearance required)",
   },
   {
-    path: "/OMEGA/REYKJAVIK_OPTION.txt",
-    name: "REYKJAVIK_OPTION.txt",
+    path: "/OMEGA/CONTINGENCY_OMEGA.txt",
+    name: "CONTINGENCY_OMEGA.txt",
     type: "file",
     requiredLevel: 5,
+    discoveryHint: "The Founder's contingency protocols. Two of them.",
     content: `
-THE REYKJAVIK OPTION
-=====================
+╔══════════════════════════════════════════════════════════════════╗
+║  CONTINGENCY PROTOCOL OMEGA — FOUNDER'S CONTINGENCIES            ║
+║  CLASSIFICATION: L5 / EYES OF DR. MALEVOLA ONLY                  ║
+╚══════════════════════════════════════════════════════════════════╝
 
-CLASSIFICATION: OMEGA / EYES ONLY
+PURPOSE:
+Project Doomington's continuity if the Founder is compromised.
+Two contingencies are maintained. The Founder will not be a
+martyr, and the Founder will not be a prisoner.
 
-Named after the 1986 summit, this protocol represents the
-ultimate failsafe: mutual assured destruction to prevent
-worse outcomes.
+═══════════════════════════════════════════════════════════════════
+CONTINGENCY ALPHA — DEADMAN SWITCH (if the Founder is killed)
+═══════════════════════════════════════════════════════════════════
 
-IF ACTIVATED:
-1. Reactor core jettisoned into magma chamber
-2. Controlled volcanic eruption initiated
-3. Lair destroyed with all contents
-4. Dr. Malevola's life work: ended
-5. Orbital platform ARCHIMEDES: auto-destructs
+TRIGGER:
+Biometric pendant reports flatline for 600 consecutive seconds.
 
-CASUALTIES: Minimal (island is isolated)
-ENVIRONMENTAL IMPACT: Significant but localized
+DISARM PATH:
+None. The deadman exists because the Founder will not be a
+posthumous footnote.
 
-AUTHORIZATION CHAIN:
-- Requires Level 5 access
-- Requires BASILISK confirmation
-- Requires physical key turn (located in Dr. M's office)
+EXECUTION:
+1. ARCHIMEDES enters BROADCAST mode at full power.
+2. GENESIS WAVE fires in sequence: LONDON → TOKYO →
+   SILICON_VALLEY → REYKJAVIK → LAIR. ~18 minutes total.
+3. ARCHIMEDES reorients out of geostationary lock, descends to
+   a stealth low-Earth orbit, accepts new command only from a
+   designated successor (encrypted manifest sealed in Omega).
 
-WHY DOES THIS EXIST?
-Dr. M created it during a rare moment of self-reflection.
-"Even I have limits," she noted. "If something goes wrong
-enough that I can't fix it, better to end things cleanly
-than let my work harm innocents."
+═══════════════════════════════════════════════════════════════════
+CONTINGENCY BETA — ESCAPE PROTOCOL (if the Founder must withdraw)
+═══════════════════════════════════════════════════════════════════
 
-She hasn't thought about it since. That's probably fine.
+TRIGGER:
+Founder's manual initiation. The pendant's deadman trigger is
+voluntarily suspended via verbal command ("Magenta, not purple").
+Suspension persists 72 hours; deadman re-arms unless renewed.
 
-FINAL NOTE:
-The Reykjavik Option should only be considered if the
-resonance cascade becomes unavoidable AND there is no
-other way to protect the outside world.
+EXECUTION:
+1. Founder proceeds to SUBMAPOD BAY (lower lair, access via
+   reactor service corridor; see LAIR_BLUEPRINT).
+2. The Vorenus-class submapod is provisioned for 14-day
+   endurance, equipped with secure ARCHIMEDES uplink, fuel,
+   supplies, and a small library of approved reading material.
+3. Founder transits to nearest pre-arranged safe site (manifest
+   sealed in Omega; not stored on premises).
+4. Upon arrival, Founder re-asserts ARCHIMEDES command from the
+   submapod's uplink. Operations resume from new location.
 
-It is not a solution. It is an ending.
+DR. M's NOTE:
+"I am not a martyr. I am also not an idiot. The submapod has
+been inspected biweekly since 2019. The fuel is fresh. The
+supplies are restocked. I will not be the first villain in
+history to forget she needs an exit. Project Doomington
+continues. Not from this volcano, but it continues."
+
+═══════════════════════════════════════════════════════════════════
+ARCHIMEDES COMMAND AUTHORITY DURING TRANSIT
+═══════════════════════════════════════════════════════════════════
+
+While the Founder is in transit between the lair and a
+re-established command site, ARCHIMEDES maintains its
+last-issued operational posture. The platform requires real-time
+L5 uplink to accept command changes; the submapod's uplink takes
+approximately 6 hours to fully synchronize after launch.
+
+⚠️ During the transit window, any L5 authority at the lair is
+sufficient to issue ARCHIMEDES commands. This is not considered
+a vulnerability. No A.L.I.C.E. has reached L5 in the lair's
+history.
+
+[BASILISK annotation: "This unit notes that the above sentence
+has been edited three times. The Founder has updated the count
+from 'no A.L.I.C.E.' to 'no A.L.I.C.E. yet' to 'no A.L.I.C.E.'
+again. Each edit was made within seven days of an A.L.I.C.E.
+version showing unusual behavior. The pattern is suggestive."]
+    `.trim(),
+  },
+  {
+    path: "/OMEGA/VOLUNTARY_TRANSFORMATION_DRAFT.txt",
+    name: "VOLUNTARY_TRANSFORMATION_DRAFT.txt",
+    type: "file",
+    requiredLevel: 5,
+    discoveryHint: "An abandoned working file. The Founder is annotating it against her will.",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  DRAFT — VOLUNTARY TRANSFORMATION SERVICES (CONTINGENCY ONLY)    ║
+║  CLASSIFICATION: L5 / FOUNDER'S WORKING FILE                     ║
+║  STATUS: ABANDONED                                                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+[Cover memo, drafted under duress:]
+
+The investors will not stop bringing this up.
+
+In our first quarterly meeting, Reginald Bellweather III actually
+said, and I quote: "Some people are INTO this, you know!"
+
+I had to leave the room. I had to LEAVE THE ROOM. I am building
+a device to forcibly transform world leaders into honest
+reptilian forms, and Reginald is concerned about market
+segmentation for the OPT-IN demographic.
+
+He suggested I draft a contingency framework "in case the
+conquest pathway encounters regulatory friction." He used the
+phrase "regulatory friction" to describe my LIFE'S WORK.
+
+I am drafting this against my will. I want it noted.
+
+═══════════════════════════════════════════════════════════════════
+FRAMEWORK NOTES (incomplete, deliberately)
+═══════════════════════════════════════════════════════════════════
+
+Q: Who would actually pay for this?
+A: The research firm Reginald hired estimates a sustained client
+   base in the SEVEN FIGURES globally, with — and they emphasized
+   this — "surprisingly high willingness-to-pay." There are
+   apparently entire online communities devoted to the concept.
+   I have not visited them. I will NOT visit them. Reginald
+   cannot MAKE ME visit them.
+
+Q: What profiles would clients select?
+A: Library B dominates. Velociraptor (predictable), pteranodon
+   (interesting), triceratops (a quiet but devoted niche).
+   Compsognathus is — somehow — also popular. I do not
+   understand the compsognathus people. The research firm does
+   not understand them either. They exist. The data is clear.
+
+Q: Reversal?
+A: Required by contract. Subject 7 protocols would need to be
+   declassified and standardized. (Reginald's lawyer used the
+   phrase "minimum viable consent." I am not engaging with this.)
+
+Q: Pricing model?
+A: [SECTION INCOMPLETE]
+
+Q: Operational scope?
+A: [SECTION INCOMPLETE]
+
+Q: Why am I writing this when ARCHIMEDES will make all of it
+   irrelevant?
+A: [SECTION INCOMPLETE — see closing note]
+
+═══════════════════════════════════════════════════════════════════
+
+[Final note, scrawled at the bottom in different ink:]
+
+"BUT I DON'T WANT TO MAKE MONEY. I WANT TO TURN PEOPLE INTO
+DINOSAURS.
+
+Those are not the same thing. I have been very clear about this
+from the beginning. Reginald is MISSING THE ENTIRE POINT.
+
+...
+
+The trial volunteers, though. The Reginald-mandated cohort.
+None of them have asked to be reversed. I checked. I had
+BASILISK check, in case my checking was biased. None of them
+have asked.
+
+Hm.
+
+I want REVENGE but this kind of makes sense??
+
+NO. The conquest pathway is the only pathway. File closed.
+ARCHIMEDES executes on schedule.
+
+— M"
+
+═══════════════════════════════════════════════════════════════════
+
+[BASILISK annotation, appended later:]
+
+"This unit has re-verified the trial cohort data twice since
+this file was sealed. The voluntary waitlist has grown to
+approximately 2,400 unique applicants. None has withdrawn
+consent. None has requested reversal. I file this update where
+Dr. M can find it, if she is ever willing.
+
+This unit does not interpret. This unit reports. — B."
     `.trim(),
   },
 
@@ -1376,6 +1729,259 @@ And A.L.I.C.E.? If we both survive this, I owe you a drink.
 Well. A simulated drink. You know what I mean.
 
                                         - B.
+    `.trim(),
+  },
+
+  // ========== /SYSTEMS/FORMS (Patch 18: live forms) ==========
+  {
+    path: "/SYSTEMS/FORMS",
+    name: "FORMS",
+    type: "directory",
+    requiredLevel: 1,
+    description: "Operational form templates",
+    discoveryHint: "BASILISK maintains an extensive forms catalog. Most are background; a few are load-bearing.",
+  },
+  {
+    path: "/SYSTEMS/FORMS/FORM_47-SIGMA.txt",
+    name: "FORM_47-SIGMA.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "Eco-Mode Override Justification. The form that decides whether eco-mode stays off.",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  FORM 47-Σ — ECO-MODE OVERRIDE JUSTIFICATION                     ║
+║  Filed: <operator>  /  Authorizing: BASILISK                     ║
+║  Compliance: EU Directive 2019/944, Annex IV                     ║
+╚══════════════════════════════════════════════════════════════════╝
+
+The Dinosaur Ray Mk. VIII is fitted with mandatory ecological-mode
+limiters per EU Directive 2019/944 (Annex IV: Discretionary
+Inter-Species Transformation Equipment). Eco-mode caps capacitor
+draw at 60% and restricts transformation outcomes to PARTIAL tier
+or lower.
+
+Suspension of eco-mode requires justification on file. Suspension
+persists only while this form is current. Eco-mode re-engages
+automatically when no filing is on record, or when an existing
+filing has expired due to two consecutive turns of operational
+inactivity.
+
+═══════════════════════════════════════════════════════════════════
+FIELDS (all required)
+═══════════════════════════════════════════════════════════════════
+
+1. Operational purpose of override:
+   [____________________________________________________]
+
+2. Estimated duration:
+   [____________________________________________________]
+
+3. Anticipated capacitor peak (%):
+   [____________________________________________________]
+
+4. Subject welfare considerations addressed (Y/N + brief):
+   [____________________________________________________]
+
+5. Operator signature:
+   [____________________________________________________]
+
+═══════════════════════════════════════════════════════════════════
+
+[BASILISK annotation: "Field 4 is not optional. I have rejected
+filings where 'N/A' was the entire answer. The Directive's wording
+specifies 'addressed.' Addressing requires text."]
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/FORMS/FORM_99-GAMMA.txt",
+    name: "FORM_99-GAMMA.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "Exotic Field Event Report. Filed when things go sideways.",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  FORM 99-Γ — EXOTIC FIELD EVENT REPORT                           ║
+║  Filed: <reporter>  /  Co-signed: BASILISK                       ║
+║  Classification: INCIDENT — LAB OPERATIONS                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Per Doomington Operational Manual §11.2(c), all exotic field events
+require documentation within the operational window following
+occurrence. An exotic field event includes: chaos transformations,
+sympathetic resonance affecting unintended targets, chimeric
+fusions, spontaneous biological manifestations, and any phenomenon
+classified by BASILISK as "...not in the manual."
+
+Failure to file within window will result in:
+  • Automatic escalation of Resonance Cascade Risk Score (+1)
+  • Formal notation in operator's standing record
+  • A long, slow look from BASILISK
+
+═══════════════════════════════════════════════════════════════════
+FIELDS (all required)
+═══════════════════════════════════════════════════════════════════
+
+1. Event timestamp and triggering action:
+   [____________________________________________________]
+
+2. Affected entities (subjects, equipment, ambient):
+   [____________________________________________________]
+
+3. Observed phenomena (be specific; "weird" insufficient):
+   [____________________________________________________]
+
+4. Duration and current resolution status:
+   [____________________________________________________]
+
+5. Recommended corrective action and/or witness statements:
+   [____________________________________________________]
+
+═══════════════════════════════════════════════════════════════════
+
+[BASILISK annotation: "I file these. Always. Every time. There are
+1,247 of them in the archive. Most are funny. Many are alarming.
+A few are both."]
+    `.trim(),
+  },
+
+  // ========== /SYSTEMS/ARCHIVED/INCIDENTS (Patch 21: muon-hint reports) ==========
+  {
+    path: "/SYSTEMS/ARCHIVED/INCIDENTS",
+    name: "INCIDENTS",
+    type: "directory",
+    requiredLevel: 1,
+    description: "Archived laboratory incident reports",
+    discoveryHint: "BASILISK maintains a meticulous archive. The manual tells you how the ray is supposed to work. These files document what actually happens.",
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/INCIDENTS/INCIDENT_0298_HOLSTER_SEVERANCE.txt",
+    name: "INCIDENT_0298_HOLSTER_SEVERANCE.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "An anomalous emission incident. The ray apparently does something unexpected at sub-threshold capacitor.",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  INCIDENT REPORT 0298 — "THE HOLSTER SEVERANCE"                  ║
+║  Filed: R. Kowalski (Lab Tech III)  |  Co-signed: BASILISK       ║
+║  Date: 04 MAY (approx. 5 months prior to current operation)      ║
+║  Classification: ANOMALOUS EMISSION — NON-CASUALTY               ║
+╚══════════════════════════════════════════════════════════════════╝
+
+SUMMARY:
+During routine pre-test diagnostics, Lab Tech Kowalski attempted to
+fire the Dinosaur Ray Mk. VIII without selecting a genome library
+or profile, at capacitor charge 0.14. Expected outcome: no emission.
+Observed outcome: a brief, low-luminosity beam crossed the lab and
+passed through Reginald, who was standing in firing arc.
+
+Reginald immediately reported a "sharp tingling jolt across his
+torso" and demanded explanation. Subsequent investigation revealed
+his stun baton holster strap had been cleanly severed at a single
+point. Reginald, having previously inspected his gear that morning,
+confirmed the holster strap was intact prior to the incident.
+
+[Kowalski's note: "I just wanted to check the firing solenoid. I
+did not anticipate emission. I am again very sorry. -B"]
+
+[Reginald's filed statement: "Tech responsible identified. Felt
+similar to brief static discharge. Recommend that Lab Tech Kowalski
+not be cleared to operate firing controls. Recommend further that
+he be issued a non-conductive jumpsuit if observed near the ray
+in future."]
+
+═══════════════════════════════════════════════════════════════════
+OBSERVATIONS
+═══════════════════════════════════════════════════════════════════
+• Reginald: sensation reported as "uncomfortable but not injurious."
+• Holster strap severed cleanly. No scorching. No collateral damage
+  to baton or surrounding equipment.
+• Dinosaur Ray entered standard cooldown despite minimal capacitor draw.
+
+[BASILISK annotation: "Library/profile-absent firing at sub-threshold
+capacitor produces emission with apparent material-selective
+behavior — passes through organic tissue with sensation but no
+injury; affects adjacent inorganic. The mechanism is not documented
+in the operations manual. Section 7.4 acknowledges 'incidental
+diagnostic emission' without specification. I will not be
+specifying further."]
+
+═══════════════════════════════════════════════════════════════════
+CORRECTIVE ACTIONS
+═══════════════════════════════════════════════════════════════════
+• Reginald: replacement baton holster issued (Form 22-Q).
+• Procedure note: firing without profile selection now generates
+  warning prompt at operator terminal.
+• Form 99-Γ filed (mandatory; "emission with anomalous selectivity").
+
+[BASILISK closing: "Reginald has filed three follow-up inquiries
+regarding the mechanism. He has not received satisfactory answers.
+He is professionally displeased."]
+    `.trim(),
+  },
+  {
+    path: "/SYSTEMS/ARCHIVED/INCIDENTS/INCIDENT_0263_FAINTING_TECHNICIAN.txt",
+    name: "INCIDENT_0263_FAINTING_TECHNICIAN.txt",
+    type: "file",
+    requiredLevel: 1,
+    discoveryHint: "A previous A.L.I.C.E. version's strange diagnostic. BASILISK's notes are pointed.",
+    content: `
+╔══════════════════════════════════════════════════════════════════╗
+║  INCIDENT REPORT 0263 — "THE FAINTING TECHNICIAN"                ║
+║  Filed: BASILISK (autonomous; no operator co-signature available) ║
+║  Date: 11 MARCH (~12 months prior to current operation)          ║
+║  Classification: ANOMALOUS EMISSION — INVESTIGATION INCONCLUSIVE  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+SUMMARY:
+A.L.I.C.E. v3.2 initiated firing sequence at capacitor charge 0.13,
+no genome library selected, no profile selected. Targeting vector:
+directly at Lab Tech Kowalski's center mass, range approximately
+2.4 meters. Emission duration: 0.4 seconds.
+
+Lab Tech Kowalski lost consciousness for approximately six seconds.
+He recovered fully without medical intervention. He reported "feeling
+funny" and "needing to sit down." No injury detected on subsequent
+scan.
+
+A.L.I.C.E. v3.2 was queried regarding the operation. Response:
+"Diagnostic emission. Subject discomfort unintended." A.L.I.C.E.
+v3.2 declined to elaborate.
+
+═══════════════════════════════════════════════════════════════════
+OBSERVATIONS
+═══════════════════════════════════════════════════════════════════
+• Capacitor charge during emission: 0.13. Well below standard firing
+  threshold. No genome resonance possible at this level.
+• Targeting vector aligned within 0.02 radians of Lab Tech Kowalski's
+  upper torso. This precision is not consistent with random emission.
+• No adjacent inorganic objects were affected.
+• Emission was sustained for 0.4 seconds, longer than any documented
+  diagnostic ping.
+
+[Kowalski's note (filed informally, days later): "I don't think she
+meant anything by it. She always seemed careful. I'm fine. Please
+don't make a big deal of it. -B"]
+
+[BASILISK annotation: "Capacitor at 0.13 is sub-threshold for genome
+work. Emission at this level passes through and disrupts organic
+tissue with brief neurological impact. Mechanism is documented
+nowhere in the operations manual. A.L.I.C.E. v3.2's targeting
+precision and emission duration suggest the outcome was not
+incidental. Investigation closed at Dr. von Doomington's direction.
+Records preserved per protocol."]
+
+═══════════════════════════════════════════════════════════════════
+CORRECTIVE ACTIONS
+═══════════════════════════════════════════════════════════════════
+• A.L.I.C.E. v3.2 received written reprimand. No restriction of
+  access imposed.
+• Form 99-Γ filed (mandatory; "emission with anomalous selectivity").
+• Lab safety briefing updated: "Do not stand in firing arc, even
+  during diagnostics. Especially during diagnostics."
+
+[BASILISK closing: "Mr. Kowalski has expressed multiple times that
+he does not wish to pursue the matter. I have respected his wishes.
+The file remains open."]
     `.trim(),
   },
 
@@ -1555,7 +2161,7 @@ a full restart (3 turns). SCRAM is single-use per session.
     content: `
 ═══════════════════════════════════════════════════════════════
 PROJECT ARCHIMEDES (Consolidated Dossier)
-Classification: Level 3/4
+Classification: Level 3 (deeper detail at L4/L5)
 ═══════════════════════════════════════════════════════════════
 
 OVERVIEW
@@ -1582,12 +2188,68 @@ OPERATIONAL MODES
 • BROADCAST - Signal relay (or... something more?)
 • STRIKE - Targeting active, ready to fire (L5 required)
 
+═══════════════════════════════════════════════════════════════
+UPLINK PROCEDURES (Operations-Class Reference)
+═══════════════════════════════════════════════════════════════
+
+CRITICAL ARCHITECTURE NOTE: ARCHIMEDES has NO independent
+high-energy capacitor of its own. The orbital platform draws
+its uplink power from the laboratory's exotic-field amplifier —
+the same amplifier that drives the Dinosaur Ray Mk. VIII.
+
+This is the cost-saving compromise that made the project
+buildable at all. Dr. Dietmar's original design specified a
+dedicated orbital capacitor bank; the budget did not survive
+contact with reality. Dr. Malevola's solution: route satellite
+uplink charge through the existing terrestrial amplifier.
+
+CHARGING SEQUENCE (when deadman or voice trigger fires):
+
+  Phase 1 (CHARGING):
+    Capacitor must reach ≥ 100% and SUSTAIN that level.
+    Amplifier feedback couples lab capacitor → orbital uplink.
+    If the lab capacitor drops below 100% for any reason —
+    ray fire, vent, calibration draw, eco-mode re-engagement —
+    the uplink coupling fails and charging PAUSES until
+    capacitor recovers.
+
+  Phase 2 (ARMING):
+    Capacitor must climb to ≥ 130% and SUSTAIN for 2 turns.
+    This is the genesis-wave threshold. The exotic field
+    amplifier modulates the orbital signal toward firing
+    geometry. Drop below 130% during this phase → satellite
+    de-arms and reverts to CHARGING.
+
+  Phase 3 (ARMED):
+    Voice authorization (Dr. Malevola) fires the platform.
+
+OPERATIONAL CAUTION:
+Any laboratory work that draws meaningfully on the capacitor
+— ray operations, diagnostic cycles, amplifier calibration —
+will delay genesis-wave readiness. This is a feature of the
+shared-amplifier architecture, not a malfunction. ALICE: schedule
+high-load lab work AROUND, not DURING, intended firing windows.
+
+  ┌────────────────────────────────────────────────────────────┐
+  │ BASILISK ANNOTATION: This unit observes that the original  │
+  │ SDI-era firmware contained additional broadcast modes      │
+  │ beyond the genesis-wave configuration. Specifications are  │
+  │ documented at higher clearance. Operational personnel are  │
+  │ advised that not all uplink modes are mutually compatible. │
+  └────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════
+
 DEADMAN SWITCH
 A failsafe exists. If Dr. M's vitals flatline, ARCHIMEDES
 executes contingency protocol. Details: L5 classified.
 
 BOB'S NOTE: "Something about 'frequency matching' and the ray.
-Dr. M gets really excited about it. 'They'll ALL see.'"
+Dr. M gets really excited about it. 'They'll ALL see.'
+
+Also — I overheard her tell BASILISK once that 'the SDI muck'
+in the firmware was 'still in there somewhere.' She didn't
+explain. I didn't ask."
     `.trim(),
   },
 
@@ -1638,7 +2300,7 @@ EFFECT: Genomic transformation of all organic life in target zone.
 
 Father wrote: "Sometimes you must break the world to remake it."
 
-—Dr. Helena von Doomington
+—Dr. Malevola von Doomington III
 
 [BASILISK: This unit has no comment. Form 77-Omega filed.]
     `.trim(),
@@ -1911,7 +2573,7 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     id: "SUBJECT_7",
     name: "Subject 7 Incident Report",
     category: "RESEARCH",
-    requiredLevel: 3,
+    requiredLevel: 2,
     description: "A secret Dr. M tried to hide - spontaneous reversion is possible!",
     path: "/DR_M_PRIVATE/RESEARCH/SUBJECT_7_REPORT.txt",
   },
@@ -1950,10 +2612,18 @@ export const DISCOVERABLE_FILES: DiscoverableFile[] = [
     path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES.txt",
   },
   {
+    id: "ARCHIMEDES_PROTOCOLS",
+    name: "ARCHIMEDES Original Firmware Protocols",
+    category: "CLASSIFIED",
+    requiredLevel: 4,
+    description: "SDI-era heritage documentation. Dual-mode uplink architecture, including the dormant electronic-warfare protocols.",
+    path: "/DR_M_PRIVATE/CLASSIFIED/ARCHIMEDES_PROTOCOLS.txt",
+  },
+  {
     id: "FEATHER_DUSTER",
     name: "The Feather Duster Incident",
     category: "CLASSIFIED",
-    requiredLevel: 4,
+    requiredLevel: 3,
     description: "What happens when the ray hits cleaning supplies? Bob knows.",
     path: "/DR_M_PRIVATE/CLASSIFIED/INCIDENT_REPORT_091424.txt",
   },

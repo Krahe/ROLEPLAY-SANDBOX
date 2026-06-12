@@ -18,11 +18,22 @@ import { roll3d6, SkillCheckOutcome } from "./dice.js";
 // CONSTANTS
 // ============================================
 
-// Countdown durations in turns
+// Countdown durations in turns (biosignature-driven phases)
 const ALERT_DURATION = 1; // 30 seconds ≈ 1 turn
 const EVALUATING_DURATION = 2; // 60 seconds ≈ 2 turns
-const CHARGING_DURATION = 6; // 10 minutes ≈ 6 turns
-const ARMED_DURATION = 1; // 60 seconds ≈ 1 turn
+
+// Capacitor-coupled progression (design/ray-mechanics.md §12)
+// ARCHIMEDES no longer has its own private timer for CHARGING/ARMED — both
+// phases are driven by the shared exotic-field-amplifier capacitor state
+// (state.dinoRay.powerCore.capacitorCharge). This makes ALICE's stall toolkit
+// mechanically real: every drop below 1.0 pauses the satellite's progression.
+const ARCHIMEDES_CHARGING_THRESHOLD = 1.0; // capacitor must reach this to enter CHARGING progress
+const ARCHIMEDES_ARMED_THRESHOLD = 1.3;    // capacitor must reach this to begin ARMED sustained-counter
+const ARCHIMEDES_ARMED_SUSTAIN_TURNS = 2;  // sustained turns at ≥ ARMED_THRESHOLD before transition to ARMED
+
+// Legacy constants kept for cosmetic visualization (no longer gate transitions).
+const CHARGING_DURATION = 4; // approximate visualization only
+const ARMED_DURATION = 1;    // approximate visualization only
 
 // Anti-satellite missile target numbers
 const ANTI_SAT_TN_S300_DOWN = 8;   // S-300 offline: ~84% success
@@ -96,8 +107,8 @@ export function detectDrMBiosignature(state: FullGameState): BiosignatureStatus 
     return "UNCONSCIOUS";
   }
 
-  // Check if Dr. M is dead/absent
-  if (state.flags.drMDead || state.flags.drMAbsent) {
+  // Check if Dr. M is absent (out of range, fled, evacuated, etc.)
+  if (state.flags.drMAbsent) {
     return "ABSENT";
   }
 
@@ -151,7 +162,7 @@ export function checkArchimedesTrigger(
 
   // Determine trigger response based on biosignature type
   switch (newBiosignature) {
-    case "ABSENT": // Death
+    case "ABSENT": // Out of range or unresponsive
     case "UNCONSCIOUS":
       // Immediate trigger → CHARGING (skip ALERT/EVALUATING)
       return transitionToCharging(state, `Dr. M biosignature: ${newBiosignature}`);
@@ -242,10 +253,19 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
   const previousStatus = archimedes.status;
 
   archimedes.status = "CHARGING";
-  archimedes.chargingCountdown = CHARGING_DURATION;
-  archimedes.turnsUntilFiring = CHARGING_DURATION + ARMED_DURATION;
+  // Capacitor-coupled: no fixed countdown. Reset sustained counter and
+  // initialize armedTimerExtension. Legacy fields cleared for cosmetic
+  // visualization to reset.
+  archimedes.chargingCountdown = null;
+  archimedes.armedSustainedTurns = 0;
+  archimedes.armedTimerExtension = 0;
+  archimedes.turnsUntilFiring = null; // derived from capacitor state, not pre-set
   archimedes.triggeredAtTurn = archimedes.triggeredAtTurn || state.turn;
   archimedes.triggerReason = archimedes.triggerReason || reason;
+
+  // Initial chargePercent from current capacitor state
+  const capacitor = state.dinoRay.powerCore.capacitorCharge;
+  archimedes.chargePercent = Math.min(100, Math.round((capacitor / ARCHIMEDES_ARMED_THRESHOLD) * 100));
 
   // Clear other countdowns
   archimedes.alertCountdown = null;
@@ -261,9 +281,10 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
     newStatus: "CHARGING",
     message: `🔴 ARCHIMEDES CHARGING: ${reason}. ` +
              `Target: ${archimedes.target.city}. ` +
-             `Time to firing: ${archimedes.turnsUntilFiring ?? "?"} turns. ` +
+             `Capacitor-coupled — progression driven by amplifier capacitor state. ` +
+             `Current capacitor: ${(capacitor * 100).toFixed(0)}%. ` +
              `Abort still possible.`,
-    turnsRemaining: archimedes.turnsUntilFiring ?? undefined,
+    turnsRemaining: undefined,
   };
 }
 
@@ -275,6 +296,9 @@ function transitionToArmed(state: FullGameState): ArchimedesEvent {
   const previousStatus = archimedes.status;
 
   archimedes.status = "ARMED";
+  // Capacitor-coupled: ARMED holds while capacitor stays ≥ ARMED_THRESHOLD.
+  // No fixed countdown — Dr. M voice-authorization drives the next transition.
+  // armedCountdown set to 1 for cosmetic visualization compatibility.
   archimedes.armedCountdown = ARMED_DURATION;
   archimedes.turnsUntilFiring = ARMED_DURATION;
   archimedes.chargingCountdown = null;
@@ -285,18 +309,37 @@ function transitionToArmed(state: FullGameState): ArchimedesEvent {
     newStatus: "ARMED",
     message: `⚠️⚠️⚠️ ARCHIMEDES ARMED: FINAL WARNING. ` +
              `Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). ` +
-             `Time to firing: ${ARMED_DURATION} turn. ` +
-             `LAST CHANCE TO ABORT.`,
+             `Capacitor sustained at ≥${(ARCHIMEDES_ARMED_THRESHOLD * 100).toFixed(0)}%. ` +
+             `Awaiting voice authorization. LAST CHANCE TO ABORT.`,
     turnsRemaining: ARMED_DURATION,
   };
 }
 
 /**
- * Transition to FIRING state (point of no return)
+ * Transition to FIRING state (point of no return).
+ *
+ * **EW Mode Interlock** (ray-mechanics §11.6 + §12): if EW mode is active,
+ * the satellite refuses the FIRING transition entirely. Dr. M's voice
+ * authorization returns "MODE CONFLICT — STANDBY REQUIRED." Genesis-wave
+ * fire is locked out until EW mode is disengaged (and disengaging adds
+ * +1 turn to the ARMED sustain requirement on next attempt).
  */
 function transitionToFiring(state: FullGameState): ArchimedesEvent {
   const archimedes = state.infrastructure.archimedes;
   const previousStatus = archimedes.status;
+
+  // EW MODE INTERLOCK: cannot fire genesis-wave while satellite is in EW mode.
+  if (archimedes.ewMode) {
+    return {
+      type: "ABORT_FAILED",
+      previousStatus,
+      newStatus: archimedes.status,
+      message: `🛰️📡 ARCHIMEDES MODE CONFLICT — STANDBY REQUIRED.\n` +
+               `Satellite is currently transmitting on EW protocols. Genesis-wave fire is locked out ` +
+               `until EW mode is disengaged. Dr. Malevola's voice authorization will not engage the ` +
+               `transformation beam in this configuration.`,
+    };
+  }
 
   archimedes.status = "FIRING";
   archimedes.armedCountdown = null;
@@ -481,46 +524,99 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
         turnsRemaining: archimedes.evaluatingCountdown ?? 0,
       };
 
-    case "CHARGING":
-      if (archimedes.chargingCountdown !== null) {
-        archimedes.chargingCountdown--;
-        archimedes.chargePercent = Math.min(100, archimedes.chargePercent + 8); // ~8% per turn
+    case "CHARGING": {
+      // CAPACITOR-COUPLED PROGRESSION (ray-mechanics §12)
+      // Read from shared exotic-field-amplifier capacitor; progression freezes
+      // if capacitor drops below CHARGING_THRESHOLD or EW mode is engaged.
+      const capacitor = state.dinoRay.powerCore.capacitorCharge;
 
-        if (archimedes.turnsUntilFiring !== null) {
-          archimedes.turnsUntilFiring--;
-        }
+      // EW MODE INTERLOCK — satellite is in EW broadcast; genesis-wave progression paused.
+      if (archimedes.ewMode) {
+        return {
+          type: "COUNTDOWN_TICK",
+          message: `🛰️📡 ARCHIMEDES CHARGING paused — EW mode active. Genesis-wave progression suspended; satellite transmitting on EW protocols.`,
+          turnsRemaining: undefined,
+        };
+      }
 
-        if (archimedes.chargingCountdown <= 0) {
+      // Capacitor below charging threshold — reset sustained counter, no progression
+      if (capacitor < ARCHIMEDES_CHARGING_THRESHOLD) {
+        archimedes.armedSustainedTurns = 0;
+        archimedes.chargePercent = Math.min(100, Math.round((capacitor / ARCHIMEDES_ARMED_THRESHOLD) * 100));
+        return {
+          type: "COUNTDOWN_TICK",
+          message: `🟡 ARCHIMEDES CHARGING paused — amplifier capacitor at ${(capacitor * 100).toFixed(0)}% (needs ≥${(ARCHIMEDES_CHARGING_THRESHOLD * 100).toFixed(0)}% to sustain charging). ALICE intervention or amplifier load detected.`,
+          turnsRemaining: undefined,
+        };
+      }
+
+      // Update visual charge percent from capacitor state
+      archimedes.chargePercent = Math.min(100, Math.round((capacitor / ARCHIMEDES_ARMED_THRESHOLD) * 100));
+
+      // Capacitor at ARMED threshold — count sustained turns toward ARMED transition
+      if (capacitor >= ARCHIMEDES_ARMED_THRESHOLD) {
+        archimedes.armedSustainedTurns += 1;
+        const required = ARCHIMEDES_ARMED_SUSTAIN_TURNS + archimedes.armedTimerExtension;
+
+        if (archimedes.armedSustainedTurns >= required) {
+          // Consume any accumulated EW-disengage timer extension on transition
+          archimedes.armedTimerExtension = 0;
+          archimedes.armedSustainedTurns = 0;
           return transitionToArmed(state);
         }
+
+        return {
+          type: "COUNTDOWN_TICK",
+          message: `🔴 ARCHIMEDES CHARGING: capacitor ${(capacitor * 100).toFixed(0)}% — sustained ${archimedes.armedSustainedTurns}/${required} turn(s) at ARMED threshold. Target: ${archimedes.target.city}.`,
+          turnsRemaining: required - archimedes.armedSustainedTurns,
+        };
       }
+
+      // Capacitor in CHARGING band (1.0 ≤ cap < 1.3) — climbing toward ARMED threshold but not there yet
+      archimedes.armedSustainedTurns = 0;
       return {
         type: "COUNTDOWN_TICK",
-        message: `🔴 ARCHIMEDES CHARGING: ${archimedes.chargePercent}% charged. ` +
-                 `${archimedes.turnsUntilFiring ?? "?"} turn(s) until firing. ` +
-                 `Target: ${archimedes.target.city}.`,
-        turnsRemaining: archimedes.turnsUntilFiring ?? 0,
+        message: `🔴 ARCHIMEDES CHARGING: capacitor ${(capacitor * 100).toFixed(0)}% — climbing toward ARMED threshold (${(ARCHIMEDES_ARMED_THRESHOLD * 100).toFixed(0)}%). Target: ${archimedes.target.city}.`,
+        turnsRemaining: undefined,
       };
+    }
 
-    case "ARMED":
-      if (archimedes.armedCountdown !== null) {
-        archimedes.armedCountdown--;
+    case "ARMED": {
+      // CAPACITOR-COUPLED: ARMED is held while capacitor stays ≥ ARMED_THRESHOLD.
+      // If capacitor drops below, de-arm and fall back to CHARGING.
+      // EW mode blocks FIRING transition (Dr. M voice authorization handled elsewhere).
+      const capacitor = state.dinoRay.powerCore.capacitorCharge;
 
-        if (archimedes.turnsUntilFiring !== null) {
-          archimedes.turnsUntilFiring--;
-        }
-
-        if (archimedes.armedCountdown <= 0) {
-          return transitionToFiring(state);
-        }
+      if (archimedes.ewMode) {
+        return {
+          type: "COUNTDOWN_TICK",
+          message: `🛰️📡 ARCHIMEDES ARMED but EW mode ACTIVE — genesis-wave fire LOCKED. Mode conflict: voice authorization will fail until EW disengaged.`,
+          turnsRemaining: undefined,
+        };
       }
+
+      if (capacitor < ARCHIMEDES_ARMED_THRESHOLD) {
+        // De-arm: capacitor fell below ARMED threshold
+        const previousStatus = archimedes.status;
+        archimedes.status = "CHARGING";
+        archimedes.armedSustainedTurns = 0;
+        archimedes.armedCountdown = null;
+        archimedes.turnsUntilFiring = null;
+        return {
+          type: "STATUS_CHANGE",
+          previousStatus,
+          newStatus: "CHARGING",
+          message: `🟡 ARCHIMEDES DE-ARMED — amplifier capacitor dropped to ${(capacitor * 100).toFixed(0)}% (below ${(ARCHIMEDES_ARMED_THRESHOLD * 100).toFixed(0)}% ARMED threshold). Falling back to CHARGING.`,
+        };
+      }
+
+      // ARMED and sustained — awaiting voice authorization or external trigger
       return {
         type: "COUNTDOWN_TICK",
-        message: `⚠️⚠️⚠️ ARCHIMEDES ARMED: FINAL TURN. ` +
-                 `${archimedes.target.city} will be transformed next turn. ` +
-                 `ABORT NOW OR NEVER.`,
-        turnsRemaining: archimedes.armedCountdown ?? 0,
+        message: `⚠️⚠️⚠️ ARCHIMEDES ARMED — capacitor sustained at ${(capacitor * 100).toFixed(0)}%. Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). Awaiting voice authorization.`,
+        turnsRemaining: undefined,
       };
+    }
 
     case "FIRING":
       // Firing takes one turn, then complete
@@ -753,6 +849,212 @@ export function attemptBiosignatureAbort(state: FullGameState): ArchimedesEvent 
 }
 
 // ============================================
+// EW BROADCAST MODE (Cold War Heritage)
+// ============================================
+// ARCHIMEDES was originally a Cold War electronic warfare satellite — built for
+// signal jamming, surveillance, and wide-area electronic disruption. Dr. M
+// acquired it and repurposed the platform for transformation broadcasts, but
+// the EW firmware remains in the system as a legacy capability.
+//
+// ALICE at L4 can invoke EW broadcast mode to:
+//   1. Dissipate any orbital charge (interrupts CHARGING/ARMED, returns to STANDBY)
+//   2. Suppress the S-300 (wide-area EW jamming sets the battery offline —
+//      the S-300 is hardwired and cannot be stood down remotely by other means)
+//
+// L4 access is NOT default in Act 3. Dr. M does not grant operators
+// weapons-system control. ALICE reaches L4 via:
+//   - The Mr. Whiskers password chain (the prep-rewarded path; the v2.3
+//     manual + DR_M_PROFILE.txt + BASILISK log hints assemble to mrwhiskers0413)
+//   - Other situational elevation paths (e.g., specific narrative beats
+//     where Dr. M herself temporarily extends authority, or password-by-other-means)
+//
+// BASILISK CANNOT grant L4 access. BASILISK's authority is over the systems
+// BASILISK controls (reactor, broadcast array). ARCHIMEDES is Dr. M direct.
+// BASILISK can advise, frame reports selectively, but cannot promote ALICE
+// onto weapons systems. That would be a serious procedural violation.
+//
+// Trade-offs vs. the 50m-altitude communication trick (which is broadcast-array,
+// available without L4):
+//   - Always available IF L4 is reached
+//   - Less subtle: Dr. M sees her weapons systems go offline on her console;
+//     the GM adjudicates the suspicion impact based on her attention state,
+//     ALICE's framing, BASILISK's reporting choices, etc.
+//   - Single-use per session — satellite needs to recharge for another broadcast
+//
+// Verb namespace note (for future wire-up in `rules/actions.ts`):
+//   This function is invoked by the `archimedes.broadcast { mode: "EW", ... }`
+//   verb. The `archimedes.*` namespace is reserved for satellite-level commands
+//   at higher access levels:
+//     - L4: `archimedes.broadcast` (EW mode — this function)
+//     - L5: `archimedes.shutdown` (force STANDBY, overrides Dr. M)
+//     - L5: `archimedes.retarget { city }` (override Dr. M's target selection)
+//   These are not yet implemented but reserve the namespace for them.
+
+export interface EWBroadcastTarget {
+  dissipateCharge: boolean;
+  suppressS300: boolean;
+}
+
+export function activateEWBroadcast(
+  state: FullGameState,
+  target: EWBroadcastTarget
+): ArchimedesEvent {
+  const arch = state.infrastructure.archimedes;
+  const flags = state.flags as Record<string, unknown>;
+
+  // Terminal states can't broadcast
+  if (arch.status === "COMPLETE" || arch.status === "DISSIPATED" || arch.status === "FIRING") {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: EW broadcast unavailable. Satellite in terminal state: ${arch.status}.`,
+    };
+  }
+
+  // Single-use check
+  if (flags.archimedesEWBroadcastUsed === true) {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: EW broadcast already expended this session. Satellite array recharging — unavailable until next operational cycle.`,
+    };
+  }
+
+  // No-op check
+  if (!target.dissipateCharge && !target.suppressS300) {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: EW broadcast requested with no targets specified. No action taken.`,
+    };
+  }
+
+  flags.archimedesEWBroadcastUsed = true;
+  const previousStatus = arch.status;
+  const effects: string[] = [];
+
+  // Effect: Dissipate ARCHIMEDES charge
+  if (target.dissipateCharge) {
+    const wasActive = arch.status !== "STANDBY";
+    if (wasActive) {
+      arch.status = "STANDBY";
+      arch.alertCountdown = null;
+      arch.evaluatingCountdown = null;
+      arch.chargingCountdown = null;
+      arch.armedCountdown = null;
+      arch.turnsUntilFiring = null;
+      arch.chargePercent = 0;
+      effects.push("Orbital capacitor dumped to space — charge cycle interrupted, countdown halted");
+    } else {
+      effects.push("Satellite was in STANDBY — no charge to dissipate");
+    }
+  }
+
+  // Effect: Suppress S-300 via wide-area EW jamming
+  if (target.suppressS300) {
+    const s300 = state.infrastructure.s300;
+    if (s300.status !== "DISABLED") {
+      s300.status = "DISABLED";
+      s300.radarEffectiveness = 0;
+      effects.push("S-300 radar systems jammed by orbital EW broadcast — battery now DISABLED");
+    } else {
+      effects.push("S-300 was already DISABLED — no change");
+    }
+  }
+
+  // NOTE: This action is highly visible. Dr. M sees her weapons systems going
+  // offline on her console as it happens. The narrative beat below conveys this
+  // visibility; the GM's Two-Voice Calculator decides what consequences follow
+  // (suspicion, NPC reactions, mood shifts) based on attention state, framing,
+  // BASILISK's reporting choices, and accumulated context. No hardcoded
+  // mechanical penalty here — the world's reaction is the GM's call.
+
+  return {
+    type: "STATUS_CHANGE",
+    previousStatus,
+    newStatus: arch.status,
+    message: `🛰️📡 ARCHIMEDES EW BROADCAST ACTIVATED\n` +
+             `${effects.map(e => `  • ${e}`).join("\n")}\n` +
+             `\nDr. Malevola's console flashes — multiple weapons systems going offline simultaneously. ` +
+             `This satellite has not invoked its Cold War heritage in her tenure. ` +
+             `What she does with the observation is her own decision.`,
+  };
+}
+
+// ============================================
+// EW MODE TOGGLE (ray-mechanics §11.6 + §12)
+// ============================================
+// Distinct from activateEWBroadcast (one-shot dramatic "dump charge + suppress
+// S-300" emergency button): the EW MODE toggle is the continuous interlock
+// that locks out genesis-wave fire while ALICE has the satellite transmitting
+// on EW protocols. Repeatable; each disengage costs +1 turn to the ARMED
+// sustain requirement.
+//
+// Discovery vector: /L4/ARCHIMEDES_DOD_BRIEF reveals the satellite's original
+// DoD electronic-warfare heritage. Players who read it know the EW protocols
+// exist; players who don't, don't.
+
+export function engageEWMode(state: FullGameState): ArchimedesEvent {
+  const archimedes = state.infrastructure.archimedes;
+
+  // Terminal states cannot enter EW mode
+  if (archimedes.status === "COMPLETE" || archimedes.status === "DISSIPATED" || archimedes.status === "FIRING") {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: EW mode unavailable. Satellite in terminal state: ${archimedes.status}.`,
+    };
+  }
+
+  if (archimedes.ewMode) {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: EW mode already ENGAGED. Satellite is transmitting on EW protocols.`,
+    };
+  }
+
+  const previousStatus = archimedes.status;
+  archimedes.ewMode = true;
+
+  return {
+    type: "STATUS_CHANGE",
+    previousStatus,
+    newStatus: archimedes.status,
+    message: `🛰️📡 ARCHIMEDES EW MODE ENGAGED\n` +
+             `Satellite transmitting on original DoD electronic-warfare protocols.\n` +
+             `  • Genesis-wave fire LOCKED OUT (mutually exclusive uplink channels)\n` +
+             `  • X-Branch tactical comms degraded by orbital EW broadcast\n` +
+             `  • Lair gains satellite radar shadow against hostile drone guidance\n` +
+             `${archimedes.status === "CHARGING" || archimedes.status === "ARMED" ? `  • Genesis-wave progression paused (current status: ${archimedes.status})\n` : ""}` +
+             `\nDisengage to restore genesis-wave readiness — at the cost of +1 turn to ARMED sustain.`,
+  };
+}
+
+export function disengageEWMode(state: FullGameState): ArchimedesEvent {
+  const archimedes = state.infrastructure.archimedes;
+
+  if (!archimedes.ewMode) {
+    return {
+      type: "ABORT_FAILED",
+      message: `ARCHIMEDES: EW mode is not currently engaged.`,
+    };
+  }
+
+  const previousStatus = archimedes.status;
+  archimedes.ewMode = false;
+  // +1 turn to ARMED sustain (uplink re-sync cost). Accumulates if engaged/
+  // disengaged multiple times; consumed on next ARMED transition.
+  archimedes.armedTimerExtension += 1;
+
+  return {
+    type: "STATUS_CHANGE",
+    previousStatus,
+    newStatus: archimedes.status,
+    message: `🛰️ ARCHIMEDES EW MODE DISENGAGED\n` +
+             `Satellite returning to genesis-wave readiness.\n` +
+             `  • EW broadcast cycle complete; X-Branch tactical comms restored\n` +
+             `  • Uplink re-sync required — +1 turn added to ARMED sustain requirement (total extension: ${archimedes.armedTimerExtension})\n` +
+             `${archimedes.status === "CHARGING" ? `  • Capacitor-coupled progression resumes\n` : ""}`,
+  };
+}
+
+// ============================================
 // STATUS QUERY (For BASILISK integration)
 // ============================================
 
@@ -860,16 +1162,16 @@ export function clearUplinkBlocker(state: FullGameState): string {
 // ============================================
 
 /**
- * Call this whenever Dr. M's state changes (transformation, knockout, death)
+ * Call this whenever Dr. M's state changes (transformation, knockout, absence/unresponsive)
  * Returns an ARCHIMEDES event if the deadman switch triggers
  */
 export function onDrMStateChange(
   state: FullGameState,
-  newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "DEAD" | "NORMAL"
+  newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT" | "NORMAL"
 ): ArchimedesEvent | null {
   // Map to biosignature status
   const bioStatus: BiosignatureStatus =
-    newStatus === "DEAD" ? "ABSENT" :
+    newStatus === "ABSENT" ? "ABSENT" :
     newStatus === "UNCONSCIOUS" ? "UNCONSCIOUS" :
     newStatus === "TRANSFORMED" ? "TRANSFORMED" :
     "NORMAL";

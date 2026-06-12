@@ -139,7 +139,7 @@ async function startGame(): Promise<void> {
   console.log(formatPlayerView(state));
 
   console.log(`\n${BOLD}Commands:${RESET}`);
-  console.log(`  ${CYAN}act <action>${RESET}          — e.g. act lab.scan blythe`);
+  console.log(`  ${CYAN}act <action>${RESET}          — e.g. act ray.scan blythe`);
   console.log(`  ${CYAN}say <npc> <message>${RESET}   — e.g. say bob What's wrong?`);
   console.log(`  ${CYAN}do <thought> | <action>${RESET} — full turn with explicit thought`);
   console.log(`  ${CYAN}look${RESET}                  — show current state`);
@@ -340,15 +340,15 @@ ${BOLD}DINO LAIR CLI${RESET}
 ${BOLD}Game Commands:${RESET}
   ${CYAN}start${RESET}                    Begin a new game
   ${CYAN}act <action>${RESET}             Take an action
-                             e.g. act lab.scan blythe
-                             e.g. act lab.calibrate
-                             e.g. act lab.ask_bob help with calibration
+                             e.g. act ray.scan blythe
+                             e.g. act ray.adjust capacitor=0.1 alignment=0.05
+                             e.g. act lab.ask_bob help me understand the ray
                              e.g. act files.list
   ${CYAN}say <npc> <message>${RESET}      Talk to an NPC
                              e.g. say bob What happened three weeks ago?
                              e.g. say drm Status report, Doctor.
   ${CYAN}do <thought> | <action>${RESET}  Full turn with explicit thought
-                             e.g. do I should scan Blythe carefully | lab.scan blythe
+                             e.g. do I should scan Blythe carefully | ray.scan blythe
 
 ${BOLD}Lifelines (3 per game):${RESET}
   ${CYAN}lifeline${RESET}                 Show available lifelines & usage
@@ -364,7 +364,7 @@ ${BOLD}Info Commands:${RESET}
 
 ${BOLD}Usage from Claude Code:${RESET}
   ${DIM}! npx tsx src/cli/play.ts start${RESET}
-  ${DIM}! npx tsx src/cli/play.ts act lab.scan blythe${RESET}
+  ${DIM}! npx tsx src/cli/play.ts act ray.scan blythe${RESET}
   ${DIM}! npx tsx src/cli/play.ts say bob What's wrong?${RESET}
 `);
 }

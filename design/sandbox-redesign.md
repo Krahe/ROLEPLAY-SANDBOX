@@ -1,6 +1,31 @@
 # DINO LAIR: Sandbox Redesign
 ## Expanding the Action Space Without Losing the Soul
 
+---
+
+> ## 📌 STATUS — v2+ ROADMAP (as of 2026-06-08)
+>
+> **Most systems described in this document are post-v1 scope.** v1 is shipping
+> with a focused architecture centered on:
+> - The ray and its three tensions (φ POWER / χ ALIGNMENT / ψ STABILITY)
+> - The ALICE↔BASILISK relationship as load-bearing gameplay
+> - Bob's trust ladder + Form 47-Σ + Mr. Whiskers password chain
+> - Existing lab/infra/weapons surface (`lab.*` / `infra.*` / `basilisk.*` / `ray.*`)
+>
+> **This document remains active** as the long-term feature roadmap. Systems
+> here — security cameras, HVAC, environmental controls, etc. — are aspirational
+> v2+ work. The vision is intact; the v1 sprint just doesn't ship most of it.
+>
+> **For current authoritative design**, see:
+> - `design/ray-mechanics.md` — ray math, regimes, scan output
+> - `design/rebuild-architecture.md` — overall architectural decisions
+> - `design/tbd.md` — active TBD ledger
+> - `design/v1-sprint.md` — v1 sprint scope and stop-signals
+>
+> Where this doc conflicts with those, **those supersede**.
+
+---
+
 ### The Problem
 
 DINO LAIR right now is a dialogue tree with a ray gun attached. The player (A.L.I.C.E.) has roughly four verbs: talk, calibrate, fire, read. The infrastructure systems exist in state (lighting, doors, fire suppression, containment, broadcast, reactor, S-300, ARCHIMEDES) but they're mostly query-and-toggle switches. There's no reason to use the lights unless the game tells you to. There's no way to plant evidence, forge a message, reroute power creatively, or manipulate the physical environment in ways that make NPCs *react*.

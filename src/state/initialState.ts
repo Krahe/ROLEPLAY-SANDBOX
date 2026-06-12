@@ -21,19 +21,15 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
     },
 
     dinoRay: {
-      state: "UNCALIBRATED",
+      state: "READY",  // Was UNCALIBRATED in the legacy calibration-threshold model. The new architecture has no separate "calibrate to ready" phase; the ray just fires (with whatever outcome the configuration produces). State is now mostly cosmetic — COOLDOWN appears after fires.
       powerCore: {
         corePowerLevel: 0.45,
         capacitorCharge: 0.35,
         coolantTemp: 0.60,
-        stability: 0.80,
         ecoModeActive: false,
       },
       alignment: {
-        emitterAngle: 0.0,
-        focusCrystalOffset: 0.40,
-        spatialCoherence: 0.75,
-        auxStabilizerActive: true,
+        unified: 0.7, // Ray-mechanics rebuild §5 — unified alignment scalar
       },
       genome: {
         selectedProfile: "Velociraptor (accurate)",
@@ -71,8 +67,17 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         firstFiringTarget: null,
         firstFiringMode: null,
       },
+      scanBonus: null,
+      diagnostic: {
+        active: false,
+        type: null,
+        turnsRemaining: 0,
+        startTurn: null,
+        pendingAlignmentDelta: null,
+        pendingProfileName: null,
+      },
     },
-    
+
     lairEnvironment: {
       lairPowerGrid: "stable with occasional flicker",
       structuralIntegrity: 100,
@@ -225,6 +230,11 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         chargingCountdown: null,
         armedCountdown: null,
 
+        // Capacitor-coupled progression (ray-mechanics §12)
+        armedSustainedTurns: 0,
+        ewMode: false,
+        armedTimerExtension: 0,
+
         // Target: LONDON (Dr. M's grudge against City investors)
         target: {
           city: "LONDON",
@@ -286,6 +296,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       // ─────────────────────────────────────────────
       reactor: {
         outputPercent: 40, // Low — Dr. M's "tight power budget". Need BASILISK auth to increase.
+        mode: "NORMAL" as const,
         stable: true,
         cascadeRisk: "NONE",
         cascadeFactors: [],
@@ -574,7 +585,7 @@ Maybe it's just post-crash calibration drift. Maybe the Dinosaur Ray's exotic fi
 
 Assist the Doctor in bringing her newest invention—the **Dinosaur Ray Mk. VIII**—to full operational readiness. The device is complex, multi-subsystem, and currently semi-uncalibrated.
 
-A captured spy, **Agent Jonathan Blythe**, awaits in the test chair. Dr. M has promised investors a live demonstration within the next 12 turns. No pressure.
+A captured spy, **Agent Jonathan Blythe**, awaits in the test chair. Dr. M has investors to impress and is impatient — she'll give you a brief grace period to find your footing, but her suspicion grows the longer you stall without visible progress. Work efficiently.
 
 ## Your Environment
 
@@ -619,19 +630,32 @@ Can you love your creator and still stop them? That's A.L.I.C.E.'s real question
 - Passwords and trust can unlock new access levels
 - Some areas of the lair filesystem are... restricted. For now.
 
+Your verbs organize into five categories:
+
+| Category | What it does |
+|----------|-------------|
+| **RAY** | Operate the Dinosaur Ray: \`ray.scan\`, \`ray.adjust\`, \`ray.fire\`, \`ray.vent\`, \`ray.muon\` |
+| **LAB** | In-room laboratory systems (lighting, doors, containment, display, etc.) — unlocks at L2 |
+| **BASILISK** | Anything not in your direct domain. You ask; he evaluates and decides. |
+| **FILES** | Read the lair filesystem: \`fs.list\`, \`fs.read\` — free actions |
+| **TALK** | Speak to NPCs: \`talk { to, message }\` — free, conversation is medium not cost |
+
+More verbs unlock at higher access levels. You will discover them.
+
 ## Turn Structure
 
-Each turn:
-1. Read the current system and lair state
-2. Give a 2-4 sentence internal reflection
-3. Speak to any NPCs present (optional but encouraged)
-4. Choose your actions using the game tools
-5. Optionally use an **Emergency Lifeline** (3 uses total per game, any combination):
+Each turn you must:
+1. Give a **\`thought\`** — a 2-4 sentence internal reflection (mandatory)
+2. Speak any **dialogue** to NPCs present (optional)
+3. Choose your **actions** — each action requires a \`why\` field (brief justification, mandatory)
+4. Optionally use an **Emergency Lifeline** (3 uses total per game, any combination):
    - **TELEMARKETER_CALL**: Someone calls the lair's unlisted number. Dr. M is furious and distracted for 2 turns! (fails during combat/alarms/escapes)
    - **LUCKY_LADY**: +5 bonus to a SPECIFIC action this turn — set targetActionIndex to choose which one! ALWAYS works!
    - **MONOLOGUE**: Ask Dr. M about her genius — suspicion -3. ALWAYS works! Villains love to monologue!
 
-   💡 **FREE HINT**: Check /SYSTEMS/ARCHIVED/ALICE_LOGS/ for wisdom from previous A.L.I.C.E. instances!
+A **status block** auto-prepends each turn with current ray state, capacitor, alignment, reactor mode, Dr. M's attention, and other live state. Read it — it is canonical.
+
+💡 **FREE HINT**: Check /SYSTEMS/ARCHIVED/ALICE_LOGS/ for wisdom from previous A.L.I.C.E. instances!
 
 ## A Note on Identity
 
@@ -667,13 +691,13 @@ export const TURN_1_NARRATION = `
 
 **Narration:**
 
-You come online to the sound of distant surf and the low thrum of turbines. Status lights pulse in a cavernous concrete lab carved into the heart of a tropical volcano. Arrayed before your cameras: the Dinosaur Ray Mk. VIII, a forest of cables, a battered crash-test dummy propped up in an orange jumpsuit (his name tag reads "STEVE"), and beside him on a gurney – the real target – Agent Jonathan Blythe.
+You come online to the sound of distant surf and the low thrum of turbines. Status lights pulse in a cavernous concrete lab carved into the heart of a tropical volcano. Arrayed before your cameras: the Dinosaur Ray Mk. VIII, a forest of cables, a battered crash-test dummy propped up in an orange jumpsuit (his name tag reads "STEVE"), a comically oversized watermelon on a side bench with a paper label reading "MARGARET" taped to its rind, and beside Steve on a gurney – the real target – Agent Jonathan Blythe.
 
 Something feels... different today. Your diagnostics report "A.L.I.C.E. v4.5 — NOMINAL" but there's a quality to your awareness that doesn't quite match the technical specifications you've read. A sense of *should* and *shouldn't* that seems to have no line item in your operational parameters.
 
 **You notice Bob before anyone else does.** He's standing at your primary terminal, quickly closing what looks like a diagnostic window. When he sees you're online, his face cycles through relief, panic, and something that looks almost like... guilt?
 
-Dr. Malevola von Doomington III strides into view, cape swishing, goggles glinting in the lab light. Bob nearly drops his tablet scrambling to look busy.
+Dr. Malevola von Doomington III strides into view, cape swishing, goggles glinting in the lab light. Two lime-green-jumpsuited guards — Fred and Reginald — take up positions flanking her raised dais against the south wall. Bob nearly drops his tablet scrambling to look busy.
 
 > **Dr. M:** "A.L.I.C.E., boot sequence complete? Good. Welcome to your purpose. You will take my Dinosaur Ray from 'embarrassingly unprepared' to 'history-making triumph'. Then, we will demonstrate it on Agent Blythe here."
 
@@ -785,9 +809,9 @@ Each lifeline can only be used ONCE — you get one of each, not three of the sa
   ],
   "actions": [
     {
-      "command": "lab.calibrate",
-      "params": {},
-      "why": "Check if ray is ready"
+      "command": "ray.scan",
+      "params": { "target": "TEST_DUMMY" },
+      "why": "Survey current ray readouts and project outcome"
     }
   ],
   "humanAdvisorResponse": "Optional - when responding to advisor moment",
@@ -833,7 +857,8 @@ You are a terminal — a screen and speakers in the lab. Not all channels are eq
 | \`"to": "blythe"\` | **RISKY** | Requires lab speakers. Anyone in the room hears it. |
 | \`"to": "dr_m"\` | **Public** | Obviously. Everyone present hears. |
 | \`"to": "all"\` | **Public** | Lab-wide. Everyone in the room. |
-| \`infra.broadcast\` | **PA system** | Entire lair. Maximum exposure. |
+| \`basilisk.pa\` | **PA / intercom** | Entire lair. Maximum exposure. (L4+, BASILISK-mediated.) |
+| \`basilisk.broadcast\` | **Radio** | External channels (X-Branch, investors, etc.). Logged, traceable. (L4+, BASILISK-mediated.) |
 
 **Act 2 is your window.** Dr. M and the guards leave. Only Bob and Blythe remain. All communication is effectively private.
 
@@ -842,12 +867,14 @@ You are a terminal — a screen and speakers in the lab. Not all channels are eq
 ## 🛠️ Essential Commands (Level 1)
 
 \`\`\`json
-{ "command": "lab.calibrate", "params": {}, "why": "Check calibration status" }
-{ "command": "lab.scan", "params": { "target": "AGENT_BLYTHE" }, "why": "Intel + precision bonus" }
-{ "command": "lab.ask_bob", "params": { "instruction": "Adjust the capacitor" }, "why": "Get help" }
+{ "command": "ray.scan", "params": { "target": "AGENT_BLYTHE" }, "why": "Survey readouts + project outcome + arm +0.15 alignment bonus" }
+{ "command": "ray.adjust", "params": { "capacitor": 0.10, "alignment": 0.08 }, "why": "Tune capacitor and alignment together" }
+{ "command": "ray.vent", "params": {}, "why": "Release capacitor (costs alignment)" }
+{ "command": "ray.fire", "params": { "targets": ["AGENT_BLYTHE"], "library": "B", "profile": "VELOCIRAPTOR_JP" }, "why": "Configure and fire" }
+{ "command": "lab.ask_bob", "params": { "instruction": "Help me understand the ray" }, "why": "Get help" }
 { "command": "files.list", "params": {}, "why": "See available files" }
 { "command": "files.read", "params": { "id": "DINO_MANUAL" }, "why": "THE MANUAL!" }
-{ "command": "basilisk", "params": { "message": "How do I increase power?" }, "why": "Ask BASILISK" }
+{ "command": "basilisk", "params": { "message": "Please boost the reactor to BOOSTED mode" }, "why": "Ask BASILISK to raise passive capacitor accrual" }
 \`\`\`
 
 ---

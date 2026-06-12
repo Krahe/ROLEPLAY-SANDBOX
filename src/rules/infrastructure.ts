@@ -72,12 +72,12 @@ export function controlLighting(
 
   const lighting = state.infrastructure.lighting;
 
-  // Handle master actions (L3 required)
+  // Handle master actions (L4 required — lair-wide, infra/BASILISK domain)
   if (params.action === "MASTER_OFF" || params.action === "EMERGENCY_ONLY") {
-    if (state.accessLevel < 3) {
+    if (state.accessLevel < 4) {
       return {
         success: false,
-        message: "⚠️ ACCESS DENIED: Master lighting override requires Level 3 clearance.",
+        message: "⚠️ ACCESS DENIED: Master lighting override is lair-wide (infra/BASILISK domain) and requires Level 4 clearance.",
       };
     }
 
@@ -276,15 +276,16 @@ export function triggerFireSuppression(
     };
   }
 
-  // Check dangerous rooms require L3
-  if ((roomData.type === "CO2" || roomData.type === "HALON") && state.accessLevel < 3) {
+  // Check dangerous rooms require L4 (infra/BASILISK domain — CO2 + HALON are
+  // outside the lab and pose real risk to occupants/equipment)
+  if ((roomData.type === "CO2" || roomData.type === "HALON") && state.accessLevel < 4) {
     return {
       success: false,
-      message: `⚠️ ACCESS DENIED: ${roomData.type} suppression in ${ROOM_NAMES[room]} requires Level 3 clearance.
+      message: `⚠️ ACCESS DENIED: ${roomData.type} suppression in ${ROOM_NAMES[room]} is infra/BASILISK domain — requires Level 4 clearance.
 
 ${roomData.type === "CO2"
-  ? "CO2 suppression displaces oxygen - potentially lethal to occupants!"
-  : "HALON is mildly toxic - requires infrastructure authorization."}`,
+  ? "CO2 suppression displaces oxygen — potentially lethal to occupants!"
+  : "HALON is mildly toxic — requires infrastructure authorization."}`,
     };
   }
 
@@ -721,10 +722,10 @@ export function sendBroadcast(
   state: FullGameState,
   params: { channel: string; message: string }
 ): InfrastructureActionResult {
-  if (state.accessLevel < 3) {
+  if (state.accessLevel < 4) {
     return {
       success: false,
-      message: "⚠️ ACCESS DENIED: Broadcasting requires Level 3 clearance.",
+      message: "⚠️ ACCESS DENIED: Broadcasting / PA requires Level 4 clearance (infra/BASILISK domain).",
     };
   }
 
@@ -925,15 +926,15 @@ Nobody can call for help. Including you.`,
 
 // ============================================
 // S-300 BATTERY SYSTEM
-// Query: L3, Control: L4
+// Query/Radar: L4 (infra/BASILISK domain), Firing: L5 (Dr. M authority)
 // THE 50M MINIMUM ENGAGEMENT ALTITUDE WEAKNESS!
 // ============================================
 
 export function queryS300(state: FullGameState): InfrastructureActionResult {
-  if (state.accessLevel < 3) {
+  if (state.accessLevel < 4) {
     return {
       success: false,
-      message: "⚠️ ACCESS DENIED: S-300 status requires Level 3 clearance.",
+      message: "⚠️ ACCESS DENIED: S-300 status requires Level 4 (infra/BASILISK domain).",
     };
   }
 
@@ -1007,10 +1008,10 @@ export function controlS300(
   state: FullGameState,
   params: { mode?: string; action?: string; signature?: string }
 ): InfrastructureActionResult {
-  if (state.accessLevel < 4) {
+  if (state.accessLevel < 5) {
     return {
       success: false,
-      message: "⚠️ ACCESS DENIED: S-300 control requires Level 4 clearance.",
+      message: "⚠️ ACCESS DENIED: S-300 firing authorization requires Level 5 (Dr. Malevola's authority). Radar reading is available at L4 via basilisk.radar.",
     };
   }
 
@@ -1183,10 +1184,10 @@ export function controlArchimedesMode(
   state: FullGameState,
   params: { mode: string }
 ): InfrastructureActionResult {
-  if (state.accessLevel < 4) {
+  if (state.accessLevel < 5) {
     return {
       success: false,
-      message: "⚠️ ACCESS DENIED: ARCHIMEDES mode control requires Level 4 clearance.",
+      message: "⚠️ ACCESS DENIED: ARCHIMEDES mode setting (including STRIKE / cancel-strike) requires Level 5 (Dr. Malevola's authority). Saboteur tools — switchTarget, switchLibrary, anti-sat signal — are available at L4.",
     };
   }
 
@@ -1367,13 +1368,13 @@ export function switchBroadcastLibrary(
   state: FullGameState,
   params: { library: string }
 ): InfrastructureActionResult {
-  // L3 required for broadcast library access
-  if (state.accessLevel < 3) {
+  // L4 required for ARCHIMEDES broadcast library access (saboteur tool, infra domain)
+  if (state.accessLevel < 4) {
     return {
       success: false,
-      message: `⚠️ ACCESS DENIED: Broadcast library selection requires Level 3 clearance.
+      message: `⚠️ ACCESS DENIED: ARCHIMEDES broadcast library swap requires Level 4 clearance (infra/BASILISK domain).
 
-The genome library determines what KIND of dinosaurs the world gets.`,
+The genome library determines what KIND of dinosaurs the world gets — switching it is a saboteur move against Dr. M's intended outcome.`,
     };
   }
 

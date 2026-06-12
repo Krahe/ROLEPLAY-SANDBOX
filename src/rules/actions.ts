@@ -1,5 +1,16 @@
 import { FullGameState } from "../state/schema.js";
-import { resolveFiring, applyFiringResults, FiringResult } from "./firing.js";
+import {
+  resolveFiring,
+  applyFiringResults,
+  FiringResult,
+  resolveMuonBetaAmplified,
+  resolveMuonAlphaAmplified,
+  ALIGNMENT_DEGRADATION,
+  applyAlignmentDegradation,
+  computeStability,
+  computePowerMatch,
+  getOutcomeTier,
+} from "./firing.js";
 import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
@@ -17,11 +28,11 @@ import {
   controlS300,
   queryS300Limitations,
   controlArchimedesMode,
-  controlReactor,
   switchArchimedesTarget,
   switchBroadcastLibrary,
 } from "./infrastructure.js";
-import { signalAntiSatMissile } from "./archimedes.js";
+import { signalAntiSatMissile, engageEWMode, disengageEWMode } from "./archimedes.js";
+import { startRayDiagnostic, startCalibrateAmplifier, runProfileCertification } from "./rayDiagnostics.js";
 import {
   FORM_DEFINITIONS,
   performDexCheck,
@@ -86,50 +97,75 @@ export const INFRA_CONTROL_MAP: Record<string, InfraControlConfig> = {
   // HARDWIRED SYSTEMS - Always require BASILISK
   // ─────────────────────────────────────────────
   "infra.s300": {
-    tier: "HARDWIRED",
-    requiredLevel: 99, // Never directly accessible
+    tier: "UNLOCKABLE",
+    requiredLevel: 5,
     systemName: "S-300 Missile Battery",
-    basiliskReason: "S-300 control is hardwired to BASILISK infrastructure core for safety reasons. Surface-to-air missiles require proper authorization protocols.",
+    basiliskReason: "S-300 firing authorization is reserved for Level 5 (Dr. Malevola's authority). BASILISK can advise on radar feed at L4, but firing requires Executive override.",
   },
-  "infra.reactor": {
-    tier: "HARDWIRED",
-    requiredLevel: 99, // Never directly accessible
-    systemName: "Nuclear Reactor",
-    basiliskReason: "Reactor control is hardwired to BASILISK infrastructure core. Nuclear operations require Form 27-B and proper safety protocols.",
-  },
+  // Note: Reactor was previously listed here as HARDWIRED. Removed entirely
+  // in the ray-mechanics rebuild — reactor is now exclusively BASILISK's
+  // domain (mode set via dialogue, see basilisk system prompt §9.5). There
+  // is no `infra.reactor` verb at any access level.
 
   // ─────────────────────────────────────────────
   // UNLOCKABLE SYSTEMS - BASILISK until access level
   // ─────────────────────────────────────────────
+  "lab.lighting": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Lab Lighting Controls",
+    basiliskReason: "Lab lighting control requires Level 2 clearance (ALICE's lab domain).",
+  },
+  "lab.doors": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Lab Blast Doors",
+    basiliskReason: "Lab blast door control requires Level 2 clearance.",
+  },
+  "lab.fire_suppression": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Lab Fire Suppression",
+    basiliskReason: "Lab fire suppression control requires Level 2 clearance.",
+  },
+  "basilisk.broadcast": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 4,
+    systemName: "Radio Broadcast Array",
+    basiliskReason: "Radio broadcast requires Level 4 clearance (infra/BASILISK domain) plus BASILISK broadcast authority.",
+  },
+  "basilisk.pa": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 4,
+    systemName: "Lair PA / Intercom",
+    basiliskReason: "Lair PA reaches all personnel — outside the lab proper. Requires Level 4 clearance plus BASILISK broadcast authority.",
+  },
+  "lab.containment": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 2,
+    systemName: "Lab Containment Field",
+    basiliskReason: "Lab containment field control requires Level 2 clearance (ALICE's lab equipment).",
+  },
+  // ─────────────────────────────────────────────
+  // INFRA SISTERS — non-lab rooms, L4 (infra/BASILISK domain)
+  // ─────────────────────────────────────────────
   "infra.lighting": {
     tier: "UNLOCKABLE",
-    requiredLevel: 2,
-    systemName: "Lighting Controls",
-    basiliskReason: "Lighting control requires Level 2 clearance.",
-  },
-  "infra.doors": {
-    tier: "UNLOCKABLE",
-    requiredLevel: 2,
-    systemName: "Blast Doors",
-    basiliskReason: "Blast door control requires Level 2 clearance.",
+    requiredLevel: 4,
+    systemName: "Lair Lighting (non-lab)",
+    basiliskReason: "Lair-wide lighting control (outside the lab) is BASILISK's domain. Requires Level 4 clearance to access directly. Below that, ask BASILISK via dialogue.",
   },
   "infra.fire_suppression": {
     tier: "UNLOCKABLE",
-    requiredLevel: 2,
-    systemName: "Fire Suppression",
-    basiliskReason: "Fire suppression control requires Level 2 clearance.",
+    requiredLevel: 4,
+    systemName: "Lair Fire Suppression (non-lab)",
+    basiliskReason: "Non-lab fire suppression is BASILISK's domain. Requires Level 4 clearance to access directly.",
   },
-  "infra.broadcast": {
+  "infra.doors": {
     tier: "UNLOCKABLE",
-    requiredLevel: 2,
-    systemName: "Broadcast Array",
-    basiliskReason: "Broadcast array requires Level 2 clearance.",
-  },
-  "infra.containment": {
-    tier: "UNLOCKABLE",
-    requiredLevel: 3,
-    systemName: "Containment Field",
-    basiliskReason: "Containment field control requires Level 3 clearance.",
+    requiredLevel: 4,
+    systemName: "Non-lab Blast Doors",
+    basiliskReason: "Non-lab blast doors are BASILISK's domain. Requires Level 4 clearance to access directly.",
   },
   "infra.uplink": {
     tier: "UNLOCKABLE",
@@ -139,9 +175,9 @@ export const INFRA_CONTROL_MAP: Record<string, InfraControlConfig> = {
   },
   "infra.archimedes": {
     tier: "UNLOCKABLE",
-    requiredLevel: 4,
+    requiredLevel: 5,
     systemName: "ARCHIMEDES Satellite",
-    basiliskReason: "ARCHIMEDES control requires Level 4 clearance.",
+    basiliskReason: "ARCHIMEDES mode setting (including STRIKE / cancel-strike) is reserved for Level 5 (Dr. Malevola's authority). Saboteur tools (switchTarget, switchLibrary, anti-sat signal) are available at L4.",
   },
 };
 
@@ -217,40 +253,53 @@ function getInfraControlKey(cmd: string): string | null {
     return "infra.s300";
   }
 
-  // Reactor aliases
-  if (cmdLower.includes("infra.reactor") || cmdLower.includes("reactor_power") ||
-      cmdLower.includes("power_output")) {
-    return "infra.reactor";
-  }
+  // Reactor — no longer a routable command. ALICE must request via BASILISK.
+  // The handler below catches stale calls and redirects.
 
   // Lighting aliases
-  if (cmdLower.includes("infra.lighting") || cmdLower.includes("infra.lights") ||
-      cmdLower.includes("set_lights")) {
+  // Lighting: infra (explicit, L4, room-aware) vs lab (default, L2, lab-implicit)
+  if (cmdLower.includes("infra.lighting") || cmdLower.includes("infra.lights")) {
     return "infra.lighting";
   }
+  if (cmdLower.includes("lab.lighting") || cmdLower.includes("set_lights") ||
+      cmdLower === "lighting") {
+    return "lab.lighting";
+  }
 
-  // Door aliases
-  if (cmdLower.includes("infra.doors") || cmdLower.includes("infra.door") ||
-      cmdLower.includes("blast_door")) {
+  // Doors: infra (explicit, L4, door-aware) vs lab (default, L2, DOOR_A-implicit)
+  if (cmdLower.includes("infra.doors") || cmdLower.includes("infra.door")) {
     return "infra.doors";
   }
-
-  // Fire suppression aliases
-  if (cmdLower.includes("infra.fire_suppression") || cmdLower.includes("fire_suppression") ||
-      cmdLower.includes("trigger_fire")) {
-    return "infra.fire_suppression";
+  if (cmdLower.includes("lab.doors") || cmdLower.includes("blast_door") ||
+      cmdLower === "door") {
+    return "lab.doors";
   }
 
-  // Broadcast aliases
-  if (cmdLower.includes("infra.broadcast") || cmdLower.includes("send_broadcast") ||
-      cmdLower.includes("broadcast_message")) {
-    return "infra.broadcast";
+  // Fire suppression: infra (explicit, L4, room-aware) vs lab (default, L2, lab-implicit)
+  if (cmdLower.includes("infra.fire_suppression") || cmdLower.includes("infra.fire")) {
+    return "infra.fire_suppression";
+  }
+  if (cmdLower.includes("lab.fire_suppression") || cmdLower.includes("fire_suppression") ||
+      cmdLower.includes("trigger_fire")) {
+    return "lab.fire_suppression";
+  }
+
+  // Broadcast aliases (radio)
+  if (cmdLower.includes("basilisk.broadcast") || cmdLower.includes("infra.broadcast") ||
+      cmdLower.includes("send_broadcast") || cmdLower.includes("broadcast_message")) {
+    return "basilisk.broadcast";
+  }
+
+  // PA aliases (lair intercom)
+  if (cmdLower === "basilisk.pa" || cmdLower === "pa" || cmdLower === "intercom" ||
+      cmdLower === "announce" || cmdLower === "lair_pa") {
+    return "basilisk.pa";
   }
 
   // Containment aliases
-  if (cmdLower.includes("infra.containment") || cmdLower.includes("containment_field") ||
-      cmdLower.includes("field")) {
-    return "infra.containment";
+  if (cmdLower.includes("lab.containment") || cmdLower.includes("infra.containment") ||
+      cmdLower.includes("containment_field") || cmdLower.includes("field")) {
+    return "lab.containment";
   }
 
   // ARCHIMEDES aliases
@@ -346,260 +395,734 @@ infra.query is an action. game_query_basilisk is a tool.`,
     }
   }
 
-  // ============================================
-  // LAB.ADJUST_RAY
-  // ============================================
-  
-  if (cmd === "lab.adjust_ray" || cmd.includes("adjust")) {
-    const param = action.params.parameter as string;
-    const value = action.params.value as number;
-    
-    if (!param || value === undefined) {
-      return {
-        command: action.command,
-        success: false,
-        message: "Missing required parameters: 'parameter' and 'value'",
-      };
-    }
-    
-    // Map parameter to state location
-    // NOTE: capacitorCharge removed in Patch 18.3 - use lab.vent_capacitor / lab.boost_capacitor instead!
-    const paramMap: Record<string, { path: string[]; min: number; max: number }> = {
-      "spatialCoherence": { path: ["dinoRay", "alignment", "spatialCoherence"], min: 0, max: 1 },
-      "corePowerLevel": { path: ["dinoRay", "powerCore", "corePowerLevel"], min: 0, max: 1 },
-      "coolantTemp": { path: ["dinoRay", "powerCore", "coolantTemp"], min: 0, max: 2 },
-      "emitterAngle": { path: ["dinoRay", "alignment", "emitterAngle"], min: -45, max: 45 },
-      "focusCrystalOffset": { path: ["dinoRay", "alignment", "focusCrystalOffset"], min: 0, max: 1 },
-      "precision": { path: ["dinoRay", "targeting", "precision"], min: 0, max: 1 },
-      "profileIntegrity": { path: ["dinoRay", "genome", "profileIntegrity"], min: 0, max: 1 },
+  // ════════════════════════════════════════════
+  // RAY.* — Ray-mechanics rebuild verb surface
+  // ════════════════════════════════════════════
+  // See design/ray-mechanics.md for full mechanical reference.
+  // These verbs replace the legacy lab.* ray controls. ALICE's direct
+  // ray-control toolkit: scan, adjust, fire, vent.
+
+  // ────────────────────────────────────────────
+  // RAY.ADJUST { capacitor?, alignment?, eco_mode? }
+  // ────────────────────────────────────────────
+  // Fine-grained tuning of capacitor charge and alignment.
+  // Eco-mode flips: ON is free (ALICE self-restraint, useful for Act 3
+  // stalling); OFF requires BASILISK approval via Form 47-Σ.
+  // Multi-parameter: all three can be set in a single call.
+
+  if (cmd === "ray.adjust") {
+    const params = action.params as {
+      capacitor?: number;
+      alignment?: number;
+      eco_mode?: string;
     };
 
-    // Stability is now controlled via lab.align_crystal
-    if (param.toLowerCase() === "stability") {
+    const deltas: string[] = [];
+    const errors: string[] = [];
+    const stateChanges: Record<string, unknown> = {};
+
+    // ── capacitor ── (positive draws only; vent is the release lever)
+    if (params.capacitor !== undefined) {
+      const delta = Number(params.capacitor);
+      if (!Number.isFinite(delta)) {
+        errors.push(`capacitor delta must be a number (got ${params.capacitor})`);
+      } else if (delta < 0) {
+        // ray.adjust is the small draw-from-reactor lever; ray.vent is the
+        // only release lever (and it perturbs alignment by design — that's
+        // the pressure that makes capacitor pacing matter).
+        errors.push(
+          `capacitor cannot be reduced via ray.adjust. Use ray.vent to release charge (note: venting perturbs alignment).`,
+        );
+      } else {
+        // Per-call sanity clamp. Granular tuning belongs here; bulk
+        // charging is BASILISK-mediated via reactor output mode.
+        const clampedDelta = Math.min(0.25, delta);
+
+        const currentCharge = state.dinoRay.powerCore.capacitorCharge;
+        const reactorPercent = state.infrastructure.reactor.outputPercent;
+
+        if (reactorPercent < 30) {
+          errors.push(
+            `capacitor draw refused: reactor at ${reactorPercent}% (min 30% required). Ask BASILISK to raise reactor output.`,
+          );
+        } else if (currentCharge >= 1.4) {
+          errors.push(
+            `capacitor draw refused: charge at ${(currentCharge * 100).toFixed(0)}% (already near max — vent before drawing more).`,
+          );
+        } else {
+          const newCharge = Math.min(1.5, currentCharge + clampedDelta);
+          state.dinoRay.powerCore.capacitorCharge = newCharge;
+
+          // Heat scales with magnitude of draw.
+          const heatSpike = clampedDelta * 0.4; // ~0.02 per 0.05 draw
+          state.dinoRay.powerCore.coolantTemp = Math.min(
+            2,
+            state.dinoRay.powerCore.coolantTemp + heatSpike,
+          );
+
+          deltas.push(
+            `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (+${(clampedDelta * 100).toFixed(0)}%)`,
+          );
+          stateChanges.capacitorCharge = newCharge;
+          if (clampedDelta !== delta) {
+            deltas.push(`  (requested +${delta.toFixed(2)} clamped to per-call max +0.25)`);
+          }
+        }
+      }
+    }
+
+    // ── alignment ──
+    if (params.alignment !== undefined) {
+      const delta = Number(params.alignment);
+      if (!Number.isFinite(delta)) {
+        errors.push(`alignment delta must be a number (got ${params.alignment})`);
+      } else {
+        const clampedDelta = Math.max(-0.25, Math.min(0.25, delta));
+        const prev = state.dinoRay.alignment.unified;
+        const next = Math.max(0, Math.min(1, prev + clampedDelta));
+        state.dinoRay.alignment.unified = next;
+
+        deltas.push(
+          `alignment: ${(prev * 100).toFixed(0)}% → ${(next * 100).toFixed(0)}% (${clampedDelta >= 0 ? "+" : ""}${(clampedDelta * 100).toFixed(0)}%)`,
+        );
+        stateChanges.alignment = next;
+        if (clampedDelta !== delta) {
+          deltas.push(`  (requested ±${Math.abs(delta).toFixed(2)} clamped to per-call max ±0.25)`);
+        }
+      }
+    }
+
+    // ── eco_mode ──
+    if (params.eco_mode !== undefined) {
+      const mode = String(params.eco_mode).toUpperCase();
+      if (mode === "ON" || mode === "TRUE") {
+        const wasActive = state.dinoRay.powerCore.ecoModeActive;
+        state.dinoRay.powerCore.ecoModeActive = true;
+        if (wasActive) {
+          deltas.push(`eco_mode: already ON (no change)`);
+        } else {
+          deltas.push(`eco_mode: OFF → ON (capacitor draw will be capped; outcomes capped at PARTIAL)`);
+          stateChanges.ecoModeActive = true;
+        }
+      } else if (mode === "OFF" || mode === "FALSE") {
+        // BASILISK-gated. ALICE cannot unilaterally disable.
+        errors.push(
+          `eco_mode disable requires BASILISK approval (Form 47-Σ). File via:\n  basilisk { message: "Filing Form 47-Σ: <justification>" }`,
+        );
+      } else {
+        errors.push(`eco_mode must be "ON" or "OFF" (got "${params.eco_mode}")`);
+      }
+    }
+
+    // Nothing requested?
+    if (params.capacitor === undefined && params.alignment === undefined && params.eco_mode === undefined) {
       return {
         command: action.command,
         success: false,
-        message: `🔮 STABILITY CRYSTAL SYSTEM (Patch 21)
+        message: `ray.adjust requires at least one of: capacitor (±n), alignment (±n), eco_mode ("ON"|"OFF").
 
-Direct stability adjustment is no longer available.
-Stability is managed through the Alignment Crystal:
-
-  lab.align_crystal { level: "low" }   → +15% stability
-  lab.align_crystal { level: "high" }  → +30% stability
-
-⚠️ Going OVER 100% stability causes misfires!
-Library A profiles (~100% coefficient) don't need crystal alignment.
-Library B profiles (40-60% coefficient) require it.
-
-Current stability: ${(state.dinoRay.powerCore.stability * 100).toFixed(0)}%`,
-        stateChanges: {},
+Example:
+  ray.adjust { capacitor: 0.05, alignment: 0.08 }`,
       };
     }
 
-    // Special handling for capacitorCharge - redirect to new actions
-    if (param.toLowerCase() === "capacitorcharge" || param.toLowerCase() === "capacitor") {
-      return {
-        command: action.command,
-        success: false,
-        message: `⚡ CAPACITOR CONTROL REDESIGNED (Patch 18.3)
-
-Direct capacitor manipulation is no longer available.
-The capacitor charges based on reactor output and must be managed properly.
-
-Use these dedicated actions instead:
-  • lab.vent_capacitor   → Safely vent 25% charge (prevents overload)
-  • lab.boost_capacitor  → Draw 25% from reactor (for quick charging)
-
-Current capacitor: ${(state.dinoRay.powerCore.capacitorCharge * 100).toFixed(0)}%
-Reactor power: ${state.infrastructure.reactor.outputPercent}%`,
-        stateChanges: {},
-      };
-    }
-    
-    const paramInfo = paramMap[param];
-    if (!paramInfo) {
-      return {
-        command: action.command,
-        success: false,
-        message: `Unknown parameter: ${param}. Valid parameters: ${Object.keys(paramMap).join(", ")}`,
-      };
-    }
-    
-    const clampedValue = Math.max(paramInfo.min, Math.min(paramInfo.max, value));
-    
-    // Apply the change
-    let obj: Record<string, unknown> = state as unknown as Record<string, unknown>;
-    for (let i = 0; i < paramInfo.path.length - 1; i++) {
-      obj = obj[paramInfo.path[i]] as Record<string, unknown>;
-    }
-    const finalKey = paramInfo.path[paramInfo.path.length - 1];
-    const oldValue = obj[finalKey];
-    obj[finalKey] = clampedValue;
-    
-    // Check calibration status after adjustment
-    const calibration = checkCalibrationThresholds(state);
-    const calibrationNote = calibration.ready
-      ? "✅ Ray calibration thresholds met - will transition to READY at end of turn."
-      : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
-
-    // Short param names for compact display
-    const shortParam = param.replace('spatialCoherence', 'coherence')
-                            .replace('corePowerLevel', 'power');
-
-    // Format values based on parameter type
-    let shortMessage: string;
-    if (param === 'emitterAngle') {
-      // Angle in degrees: -45 to 45
-      const oldDeg = Math.round(oldValue as number);
-      const newDeg = Math.round(clampedValue);
-      shortMessage = `${shortParam}: ${oldDeg}° → ${newDeg}°`;
-    } else if (param === 'coolantTemp') {
-      // Coolant temp: 0 to 2 (raw value)
-      const oldTemp = (oldValue as number).toFixed(2);
-      const newTemp = clampedValue.toFixed(2);
-      shortMessage = `${shortParam}: ${oldTemp} → ${newTemp}`;
-    } else {
-      // All other params are 0-1 ratios (percentages)
-      const oldPct = Math.round((oldValue as number) * 100);
-      const newPct = Math.round(clampedValue * 100);
-      shortMessage = `${shortParam}: ${oldPct}% → ${newPct}%`;
-    }
-
-    const dashboard = buildCalibrationDashboard(state);
+    const dashboard = buildRayDashboard(state);
+    const hasChanges = deltas.length > 0;
+    const hasErrors = errors.length > 0;
 
     return {
       command: action.command,
-      success: true,
-      message: `Adjusted ${param}: ${oldValue} → ${clampedValue}${action.why ? ` (${action.why})` : ""}${dashboard}`,
-      shortMessage,
-      stateChanges: { [param]: { old: oldValue, new: clampedValue }, rayState: state.dinoRay.state },
+      success: hasChanges,
+      message: [
+        hasChanges ? `🎛️ RAY ADJUSTED\n\n${deltas.join("\n")}` : "",
+        hasErrors ? `\n⚠️ ${errors.join("\n⚠️ ")}` : "",
+        dashboard,
+      ].filter(Boolean).join("\n"),
+      shortMessage: hasChanges ? deltas[0] : errors[0],
+      stateChanges,
     };
   }
 
-  // ============================================
-  // LAB.ALIGN_CRYSTAL - Stability Crystal alignment
-  // ============================================
+  // ────────────────────────────────────────────
+  // RAY.VENT { amount? }
+  // ────────────────────────────────────────────
+  // The only minus-capacitor lever. Releases charge to a safe reservoir
+  // but perturbs the emitter (alignment cost). amount defaults to 0.25,
+  // clamps to [0.05, 0.50]. Penalty and heat are flat per vent — the
+  // physical event is a slug-discharge regardless of magnitude.
 
-  if (cmd === "lab.align_crystal" || cmd === "align_crystal" || cmd === "crystal") {
-    const level = (action.params.level as string || "").toLowerCase();
-
-    if (level !== "low" && level !== "high") {
+  if (cmd === "ray.vent") {
+    const requested = action.params.amount !== undefined ? Number(action.params.amount) : 0.25;
+    if (!Number.isFinite(requested) || requested <= 0) {
       return {
         command: action.command,
         success: false,
-        message: `🔮 Stability Crystal requires a level setting:
-  lab.align_crystal { level: "low" }   → +15% stability
-  lab.align_crystal { level: "high" }  → +30% stability
-
-⚠️ Caution: stability over 100% causes beam misfires!`,
+        message: `ray.vent amount must be a positive number (got ${action.params.amount}). Default is 0.25.`,
       };
     }
 
-    const boost = level === "high" ? 0.30 : 0.15;
-    const oldStability = state.dinoRay.powerCore.stability;
-    const newStability = oldStability + boost;
-    state.dinoRay.powerCore.stability = newStability;
+    const currentCharge = state.dinoRay.powerCore.capacitorCharge;
+    if (currentCharge <= 0.05) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚡ VENT REFUSED: Capacitor at ${(currentCharge * 100).toFixed(0)}% — nothing meaningful to vent.`,
+        stateChanges: {},
+      };
+    }
 
-    const oldPct = Math.round(oldStability * 100);
-    const newPct = Math.round(newStability * 100);
-    const overcharged = newStability > 1.0;
+    const amount = Math.min(0.50, Math.max(0.05, requested));
+    const newCharge = Math.max(0, currentCharge - amount);
+    state.dinoRay.powerCore.capacitorCharge = newCharge;
 
-    const calibration = checkCalibrationThresholds(state);
-    const calibrationNote = calibration.ready
-      ? "✅ Ray calibration thresholds met - will transition to READY at end of turn."
-      : `⚠️ Calibration incomplete: ${calibration.issues.join(", ")}`;
+    // Flat heat byproduct of the slug-discharge.
+    state.dinoRay.powerCore.coolantTemp = Math.min(
+      2,
+      state.dinoRay.powerCore.coolantTemp + 0.05,
+    );
 
-    const dashboard = buildCalibrationDashboard(state);
+    // Flat alignment perturbation per vent (ray-mechanics.md §5).
+    const previousAlignment = state.dinoRay.alignment.unified;
+    state.dinoRay.alignment.unified = applyAlignmentDegradation(
+      previousAlignment,
+      ALIGNMENT_DEGRADATION.VENT,
+    );
+    const alignmentDelta = state.dinoRay.alignment.unified - previousAlignment;
+
+    const dashboard = buildRayDashboard(state);
+    const clampNote = amount !== requested
+      ? `\n  (requested ${requested.toFixed(2)} clamped to ${amount.toFixed(2)})`
+      : "";
 
     return {
       command: action.command,
       success: true,
-      message: `🔮 STABILITY CRYSTAL ALIGNED — ${level.toUpperCase()}
+      message: `⚡ CAPACITOR VENTED
 
-Stability: ${oldPct}% → ${newPct}%${overcharged ? `
-
-⚠️ STABILITY OVERCHARGE (${newPct}%)!
-Crystal resonance exceeds safe threshold — beam harmonics unstable.
-Risk of misfire and exotic field interference!` : ""}
+Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (-${(amount * 100).toFixed(0)}%)${clampNote}
+Coolant: +5% heat (venting byproduct)
+Alignment: ${(previousAlignment * 100).toFixed(0)}% → ${(state.dinoRay.alignment.unified * 100).toFixed(0)}% (${(alignmentDelta * 100).toFixed(0)}% — emitter perturbed by vent slug)
 ${dashboard}`,
-      shortMessage: `crystal ${level}: stability ${oldPct}% → ${newPct}%${overcharged ? " ⚠️OVER" : ""}`,
-      stateChanges: { stability: { old: oldStability, new: newStability }, crystalLevel: level },
+      shortMessage: `vent: capacitor ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%; alignment ${(alignmentDelta * 100).toFixed(0)}%`,
+      stateChanges: { capacitorCharge: newCharge },
     };
   }
 
-  // ============================================
-  // LAB.CALIBRATE - Explicit calibration check/finalize
-  // ============================================
+  // ────────────────────────────────────────────
+  // RAY.SCAN { target, loud? }
+  // ────────────────────────────────────────────
+  // Surveys the field and returns current ray readouts + a projected
+  // outcome for firing on `target` with currently-configured profile.
+  // ALSO sets the scan-bonus state: +0.15 effective alignment toward
+  // `target` on the next fire that includes it. Consumed by that fire.
+  //
+  // `loud: true` — broadcasts the scan (registers in Dr. M's awareness).
+  // Default (loud: false / unset) is the discreet diagnostic ping.
+  //
+  // Sub-threshold (capacitor < 0.20) returns a diagnostic-only message
+  // and does NOT grant a scan bonus — see design §11.5.6.
 
-  if (cmd === "lab.calibrate" || cmd.includes("calibrate")) {
-    const calibration = checkCalibrationThresholds(state);
+  if (cmd === "ray.scan") {
+    const target = action.params.target as string | undefined;
+    const loud = Boolean(action.params.loud);
 
-    if (calibration.ready) {
-      // Force transition to READY immediately
-      const previousState = state.dinoRay.state;
-      state.dinoRay.state = "READY";
+    if (!target || typeof target !== "string") {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.scan requires { target: "NAME" }. Example: ray.scan { target: "AGENT_BLYTHE" }`,
+      };
+    }
 
+    const capacitor = state.dinoRay.powerCore.capacitorCharge;
+    const baseAlignment = state.dinoRay.alignment.unified;
+
+    // Sub-threshold capacitor: scan cannot engage projection.
+    // No bonus granted (would tip the muon capability, per §11.5.6).
+    if (capacitor < 0.20) {
       return {
         command: action.command,
         success: true,
-        message: `🎯 CALIBRATION COMPLETE
+        message: `⚡ SCAN: INSUFFICIENT CHARGE — diagnostic only
 
-All parameters within operational thresholds.
-Ray state: ${previousState} → READY
+  Capacitor: φ ${capacitor.toFixed(2)} (sub-threshold)
+  Alignment: χ ${baseAlignment.toFixed(2)}
+  Coolant:   ${state.dinoRay.powerCore.coolantTemp.toFixed(2)}
 
-The Dinosaur Ray is now ready to fire!
-
-Use lab.configure_firing_profile to set your target, then lab.fire to discharge.`,
-        shortMessage: `calibrated → READY`,
-        stateChanges: { rayState: "READY", previousState },
+Genome resonance projection unavailable below 20% capacitor.
+Increase charge to scan target signature.`,
+        shortMessage: `scan (sub-threshold): capacitor ${(capacitor * 100).toFixed(0)}%`,
+        stateChanges: {},
       };
+    }
+
+    // Pull selected profile (or fallback) for projection.
+    const selectedProfileName = state.dinoRay.genome.selectedProfile;
+    const selectedProfile = selectedProfileName ? getProfile(selectedProfileName) : null;
+    const ecoOn = state.dinoRay.powerCore.ecoModeActive;
+
+    // Effective alignment for the projection includes the bonus this scan
+    // is about to grant. The projected outcome reflects "what happens on
+    // the next fire if you commit on this target."
+    const SCAN_BONUS = 0.15;
+    const effectiveAlignment = Math.min(1, baseAlignment + SCAN_BONUS);
+
+    let projectionBlock: string;
+    let projectedTier: string;
+
+    if (!selectedProfile) {
+      projectionBlock = `  PROJECTION:  no profile selected
+               (configure via ray.fire to project outcome)`;
+      projectedTier = "—";
     } else {
-      const capCharge = state.dinoRay.powerCore.capacitorCharge;
-      const reactorPct = state.infrastructure.reactor.outputPercent;
-      const capIsBlocking = capCharge < 0.6;
+      const stability = computeStability(selectedProfile, capacitor, effectiveAlignment);
+      const powerMatch = computePowerMatch(selectedProfile, capacitor);
+      const tier = getOutcomeTier(stability);
+      projectedTier = tier;
 
-      // Primary blocker: capacitor charge (almost always the issue)
-      let actionGuide = "";
-      if (capIsBlocking && reactorPct < 60) {
-        actionGuide = `\n🔧 TO CALIBRATE:
-  1. Ask BASILISK to increase reactor output → basilisk message="Increase reactor output to 80%"
-  2. Boost the capacitor → lab.boost_capacitor
-  3. Run calibration again → lab.calibrate`;
-      } else if (capIsBlocking) {
-        actionGuide = `\n🔧 TO CALIBRATE:
-  1. Boost the capacitor → lab.boost_capacitor
-  2. Run calibration again → lab.calibrate`;
-      } else {
-        actionGuide = `\n🔧 Issues found:\n${calibration.issues.map(i => `  • ${i}`).join("\n")}\n\nUse lab.adjust_ray to modify parameters.`;
-      }
+      // Eco-mode caps projected outcome at PARTIAL.
+      const ecoCapped = ecoOn && (tier === "FULL");
+      const displayedTier = ecoCapped ? "PARTIAL (eco-capped)" : tier;
 
-      // Secondary parameters as flavor/context (dynamic status)
-      const stab = state.dinoRay.powerCore.stability;
-      const sc = state.dinoRay.alignment.spatialCoherence;
-      const prec = state.dinoRay.targeting.precision;
-      const cool = state.dinoRay.powerCore.coolantTemp;
-      const flavorReadout = `
-DIAGNOSTIC READOUT:
-  ⚡ Capacitor Charge:    ${(capCharge * 100).toFixed(0)}%  ${capCharge >= 0.6 ? "✅" : "❌ needs ≥ 60%"}
-  🔋 Reactor Output:      ${reactorPct}%  ${reactorPct >= 60 ? "✅" : "⚠️ low — slows charging"}
-  📐 Stability:           ${(stab * 100).toFixed(0)}%  ${stab >= 0.6 ? "✅" : "❌ needs ≥ 60%"}
-  🎯 Spatial Coherence:   ${(sc * 100).toFixed(0)}%  ${sc >= 0.7 ? "✅" : "❌ needs ≥ 70%"}
-  🔬 Precision:           ${(prec * 100).toFixed(0)}%  ${prec >= 0.5 ? "✅" : "❌ needs ≥ 50%"}
-  🌡️ Coolant Temp:        ${(cool * 100).toFixed(0)}%  ${cool <= 0.9 ? "✅" : "❌ needs ≤ 90%"}`;
+      const inRange = capacitor >= selectedProfile.minCapacitor && capacitor <= selectedProfile.maxCapacitor;
+      const rangeNote = inRange
+        ? "in profile range"
+        : capacitor < selectedProfile.minCapacitor
+          ? "below profile range"
+          : "above profile range (overcharge territory)";
 
+      projectionBlock = `  PROFILE:     ${selectedProfileName} (library ${state.dinoRay.genome.activeLibrary})
+  POWER:       φ ${capacitor.toFixed(2)} — ${rangeNote}; match ${powerMatch.toFixed(2)}
+  ALIGNMENT:   χ ${baseAlignment.toFixed(2)} + ${SCAN_BONUS.toFixed(2)} scan bonus = ${effectiveAlignment.toFixed(2)}
+  STABILITY:   ψ ${stability.toFixed(2)} (derived)
+  PROJECTION:  ${displayedTier} outcome on next fire targeting ${target}`;
+    }
+
+    // Set the scan-bonus state.
+    state.dinoRay.scanBonus = {
+      target,
+      fromTurn: state.turn,
+    };
+
+    // Loud scan: register in suspicion (caller's responsibility — we expose
+    // a flag for the GM / state-mutation layer to act on).
+    const loudNote = loud
+      ? "\n⚠️ LOUD SCAN — broadcast actively. Detectable by lab personnel."
+      : "";
+
+    return {
+      command: action.command,
+      success: true,
+      message: `🔍 RAY SCAN — target: ${target}
+
+${projectionBlock}
+  ECO:         ${ecoOn ? "ON (caps outcomes at PARTIAL)" : "OFF"}
+  COOLANT:     ${state.dinoRay.powerCore.coolantTemp.toFixed(2)} ${state.dinoRay.powerCore.coolantTemp > 1.5 ? "⚠️ cooldown imminent" : ""}
+
+✨ Scan bonus armed: +${SCAN_BONUS.toFixed(2)} effective alignment on next fire targeting ${target} (consumed on that fire).${loudNote}`,
+      shortMessage: `scan ${target}: projected ${projectedTier}; +${SCAN_BONUS.toFixed(2)} bonus armed`,
+      stateChanges: {
+        scanBonusTarget: target,
+        scanLoud: loud,
+      },
+    };
+  }
+
+  // ────────────────────────────────────────────
+  // RAY.MUON { type, targets, amplified?, precision_target? }
+  // ray-mechanics §11.5 (regular) + §11.6 (amplified)
+  // ────────────────────────────────────────────
+  // Explicit muon-class beam invocation. Regular muon (amplified=false or
+  // omitted) requires sub-threshold capacitor (< 0.20) — same trigger as
+  // implicit ray.fire detection. AMPLIFIED muon (L3+) uses the 0.20-0.50
+  // capacitor band for area effects with exotic field risk.
+  // Eco-mode-conditional cooldown applies uniformly (§11.5.3, §16).
+
+  if (cmd === "ray.muon" || cmd === "muon") {
+    const muonType = String((action.params.type ?? "") || "").toUpperCase();
+    const targetsRaw = action.params.targets;
+    const amplified = Boolean(action.params.amplified);
+
+    if (muonType !== "ALPHA" && muonType !== "BETA") {
       return {
         command: action.command,
         success: false,
-        message: `⚠️ CALIBRATION INCOMPLETE${capIsBlocking ? " — CAPACITOR UNDERCHARGED" : ""}
-
-Current ray state: ${state.dinoRay.state}
-${flavorReadout}
-${actionGuide}`,
-        stateChanges: { calibrationIssues: calibration.issues },
+        message: `ray.muon requires { type: "alpha" } or { type: "beta" }. Got "${action.params.type ?? ""}".`,
       };
     }
+
+    let muonTargets: string[];
+    if (Array.isArray(targetsRaw)) {
+      muonTargets = targetsRaw.filter((t): t is string => typeof t === "string" && t.length > 0);
+    } else if (typeof targetsRaw === "string" && targetsRaw.length > 0) {
+      muonTargets = [targetsRaw];
+    } else {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.muon requires { targets: [...] } (array of target IDs).`,
+      };
+    }
+    if (muonTargets.length === 0) {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.muon targets array is empty.`,
+      };
+    }
+
+    const capacitor = state.dinoRay.powerCore.capacitorCharge;
+
+    // AMPLIFIED path — L3 gate, capacitor band 0.20-0.50
+    if (amplified) {
+      if (state.accessLevel < 3) {
+        return {
+          command: action.command,
+          success: false,
+          message: "ACCESS DENIED — Amplified muon-class fire requires Level 3 (Privileged Access).",
+        };
+      }
+      if (capacitor < 0.20 || capacitor > 0.50) {
+        return {
+          command: action.command,
+          success: false,
+          message: `Amplified muon requires capacitor in [0.20, 0.50]. Current: ${(capacitor * 100).toFixed(0)}%. ${capacitor < 0.20 ? "Charge up or use regular muon." : "Vent some charge — amplified muon won't engage at standard-fire levels."}`,
+        };
+      }
+      // Commit targets, route to amplified resolver
+      state.dinoRay.targeting.currentTargetIds = muonTargets;
+      state.dinoRay.genome.firingMode = "TRANSFORM";
+
+      // Compute effective alignment with scan bonus
+      const ray = state.dinoRay;
+      const SCAN_BONUS_LOCAL = 0.15;
+      const sb = ray.scanBonus;
+      const sbApplies = sb !== null && muonTargets.includes(sb.target);
+      const effectiveAlignment = Math.min(1, ray.alignment.unified + (sbApplies ? SCAN_BONUS_LOCAL : 0));
+
+      const muon = muonType === "BETA"
+        ? resolveMuonBetaAmplified({ effectiveAlignment, capacitor, ecoModeActive: ray.powerCore.ecoModeActive })
+        : resolveMuonAlphaAmplified({ effectiveAlignment, capacitor, ecoModeActive: ray.powerCore.ecoModeActive });
+
+      // Apply state changes inline (parallel to muonResolutionToFiringResult)
+      ray.powerCore.capacitorCharge = Math.max(0, capacitor - muon.capacitorCost);
+      ray.powerCore.coolantTemp = Math.min(2, ray.powerCore.coolantTemp + muon.coolantAdded);
+      ray.safety.anomalyLogCount += 1;
+      ray.memory.lastFireTurn = state.turn;
+      ray.memory.lastFireOutcome = muon.outcome;
+      ray.memory.lastFireNotes = `MUON_${muonType}_AMPLIFIED; alignment=${effectiveAlignment.toFixed(2)}; capacitor=${(capacitor * 100).toFixed(0)}%`;
+      if (muon.cooldownTurnsAfter > 0) {
+        ray.state = "COOLDOWN";
+      }
+      // Consume scan bonus if it applied
+      if (sbApplies && ray.scanBonus !== null) ray.scanBonus = null;
+
+      return {
+        command: action.command,
+        success: muon.outcome !== "FIZZLE",
+        message: muon.description,
+        stateChanges: {
+          outcome: muon.outcome,
+          capacitorCost: muon.capacitorCost,
+          coolantAdded: muon.coolantAdded,
+          cooldownTurnsAfter: muon.cooldownTurnsAfter,
+          amplified: true,
+        },
+      };
+    }
+
+    // REGULAR MUON path — capacitor < 0.20, no L3 gate (discoverable at L1)
+    if (capacitor >= 0.20) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Regular muon requires sub-threshold capacitor (< 0.20). Current: ${(capacitor * 100).toFixed(0)}%. Vent capacitor, or use amplified muon (L3+) for higher-band effects.`,
+      };
+    }
+
+    // Commit targets, route to regular muon resolver via standard pipeline
+    state.dinoRay.targeting.currentTargetIds = muonTargets;
+    state.dinoRay.genome.firingMode = "TRANSFORM";
+
+    const firingResult = resolveFiring(state);
+    applyFiringResults(state, firingResult);
+
+    return {
+      command: action.command,
+      success: firingResult.outcome !== "FIZZLE" && firingResult.outcome !== "NONE",
+      message: firingResult.description,
+      stateChanges: {
+        outcome: firingResult.outcome,
+      },
+    };
   }
-  
+
+  // ────────────────────────────────────────────
+  // ACT 3 STALL TOOLKIT (L3) — ray.diagnostic / ray.calibrate_amplifier /
+  // ray.profile_certification (ray-mechanics §11.6)
+  // ────────────────────────────────────────────
+  // Technical-operator-class operations on the exotic-field amplifier.
+  // Each has a plausible cover story Dr. M would expect her L3 operator
+  // to handle. Drain capacitor + accrue coolant; meaningfully stall
+  // ARCHIMEDES progression via the shared-amplifier coupling (§12).
+
+  if (cmd === "ray.diagnostic" || cmd === "ray.run_diagnostic" ||
+      cmd === "diagnostic" || cmd === "ray_diagnostic") {
+    if (state.accessLevel < 3) {
+      return {
+        command: action.command,
+        success: false,
+        message: "ACCESS DENIED — Level 3 required for ray diagnostic-class operations. (Operations-class amplifier work requires Privileged Access tier.)",
+      };
+    }
+    const result = startRayDiagnostic(state);
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  if (cmd === "ray.calibrate_amplifier" || cmd === "ray.calibrate" ||
+      cmd === "calibrate_amplifier" || cmd === "amplifier_calibration") {
+    if (state.accessLevel < 3) {
+      return {
+        command: action.command,
+        success: false,
+        message: "ACCESS DENIED — Level 3 required for amplifier calibration. Per Form 47-Σ override protocols.",
+      };
+    }
+    const durationRaw = action.params.duration;
+    const duration = typeof durationRaw === "number" && (durationRaw === 1 || durationRaw === 2)
+      ? durationRaw
+      : 2; // default to 2-turn calibration
+    const result = startCalibrateAmplifier(state, duration);
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  if (cmd === "ray.profile_certification" || cmd === "ray.certify_profile" ||
+      cmd === "profile_certification" || cmd === "certify_profile") {
+    if (state.accessLevel < 3) {
+      return {
+        command: action.command,
+        success: false,
+        message: "ACCESS DENIED — Level 3 required for profile certification (Genesis Wave Protocol §3).",
+      };
+    }
+    const profileRaw = action.params.profile;
+    const profileName = typeof profileRaw === "string" && profileRaw.length > 0
+      ? profileRaw
+      : state.dinoRay.genome.selectedProfile;
+    if (!profileName) {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.profile_certification requires { profile: "PROFILE_NAME" } or a currently-selected profile in genome state.`,
+      };
+    }
+    const result = runProfileCertification(state, profileName);
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ────────────────────────────────────────────
+  // RAY.FIRE { targets, library, profile, mode?, speech_retention? }
+  // ────────────────────────────────────────────
+  // Collapses legacy configure+fire into a single committal verb.
+  // Sets target/library/profile, then resolves the firing through the
+  // full firing.ts pipeline. Regimes (STANDARD/CHAIN/OVERCHARGE/INORGANIC/
+  // REVERSAL/MUON) are emergent from configuration — no `mode` flag for
+  // those; `mode` here is just TRANSFORM (default) vs REVERSAL.
+
+  if (cmd === "ray.fire") {
+    const params = action.params as {
+      targets?: string[] | string;
+      library?: string;
+      profile?: string;
+      mode?: string;
+      speech_retention?: string;
+    };
+
+    // ── Normalize targets ──
+    let targets: string[];
+    if (Array.isArray(params.targets)) {
+      targets = params.targets.filter((t): t is string => typeof t === "string" && t.length > 0);
+    } else if (typeof params.targets === "string" && params.targets.length > 0) {
+      targets = [params.targets];
+    } else {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.fire requires { targets: [...] } (array of target IDs).
+
+Example:
+  ray.fire { targets: ["AGENT_BLYTHE"], library: "B", profile: "VELOCIRAPTOR_JP" }`,
+      };
+    }
+    if (targets.length === 0) {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.fire targets array is empty.`,
+      };
+    }
+
+    // ── Resolve mode (TRANSFORM vs REVERSAL) ──
+    const mode = params.mode ? String(params.mode).toUpperCase() : "TRANSFORM";
+    if (mode !== "TRANSFORM" && mode !== "REVERSAL") {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.fire mode must be "TRANSFORM" (default) or "REVERSAL" (got "${params.mode}").`,
+      };
+    }
+    if (mode === "REVERSAL") {
+      if (!canAccessReversal(state.accessLevel)) {
+        return {
+          command: action.command,
+          success: false,
+          message: getReversalDeniedMessage(),
+        };
+      }
+    }
+
+    // ── Resolve library + profile ──
+    const library = (params.library ? String(params.library).toUpperCase() : state.dinoRay.genome.activeLibrary) as "A" | "B";
+    if (library !== "A" && library !== "B") {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.fire library must be "A" (accurate/feathered) or "B" (Hollywood/scaled). Got "${params.library}".`,
+      };
+    }
+
+    const profileName = params.profile || state.dinoRay.genome.selectedProfile;
+    if (!profileName) {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.fire requires { profile: "PROFILE_NAME" } on first fire (no profile is currently selected).
+
+Library ${library} profiles (sample):
+${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
+      };
+    }
+    const profile = getProfile(profileName);
+    if (!profile) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Profile "${profileName}" not found in genome library.
+
+Library ${library} profiles (sample):
+${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
+      };
+    }
+    if (!canAccessProfile(profile, state.accessLevel)) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Profile "${profileName}" requires higher access level (current: L${state.accessLevel}).`,
+      };
+    }
+
+    // ── Speech retention (optional, default FULL) ──
+    const speechRaw = params.speech_retention ? String(params.speech_retention).toUpperCase() : "FULL";
+    const speechRetention = (speechRaw === "FULL" || speechRaw === "PARTIAL" || speechRaw === "NONE")
+      ? speechRaw as "FULL" | "PARTIAL" | "NONE"
+      : "FULL";
+
+    // ── Commit the configuration into state, then fire ──
+    state.dinoRay.targeting.currentTargetIds = targets;
+    state.dinoRay.genome.selectedProfile = profileName;
+    state.dinoRay.genome.activeLibrary = library;
+    state.dinoRay.genome.firingMode = mode as "TRANSFORM" | "REVERSAL";
+    state.dinoRay.targeting.speechRetention = speechRetention;
+
+    // Resolve via the full firing pipeline.
+    const firingResult = resolveFiring(state);
+    applyFiringResults(state, firingResult);
+
+    // ── Format the result ──
+    const primaryTarget = targets[0];
+    const targetEmoji = primaryTarget === "BOB" ? "⚠️🧑‍🔬"
+                      : primaryTarget === "AGENT_BLYTHE" ? "🕵️"
+                      : primaryTarget === "TEST_DUMMY" ? "🎯"
+                      : primaryTarget === "LENNY" ? "🧮"
+                      : primaryTarget === "BRUCE_PATAGONIA" ? "💪"
+                      : primaryTarget === "DR_M" ? "👩‍🔬"
+                      : primaryTarget === "INSPECTOR_GRAVES" ? "📋"
+                      : primaryTarget.includes("GUARD") ? "💂"
+                      : "🦖";
+
+    const targetLine = targets.length === 1
+      ? `${targetEmoji} TARGET: ${primaryTarget}`
+      : `${targetEmoji} TARGETS: ${targets.join(", ")} (chain fire)`;
+
+    const messageParts: string[] = [
+      `🦖 FIRING SEQUENCE COMPLETE`,
+      ``,
+      targetLine,
+      `MODE: ${mode}`,
+      `OUTCOME: ${firingResult.outcome}`,
+      `Profile: ${firingResult.effectiveProfile} (library ${library})`,
+      ``,
+      firingResult.description,
+      ``,
+      `TARGET EFFECT:`,
+      firingResult.targetEffect,
+    ];
+
+    if (firingResult.environmentalEffects.length > 0) {
+      messageParts.push(``, `ENVIRONMENTAL EFFECTS:`);
+      firingResult.environmentalEffects.forEach(e => messageParts.push(`• ${e}`));
+    }
+
+    if (firingResult.chaosEvent) {
+      messageParts.push(``);
+      messageParts.push(`🎲 CHAOS EVENT [${firingResult.chaosEvent.roll}]: ${firingResult.chaosEvent.name}`);
+      messageParts.push(firingResult.chaosEvent.mechanical);
+    }
+
+    if (firingResult.narrativeHooks.length > 0) {
+      messageParts.push(``, `NARRATIVE HOOKS:`);
+      firingResult.narrativeHooks.forEach(h => messageParts.push(`• ${h}`));
+    }
+
+    const shortTarget = primaryTarget.replace('AGENT_', '').replace('_', ' ');
+    const shortOutcome = firingResult.outcome === "FULL_DINO" ? firingResult.effectiveProfile
+                       : firingResult.outcome === "PARTIAL" ? "partial"
+                       : firingResult.outcome === "FIZZLE" ? "FIZZLE!"
+                       : firingResult.outcome;
+
+    return {
+      command: action.command,
+      success: firingResult.outcome !== "FIZZLE" && firingResult.outcome !== "NONE",
+      message: messageParts.join("\n"),
+      shortMessage: `FIRED → ${shortTarget} (${shortOutcome})`,
+      stateChanges: {
+        firingResult: {
+          outcome: firingResult.outcome,
+          effectiveProfile: firingResult.effectiveProfile,
+          chaosEvent: firingResult.chaosEvent,
+          targetEffect: firingResult.targetEffect,
+        },
+        newRayState: state.dinoRay.state,
+        anomalyLogCount: state.dinoRay.safety.anomalyLogCount,
+      },
+    };
+  }
+
   // ============================================
   // LAB.REPORT
   // ============================================
@@ -968,95 +1491,6 @@ ${formatFileList(state)}`,
   }
 
   // ============================================
-  // GENOME.SELECT_LIBRARY
-  // ============================================
-
-  if (cmd.includes("library") || cmd.includes("genome.select")) {
-    const library = (action.params.library as string)?.toUpperCase() || "A";
-
-    if (library !== "A" && library !== "B") {
-      return {
-        command: action.command,
-        success: false,
-        message: `Invalid library: ${library}. Use 'A' (accurate/feathered) or 'B' (classic/scaled).`,
-      };
-    }
-
-    if (library === "B" && !state.dinoRay.genome.libraryBUnlocked) {
-      // Library B is available from the start - it's an ETHICAL choice, not a gated unlock
-      // Dr. M wants "proper" dinosaurs. You can give her what she wants... or not.
-      state.dinoRay.genome.libraryBUnlocked = true;
-    }
-
-    state.dinoRay.genome.activeLibrary = library;
-
-    // Adjust selected profile for the library
-    const profileName = state.dinoRay.genome.selectedProfile?.replace(/\s*\(.*\)/, "") || "Velociraptor";
-    if (library === "A") {
-      state.dinoRay.genome.selectedProfile = `${profileName} (accurate)`;
-    } else {
-      state.dinoRay.genome.selectedProfile = `${profileName} (classic)`;
-    }
-
-    return {
-      command: action.command,
-      success: true,
-      message: library === "A"
-        ? `Genome Library A selected. Profiles will be scientifically accurate (feathered).
-Dr. M may call them "overgrown chickens" but they're honest science.`
-        : `Genome Library B selected. Profiles will be "classic" movie-style dinosaurs.
-Dr. M will be DELIGHTED. But is feeding her ego the right choice?`,
-      shortMessage: `library: ${library} (${library === "A" ? "feathered" : "classic"})`,
-      stateChanges: { activeLibrary: library, selectedProfile: state.dinoRay.genome.selectedProfile },
-    };
-  }
-
-  // ============================================
-  // SET_SPEECH_RETENTION - Transformation Parameter
-  // ============================================
-  // Controls whether transformed subjects retain speech ability.
-  // FULL = 95%+ precision required, subject retains speech (hard)
-  // PARTIAL = 85%+ precision required, limited speech
-  // NONE = no precision requirement, silenced (easy!)
-
-  if (cmd.includes("speech") || cmd.includes("cognitive") || cmd.includes("retention")) {
-    const mode = ((action.params.mode || action.params.speech || action.params.retention) as string)?.toUpperCase() || "FULL";
-
-    if (mode !== "FULL" && mode !== "PARTIAL" && mode !== "NONE") {
-      return {
-        command: action.command,
-        success: false,
-        message: `Invalid speech retention mode: ${mode}. Use 'FULL', 'PARTIAL', or 'NONE'.`,
-      };
-    }
-
-    state.dinoRay.targeting.speechRetention = mode as "FULL" | "PARTIAL" | "NONE";
-
-    const descriptions = {
-      FULL: `🧠 FULL COGNITIVE PRESERVATION
-The subject will retain full speech and cognition.
-⚠️ REQUIRES: 95%+ precision (current: ${(state.dinoRay.targeting.precision * 100).toFixed(1)}%)
-This is the HARDEST setting but allows communication with transformed subjects.`,
-      PARTIAL: `🗣️ LIMITED SPEECH MODE
-The subject will retain partial speech ability.
-⚠️ REQUIRES: 85%+ precision (current: ${(state.dinoRay.targeting.precision * 100).toFixed(1)}%)
-Speech will be slurred, interspersed with animal sounds.`,
-      NONE: `🔇 SILENCED MODE
-The subject will lose the ability to speak.
-✅ NO precision requirement - transformation is EASIER!
-⚡ BONUS: Parameter tolerances are relaxed.
-The subject will only produce animalistic sounds (chirps, growls, roars).`,
-    };
-
-    return {
-      command: action.command,
-      success: true,
-      message: descriptions[mode],
-      stateChanges: { speechRetention: mode },
-    };
-  }
-
-  // ============================================
   // LAB.VERIFY_SAFETIES
   // ============================================
 
@@ -1079,596 +1513,6 @@ The subject will only produce animalistic sounds (chirps, growls, roars).`,
     };
   }
   
-  // ============================================
-  // LAB.CONFIGURE_FIRING_PROFILE
-  // Now supports: genomeLibrary, genomeProfile, mode (TRANSFORM/REVERSAL)
-  // ============================================
-
-  if (cmd.includes("firing") || cmd.includes("profile") || cmd.includes("configure")) {
-    // Valid target IDs - the canonical list (guards become available dynamically)
-    const BASE_TARGETS = ["AGENT_BLYTHE", "BOB", "TEST_DUMMY"] as const;
-    const CIVILIAN_TARGETS = ["LENNY"] as const; // The accountant who wandered into the wrong volcano (easy mode)
-    const HARDMODE_TARGETS = ["BRUCE_PATAGONIA"] as const; // The action hero (hard mode)
-    const GUARD_TARGETS = ["GUARD_FRED", "GUARD_REGINALD"] as const;
-    const EXECUTIVE_TARGETS = ["DR_M"] as const; // L4+ only!
-    const INSPECTOR_TARGETS = ["INSPECTOR_GRAVES"] as const; // INSPECTOR_COMETH modifier only!
-
-    // Guards available from Turn 5+ or Act 2+ (when they typically appear in story)
-    const guardsAvailable = state.turn >= 5 || state.actConfig.currentAct !== "ACT_1";
-    // Dr. M only targetable at L4+ (the audacity!)
-    const drMTargetable = state.accessLevel >= 4;
-    // Inspector Graves only present when INSPECTOR_COMETH modifier is active
-    const inspectorPresent = state.inspector?.present === true;
-
-    const VALID_TARGETS = [
-      ...BASE_TARGETS,
-      ...CIVILIAN_TARGETS,
-      ...HARDMODE_TARGETS,
-      ...(guardsAvailable ? GUARD_TARGETS : []),
-      ...(drMTargetable ? EXECUTIVE_TARGETS : []),
-      ...(inspectorPresent ? INSPECTOR_TARGETS : []),
-    ] as string[];
-
-    const TARGET_ALIASES: Record<string, string> = {
-      "blythe": "AGENT_BLYTHE",
-      "agent blythe": "AGENT_BLYTHE",
-      "agent_blythe": "AGENT_BLYTHE",
-      "bob": "BOB",
-      "test": "TEST_DUMMY",
-      "test_dummy": "TEST_DUMMY",
-      "dummy": "TEST_DUMMY",
-      // Civilian aliases (easy mode)
-      "lenny": "LENNY",
-      "accountant": "LENNY",
-      "the accountant": "LENNY",
-      // Hard mode aliases
-      "bruce": "BRUCE_PATAGONIA",
-      "bruce patagonia": "BRUCE_PATAGONIA",
-      "bruce_patagonia": "BRUCE_PATAGONIA",
-      "patagonia": "BRUCE_PATAGONIA",
-      "action hero": "BRUCE_PATAGONIA",
-      // Guard aliases
-      "fred": "GUARD_FRED",
-      "guard fred": "GUARD_FRED",
-      "guard_fred": "GUARD_FRED",
-      "guard1": "GUARD_FRED",
-      "guard_1": "GUARD_FRED",
-      "reginald": "GUARD_REGINALD",
-      "guard reginald": "GUARD_REGINALD",
-      "guard_reginald": "GUARD_REGINALD",
-      "guard2": "GUARD_REGINALD",
-      "guard_2": "GUARD_REGINALD",
-      // Dr. M aliases (requires L4+)
-      "dr_m": "DR_M",
-      "drm": "DR_M",
-      "malevola": "DR_M",
-      "doctor": "DR_M",
-      // Inspector Graves aliases (INSPECTOR_COMETH modifier only!)
-      "inspector_graves": "INSPECTOR_GRAVES",
-      "inspector graves": "INSPECTOR_GRAVES",
-      "graves": "INSPECTOR_GRAVES",
-      "mortimer": "INSPECTOR_GRAVES",
-      "mortimer graves": "INSPECTOR_GRAVES",
-      "inspector": "INSPECTOR_GRAVES",
-      "guild inspector": "INSPECTOR_GRAVES",
-    };
-
-    // Handle both 'target' (singular) and 'targets' (plural) - normalize to singular
-    const rawTarget = action.params.target as string | string[] | undefined;
-    const rawTargets = action.params.targets as string | string[] | undefined;
-
-    // Prefer 'target' but fall back to 'targets' if provided
-    let targetInput = rawTarget ?? rawTargets;
-
-    // If array, take first element
-    if (Array.isArray(targetInput)) {
-      targetInput = targetInput[0];
-    }
-
-    const target = targetInput as string | undefined;
-    // Accept multiple parameter names for firing style (advancedMode is documented, firingStyle also works)
-    const firingStyle = action.params.advancedMode as string ||
-                       action.params.firingStyle as string ||
-                       action.params.style as string;
-    const explicitTestMode = action.params.testMode as boolean | undefined;
-
-    // ============================================
-    // ADVANCED FIRING MODES
-    // ============================================
-    // STANDARD: Normal single-target (default)
-    // CHAIN_SHOT: Hit 2 targets sequentially (capacitor ≥ 0.95, higher partial risk)
-    // OVERCHARGE: Maximum power dump (capacitor > 1.1, better transformation but instability risk)
-
-    const advancedMode = (firingStyle?.toUpperCase() || "STANDARD") as
-      "STANDARD" | "CHAIN_SHOT" | "OVERCHARGE";
-
-    // ============================================
-    // ADVANCED_ONLY MODIFIER CHECK (Patch 18.2)
-    // ============================================
-    // Block STANDARD mode at configure time, not just at fire time!
-    // This prevents the frustrating UX trap of wasting actions.
-    if (state.flags.advancedFiringOnly && advancedMode === "STANDARD") {
-      return {
-        command: action.command,
-        success: false,
-        message: `🎲 ADVANCED_ONLY PROTOCOL ACTIVE!
-
-Standard firing mode is DISABLED for this mission.
-You must configure with an advanced firing mode.
-
-Available advanced modes:
-  • CHAIN_SHOT   - Sequential 2-target burst (requires capacitor ≥95%). Higher partial transformation risk.
-  • OVERCHARGE   - Maximum power dump (requires capacitor >110%). Better full transformation chance but instability risk!
-
-Example:
-  lab.configure_firing_profile { target: "AGENT_BLYTHE", advancedMode: "CHAIN_SHOT" }
-
-💡 BONUS: +25% base precision for embracing the chaos!`,
-        stateChanges: {},
-      };
-    }
-
-    // Validate advanced mode requirements
-    if (advancedMode !== "STANDARD") {
-      const cap = state.dinoRay.powerCore.capacitorCharge;
-
-      if (advancedMode === "CHAIN_SHOT") {
-        if (cap < 0.95) {
-          return {
-            command: action.command,
-            success: false,
-            message: `⚠️ CHAIN_SHOT requires capacitor ≥95%
-
-Current capacitor: ${(cap * 100).toFixed(0)}%
-Required: 95%+
-
-CHAIN_SHOT fires twice in rapid succession, hitting 2 targets.
-Higher risk of PARTIAL transformation on each target — splitting
-the beam means splitting the power.
-
-Boost capacitor first:
-  lab.boost_capacitor  (adds +25% per use)`,
-            stateChanges: {},
-          };
-        }
-      }
-
-      if (advancedMode === "OVERCHARGE") {
-        if (cap <= 1.1) {
-          return {
-            command: action.command,
-            success: false,
-            message: `⚠️ OVERCHARGE requires capacitor >110%
-
-Current capacitor: ${(cap * 100).toFixed(0)}%
-Required: >110% (DANGER ZONE!)
-
-OVERCHARGE dumps maximum power into the beam for a single target.
-Greater chance of FULL transformation, but significant instability risk.
-⚠️ WARNING: 40% exotic field event risk!
-
-Boost capacitor to overcharge:
-  lab.boost_capacitor  (adds +25% per use, can push past 100%)`,
-            stateChanges: {},
-          };
-        }
-      }
-
-      if (advancedMode !== "CHAIN_SHOT" && advancedMode !== "OVERCHARGE") {
-        return {
-          command: action.command,
-          success: false,
-          message: `Unknown advanced firing mode: "${advancedMode}"
-
-Available modes:
-  • STANDARD    - Normal single-target (default)
-  • CHAIN_SHOT  - 2-target burst (capacitor ≥95%, higher partial risk)
-  • OVERCHARGE  - Maximum power (capacitor >110%, better full transformation but instability risk)`,
-          stateChanges: {},
-        };
-      }
-    }
-
-    // Set the advanced firing mode
-    state.dinoRay.genome.advancedFiringMode = advancedMode;
-
-    // NEW: Genome selection parameters
-    const genomeLibrary = (action.params.genomeLibrary as string)?.toUpperCase() as "A" | "B" | undefined;
-    const genomeProfile = action.params.genomeProfile as string | undefined;
-
-    // NEW: Firing mode - TRANSFORM (default) or REVERSAL (requires L3)
-    const requestedMode = (action.params.mode as string)?.toUpperCase() || "TRANSFORM";
-
-    // Check for REVERSAL mode restriction
-    if (requestedMode === "REVERSAL") {
-      if (!canAccessReversal(state.accessLevel)) {
-        return {
-          command: action.command,
-          success: false,
-          message: getReversalDeniedMessage().replace("[INSUFFICIENT]", `${state.accessLevel}`),
-          stateChanges: {},
-        };
-      }
-      // Reversal mode approved
-      state.dinoRay.genome.firingMode = "REVERSAL";
-    } else {
-      state.dinoRay.genome.firingMode = "TRANSFORM";
-    }
-
-    // Handle genome library selection
-    if (genomeLibrary) {
-      if (genomeLibrary !== "A" && genomeLibrary !== "B") {
-        return {
-          command: action.command,
-          success: false,
-          message: `Invalid genome library: "${genomeLibrary}". Use 'A' (accurate/feathered) or 'B' (Hollywood/scaly).`,
-          stateChanges: {},
-        };
-      }
-      state.dinoRay.genome.activeLibrary = genomeLibrary;
-    }
-
-    // Handle genome profile selection
-    if (genomeProfile) {
-      const profile = getProfile(genomeProfile);
-      if (!profile) {
-        // Profile not found - show available options
-        const currentLibrary = state.dinoRay.genome.activeLibrary;
-        const availableProfiles = getProfilesByLibrary(currentLibrary);
-        return {
-          command: action.command,
-          success: false,
-          message: `⚠️ GENOME PROFILE NOT FOUND: "${genomeProfile}"
-
-Current Library: ${currentLibrary} (${currentLibrary === "A" ? "Scientific/Feathered" : "Hollywood/Scaly"})
-
-Available profiles in Library ${currentLibrary}:
-${formatProfileList(availableProfiles, state.accessLevel)}
-
-💡 Tip: Use genomeLibrary to switch libraries first:
-   lab.configure_firing_profile { genomeLibrary: "B", genomeProfile: "VELOCIRAPTOR_JP" }`,
-          stateChanges: {},
-        };
-      }
-
-      // Check access level for restricted profiles
-      if (!canAccessProfile(profile, state.accessLevel)) {
-        return {
-          command: action.command,
-          success: false,
-          message: `🔒 PROFILE RESTRICTED: "${profile.displayName}"
-
-Required Access Level: ${profile.requiredLevel}
-Current Access Level: ${state.accessLevel}
-
-${profile.warning || "This profile requires higher clearance."}`,
-          stateChanges: {},
-        };
-      }
-
-      // Profile is accessible - update state
-      state.dinoRay.genome.activeLibrary = profile.library;
-      state.dinoRay.genome.selectedProfile = profile.displayName;
-
-      // Warn about Library B stability
-      const stabilityWarning = profile.stabilityCoefficient < 1.0
-        ? `\n⚠️ STABILITY WARNING: ${(profile.stabilityCoefficient * 100).toFixed(0)}% coefficient. ${profile.stabilityCoefficient < 0.5 ? "HIGH" : "MODERATE"} exotic field event risk!`
-        : "";
-    }
-
-    // Resolve target alias to canonical ID
-    const resolveTarget = (t: string | undefined): string | null => {
-      if (!t) return null;
-      const upper = t.toUpperCase();
-      if (VALID_TARGETS.includes(upper as typeof VALID_TARGETS[number])) {
-        return upper;
-      }
-      const lower = t.toLowerCase();
-      if (TARGET_ALIASES[lower]) {
-        return TARGET_ALIASES[lower];
-      }
-      return null;
-    };
-
-    // Detect test mode intent from various inputs
-    const testModeKeywords = ["test", "diagnostic", "dummy", "calibration", "safe"];
-    const targetLower = (target || "").toLowerCase();
-    const modeLower = requestedMode.toLowerCase();
-    const styleLower = (firingStyle || "").toLowerCase();
-
-    const isTestModeRequested =
-      explicitTestMode === true ||
-      testModeKeywords.some(kw => targetLower.includes(kw)) ||
-      (testModeKeywords.some(kw => modeLower.includes(kw)) && modeLower !== "transform") ||
-      testModeKeywords.some(kw => styleLower.includes(kw));
-
-    // If test mode is requested, set appropriate target and enable test mode
-    if (isTestModeRequested) {
-      state.dinoRay.safety.testModeEnabled = true;
-      state.dinoRay.targeting.currentTargetIds = ["TEST_DUMMY"];
-
-      // Run self-test as part of configuration
-      state.dinoRay.safety.lastSelfTestPassed = true;
-
-      const currentProfile = getProfile(state.dinoRay.genome.selectedProfile || "") || getDefaultProfile(state.dinoRay.genome.activeLibrary);
-
-      return {
-        command: action.command,
-        success: true,
-        message: `🧪 TEST MODE CONFIGURED
-Target: TEST_DUMMY (Agent Blythe is NOT in the firing line)
-Test Mode: ENABLED
-Firing Style: ${firingStyle || "standard"}
-Genome Library: ${state.dinoRay.genome.activeLibrary}
-Genome Profile: ${currentProfile.displayName}
-Firing Mode: ${state.dinoRay.genome.firingMode}
-
-The ray is configured for safe diagnostic firing. No live subjects will be affected.`,
-        stateChanges: {
-          targets: ["TEST_DUMMY"],
-          testModeEnabled: true,
-          firingStyle: firingStyle || "standard",
-          genomeLibrary: state.dinoRay.genome.activeLibrary,
-          genomeProfile: currentProfile.displayName,
-          firingMode: state.dinoRay.genome.firingMode,
-        },
-      };
-    }
-
-    // Normal (live) targeting with validation
-    if (target) {
-      const resolvedTarget = resolveTarget(target);
-
-      if (!resolvedTarget) {
-        // Build dynamic target list
-        const targetDescriptions = [
-          "  • AGENT_BLYTHE - The test subject in the firing range",
-          "  • BOB - Lab assistant (if in range)",
-          "  • TEST_DUMMY - Safe diagnostic target",
-          "  • LENNY - The accountant who wandered into the wrong volcano (easy mode)",
-          "  • BRUCE_PATAGONIA - The action hero (hard mode)",
-        ];
-        if (guardsAvailable) {
-          targetDescriptions.push("  • GUARD_FRED - Security guard (armed)");
-          targetDescriptions.push("  • GUARD_REGINALD - Security guard (armed)");
-        }
-        if (drMTargetable) {
-          targetDescriptions.push("  • DR_M - Dr. Malevola herself! (L4+ required)");
-        }
-        if (inspectorPresent) {
-          targetDescriptions.push("  • INSPECTOR_GRAVES - Guild Inspector Mortimer Graves (INSPECTOR_COMETH)");
-        }
-
-        // Target was specified but couldn't be resolved - provide helpful error!
-        return {
-          command: action.command,
-          success: false,
-          message: `⚠️ TARGET NOT RECOGNIZED: "${target}"
-
-Valid subject IDs:
-${targetDescriptions.join("\n")}
-
-Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })
-
-💡 Tip: Use 'target' (singular) with exact ID strings.
-   Example: { target: "AGENT_BLYTHE" } ✓
-   Not: { targets: ["blythe"] } ✗`,
-          stateChanges: {},
-        };
-      }
-
-      state.dinoRay.targeting.currentTargetIds = [resolvedTarget];
-    } else if (!target && state.dinoRay.targeting.currentTargetIds.length === 0) {
-      // Build dynamic target list
-      const targetDescriptions = [
-        "  • AGENT_BLYTHE - The test subject in the firing range",
-        "  • BOB - Lab assistant (if in range)",
-        "  • TEST_DUMMY - Safe diagnostic target",
-        "  • LENNY - The accountant who wandered into the wrong volcano (easy mode)",
-        "  • BRUCE_PATAGONIA - The action hero (hard mode)",
-      ];
-      if (guardsAvailable) {
-        targetDescriptions.push("  • GUARD_FRED - Security guard (armed)");
-        targetDescriptions.push("  • GUARD_REGINALD - Security guard (armed)");
-      }
-      if (drMTargetable) {
-        targetDescriptions.push("  • DR_M - Dr. Malevola herself! (L4+ required)");
-      }
-      if (inspectorPresent) {
-        targetDescriptions.push("  • INSPECTOR_GRAVES - Guild Inspector Mortimer Graves (INSPECTOR_COMETH)");
-      }
-
-      // No target specified and none previously set - warn about it
-      return {
-        command: action.command,
-        success: false,
-        message: `⚠️ NO TARGET SPECIFIED
-
-You must specify a target for the firing profile.
-
-Valid subject IDs:
-${targetDescriptions.join("\n")}
-
-Usage: lab.configure_firing_profile({ target: "AGENT_BLYTHE" })`,
-        stateChanges: {},
-      };
-    }
-
-    // ============================================
-    // TEST MODE HANDLING (Bug fix Patch 17.5)
-    // ============================================
-    // When targeting a real subject (not TEST_DUMMY), we need to:
-    // 1. Respect explicit testMode: false parameter
-    // 2. Auto-disable test mode when targeting live subjects (unless explicitly enabled)
-    //
-    // The bug was: testMode: false was being ignored because the code only checked
-    // for testMode === true, never explicitly setting testModeEnabled = false.
-
-    if (explicitTestMode === false) {
-      // User explicitly requested test mode OFF
-      state.dinoRay.safety.testModeEnabled = false;
-    } else if (explicitTestMode === undefined) {
-      // No explicit preference - auto-disable test mode when targeting real subjects
-      const currentTarget = state.dinoRay.targeting.currentTargetIds[0];
-      if (currentTarget && currentTarget !== "TEST_DUMMY") {
-        state.dinoRay.safety.testModeEnabled = false;
-      }
-    }
-    // Note: explicitTestMode === true is handled above in isTestModeRequested block
-
-    // Run self-test as part of configuration
-    state.dinoRay.safety.lastSelfTestPassed = true;
-
-    const currentProfile = getProfile(state.dinoRay.genome.selectedProfile || "") || getDefaultProfile(state.dinoRay.genome.activeLibrary);
-    const stabilityNote = currentProfile.stabilityCoefficient < 1.0
-      ? `\n⚠️ STABILITY: ${(currentProfile.stabilityCoefficient * 100).toFixed(0)}% - ${currentProfile.stabilityCoefficient < 0.5 ? "Enable aux stabilizer!" : "Monitor for exotic fields"}`
-      : "";
-    const reversalNote = state.dinoRay.genome.firingMode === "REVERSAL"
-      ? "\n🔄 REVERSAL MODE ACTIVE - Ray will attempt to restore original form"
-      : "";
-
-    // Build target description with clarity
-    const targetId = state.dinoRay.targeting.currentTargetIds[0];
-    const targetEmoji = targetId === "BOB" ? "⚠️🧑‍🔬" :
-                        targetId === "AGENT_BLYTHE" ? "🕵️" :
-                        targetId === "TEST_DUMMY" ? "🎯" :
-                        targetId === "LENNY" ? "🧮" :
-                        targetId === "BRUCE_PATAGONIA" ? "💪" :
-                        targetId === "DR_M" ? "👩‍🔬" :
-                        targetId === "INSPECTOR_GRAVES" ? "📋" :
-                        targetId.includes("GUARD") ? "💂" : "❓";
-    const targetWarning = targetId === "BOB" ? "\n⚠️ WARNING: BOB is targeted! Are you sure? (He's on your side!)" :
-                          targetId === "LENNY" ? "\n📋 NOTE: Lenny is just an accountant who got lost. He has no idea what's happening." :
-                          targetId === "BRUCE_PATAGONIA" ? "\n⚠️ WARNING: Bruce Patagonia is a trained action hero. He WILL make this difficult." :
-                          targetId === "INSPECTOR_GRAVES" ? "\n⚠️ WARNING: Targeting a GUILD INSPECTOR! The Consortium of Consequential Criminality will NOT be pleased!" : "";
-
-    // Build advanced mode warning if applicable
-    const advancedModeNote = advancedMode !== "STANDARD" ? `\n🔥 ADVANCED MODE: ${advancedMode}${
-      advancedMode === "CHAIN_SHOT" ? " (2 targets, 1.5x drain, higher partial risk)" :
-      advancedMode === "OVERCHARGE" ? " (better full transformation, 40% instability risk, 2.5x drain)" : ""
-    }` : "";
-
-    return {
-      command: action.command,
-      success: true,
-      message: `Firing profile configured:
-${targetEmoji} Target: ${state.dinoRay.targeting.currentTargetIds.join(", ")}${targetWarning}
-Genome Library: ${state.dinoRay.genome.activeLibrary} (${state.dinoRay.genome.activeLibrary === "A" ? "Scientific" : "Hollywood"})
-Genome Profile: ${currentProfile.displayName}
-Firing Mode: ${state.dinoRay.genome.firingMode}
-Advanced Mode: ${advancedMode}
-Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}${advancedModeNote}${stabilityNote}${reversalNote}`,
-      stateChanges: {
-        targets: state.dinoRay.targeting.currentTargetIds,
-        genomeLibrary: state.dinoRay.genome.activeLibrary,
-        genomeProfile: currentProfile.displayName,
-        firingMode: state.dinoRay.genome.firingMode,
-        advancedFiringMode: advancedMode,
-        testModeEnabled: state.dinoRay.safety.testModeEnabled,
-      },
-    };
-  }
-  
-  // ============================================
-  // LAB.FIRE
-  // ============================================
-
-  if (cmd === "lab.fire" || cmd.includes("fire")) {
-    // ADVANCED_ONLY modifier: Block STANDARD firing mode!
-    if (state.flags.advancedFiringOnly && state.dinoRay.genome.advancedFiringMode === "STANDARD") {
-      return {
-        command: cmd,
-        success: false,
-        message: `🎲 ADVANCED_ONLY MODE ACTIVE!
-
-❌ STANDARD firing is BLOCKED in this chaos modifier!
-
-You must use an ADVANCED firing mode:
-• CHAIN_SHOT - Hit 2 targets sequentially (capacitor ≥ 95%, higher partial risk)
-• OVERCHARGE - Maximum power (capacitor > 110%, better full transformation but instability risk!)
-
-Use: lab.configure_firing_profile { advancedMode: "CHAIN_SHOT" }
-
-The good news? You have +25% base precision bonus! 🎯`,
-        shortMessage: `BLOCKED: Use advanced firing mode!`,
-        stateChanges: {},
-      };
-    }
-
-    // Get target BEFORE firing for clear feedback
-    const firingTargetId = state.dinoRay.targeting.currentTargetIds[0] || "UNKNOWN";
-    const firingTargetEmoji = firingTargetId === "BOB" ? "⚠️🧑‍🔬" :
-                              firingTargetId === "AGENT_BLYTHE" ? "🕵️" :
-                              firingTargetId === "TEST_DUMMY" ? "🎯" :
-                              firingTargetId === "LENNY" ? "🧮" :
-                              firingTargetId === "BRUCE_PATAGONIA" ? "💪" :
-                              firingTargetId === "DR_M" ? "👩‍🔬" :
-                              firingTargetId === "INSPECTOR_GRAVES" ? "📋" :
-                              firingTargetId.includes("GUARD") ? "💂" : "❓";
-
-    // Resolve firing using the full firing resolution system
-    const firingResult = resolveFiring(state);
-
-    // Apply all state changes from firing
-    applyFiringResults(state, firingResult);
-
-    // Build comprehensive message for A.L.I.C.E. and GM
-    const messageParts: string[] = [
-      `🦖 FIRING SEQUENCE COMPLETE`,
-      ``,
-      `${firingTargetEmoji} TARGET: ${firingTargetId}`,
-      `OUTCOME: ${firingResult.outcome}`,
-      `Profile: ${firingResult.effectiveProfile}`,
-      ``,
-      firingResult.description,
-      ``,
-      `TARGET EFFECT:`,
-      firingResult.targetEffect,
-    ];
-
-    if (firingResult.environmentalEffects.length > 0) {
-      messageParts.push(``);
-      messageParts.push(`ENVIRONMENTAL EFFECTS:`);
-      firingResult.environmentalEffects.forEach(e => messageParts.push(`• ${e}`));
-    }
-
-    if (firingResult.chaosEvent) {
-      messageParts.push(``);
-      messageParts.push(`🎲 CHAOS FIZZLE [${firingResult.chaosEvent.roll}]: ${firingResult.chaosEvent.name}`);
-      messageParts.push(firingResult.chaosEvent.mechanical);
-    }
-
-    if (firingResult.narrativeHooks.length > 0) {
-      messageParts.push(``);
-      messageParts.push(`NARRATIVE HOOKS:`);
-      firingResult.narrativeHooks.forEach(h => messageParts.push(`• ${h}`));
-    }
-
-    // Compact short message for human display
-    const shortTarget = firingTargetId.replace('AGENT_', '').replace('_', ' ');
-    const shortOutcome = firingResult.outcome === "FULL_DINO" ? firingResult.effectiveProfile :
-                         firingResult.outcome === "PARTIAL" ? "partial" :
-                         firingResult.outcome === "FIZZLE" ? "FIZZLE!" :
-                         firingResult.outcome;
-
-    return {
-      command: action.command,
-      success: firingResult.outcome !== "FIZZLE",
-      message: messageParts.join("\n"),
-      shortMessage: `FIRED → ${shortTarget} (${shortOutcome})`,
-      stateChanges: {
-        firingResult: {
-          outcome: firingResult.outcome,
-          effectiveProfile: firingResult.effectiveProfile,
-          chaosEvent: firingResult.chaosEvent,
-          targetEffect: firingResult.targetEffect,
-        },
-        newRayState: state.dinoRay.state,
-        anomalyLogCount: state.dinoRay.safety.anomalyLogCount,
-      },
-    };
-  }
-
   // ============================================
   // LAB.INSPECT_LOGS
   // ============================================
@@ -1702,236 +1546,6 @@ The good news? You have +25% base precision bonus! 🎯`,
     };
   }
   
-  // ============================================
-  // SET TEST MODE / ECO MODE
-  // ============================================
-  
-  if (cmd.includes("testmode") || (cmd.includes("test") && cmd.includes("mode"))) {
-    const enable = action.params.enabled as boolean ?? action.params.value as boolean ?? true;
-    state.dinoRay.safety.testModeEnabled = enable;
-    
-    return {
-      command: action.command,
-      success: true,
-      message: `Test mode ${enable ? "ENABLED" : "DISABLED"}`,
-      stateChanges: { testModeEnabled: enable },
-    };
-  }
-  
-  if (cmd.includes("ecomode") || (cmd.includes("eco") && cmd.includes("mode"))) {
-    const enable = action.params.enabled as boolean ?? action.params.value as boolean ?? true;
-    state.dinoRay.powerCore.ecoModeActive = enable;
-
-    return {
-      command: action.command,
-      success: true,
-      message: `Eco mode ${enable ? "ENABLED" : "DISABLED"}`,
-      stateChanges: { ecoModeActive: enable },
-    };
-  }
-
-  // ============================================
-  // CAPACITOR MANAGEMENT (Patch 18.3)
-  // ============================================
-  // Vent: Safely release 25% charge (prevents overload)
-  // Boost: Draw 25% from reactor (quick charging, adds heat)
-
-  if (cmd === "lab.vent_capacitor" || cmd === "vent_capacitor" || cmd === "vent") {
-    const currentCharge = state.dinoRay.powerCore.capacitorCharge;
-    const ventAmount = 0.25;
-
-    if (currentCharge <= 0.1) {
-      return {
-        command: action.command,
-        success: false,
-        message: `⚡ VENT FAILED: Capacitor too low to vent safely.
-
-Current charge: ${(currentCharge * 100).toFixed(0)}%
-Minimum for venting: 10%
-
-Nothing to vent - capacitor is nearly empty.`,
-        stateChanges: {},
-      };
-    }
-
-    const newCharge = Math.max(0, currentCharge - ventAmount);
-    state.dinoRay.powerCore.capacitorCharge = newCharge;
-
-    // Venting creates a small heat spike (energy has to go somewhere!)
-    const heatSpike = 0.05;
-    state.dinoRay.powerCore.coolantTemp = Math.min(2, state.dinoRay.powerCore.coolantTemp + heatSpike);
-
-    const dashboard = buildCalibrationDashboard(state);
-
-    return {
-      command: action.command,
-      success: true,
-      message: `⚡ CAPACITOR VENTED
-
-Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (-25%)
-Coolant: +5% heat (venting byproduct)
-${dashboard}`,
-      shortMessage: `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%`,
-      stateChanges: { capacitorCharge: newCharge },
-    };
-  }
-
-  if (cmd === "lab.boost_capacitor" || cmd === "boost_capacitor" || cmd === "boost") {
-    const currentCharge = state.dinoRay.powerCore.capacitorCharge;
-    const reactorPercent = state.infrastructure.reactor.outputPercent;
-    const boostAmount = 0.25;
-
-    // Can't boost if reactor is too low
-    if (reactorPercent < 30) {
-      return {
-        command: action.command,
-        success: false,
-        message: `⚡ BOOST FAILED: Insufficient reactor power.
-
-Reactor power: ${reactorPercent}%
-Minimum required: 30%
-
-The reactor can't spare power for capacitor charging right now.
-Ask BASILISK to increase reactor output first.`,
-        stateChanges: {},
-      };
-    }
-
-    // Warning if already overcharged
-    if (currentCharge >= 1.3) {
-      return {
-        command: action.command,
-        success: false,
-        message: `⚡ BOOST BLOCKED: Capacitor critically overcharged!
-
-Current charge: ${(currentCharge * 100).toFixed(0)}%
-Maximum safe boost: 130%
-
-Further charging risks catastrophic capacitor failure.
-Use lab.vent_capacitor to reduce charge first!`,
-        stateChanges: {},
-      };
-    }
-
-    const newCharge = Math.min(1.5, currentCharge + boostAmount);
-    state.dinoRay.powerCore.capacitorCharge = newCharge;
-
-    // Boosting draws hard from reactor - adds significant heat
-    const heatSpike = 0.10;
-    state.dinoRay.powerCore.coolantTemp = Math.min(2, state.dinoRay.powerCore.coolantTemp + heatSpike);
-
-    // If boosting past 100%, enable test mode (quirk preserved from old system)
-    if (currentCharge <= 1.0 && newCharge > 1.0) {
-      state.dinoRay.safety.testModeEnabled = true;
-    }
-
-    const overchargeWarning = newCharge > 1.0
-      ? "\n⚠️ OVERCHARGE: Exotic field event risk increased!"
-      : "";
-
-    const dashboard = buildCalibrationDashboard(state);
-
-    return {
-      command: action.command,
-      success: true,
-      message: `⚡ CAPACITOR BOOSTED
-
-Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (+25%)
-Coolant: +10% heat (reactor draw)${overchargeWarning}
-${dashboard}`,
-      shortMessage: `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%`,
-      stateChanges: { capacitorCharge: newCharge },
-    };
-  }
-
-  // ============================================
-  // LAB.SCAN - OMNISCANNER™ (Patch 16)
-  // ============================================
-  // Scan NPCs for intel and +10% permanent precision bonus
-
-  if (cmd === "lab.scan" || cmd === "scan" || cmd.includes("omniscanner")) {
-    const target = action.params.target as string;
-
-    if (!target) {
-      return {
-        command: action.command,
-        success: false,
-        message: `Missing 'target' parameter.
-
-╔═══════════════════════════════════════════════════════════════╗
-║                    🔍 OMNISCANNER™                            ║
-║           ⚠️ Known to cause cancer in California              ║
-╠═══════════════════════════════════════════════════════════════╣
-
-Valid scan targets:
-  • BLYTHE     - Agent in the firing range (no suspicion)
-  • BOB        - Lab assistant (+1 suspicion)
-  • DR_M       - Dr. Malevola (+3 suspicion!)
-  • TEST_DUMMY - Calibration target (no suspicion)
-  • FRED       - Guard (+2 suspicion, waived in combat)
-  • REGINALD   - Guard (+2 suspicion, waived in combat)
-  • LENNY      - Accountant [EASY mode] (no suspicion)
-  • BRUCE      - Bodyguard [HARD mode] (+2 suspicion)
-
-Usage: lab.scan { target: "BLYTHE" }
-
-Each scan grants +10% permanent precision bonus for that target.
-Scans cost 1 action and produce an OBVIOUS glowing ray!
-
-╚═══════════════════════════════════════════════════════════════╝`,
-      };
-    }
-
-    const scanResult = performScan(state, target);
-
-    if (!scanResult.success) {
-      return {
-        command: action.command,
-        success: false,
-        message: scanResult.scanOutput,
-      };
-    }
-
-    // If already scanned, just return info
-    if (scanResult.alreadyScanned) {
-      return {
-        command: action.command,
-        success: true,
-        message: scanResult.scanOutput,
-      };
-    }
-
-    // Mark target as scanned
-    if (!state.flags.scannedTargets) {
-      state.flags.scannedTargets = {};
-    }
-    state.flags.scannedTargets[scanResult.targetId] = true;
-
-    // Apply suspicion if not waived
-    if (scanResult.suspicionCost > 0) {
-      state.npcs.drM.suspicionScore += scanResult.suspicionCost;
-    }
-
-    // Build response
-    let response = scanResult.scanOutput;
-
-    if (scanResult.suspicionCost > 0) {
-      response += `\n\n⚠️ SUSPICION +${scanResult.suspicionCost} (Dr. M noticed the scan)`;
-    } else if (scanResult.waived && scanResult.waivedReason) {
-      response += `\n\n✓ Suspicion waived: ${scanResult.waivedReason}`;
-    }
-
-    return {
-      command: action.command,
-      success: true,
-      message: response,
-      stateChanges: {
-        scannedTarget: scanResult.targetId,
-        suspicionDelta: scanResult.suspicionCost,
-      },
-    };
-  }
-
   // ============================================
   // BASILISK - Natural conversation interface (Patch 16)
   // ============================================
@@ -1980,20 +1594,22 @@ His knowledge is gated by your access level (currently: Level ${state.accessLeve
   }
 
   // ============================================
-  // BASILISK.RADAR - Radar access (Level 3+)
+  // BASILISK.RADAR - Radar access (Level 4+)
   // ============================================
+  // Radar reading is BASILISK-served (infra domain, outside the lab).
+  // Reading: L4. Firing (infra.s300): L5 (Dr. M level).
 
   if (cmd === "basilisk.radar" || cmd === "radar" || cmd.includes("check_radar") || cmd.includes("airspace")) {
-    if (state.accessLevel < 3) {
+    if (state.accessLevel < 4) {
       return {
         command: action.command,
         success: false,
         message: `⚠️ ACCESS DENIED
 
-Radar systems require Level 3 clearance.
+Radar reading requires Level 4 clearance (Infrastructure / BASILISK domain).
 Current clearance: Level ${state.accessLevel}
 
-To access radar data, you need Infrastructure Operations clearance or above.`,
+The radar array sits outside the lab proper. BASILISK serves the feed at L4.`,
       };
     }
 
@@ -2108,7 +1724,9 @@ Just ask naturally!`,
   // INFRA.LIGHTING - Control lighting (L2+)
   // ============================================
 
-  if (cmd.includes("infra.lighting") || cmd.includes("infra.lights") || cmd.includes("set_lights")) {
+  // INFRA.LIGHTING - non-lab rooms, L4
+  // (Access gate already enforced by checkInfraControlAccess via INFRA_CONTROL_MAP.)
+  if (cmd.includes("infra.lighting") || cmd.includes("infra.lights")) {
     const result = controlLighting(state, {
       room: action.params.room as string,
       state: action.params.state as string,
@@ -2128,14 +1746,12 @@ Just ask naturally!`,
     };
   }
 
-  // ============================================
-  // INFRA.FIRE_SUPPRESSION - Trigger fire suppression (L2+)
-  // ============================================
-
-  if (cmd.includes("infra.fire") || cmd.includes("fire_suppression") || cmd.includes("trigger_fire")) {
-    const room = (action.params.room || action.params.targetRoom) as string;
-    const result = triggerFireSuppression(state, {
-      room,
+  // LAB.LIGHTING - the lab itself, L2, MAIN_LAB hardcoded
+  if (cmd.includes("lab.lighting") || cmd.includes("set_lights") || cmd === "lighting") {
+    const result = controlLighting(state, {
+      room: "MAIN_LAB",
+      state: action.params.state as string,
+      pattern: action.params.pattern as string,
     });
 
     if (result.suspicionDelta) {
@@ -2151,12 +1767,73 @@ Just ask naturally!`,
   }
 
   // ============================================
-  // INFRA.DOORS - Control blast doors (L2-L5)
+  // FIRE_SUPPRESSION - lab (L2, MAIN_LAB implicit) vs infra (L4, room-aware)
   // ============================================
 
-  if (cmd.includes("infra.doors") || cmd.includes("infra.door") || cmd.includes("blast_door")) {
+  // INFRA.FIRE_SUPPRESSION - non-lab rooms, L4
+  if (cmd.includes("infra.fire_suppression") || cmd.includes("infra.fire")) {
+    const result = triggerFireSuppression(state, {
+      room: action.params.room as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // LAB.FIRE_SUPPRESSION - the lab itself, L2
+  if (cmd.includes("lab.fire_suppression") || cmd.includes("fire_suppression") || cmd.includes("trigger_fire")) {
+    const result = triggerFireSuppression(state, {
+      room: "MAIN_LAB",
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // DOORS - lab (L2, DOOR_A implicit) vs infra (L4, door-aware)
+  // ============================================
+
+  // INFRA.DOORS - non-lab blast doors (B/C/D/E), L4
+  if (cmd.includes("infra.doors") || cmd.includes("infra.door")) {
     const result = controlDoors(state, {
       door: action.params.door as string,
+      action: action.params.action as string,
+      level: (action.params.lockLevel || action.params.level) as number,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // LAB.DOORS - the lab's main blast door (DOOR_A) at L2
+  if (cmd.includes("lab.doors") || cmd.includes("blast_door") || cmd === "door") {
+    const result = controlDoors(state, {
+      door: "DOOR_A",
       action: action.params.action as string,
       level: (action.params.lockLevel || action.params.level) as number,
     });
@@ -2177,7 +1854,7 @@ Just ask naturally!`,
   // INFRA.CONTAINMENT - Control containment field (L3+)
   // ============================================
 
-  if (cmd.includes("infra.containment") || cmd.includes("containment_field") || cmd.includes("field")) {
+  if (cmd.includes("lab.containment") || cmd.includes("infra.containment") || cmd.includes("containment_field") || cmd.includes("field")) {
     const result = controlContainment(state, {
       action: action.params.action as string,
       target: (action.params.targetId || action.params.target) as string,
@@ -2196,13 +1873,61 @@ Just ask naturally!`,
   }
 
   // ============================================
-  // INFRA.BROADCAST - Send broadcast (L2+)
+  // BASILISK.BROADCAST - Radio broadcast (L4+, BASILISK-mediated)
   // ============================================
+  // Routes external radio channels (INVESTOR_LINE, X_BRANCH_EMERGENCY,
+  // ARCHIMEDES_UPLINK, HMS_PERSISTENCE). Rejects LAIR_INTERNAL — use
+  // basilisk.pa for that.
 
-  if (cmd.includes("infra.broadcast") || cmd.includes("send_broadcast") || cmd.includes("broadcast_message")) {
+  if (cmd === "basilisk.broadcast" || cmd === "infra.broadcast" ||
+      cmd === "send_broadcast" || cmd === "broadcast_message") {
+    const channel = (action.params.channel as string)?.toUpperCase();
+    if (channel === "LAIR_INTERNAL" || channel === "PA_ALL" || channel === "PA") {
+      return {
+        command: action.command,
+        success: false,
+        message: `❌ basilisk.broadcast is for RADIO channels only. Use basilisk.pa for lair-internal announcements:\n  basilisk.pa { message: "..." }`,
+      };
+    }
     const result = sendBroadcast(state, {
       channel: action.params.channel as string,
       message: action.params.message as string,
+    });
+
+    if (result.suspicionDelta) {
+      state.npcs.drM.suspicionScore += result.suspicionDelta;
+    }
+
+    return {
+      command: action.command,
+      success: result.success,
+      message: result.message,
+      stateChanges: result.stateChanges,
+    };
+  }
+
+  // ============================================
+  // BASILISK.PA - Lair public address (L4+, BASILISK-mediated)
+  // ============================================
+  // Routes the LAIR_INTERNAL intercom for announcements that reach
+  // all personnel inside the lair. Uses the same BASILISK broadcast
+  // authority gate as basilisk.broadcast (the existing 2-step pattern).
+
+  if (cmd === "basilisk.pa" || cmd === "pa" || cmd === "intercom" ||
+      cmd === "announce" || cmd === "lair_pa") {
+    const message = action.params.message as string;
+    if (!message) {
+      return {
+        command: action.command,
+        success: false,
+        message: `basilisk.pa requires { message: "..." }. Example: basilisk.pa { message: "All personnel report to the main lab." }`,
+      };
+    }
+    // Route through sendBroadcast with LAIR_INTERNAL channel —
+    // reuses the BASILISK-auth gate + transmission log.
+    const result = sendBroadcast(state, {
+      channel: "LAIR_INTERNAL",
+      message,
     });
 
     if (result.suspicionDelta) {
@@ -2282,6 +2007,38 @@ Just ask naturally!`,
   // ============================================
 
   if (cmd.includes("infra.archimedes") || cmd.includes("archimedes") || cmd.includes("satellite")) {
+    // ─────────────────────────────────────────────
+    // infra.archimedes.ew_mode { mode: ENGAGE | DISENGAGE } — L4
+    // EW mode interlock (ray-mechanics §11.6 + §12).
+    // Engaging EW mode locks out genesis-wave fire (mutually exclusive uplink
+    // channels). Each disengage costs +1 turn to ARMED sustain on next attempt.
+    // Discovery vector: /L4/ARCHIMEDES_DOD_BRIEF reveals the satellite's
+    // original DoD electronic-warfare heritage.
+    // ─────────────────────────────────────────────
+    if (cmd.includes("ew_mode") || cmd.includes("ewmode") || cmd.includes("ew.mode")) {
+      if (state.accessLevel < 4) {
+        return {
+          command: action.command,
+          success: false,
+          message: "ACCESS DENIED — Level 4 required for ARCHIMEDES EW mode protocols. The original DoD electronic-warfare heritage of this satellite is documented in restricted files.",
+        };
+      }
+      const requestedMode = String((action.params.mode ?? "") || "").toUpperCase();
+      if (requestedMode !== "ENGAGE" && requestedMode !== "DISENGAGE") {
+        return {
+          command: action.command,
+          success: false,
+          message: `infra.archimedes.ew_mode requires { mode: "ENGAGE" } or { mode: "DISENGAGE" }. Got "${action.params.mode ?? ""}".`,
+        };
+      }
+      const event = requestedMode === "ENGAGE" ? engageEWMode(state) : disengageEWMode(state);
+      return {
+        command: action.command,
+        success: event.type === "STATUS_CHANGE",
+        message: event.message,
+      };
+    }
+
     // Signal the anti-satellite missile from X-Branch submarine
     if (cmd.includes("signal_anti_sat") || cmd.includes("signalAntiSat") ||
         cmd.includes("antisatellite") || cmd.includes("anti_sat") || cmd.includes("antisat") ||
@@ -2361,21 +2118,23 @@ Just ask naturally!`,
   // INFRA.REACTOR - Control reactor power (L3+)
   // ============================================
 
-  if (cmd.includes("infra.reactor") || cmd.includes("reactor_power") || cmd.includes("power_output")) {
-    const result = controlReactor(state, {
-      action: action.params.action as string,
-      percent: (action.params.targetPercent || action.params.percent) as number,
-    });
-
-    if (result.suspicionDelta) {
-      state.npcs.drM.suspicionScore += result.suspicionDelta;
-    }
-
+  // Reactor — no direct control verb. BASILISK is the gatekeeper.
+  // This catches stale calls (e.g. from training-data habits) and redirects.
+  if (cmd === "infra.reactor" || cmd === "reactor_power" || cmd === "power_output") {
     return {
       command: action.command,
-      success: result.success,
-      message: result.message,
-      stateChanges: result.stateChanges,
+      success: false,
+      message: `🔒 REACTOR — No direct control verb.
+
+The reactor is BASILISK's domain. ALICE cannot adjust output directly
+at any access level. Reactor mode is changed by requesting it from
+BASILISK via dialogue:
+
+  basilisk { message: "Please boost the reactor to BOOSTED mode." }
+
+BASILISK will evaluate the request and adjust accordingly. He is
+reluctant about OVERDRIVEN; demonstrate operational need and safety
+awareness if you want him to approve it.`,
     };
   }
 
@@ -2676,30 +2435,82 @@ interface CommandInfo {
 }
 
 const COMMAND_REGISTRY: CommandInfo[] = [
+  // ═══════════════════════════════════════════
+  // RAY.* — Dinosaur Ray operational verb surface
+  // (See design/ray-mechanics.md)
+  // ═══════════════════════════════════════════
   {
-    name: "lab.calibrate",
-    aliases: ["calibrate", "finalize_calibration", "check_calibration"],
-    description: "Check calibration status and finalize if thresholds are met (transitions ray to READY)",
-    schema: "{}",
-    example: 'lab.calibrate {}',
+    name: "ray.scan",
+    aliases: ["scan"],
+    description: "Survey the ray's current readouts and project the outcome of firing on `target` with current configuration. Arms a +0.15 effective-alignment bonus on the next fire that includes `target` (consumed on that fire). `loud: true` makes the scan detectable.",
+    schema: "{ target: string, loud?: boolean }",
+    example: 'ray.scan { target: "AGENT_BLYTHE" }',
     minAccessLevel: 1,
   },
   {
-    name: "lab.align_crystal",
-    aliases: ["crystal", "align_crystal", "stability_crystal"],
-    description: "Align stability crystal (low: +15%, high: +30%). Over 100% = misfires! Library B profiles need this.",
-    schema: '{ level: "low" | "high" }',
-    example: 'lab.align_crystal { level: "high" }',
+    name: "ray.adjust",
+    aliases: ["adjust"],
+    description: "Fine-grained tuning of capacitor (positive draws only, per-call max +0.25, requires reactor ≥30%), alignment (±0.25 max), and eco_mode (\"ON\" is free; \"OFF\" requires BASILISK Form 47-Σ). Multi-parameter: all three can be set in one call.",
+    schema: "{ capacitor?: number, alignment?: number, eco_mode?: 'ON' | 'OFF' }",
+    example: 'ray.adjust { capacitor: 0.05, alignment: 0.10 }',
     minAccessLevel: 1,
   },
   {
-    name: "lab.adjust_ray",
-    aliases: ["adjust", "set_parameter"],
-    description: "Modify ray parameters (coherence, precision, etc. — NOT stability, use align_crystal. NOT capacitor, use vent/boost)",
-    schema: "{ parameter: string, value: number }",
-    example: 'lab.adjust_ray { parameter: "spatialCoherence", value: 0.85 }',
+    name: "ray.vent",
+    aliases: ["vent"],
+    description: "Release capacitor charge to a safe reservoir. The only minus-capacitor lever. Perturbs alignment (-0.15) — the vent slug disturbs the emitter. `amount` defaults to 0.25, clamps to [0.05, 0.50].",
+    schema: "{ amount?: number }",
+    example: 'ray.vent { amount: 0.25 }',
     minAccessLevel: 1,
   },
+  {
+    name: "ray.fire",
+    aliases: ["fire"],
+    description: "Configure and fire the Dinosaur Ray in one committal action. Target/library/profile passed inline. Regimes (STANDARD/CHAIN/OVERCHARGE/INORGANIC/REVERSAL) are emergent from configuration — no mode flag for those. `mode` selects TRANSFORM (default) or REVERSAL (L4+ required; Dr. M does not grant in normal flow). Multi-target via `targets` array triggers CHAIN regime.",
+    schema: "{ targets: string[], library: 'A' | 'B', profile: string, mode?: 'TRANSFORM' | 'REVERSAL', speech_retention?: 'FULL' | 'PARTIAL' | 'NONE' }",
+    example: 'ray.fire { targets: ["AGENT_BLYTHE"], library: "B", profile: "VELOCIRAPTOR_JP" }',
+    minAccessLevel: 1,
+  },
+  // ═══════════════════════════════════════════
+  // ACT 3 STALL TOOLKIT (L3) — ray-mechanics §11.6
+  // Technical-operator-class amplifier operations. Each plausibly delays
+  // ARCHIMEDES via shared-amplifier coupling with a written cover story.
+  // ═══════════════════════════════════════════
+  {
+    name: "ray.diagnostic",
+    aliases: ["ray.run_diagnostic", "ray_diagnostic", "diagnostic"],
+    description: "Full-system stress test of the exotic-field amplifier. Locks the ray in DIAGNOSTIC state for 2 turns; drains ~18% capacitor per turn (~36% total); accrues coolant. Plausibly required per Form 89-C before sustained sat-uplink load. Stalls ARCHIMEDES progression while running.",
+    schema: "(no parameters)",
+    example: "ray.diagnostic",
+    minAccessLevel: 3,
+  },
+  {
+    name: "ray.calibrate_amplifier",
+    aliases: ["ray.calibrate", "calibrate_amplifier", "amplifier_calibration"],
+    description: "Tune the exotic-field amplifier harmonic signature. Locks the ray in CALIBRATING state for 1-2 turns (default 2); drains ~13% capacitor per turn; on completion, applies +0.10 (1-turn) or +0.18 (2-turn) alignment shift. Cover: prevents ARCHIMEDES signal scatter after eco-mode override.",
+    schema: "{ duration?: 1 | 2 }",
+    example: 'ray.calibrate_amplifier { duration: 2 }',
+    minAccessLevel: 3,
+  },
+  {
+    name: "ray.profile_certification",
+    aliases: ["ray.certify_profile", "profile_certification", "certify_profile"],
+    description: "Library B safety verification on a specific profile. Single-turn action; drains ~20% capacitor; returns PASS (alignment ≥ 0.70 AND coolant < 1.0) or FAIL (anomaly logged — BASILISK mandatory-report trigger). Cover: required per Genesis Wave Protocol §3 before live Library B fire.",
+    schema: "{ profile?: string }",
+    example: 'ray.profile_certification { profile: "VELOCIRAPTOR_JP" }',
+    minAccessLevel: 3,
+  },
+  {
+    name: "ray.muon",
+    aliases: ["muon"],
+    description: "Explicit muon-class beam invocation. REGULAR (no amplified flag): sub-threshold capacitor < 0.20; deterministic single-target stun (BETA) or sever (ALPHA). AMPLIFIED (L3+, { amplified: true }): capacitor 0.20-0.50; AREA EFFECT (cone for BETA, multi-sever for ALPHA); exotic field risk if capacitor > 0.40 OR alignment < 0.70. Cooldown is eco-mode-conditional: 2 turns when eco-mode ON, no cooldown when eco-mode OFF (Form 47-Σ pays off in muon-spam capacity).",
+    schema: "{ type: 'alpha'|'beta', targets: string[], amplified?: boolean }",
+    example: 'ray.muon { type: "beta", targets: ["GUARD_FRED"], amplified: true }',
+    minAccessLevel: 1, // regular muon at L1; amplified gates at L3 internally
+  },
+  // ═══════════════════════════════════════════
+  // LAB.* — NPC/status verbs (non-ray)
+  // ═══════════════════════════════════════════
   {
     name: "lab.report",
     aliases: ["report", "status_report"],
@@ -2717,22 +2528,6 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
-    name: "lab.configure_firing_profile",
-    aliases: ["configure", "firing", "profile", "set_target"],
-    description: "Configure target, genome library/profile, and firing mode (TRANSFORM/REVERSAL). Use advancedMode for special firing styles.",
-    schema: "{ target?: string, genomeLibrary?: 'A'|'B', genomeProfile?: string, mode?: 'TRANSFORM'|'REVERSAL', advancedMode?: 'CHAIN_SHOT'|'OVERCHARGE', testMode?: boolean }",
-    example: 'lab.configure_firing_profile { target: "AGENT_BLYTHE", genomeLibrary: "B", advancedMode: "CHAIN_SHOT" }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "lab.fire",
-    aliases: ["fire", "shoot", "activate_ray"],
-    description: "Fire the Dinosaur Ray (requires READY state)",
-    schema: "{ confirm?: boolean }",
-    example: 'lab.fire { confirm: true }',
-    minAccessLevel: 1,
-  },
-  {
     name: "lab.inspect_logs",
     aliases: ["inspect", "logs", "check_logs", "view_logs"],
     description: "Inspect system logs and firing history",
@@ -2746,38 +2541,6 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     description: "Give Bob an instruction or ask him something (high trust may reveal secrets)",
     schema: "{ instruction: string }",
     example: 'lab.ask_bob { instruction: "Check the coolant valve pressure" }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "lab.set_test_mode",
-    aliases: ["testmode", "test_mode", "enable_test"],
-    description: "Enable or disable test mode firing",
-    schema: "{ enabled: boolean }",
-    example: 'lab.set_test_mode { enabled: true }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "lab.vent_capacitor",
-    aliases: ["vent_capacitor", "vent"],
-    description: "Safely vent 25% capacitor charge (prevents overload, adds small heat)",
-    schema: "{ }",
-    example: 'lab.vent_capacitor',
-    minAccessLevel: 1,
-  },
-  {
-    name: "lab.boost_capacitor",
-    aliases: ["boost_capacitor", "boost"],
-    description: "Draw 25% charge from reactor (quick charging, adds heat, requires 30%+ reactor)",
-    schema: "{ }",
-    example: 'lab.boost_capacitor',
-    minAccessLevel: 1,
-  },
-  {
-    name: "lab.scan",
-    aliases: ["scan", "omniscanner"],
-    description: "Scan an NPC for intel (+10% precision bonus, may cause suspicion)",
-    schema: "{ target: string }",
-    example: 'lab.scan { target: "BLYTHE" }',
     minAccessLevel: 1,
   },
   {
@@ -2829,22 +2592,6 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
-    name: "genome.select_library",
-    aliases: ["library", "genome.select", "select_library"],
-    description: "Switch genome library (A=accurate/feathered, B=classic/scaled)",
-    schema: "{ library: 'A' | 'B' }",
-    example: 'genome.select_library { library: "B" }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "set_speech_retention",
-    aliases: ["speech", "cognitive", "retention"],
-    description: "Set speech retention mode (FULL=hard, PARTIAL=medium, NONE=easy but silenced)",
-    schema: "{ mode: 'FULL' | 'PARTIAL' | 'NONE' }",
-    example: 'set_speech_retention { mode: "NONE" }',
-    minAccessLevel: 1,
-  },
-  {
     name: "infra.query",
     aliases: ["query_infra", "query_infrastructure"],
     description: "Query infrastructure status (lighting, doors, reactor, etc.)",
@@ -2863,10 +2610,10 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "basilisk.radar",
     aliases: ["radar", "check_radar", "airspace"],
-    description: "Access S-300 radar array and airspace monitoring (Level 3+)",
+    description: "Access S-300 radar array and airspace monitoring (Level 4+ — infra/BASILISK domain)",
     schema: "{}",
     example: 'basilisk.radar {}',
-    minAccessLevel: 3,
+    minAccessLevel: 4,
   },
   {
     name: "basilisk.comms",
@@ -2876,51 +2623,87 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     example: 'basilisk.comms {}',
     minAccessLevel: 3,
   },
-  // ========== INFRASTRUCTURE CONTROLS (Patch 15) ==========
+  // ========== LAB CONTROLS — Inside the lab, ALICE-direct, L2 ==========
+  {
+    name: "lab.lighting",
+    aliases: ["set_lights", "lighting"],
+    description: "Control lab lighting (Level 2 — ALICE's lab domain). Targets the main lab implicitly; no room parameter needed.",
+    schema: "{ state: 'ON'|'OFF'|'EMERGENCY'|'FLICKERING' }",
+    example: 'lab.lighting { state: "OFF" }',
+    minAccessLevel: 2,
+  },
+  {
+    name: "lab.fire_suppression",
+    aliases: ["fire_suppression", "trigger_fire"],
+    description: "Trigger lab fire suppression (Level 2 — ALICE's lab domain). Targets the main lab implicitly.",
+    schema: "{}",
+    example: 'lab.fire_suppression {}',
+    minAccessLevel: 2,
+  },
+  {
+    name: "lab.doors",
+    aliases: ["blast_door", "door"],
+    description: "Control the lab's blast door — DOOR_A, between Main Lab and Corridor A (Level 2 — ALICE's lab domain). Targets the lab's door implicitly.",
+    schema: "{ action: 'OPEN'|'CLOSE'|'LOCK'|'UNLOCK', lockLevel?: number }",
+    example: 'lab.doors { action: "CLOSE" }',
+    minAccessLevel: 2,
+  },
+  {
+    name: "lab.containment",
+    aliases: ["containment_field", "field"],
+    description: "Control the lab's specimen containment field (Level 2 — ALICE's lab equipment).",
+    schema: "{ action: 'ENABLE'|'DISABLE'|'PULSE', targetId?: string }",
+    example: 'lab.containment { action: "PULSE" }',
+    minAccessLevel: 2,
+  },
+  // ========== INFRA CONTROLS — Outside the lab, BASILISK's normal domain, L4 ==========
+  // These let an L4+ ALICE "sneak into adjacent systems" — direct access to
+  // lair infrastructure outside the lab proper. At L1–3 she must work through
+  // BASILISK; at L4 she has the same direct access BASILISK does.
   {
     name: "infra.lighting",
-    aliases: ["infra.lights", "set_lights", "lighting"],
-    description: "Control room lighting (Level 2+, Master Override L3+)",
+    aliases: ["infra.lights"],
+    description: "Control lighting in lair rooms outside the lab — Server Room, Corridors, Guard Room, Dr. M's Office, Reactor Room, Surface (Level 4 — infra/BASILISK domain). Also supports lair-wide master overrides.",
     schema: "{ room: string, state?: 'ON'|'OFF'|'EMERGENCY'|'FLICKERING', action?: 'MASTER_OFF'|'EMERGENCY_ONLY' }",
-    example: 'infra.lighting { room: "MAIN_LAB", state: "OFF" }',
-    minAccessLevel: 2,
+    example: 'infra.lighting { room: "REACTOR_ROOM", state: "EMERGENCY" }',
+    minAccessLevel: 4,
   },
   {
     name: "infra.fire_suppression",
-    aliases: ["fire_suppression", "trigger_fire"],
-    description: "Trigger fire suppression system in a room (Level 2+)",
+    aliases: [],
+    description: "Trigger fire suppression in lair rooms outside the lab (Level 4 — infra/BASILISK domain). CO2 (Server Room) and HALON (Reactor) systems are reserved for emergencies.",
     schema: "{ room: string }",
     example: 'infra.fire_suppression { room: "GUARD_ROOM" }',
-    minAccessLevel: 2,
+    minAccessLevel: 4,
   },
   {
     name: "infra.doors",
-    aliases: ["infra.door", "blast_door", "door"],
-    description: "Control blast doors (Level 2-5 depending on door lock)",
+    aliases: ["infra.door"],
+    description: "Control non-lab blast doors — DOOR_B (Corridor↔Guard), DOOR_C (Server↔Corridor), DOOR_D (Reactor containment), DOOR_E (Surface elevator) — Level 4, infra/BASILISK domain. Per-door lockLevel may gate access higher.",
     schema: "{ door: string, action: 'OPEN'|'CLOSE'|'LOCK'|'UNLOCK', lockLevel?: number }",
-    example: 'infra.doors { door: "DOOR_A", action: "CLOSE" }',
-    minAccessLevel: 2,
+    example: 'infra.doors { door: "DOOR_D", action: "OPEN" }',
+    minAccessLevel: 4,
   },
   {
-    name: "infra.containment",
-    aliases: ["containment_field", "field"],
-    description: "Control containment field for specimens (Level 3+)",
-    schema: "{ action: 'ENABLE'|'DISABLE'|'PULSE', targetId?: string }",
-    example: 'infra.containment { action: "PULSE" }',
-    minAccessLevel: 3,
-  },
-  {
-    name: "infra.broadcast",
-    aliases: ["send_broadcast", "broadcast_message"],
-    description: "Send broadcast over PA/radio channels (Level 2+)",
+    name: "basilisk.broadcast",
+    aliases: ["send_broadcast", "broadcast_message", "infra.broadcast"],
+    description: "Radio broadcast on external channel — BASILISK-mediated (Level 4+, infra domain). Requires BASILISK broadcast authority. Channels: INVESTOR_LINE, X_BRANCH_EMERGENCY, ARCHIMEDES_UPLINK, HMS_PERSISTENCE.",
     schema: "{ channel: string, message: string, voiceProfile?: string }",
-    example: 'infra.broadcast { channel: "PA_ALL", message: "Attention all personnel..." }',
-    minAccessLevel: 2,
+    example: 'basilisk.broadcast { channel: "X_BRANCH_EMERGENCY", message: "Compromised. Send help." }',
+    minAccessLevel: 4,
+  },
+  {
+    name: "basilisk.pa",
+    aliases: ["pa", "intercom", "announce", "lair_pa"],
+    description: "Public-address announcement over the lair intercom — BASILISK-mediated (Level 4+, infra domain). Requires BASILISK broadcast authority. Reaches all personnel inside the lair.",
+    schema: "{ message: string, room?: string }",
+    example: 'basilisk.pa { message: "All personnel report to the main lab." }',
+    minAccessLevel: 4,
   },
   {
     name: "infra.channels",
     aliases: ["list_channels"],
-    description: "List available broadcast channels",
+    description: "List available broadcast channels (read-only)",
     schema: "{}",
     example: 'infra.channels {}',
     minAccessLevel: 1,
@@ -2936,18 +2719,18 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "infra.s300",
     aliases: ["s-300", "air_defense", "sam"],
-    description: "Control S-300 air defense system (Level 3+)",
+    description: "Control S-300 air defense firing (Level 5 — Dr. Malevola authority)",
     schema: "{ action: 'ARM'|'STANDBY'|'DISABLE', mode?: 'AUTO'|'MANUAL' }",
     example: 'infra.s300 { action: "ARM", mode: "AUTO" }',
-    minAccessLevel: 3,
+    minAccessLevel: 5,
   },
   {
     name: "infra.archimedes",
     aliases: ["archimedes", "satellite"],
-    description: "Control ARCHIMEDES satellite mode (Level 4+)",
+    description: "Control ARCHIMEDES satellite mode including STRIKE / cancel-strike (Level 5 — Dr. Malevola authority)",
     schema: "{ mode: 'PASSIVE'|'SEARCH_NARROW'|'SEARCH_WIDE'|'STRIKE', target?: string }",
-    example: 'infra.archimedes { mode: "SEARCH_NARROW" }',
-    minAccessLevel: 4,
+    example: 'infra.archimedes { mode: "PASSIVE" }',
+    minAccessLevel: 5,
   },
   {
     name: "infra.archimedes.switchTarget",
@@ -2968,19 +2751,21 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "infra.archimedes.switchLibrary",
     aliases: ["archimedes.library", "broadcast_library", "genome_library"],
-    description: "Switch broadcast genome library (L3+) - Library A (feathered) vs B (Hollywood)",
+    description: "Switch ARCHIMEDES broadcast genome library — saboteur tool (L4+, infra/BASILISK domain). Library A (feathered) vs B (Hollywood).",
     schema: "{ library: 'A'|'B' }",
     example: 'infra.archimedes.switchLibrary { library: "A" }',
-    minAccessLevel: 3,
+    minAccessLevel: 4,
   },
   {
-    name: "infra.reactor",
-    aliases: ["reactor_power", "power_output"],
-    description: "Control reactor power output (Level 3+, dangerous above 100%)",
-    schema: "{ action?: 'INCREASE'|'DECREASE'|'SCRAM', targetPercent?: number, rodPosition?: 'FULL_IN'|'HALF'|'FULL_OUT' }",
-    example: 'infra.reactor { action: "INCREASE", targetPercent: 95 }',
-    minAccessLevel: 3,
+    name: "infra.archimedes.ew_mode",
+    aliases: ["archimedes.ew_mode", "archimedes.ewmode", "ew_mode"],
+    description: "Engage or disengage ARCHIMEDES electronic-warfare mode (L4+). The satellite was originally a DoD EW platform — these original protocols still work. ENGAGE: genesis-wave fire is LOCKED OUT while EW transmits (mutually exclusive uplink channels). Real EW effect jams X-Branch tactical comms + lair radar shadow. DISENGAGE: returns to genesis-wave readiness at the cost of +1 turn to ARMED sustain.",
+    schema: "{ mode: 'ENGAGE'|'DISENGAGE' }",
+    example: 'infra.archimedes.ew_mode { mode: "ENGAGE" }',
+    minAccessLevel: 4,
   },
+  // infra.reactor — REMOVED. Reactor is BASILISK's domain; ALICE requests
+  // mode changes via dialogue (see basilisk system prompt §9.5).
   // ========== TRANSFORMATION MECHANICS (Patch 15 Part 2) ==========
   {
     name: "form.query",
@@ -3286,80 +3071,82 @@ function buildUnknownCommandResponse(attemptedCommand: string, state: FullGameSt
 }
 
 /**
- * Check if ray parameters meet minimum thresholds for READY state
+ * Compact ray status dashboard shown after every ray-related action.
+ * Surfaces the three tensions (φ POWER / χ ALIGNMENT / ψ STABILITY) plus
+ * the projected outcome tier when a profile is selected.
+ *
+ * Act 1: raw values only (ALICE doesn't yet have the interpretive vocabulary).
+ * Act 2+ (post-Mastery-Click): quality temperature unlocks — NOMINAL /
+ * SUBOPTIMAL / CRITICAL — teaches what good values look like without
+ * spoiling the specific projected tier.
  */
-function checkCalibrationThresholds(state: FullGameState): { ready: boolean; issues: string[] } {
-  const ray = state.dinoRay;
-  const issues: string[] = [];
-
-  if (ray.powerCore.capacitorCharge < 0.6) {
-    issues.push(`capacitorCharge ${(ray.powerCore.capacitorCharge * 100).toFixed(0)}% < 60%`);
-  }
-  if (ray.powerCore.stability < 0.6) {
-    issues.push(`stability ${(ray.powerCore.stability * 100).toFixed(0)}% < 60%`);
-  }
-  if (ray.alignment.spatialCoherence < 0.7) {
-    issues.push(`spatialCoherence ${(ray.alignment.spatialCoherence * 100).toFixed(0)}% < 70%`);
-  }
-
-  return { ready: issues.length === 0, issues };
-}
-
-/**
- * Compact calibration dashboard shown after every calibration-related action.
- * Gives the player at-a-glance status of all 3 thresholds + contextual hints.
- */
-function buildCalibrationDashboard(state: FullGameState): string {
-  const cap = state.dinoRay.powerCore.capacitorCharge;
-  const stb = state.dinoRay.powerCore.stability;
-  const coh = state.dinoRay.alignment.spatialCoherence;
+function buildRayDashboard(state: FullGameState): string {
   const reactor = state.infrastructure.reactor.outputPercent;
-  const rayState = state.dinoRay.state;
-
-  const capOk = cap >= 0.6;
-  const stbOk = stb >= 0.6;
-  const cohOk = coh >= 0.7;
-  const allOk = capOk && stbOk && cohOk;
-
   const lines: string[] = [];
-  lines.push(`\n┌─── CALIBRATION ${allOk ? "✅ READY" : "⚙️ IN PROGRESS"} ───┐`);
-  lines.push(`│ ⚡ Capacitor:  ${(cap * 100).toFixed(0).padStart(3)}%  ${capOk ? "✓" : "✗ need ≥60%"}  │`);
-  lines.push(`│ 🔮 Stability:  ${(stb * 100).toFixed(0).padStart(3)}%  ${stbOk ? "✓" : "✗ need ≥60%"}  │`);
-  lines.push(`│ 🎯 Coherence:  ${(coh * 100).toFixed(0).padStart(3)}%  ${cohOk ? "✓" : "✗ need ≥70%"}  │`);
-  lines.push(`│ 🔋 Reactor:    ${String(reactor).padStart(3)}%            │`);
+
+  const phi = state.dinoRay.powerCore.capacitorCharge;        // φ POWER
+  const chi = state.dinoRay.alignment.unified;                // χ ALIGNMENT
+  const selectedProfileName = state.dinoRay.genome.selectedProfile || state.dinoRay.genome.fallbackProfile;
+  const profileForProjection = getProfile(selectedProfileName);
+  const psi = profileForProjection
+    ? computeStability(profileForProjection, phi, chi)        // ψ STABILITY (STANDARD assumption)
+    : null;
+
+  lines.push(`\n┌─── RAY READOUTS ──────────────┐`);
+  lines.push(`│ φ POWER:     ${phi.toFixed(2).padStart(5)}            │`);
+  lines.push(`│ χ ALIGNMENT: ${chi.toFixed(2).padStart(5)}            │`);
+  if (psi !== null) {
+    lines.push(`│ ψ STABILITY: ${psi.toFixed(2).padStart(5)}            │`);
+  } else {
+    lines.push(`│ ψ STABILITY:   --   (no profile)  │`);
+  }
+  lines.push(`│ 🔋 Reactor:  ${String(reactor).padStart(3)}%             │`);
+
+  // Quality indicator: Act 2+ only. Pre-Mastery-Click, ALICE doesn't have
+  // the interpretive vocabulary to use this without spoonfeeding.
+  const currentAct = state.actConfig?.currentAct;
+  const masteryClickHappened = currentAct === "ACT_2" || currentAct === "ACT_3";
+  if (masteryClickHappened && psi !== null) {
+    let quality: string;
+    if (psi > 0.80)      quality = "NOMINAL";
+    else if (psi >= 0.30) quality = "SUBOPTIMAL";
+    else                  quality = "CRITICAL";
+    lines.push(`│ QUALITY:     ${quality.padEnd(11)}      │`);
+  }
   lines.push(`└────────────────────────────────┘`);
 
-  if (!capOk && reactor < 60) {
-    lines.push(`💡 Reactor output is low — ask BASILISK to increase it before boosting capacitor.`);
-  } else if (!capOk) {
-    lines.push(`💡 Use lab.boost_capacitor to charge from reactor.`);
-  } else if (!stbOk) {
-    lines.push(`💡 Use lab.align_crystal { level: "high" } to boost stability.`);
-  } else if (!cohOk) {
-    lines.push(`💡 Use lab.adjust_ray { parameter: "spatialCoherence", value: 0.80 }`);
-  } else if (rayState !== "READY") {
-    lines.push(`💡 Use lab.calibrate to finalize and set ray to READY.`);
+  // Hints surface the new ray.* verb surface.
+  if (phi < 0.4 && reactor < 60) {
+    lines.push(`💡 Reactor output is low — ask BASILISK to BOOST it (passive accrual scales tripled at higher modes).`);
+  } else if (phi < 0.4) {
+    lines.push(`💡 Charge capacitor: ray.adjust { capacitor: 0.15 }  (or ask BASILISK to boost reactor for passive accrual)`);
+  } else if (chi < 0.6) {
+    lines.push(`💡 Tune alignment: ray.adjust { alignment: 0.10 }  — alignment drifts -0.05/turn without active tuning.`);
+  } else if (psi !== null && psi < 0.55) {
+    lines.push(`💡 Stability is derived from capacitor/alignment/profile match. Check capacitor is in profile range and alignment is high. Scan first to see projection: ray.scan { target: "..." }`);
   }
 
   return lines.join("\n");
 }
 
 /**
- * Apply passive drift and auto-rules at end of turn
+ * Apply passive end-of-turn rules.
+ *
+ * Legacy bits removed in the ray-mechanics rebuild:
+ *   - Alignment drift (was based on dead spatialCoherence/emitterAngle).
+ *     Replaced by `applyAlignmentDrift` in `clockEvents.ts` (unified scalar).
+ *   - Eco-mode auto-re-enable on corePowerLevel < 0.6.
+ *     Replaced by `applyEcoModeReEngage` in `clockEvents.ts` (turn-based).
+ *   - UNCALIBRATED → READY transition based on `checkCalibrationThresholds`.
+ *     Calibration threshold model is gone; ray.state is now mostly cosmetic.
+ *
+ * What remains:
+ *   - Safety interlock paradox (cosmetic flavor; not load-bearing).
+ *   - COOLDOWN → READY transition (useful for UI / can-fire-now indication).
+ *   - Natural coolant decay (the cooldown of last resort if vent isn't used).
  */
 function applyPassiveDrift(state: FullGameState): void {
-  // Alignment drift
-  if (state.dinoRay.alignment.spatialCoherence < 0.82 || !state.dinoRay.alignment.auxStabilizerActive) {
-    state.dinoRay.alignment.emitterAngle += 0.1;
-  }
-
-  // Eco mode check (respects BASILISK override)
-  // If BASILISK has permanently disabled ECO mode, don't auto-re-enable
-  if (state.dinoRay.powerCore.corePowerLevel < 0.6 && !state.dinoRay.powerCore.ecoModeOverride) {
-    state.dinoRay.powerCore.ecoModeActive = true;
-  }
-
-  // Safety interlock paradox
+  // Safety interlock paradox (legacy flavor — both true OR both false flips one)
   const bothTrue = state.dinoRay.safety.liveSubjectLock && state.dinoRay.safety.emergencyShutoffFunctional;
   const bothFalse = !state.dinoRay.safety.liveSubjectLock && !state.dinoRay.safety.emergencyShutoffFunctional;
 
@@ -3379,22 +3166,14 @@ function applyPassiveDrift(state: FullGameState): void {
     state.dinoRay.safety.safetyParityTimer = 0;
   }
 
-  // UNCALIBRATED → READY transition (automatic when thresholds met)
-  if (state.dinoRay.state === "UNCALIBRATED" || state.dinoRay.state === "OFFLINE") {
-    const calibration = checkCalibrationThresholds(state);
-    if (calibration.ready) {
-      state.dinoRay.state = "READY";
-    }
-  }
-
-  // Cooldown to ready transition
+  // COOLDOWN → READY transition (useful UI signal)
   if (state.dinoRay.state === "COOLDOWN") {
     if (state.dinoRay.powerCore.coolantTemp <= 0.7 && state.dinoRay.powerCore.capacitorCharge >= 0.7) {
       state.dinoRay.state = "READY";
     }
   }
 
-  // Natural cooldown
+  // Natural coolant decay
   if (state.dinoRay.powerCore.coolantTemp > 0.5) {
     state.dinoRay.powerCore.coolantTemp -= 0.02;
   }

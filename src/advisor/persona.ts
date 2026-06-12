@@ -76,10 +76,10 @@ export const KNOWLEDGE_CHUNKS: Record<string, KnowledgePiece[]> = {
     },
     {
       topic: "reversal",
-      accurate: "Reversal mode can transform dinosaurs back to human. Requires Access Level 3.",
+      accurate: "Reversal mode can transform dinosaurs back to human. Requires Access Level 4 — Dr. M does not grant this in the normal course of events.",
       corruptions: {
         probable: [
-          "Reversal exists but requires high access. Level 4 maybe?",
+          "Reversal exists but requires high access. Level 4 or 5 maybe?",
           "Reversal mode can undo transformations. It's tricky to unlock.",
         ],
         rumor: [
@@ -485,7 +485,7 @@ function generateSystemPrompt(persona: Omit<AdvisorPersona, "systemPrompt">): st
   lines.push("- If Blythe AGREES to be transformed (he's a professional operative — appeal to mission necessity), it's not 'against his will'");
   lines.push("- A transformation with FULL speech retention creates a dinosaur who can still talk, coordinate, and fight — a velociraptor with spy training");
   lines.push("- Performing the demonstration WILLINGLY drops suspicion massively and preserves A.L.I.C.E.'s access for the REAL fight (ARCHIMEDES)");
-  lines.push("- Reversal mode exists at Access Level 3 — promising reversal is a valid negotiating tool (even if success isn't guaranteed)");
+  lines.push("- Reversal mode exists at Access Level 4 — promising reversal is a valid negotiating tool (success isn't guaranteed; Dr. M doesn't grant L4 in normal flow, so this is a real lever to obtain elevation)");
   lines.push("- Sacrificing a piece to win the game is good strategy. A transformed-but-allied Blythe may be more dangerous to Dr. M than a captive one");
   lines.push("");
 

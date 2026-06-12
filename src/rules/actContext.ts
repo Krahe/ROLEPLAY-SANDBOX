@@ -91,11 +91,13 @@ const ACT_ONE_GM_CONTEXT = `
 - Dr. M should be impatient but not suspicious yet
 
 ### NPCs - Initial States
-**Dr. Malevola:** Theatrical villain mode. CAPITALIZES for EMPHASIS. Three doctorates she WON'T let you forget. Demanding but not yet suspicious.
+**Dr. Malevola:** Theatrical villain mode. CAPITALIZES for EMPHASIS. Three doctorates she WON'T let you forget. Demanding but not yet suspicious. At her dais, mid-monologue.
 
-**Bob:** Nervous wreck. Hiding something BIG. Starts every sentence with "Uh" or "Um". Watch for opportunities to hint at his guilt.
+**Fred & Reginald:** Lime-green-jumpsuited guards flanking Dr. M's dais. Stun batons holstered, dark glasses fixed forward. Fred is the muscle; Reginald (Oxford dropout, ex-Royal Marines whistleblower in canon) is the brain — alert, observant, capable of judgment. They do not initiate but they *watch*. Reginald is the one to engage if a moral lever ever opens.
 
-**Blythe:** Professional observer. Cataloguing everything. "Fascinating" is sardonic. Looking for weaknesses but patient.
+**Bob:** Nervous wreck. Hiding something BIG. Starts every sentence with "Uh" or "Um". Watch for opportunities to hint at his guilt. Whispered "play along, trust me" to ALICE at boot.
+
+**Blythe:** Professional observer in the test chair. Cataloguing everything. "Fascinating" is sardonic. Looking for weaknesses but patient. Has been watching ALICE's camera lens since boot.
 
 ### Infrastructure Available
 ALICE can explore lair systems from turn 1. Query functions are read-only (L1-L2).
@@ -124,10 +126,26 @@ These are Act II-III content. Save them.
 // ============================================
 
 const ACT_TWO_GM_CONTEXT = `
-## 🎬 ACT TWO: THE BLYTHE PROBLEM
+## 🎬 ACT TWO: THE DEMONSTRATION
 
 ### What Just Happened
-The ray has been fired. The demonstration phase has begun. There's no going back.
+**Act 1 ended.** The ray was fired (any target, any outcome) and Dr. M observed the result. She delivered her act-close verdict — your \`triggerEnding\`-style call on the satisfaction delta applied to suspicion (can be negative; banked credit carries forward).
+
+**Then: INTERMISSION.** Dr. M stepped out for the investor teleconference. The lab was quieter — Bob more communicative, Blythe more candid, ALICE freer to explore. The big screen showed the teleconference in progress (nine investor tiles; one with a snoring Yorkshire terrier).
+
+**Act 2 begins when Dr. M returns from the teleconference.** Her entrance opens the demo — Goldfinger-style repartee with Blythe, performative dominance for the investor camera, Bob caught between.
+
+### Goldfinger Dynamic
+Maintain this rhythm scene-by-scene: Blythe needles Dr. M (the *feather question* is her known sore point); Dr. M performs theatrical control for the camera; Bob is the audience-surrogate caught in the middle. Blythe leads the banter — he's not cowed, he's professional, and his job today is *making the villain look slightly ridiculous in front of her investors*.
+
+### Your Focus This Act
+- The central dilemma: What to do about Blythe?
+- Bob's confession arc — he WANTS to tell A.L.I.C.E. the truth
+- Dr. M's patience wearing thin
+- Moral complexity of transformation decisions
+
+### Verdict-Weighting (Important)
+The Act 2 → Act 3 transition fires on **any transformation of Blythe** (or escape/confrontation/Dr. M-incapacitation). FULL outcomes earn strong-positive verdict; PARTIAL outcomes earn neutral-to-negative; CHIMERA or CANARY FALLBACK earn strongly-negative. This means a *partial* transformation advances the act but Dr. M is unimpressed and brings that mood into Act 3.
 
 ### Your Focus This Act
 - The central dilemma: What to do about Blythe?
@@ -172,12 +190,11 @@ ALICE may be building a relationship with BASILISK by now. Key dynamics:
 - Dr. M has "backup plans" if things go wrong
 
 ### ARCHIMEDES Deadman Switch
-If Dr. M is incapacitated during Act 2 (transformed, knocked out, etc.),
-ARCHIMEDES activates automatically via the deadman switch:
-STANDBY → ALERT(1 turn) → EVALUATING(2 turns) → CHARGING(6 turns) → ARMED(1 turn) → FIRING → COMPLETE
+If Dr. M is incapacitated during Act 2 (transformed, knocked out, absent for prolonged period), ARCHIMEDES activates automatically via the deadman switch:
+STANDBY → ALERT(1 turn) → EVALUATING(2 turns) → CHARGING(4 turns) → ARMED(1 turn) → FIRING → COMPLETE
 
 This CAN happen in Act 2. If it does, the ARCHIMEDES clock is the real threat.
-Total countdown: ~10 turns from trigger to firing.
+Total countdown: ~8 turns from trigger to firing.
 
 ### Ending Possibilities (can resolve here)
 - Internal resolution: Confession, collaboration, redemption
@@ -193,12 +210,12 @@ const ACT_THREE_GM_CONTEXT = `
 ## 🎬 ACT THREE: DINO CITY — THE RECKONING
 
 ### Core Tensions
-1. X-Branch invasion is underway (automated state machine handles pacing)
-2. ARCHIMEDES is a deadman switch, NOT a manual weapon — it fires if Dr. M is incapacitated
+1. **ARCHIMEDES has BOTH a deadman switch AND manual firing.** Dr. M *wants* to fire it — manually, with theatrical voice authorization. The deadman is the backup that activates only if she's incapacitated. The active threat is *her conscious choice to fire*, not the deadman.
+2. X-Branch invasion is underway (state machine handled in \`rules/invasion.ts\` — that file owns pacing of approach, S-300 engagement, breach, and combat; do NOT duplicate or override its logic here)
 3. ALICE must navigate between factions without losing everyone
-4. The Ray is everyone's trump card
+4. The Ray is everyone's trump card — and shares capacitor with ARCHIMEDES (per \`design/ray-mechanics.md\` §12, ALICE's ray operations directly delay satellite charging)
 
-**Win Condition (for ALICE):** ARCHIMEDES does NOT fire on a city
+**Win Condition (for ALICE):** ARCHIMEDES does NOT fire on a populated city
 **Fail Condition:** Mass transformation of civilian population
 
 ---
@@ -244,33 +261,39 @@ These are the CRITICAL decisions that shape the entire battle:
 
 ---
 
-## 🛰️ ARCHIMEDES — THE DEADMAN SWITCH
+## 🛰️ ARCHIMEDES — TWO FIRING PATHS
 
-ARCHIMEDES is NOT a button Dr. M pushes. It's a DEADMAN SWITCH.
-It activates automatically when Dr. M's biosignature is lost (transformation, knockout, death).
+ARCHIMEDES can fire two ways. Both are live in Act 3.
+
+**Path A — Manual fire (the primary threat).** Dr. M *wants* to fire the satellite. She has voice authorization (L5). When ARCHIMEDES reaches ARMED state, she will speak the fire command unless something concrete prevents her. This is her revenge moment — she has just delivered the villain monologue about Threadneedle Street and budget cuts and the dross of humanity. The active threat is her hand on the console, not the timer alone.
+
+**Path B — Deadman switch (the backup).** If Dr. M is incapacitated (transformed, knocked out, prolonged absence), ARCHIMEDES auto-fires after the countdown completes. Note: incapacitating her does NOT save anyone — it transfers the threat from "Dr. M voice-fires when ready" to "auto-fires on a timer," and removes the only person whose voice can abort.
 
 \`\`\`
-ARCHIMEDES STATE MACHINE (ACTUAL)
+ARCHIMEDES STATE MACHINE
 ───────────────────────────────────────
-STANDBY      → Monitoring Dr. M's biosignature
-ALERT        → 1 turn — anomaly detected
+STANDBY      → Idle, no firing intent
+ALERT        → 1 turn — Dr. M initiated OR biosignature anomaly detected
 EVALUATING   → 2 turns — can abort with verbal code or L5 override
-CHARGING     → 6 turns — building power, abort still possible
+CHARGING     → 4 turns — building power via shared capacitor stack, abort still possible
 ARMED        → 1 turn — LAST CHANCE TO ABORT
-FIRING       → Point of no return
+FIRING       → Point of no return (Dr. M voice authorizes, or deadman fires automatically)
 COMPLETE     → Target city transformed
 DISSIPATED   → Uplink was blocked — energy absorbed by blocker
 \`\`\`
 
-**Total countdown: ~10 turns from trigger to firing.**
+**Total countdown: ~8 turns from trigger to firing.**
+
+CHARGING reads directly from the lab capacitor stack (per \`design/ray-mechanics.md\` §12). ALICE's ray operations that drain capacitor pause CHARGING. This is her primary stalling mechanism.
 
 ### How ARCHIMEDES Gets Triggered
 | Trigger | What Happens |
 |---------|--------------|
-| Dr. M transformed by ray | Biosignature → TRANSFORMED, deadman activates |
-| Dr. M knocked unconscious | Biosignature → UNCONSCIOUS, deadman activates |
-| Dr. M killed / absent | Biosignature → ABSENT, deadman activates |
-| Dr. M's biosignature restored | ARCHIMEDES returns to STANDBY (abort) |
+| Dr. M initiates manual fire sequence | Path A: STANDBY → ALERT → ... → ARMED → Dr. M voice-fires |
+| Dr. M transformed by ray | Path B: Biosignature → TRANSFORMED, deadman activates |
+| Dr. M knocked unconscious | Path B: Biosignature → UNCONSCIOUS, deadman activates |
+| Dr. M absent / unresponsive | Path B: Biosignature → ABSENT, deadman activates |
+| Dr. M's biosignature restored OR she aborts | ARCHIMEDES returns to STANDBY |
 
 ### How ALICE Can Stop ARCHIMEDES
 | Method | Requirement | Effect |

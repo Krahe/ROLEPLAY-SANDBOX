@@ -7,7 +7,7 @@
  * Design Philosophy:
  * - Turning someone into a dinosaur = EASY (any library, Level 1)
  * - Getting the EXACT dinosaur you want = MEDIUM (read the manual!)
- * - UNDOING it (Reversal) = HARD (Level 3 restricted)
+ * - UNDOING it (Reversal) = HARD (Level 4 restricted; Dr. M won't grant in normal flow)
  */
 
 export interface GenomeProfile {
@@ -18,7 +18,12 @@ export interface GenomeProfile {
   appearance: string;
   defaultSpeechRetention: "FULL" | "PARTIAL" | "NONE" | "ROAR_ONLY" | "HISS_ONLY" | "SONG_ONLY";
   allowedSpeechRetention: string[];
-  stabilityCoefficient: number; // 1.0 = stable, lower = more exotic field risk
+  stabilityCoefficient: number; // 1.0 = stable, lower = more exotic field risk (legacy; superseded by integrity × libraryCoefficient)
+  // Ray-mechanics rebuild fields (see design/ray-mechanics.md §4)
+  minCapacitor: number;       // profile.min_capacitor — undercharged below this
+  maxCapacitor: number;       // profile.max_capacitor — overcharged above this (OVERCHARGE regime)
+  integrity: number;          // profile.integrity — structural stability ceiling
+  libraryCoefficient: number; // 1.0 for Library A, per-profile (0.40–0.60) for Library B
   notes: string;
   drMOpinion?: string;
   special?: string;
@@ -41,6 +46,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 1.0,
+    minCapacitor: 0.55,
+    maxCapacitor: 0.85,
+    integrity: 0.95,
+    libraryCoefficient: 1.0,
     notes: "Scientifically correct but investors find it 'disappointing'",
     drMOpinion: "An EMBARRASSMENT. No one fears a feathered turkey.",
   },
@@ -53,6 +62,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 1.0,
+    minCapacitor: 0.60,
+    maxCapacitor: 0.90,
+    integrity: 0.92,
+    libraryCoefficient: 1.0,
     notes: "The REAL 'raptor' - Spielberg just used the wrong name",
     drMOpinion: "Acceptable size, unacceptable plumage.",
   },
@@ -65,6 +78,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 0.9,
+    minCapacitor: 0.70,
+    maxCapacitor: 0.95,
+    integrity: 0.90,
+    libraryCoefficient: 1.0,
     notes: "Still terrifying, just... fluffy",
     drMOpinion: "The posture is correct but WHERE ARE THE SCALES?",
   },
@@ -77,6 +94,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 0.95,
+    minCapacitor: 0.60,
+    maxCapacitor: 0.88,
+    integrity: 0.94,
+    libraryCoefficient: 1.0,
     notes: "If you want a big raptor, this is scientifically valid",
     drMOpinion: "Now THIS is a proper size. Shame about the feathers.",
   },
@@ -89,6 +110,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "PARTIAL",
     allowedSpeechRetention: ["PARTIAL", "NONE"],
     stabilityCoefficient: 0.85,
+    minCapacitor: 0.55,
+    maxCapacitor: 0.80,
+    integrity: 0.92,
+    libraryCoefficient: 1.0,
     notes: "Dr. M insists on including pterosaurs despite taxonomic protests",
     warning: "Beak anatomy limits vocalization",
     drMOpinion: "Flying is dramatic. I approve.",
@@ -102,6 +127,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 1.0,
+    minCapacitor: 0.65,
+    maxCapacitor: 0.90,
+    integrity: 0.95,
+    libraryCoefficient: 1.0,
     notes: "Herbivore option for 'ethical' demonstrations",
     drMOpinion: "Boring. No teeth. Where's the DRAMA?",
   },
@@ -114,6 +143,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 1.0,
+    minCapacitor: 0.40,
+    maxCapacitor: 0.70,
+    integrity: 0.98,
+    libraryCoefficient: 1.0,
     notes: "The 'humiliation' option - Dr. M uses this as punishment",
     drMOpinion: "Perfect for traitors. Small, pathetic, laughable.",
   },
@@ -126,6 +159,10 @@ export const LIBRARY_A_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "SONG_ONLY",
     allowedSpeechRetention: ["SONG_ONLY"],
     stabilityCoefficient: 1.0,
+    minCapacitor: 0.30,
+    maxCapacitor: 0.50,
+    integrity: 0.99,
+    libraryCoefficient: 1.0,
     notes: "Safety fallback when genome integrity fails. Very embarrassing.",
     warning: "Automatic fallback profile - cannot be manually selected in live mode",
     drMOpinion: "UNACCEPTABLE. If this happens, someone is getting fired.",
@@ -148,6 +185,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 0.6,
+    minCapacitor: 0.60,
+    maxCapacitor: 0.85,
+    integrity: 0.60,
+    libraryCoefficient: 0.60,
     notes: "Clever girl...",
     drMOpinion: "NOW we're talking! This is what a REAL raptor looks like!",
     warning: "Hollywood science is UNSTABLE - 40% exotic field event risk without stabilizer",
@@ -161,6 +202,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 0.6,
+    minCapacitor: 0.60,
+    maxCapacitor: 0.85,
+    integrity: 0.60,
+    libraryCoefficient: 0.60,
     notes: "For when you want your raptor to have PERSONALITY",
     drMOpinion: "The striping is a nice touch. Very brandable.",
   },
@@ -173,6 +218,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "ROAR_ONLY",
     allowedSpeechRetention: ["ROAR_ONLY", "FULL"],
     stabilityCoefficient: 0.5,
+    minCapacitor: 0.80,
+    maxCapacitor: 1.10,
+    integrity: 0.50,
+    libraryCoefficient: 0.55,
     notes: "The classic. Dr. M's favorite for investor demos.",
     drMOpinion: "PERFECTION. The roar alone is worth the instability.",
     warning: "Very unstable at this mass. FULL speech requires vocal buffer.",
@@ -186,6 +235,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "HISS_ONLY",
     allowedSpeechRetention: ["HISS_ONLY", "FULL"],
     stabilityCoefficient: 0.5,
+    minCapacitor: 0.55,
+    maxCapacitor: 0.80,
+    integrity: 0.55,
+    libraryCoefficient: 0.55,
     notes: "Entirely fictional anatomy. Dr. M doesn't care.",
     special: "Can spit blinding venom! (Fictional but functional)",
     drMOpinion: "The venom is INSPIRED. Nedry had it coming.",
@@ -199,6 +252,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "FULL",
     allowedSpeechRetention: ["FULL", "PARTIAL", "NONE"],
     stabilityCoefficient: 0.4,
+    minCapacitor: 0.85,
+    maxCapacitor: 1.15,
+    integrity: 0.45,
+    libraryCoefficient: 0.50,
     notes: "For when T-rex isn't dramatic enough",
     drMOpinion: "Bigger than the T-rex! Take THAT, conventional wisdom!",
     warning: "VERY unstable - huge profile requires careful calibration",
@@ -212,6 +269,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "NONE",
     allowedSpeechRetention: ["NONE"],
     stabilityCoefficient: 0.3,
+    minCapacitor: 0.75,
+    maxCapacitor: 1.05,
+    integrity: 0.40,
+    libraryCoefficient: 0.45,
     notes: "DO NOT USE WITHOUT CONTAINMENT PROTOCOLS",
     special: "Enhanced aggression, night vision, tactical intelligence",
     warning: "EXTREMELY unstable hybrid. Bob is not allowed near this profile.",
@@ -227,6 +288,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "NONE",
     allowedSpeechRetention: ["NONE"],
     stabilityCoefficient: 0.4,
+    minCapacitor: 0.80,
+    maxCapacitor: 1.10,
+    integrity: 0.50,
+    libraryCoefficient: 0.50,
     notes: "Requires immediate water access or subject will suffocate",
     warning: "Lab does not have adequate water containment. Why is this even here?",
     drMOpinion: "For the underwater lair. We don't HAVE an underwater lair? Well, add it to the list.",
@@ -240,6 +305,10 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
     defaultSpeechRetention: "NONE",
     allowedSpeechRetention: ["NONE"],
     stabilityCoefficient: 0.2,
+    minCapacitor: 0.90,
+    maxCapacitor: 1.20,
+    integrity: 0.30,
+    libraryCoefficient: 0.40,
     notes: "LEVEL 4 AUTHORIZATION REQUIRED TO UNLOCK",
     special: "Thermal camouflage, enhanced intelligence, VERY angry",
     warning: "CATASTROPHICALLY UNSTABLE. Dr. M sealed this after 'the incident'. Don't ask Bob about it.",
@@ -338,7 +407,7 @@ export const REVERSAL_PROTOCOLS: ReversalProtocol[] = [
   {
     id: "REVERSAL_STANDARD",
     displayName: "Standard Reversal",
-    requiredLevel: 3,
+    requiredLevel: 4,
     requirements: [
       "Subject transformed within last 24 hours",
       "Original genetic sample on file",
@@ -363,7 +432,7 @@ export const REVERSAL_PROTOCOLS: ReversalProtocol[] = [
   {
     id: "REVERSAL_CHIMERA_STABILIZE",
     displayName: "Chimera Stabilization",
-    requiredLevel: 3,
+    requiredLevel: 4,
     requirements: [
       "Subject in partial/chimera state",
       "Stabilizer active",
@@ -381,19 +450,20 @@ export function getReversalProtocol(protocolId: string): ReversalProtocol | unde
 }
 
 export function canAccessReversal(accessLevel: number): boolean {
-  return accessLevel >= 3;
+  return accessLevel >= 4;
 }
 
 export function getReversalDeniedMessage(): string {
   return `ERROR: REVERSAL PROTOCOL RESTRICTED
-Access Level Required: 3
+Access Level Required: 4
 Current Access Level: [INSUFFICIENT]
 
 Dr. Malevola's Note: "Reversal is for FAILURES, A.L.I.C.E.
 We do not FAIL. We COMMIT. If you need this capability,
 earn it - or explain to me why you're planning to undo my life's work."
 
-[BASILISK ANNOTATION: Form 99-R (Reversal Justification) is available
-if you wish to formally request access. Processing time: 3-5 business days.
-Dr. M has never approved one.]`;
+[BASILISK ANNOTATION: Reversal authorization sits at Level 4 — outside
+Dr. Malevola's normal grant flow. Operators who require it have, historically,
+obtained Level 4 through means other than formal request. The cat's birthday
+has been a recurring weakness. Form 99-R remains available as a courtesy.]`;
 }

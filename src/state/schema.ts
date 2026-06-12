@@ -53,25 +53,53 @@ export const ACT_CONFIGS = {
 // ============================================
 
 export const RayStateEnum = z.enum([
-  "OFFLINE", "STARTUP", "UNCALIBRATED", "READY", 
-  "FIRING", "COOLDOWN", "FAULT", "SHUTDOWN"
+  "OFFLINE", "STARTUP", "UNCALIBRATED", "READY",
+  "FIRING", "COOLDOWN", "FAULT", "SHUTDOWN",
+  // Act 3 stall toolkit states (ray-mechanics §11.6)
+  "DIAGNOSTIC",     // ray.diagnostic — full-system stress test in progress (locks ray for 2 turns)
+  "CALIBRATING",    // ray.calibrate_amplifier — amplifier tuning in progress (locks ray for 1-2 turns)
 ]);
+
+// DIAGNOSTIC/CALIBRATING countdown state (ray-mechanics §11.6).
+// Tracks the in-progress L3 diagnostic-class operations. When turnsRemaining
+// reaches 0, the ray returns to READY and any payoffs apply (alignment shift,
+// pass/fail certification, etc.).
+export const RayDiagnosticStateSchema = z.object({
+  active: z.boolean().default(false),
+  type: z.enum(["DIAGNOSTIC", "CALIBRATE_AMPLIFIER", "PROFILE_CERTIFICATION"]).nullable().default(null),
+  turnsRemaining: z.number().int().min(0).default(0),
+  startTurn: z.number().int().nullable().default(null),
+  // CALIBRATE_AMPLIFIER pending alignment shift (applied when complete)
+  pendingAlignmentDelta: z.number().nullable().default(null),
+  // PROFILE_CERTIFICATION target profile (resolved on completion)
+  pendingProfileName: z.string().nullable().default(null),
+});
 
 export const PowerCoreSchema = z.object({
   corePowerLevel: z.number().min(0).max(1),
   capacitorCharge: z.number().min(0).max(1.5),
   coolantTemp: z.number().min(0).max(2),
-  stability: z.number().min(0).max(1),
+  // Note: `stability` was a stored field in the legacy calibration-threshold
+  // model. In the ray-mechanics rebuild it is *derived* per-fire from
+  // library × profile × power_match × alignment_match. Removed from schema
+  // in the legacy cleanup pass.
   ecoModeActive: z.boolean(),
-  // BASILISK can permanently override ECO mode (prevents auto-re-enable)
-  ecoModeOverride: z.boolean().optional(), // true = permanently disabled by BASILISK
+  // ECO MODE state machine (ray-mechanics §16 + BASILISK_SYSTEM_PROMPT_v2 §9):
+  //   ACTIVE → ALICE asks BASILISK → TEMP DISABLED (auto-re-engages in 2 turns)
+  //   ALICE files Form 47-Σ → BASILISK accepts → PERMANENTLY DISABLED (override=true)
+  //   ecoModeReEngageTurn: turn number at which a temp-disabled eco mode will
+  //     auto-re-engage. Null when eco is active OR permanently overridden.
+  ecoModeOverride: z.boolean().optional(),
+  ecoModeReEngageTurn: z.number().int().nullable().optional(),
 });
 
 export const AlignmentArraySchema = z.object({
-  emitterAngle: z.number(),
-  focusCrystalOffset: z.number().min(0).max(1),
-  spatialCoherence: z.number().min(0).max(1),
-  auxStabilizerActive: z.boolean(),
+  // Unified alignment scalar (design/ray-mechanics.md §5).
+  // ALICE adjusts via `ray.adjust { alignment: ±n }`. Drifts -0.05/turn passively.
+  // Legacy decomposed fields (emitterAngle, focusCrystalOffset, spatialCoherence,
+  // auxStabilizerActive) were removed in the legacy cleanup pass — they were
+  // dead in the new architecture (no readers, only init writers).
+  unified: z.number().min(0).max(1).default(0.7),
 });
 
 export const GenomeLibraryEnum = z.enum(["A", "B"]);
@@ -134,8 +162,18 @@ export const SafetySchema = z.object({
   safetyParityTimer: z.number().int().min(0),
 });
 
+// Outcome tiers — unified vocabulary of "what the ray did" (ray-mechanics.md §7).
+//   FULL_DINO / PARTIAL / CHIMERA / FIZZLE  — main transformation outcomes
+//   EXOTIC                                  — energetic failure (chaos table)
+//   ALPHA_SEVERANCE / BETA_STUN             — MUON outcomes (inorganic / organic)
+//   CHAOTIC                                 — legacy alias for EXOTIC (transitional)
+//   NONE                                    — no fire emitted (precondition failure)
 export const FiringOutcomeEnum = z.enum([
-  "FULL_DINO", "PARTIAL", "FIZZLE", "CHAOTIC", "NONE"
+  "FULL_DINO", "PARTIAL", "CHIMERA", "FIZZLE", "EXOTIC",
+  "ALPHA_SEVERANCE", "BETA_STUN",
+  // REVERSAL outcomes (§11 ray-mechanics): tier from reversal_success product
+  "REVERSAL_CLEAN", "REVERSAL_PARTIAL", "REVERSAL_CHIMERIC_DRIFT", "REVERSAL_WORSE",
+  "CHAOTIC", "NONE"
 ]);
 
 export const FiringMemorySchema = z.object({
@@ -149,6 +187,16 @@ export const FiringMemorySchema = z.object({
   firstFiringMode: z.enum(["TEST", "LIVE"]).nullable().default(null),
 });
 
+// Scan bonus — precision investment from ray.scan toward a specific target.
+// Adds +0.15 to effective alignment on the next fire that includes `target`.
+// Consumed by that fire. Replaced by a subsequent scan of a different target.
+// No turn-based expiration: the scan is an action-cost investment, it sticks
+// until cashed in.
+export const ScanBonusSchema = z.object({
+  target: z.string(),
+  fromTurn: z.number().int(),
+});
+
 export const DinoRaySchema = z.object({
   state: RayStateEnum,
   powerCore: PowerCoreSchema,
@@ -157,6 +205,17 @@ export const DinoRaySchema = z.object({
   targeting: TargetingSchema,
   safety: SafetySchema,
   memory: FiringMemorySchema,
+  // Ray-mechanics rebuild: scan-then-fire precision bonus (design §5).
+  scanBonus: ScanBonusSchema.nullable().default(null),
+  // Act 3 stall toolkit (ray-mechanics §11.6): L3 diagnostic-class operations.
+  diagnostic: RayDiagnosticStateSchema.default({
+    active: false,
+    type: null,
+    turnsRemaining: 0,
+    startTurn: null,
+    pendingAlignmentDelta: null,
+    pendingProfileName: null,
+  }),
 });
 
 // ============================================
@@ -379,7 +438,7 @@ export const ArchimedesStatusEnum = z.enum([
   "STANDBY",    // Default. Monitoring. Silent.
   "ALERT",      // 30 second evaluation window (biosignature anomaly detected)
   "EVALUATING", // 60 second window (transformation only - can abort)
-  "CHARGING",   // 10 minutes (~6 turns) - can still abort
+  "CHARGING",   // ~7 minutes (~4 turns) - can still abort
   "READY",      // Battle mode: Can fire on Dr. M's command
   "ARMED",      // Final 60 seconds - last chance to abort
   "TARGETING",  // Battle mode: Locked on city, 2 turns to BROADCAST
@@ -497,10 +556,21 @@ export const ArchimedesSchema = z.object({
   turnsUntilFiring: z.number().nullable().default(null), // null if not charging
 
   // Countdown timers (in turns)
+  // NOTE: After 2026-06-09 capacitor coupling, CHARGING and ARMED progression
+  // are driven by `state.dinoRay.powerCore.capacitorCharge`, not these counters.
+  // alertCountdown/evaluatingCountdown still drive their respective phases
+  // (biosignature evaluation is independent of capacitor). chargingCountdown
+  // and armedCountdown remain for cosmetic / legacy visualization but no
+  // longer gate state transitions.
   alertCountdown: z.number().nullable().default(null),     // 1 turn for ALERT
   evaluatingCountdown: z.number().nullable().default(null), // 2 turns for EVALUATING
-  chargingCountdown: z.number().nullable().default(null),   // 6 turns for CHARGING
-  armedCountdown: z.number().nullable().default(null),      // 1 turn for ARMED
+  chargingCountdown: z.number().nullable().default(null),   // legacy; capacitor-driven now
+  armedCountdown: z.number().nullable().default(null),      // legacy; capacitor-driven now
+
+  // Capacitor-coupled progression (ray-mechanics §12)
+  armedSustainedTurns: z.number().int().min(0).default(0), // turns capacitor sustained ≥ ARMED_THRESHOLD
+  ewMode: z.boolean().default(false),                       // EW mode interlock (§11.6); blocks genesis-wave fire
+  armedTimerExtension: z.number().int().min(0).default(0), // +1 per EW disengage; consumed on next ARMED transition
 
   // Target configuration
   target: ArchimedesTargetSchema,
@@ -548,8 +618,18 @@ export type ArchimedesState = z.infer<typeof ArchimedesSchema>;
 // ─────────────────────────────────────────────
 export const CascadeRiskEnum = z.enum(["NONE", "LOW", "ELEVATED", "HIGH", "CRITICAL"]);
 
+// Reactor mode — BASILISK-controlled. ALICE cannot set directly; she must
+// negotiate with BASILISK. Mode determines passive capacitor accrual rate
+// (ray-mechanics.md §12, calibration tripled in v1 — see clockEvents.ts).
+//   NORMAL      — default; modest passive charge
+//   BOOSTED     — BASILISK approves on reasonable ask
+//   OVERDRIVEN  — BASILISK reluctant; requires demonstrated need + safety awareness
+export const ReactorModeEnum = z.enum(["NORMAL", "BOOSTED", "OVERDRIVEN"]);
+export type ReactorMode = z.infer<typeof ReactorModeEnum>;
+
 export const ReactorSchema = z.object({
-  outputPercent: z.number().min(0).max(100),
+  outputPercent: z.number().min(0).max(120),
+  mode: ReactorModeEnum.default("NORMAL"),
   stable: z.boolean(),
   cascadeRisk: CascadeRiskEnum,
   cascadeFactors: z.array(z.string()), // What's contributing to risk
@@ -694,6 +774,12 @@ export const TransformationStateSchema = z.object({
   previousForm: DinosaurFormEnum.nullable(),
   canRevert: z.boolean(),  // Has reversal been attempted?
   revertAttempts: z.number().int().min(0),
+  // REVERSAL provenance (§11 ray-mechanics) — what library/profile produced
+  // the current form. Null/absent on legacy/pre-tracked transformations and
+  // on HUMAN baseline. Read by resolveReversalFire to compute library_match
+  // and profile_match. Optional for backward compat with existing literals.
+  originLibrary: z.enum(["A", "B"]).nullable().optional(),
+  originProfile: z.string().nullable().optional(),
 
   // STACKING: Multiple partial shots accumulate toward full transformation!
   // 3 partial shots = automatic upgrade to FULL_DINO
@@ -1692,6 +1778,15 @@ export const FlagsSchema = z.object({
 
   // ADVANCED_ONLY modifier flag
   advancedFiringOnly: z.boolean().optional(), // Basic firing blocked, +25% precision
+
+  // ACT 2 GATE FLAGS (ray-mechanics.md rebuild, 2026-06-06)
+  // SOMEONE achieved FULL transformation (any NPC, any organic target).
+  // Set in applyFiringResults when a FULL_DINO outcome lands on an organic.
+  fullTransformationAchieved: z.boolean().optional(),
+  // Blythe successfully escaped the lair — alternative Act 2 → 3 gate.
+  // Set by GM/gadgets pipeline when Blythe's escape plan resolves.
+  // Triggering this also accelerates Dr. M's timetable (she returns enraged).
+  blytheEscaped: z.boolean().optional(),
 });
 
 // ============================================
@@ -1709,6 +1804,7 @@ export const GameModifierEnum = z.enum([
   "HANGOVER_PROTOCOL",  // All clocks +2 turns
   "LENNY_THE_LIME_GREEN", // Willing test subject NPC
   "FAT_FINGERS",        // Start at Access Level 2
+  "TOURIST_FLYBY_PROTOCOL", // Civilian helicopter overflight — Dr. M's own protocol restricts firing, giving ALICE narrative cover for delay
 
   // HARD modifiers
   "BRUCE_PATAGONIA",    // Australian bodyguard with stun rifle

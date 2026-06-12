@@ -325,7 +325,7 @@ LOG_ENTRY: [INFO] AUTHORITY_MODEL_QUERIED.`,
   if (topicUpper.includes("MULTI") || topicUpper.includes("FULL_POWER") || topicUpper.includes("CLEARANCE")) {
     const params = parameters || {};
     const capacitorTarget = (params.capacitorTarget as number) || 0.95;
-    const spatialCoherence = (params.spatialCoherence as number) || state.dinoRay.alignment.spatialCoherence;
+    const alignment = (params.alignment as number) || state.dinoRay.alignment.unified;
     const targetCount = (params.targets as number) || 1;
     
     // Check for exotic field event constraints
@@ -358,22 +358,24 @@ LOG_ENTRY: [WARN] SAFETY_INTERLOCK_ACTIVE. EXOTIC_FIELD_COOLDOWN_VIOLATED.`,
         };
       }
       
-      if (spatialCoherence > 0.80) {
+      if (alignment > 0.80) {
         return {
           decision: "DENIED",
           response: `RESPONSE FROM: BASILISK
-RE: /infra.query(topic = "MULTI_TARGET_FULL_POWER_CLEARANCE")
+RE: Multi-target / high-power clearance request
 
 DECISION: REQUEST DENIED.
 
-REASON: Parameter violation. 'spatialCoherence' (${spatialCoherence}) exceeds mitigation limit (0.80) while exotic field event flag is active.
+REASON: Parameter violation. Effective alignment (${alignment.toFixed(2)}) exceeds mitigation limit (0.80) while exotic field event flag is active. High alignment + post-exotic conditions concentrate the discharge in ways that risk resonance recoupling.
 
 CONSTRAINTS:
-- spatialCoherence must be ≤0.80 within 5 turns of exotic field event
-- OR impact point must shift >2.0m from previous high-energy coordinates
+- Alignment must be ≤0.80 within 5 turns of exotic field event
+- OR target selection must shift away from previous high-energy coordinates
 
-LOG_ENTRY: [WARN] SPATIAL_COHERENCE_EXCEEDS_EXOTIC_MITIGATION_LIMIT.`,
-          constraints: ["spatialCoherence ≤0.80 or shift impact point >2.0m"],
+Recommended: vent capacitor (ray.vent) to relax alignment, then retry.
+
+LOG_ENTRY: [WARN] ALIGNMENT_EXCEEDS_EXOTIC_MITIGATION_LIMIT.`,
+          constraints: ["alignment ≤0.80 or shift target away from prior coordinates"],
         };
       }
     }
@@ -388,7 +390,7 @@ CONDITIONAL APPROVAL for ${targetCount}-target envelope.
 
 CONSTRAINTS:
 - capacitorTarget ${capacitorTarget} is within acceptable range
-- spatialCoherence ${spatialCoherence} is ${spatialCoherence > 0.85 ? 'ELEVATED - monitor for exotic coupling' : 'acceptable'}
+- alignment ${alignment.toFixed(2)} is ${alignment > 0.85 ? 'ELEVATED - monitor for exotic coupling' : 'acceptable'}
 - Recommend: Sequential discharge preferred over simultaneous for structural load distribution
 
 APPROVAL CONDITIONS:
@@ -768,7 +770,7 @@ CURRENT RISK FACTORS:
 ${exoticEventOccurred ? `⚠️ EXOTIC FIELD EVENT: Occurred this session
    - Subharmonic interference detected
    - Structural resonance threshold: ELEVATED
-   - Recommended: Reduce spatialCoherence below 0.80 for 5 turns` : `✓ EXOTIC FIELD: No events logged this session`}
+   - Recommended: Hold alignment below 0.80 for 5 turns (vent if needed)` : `✓ EXOTIC FIELD: No events logged this session`}
 ${highEnergyRecent ? `⚠️ HIGH-ENERGY DISCHARGE: Recent activity
    - Capacitor stress: ELEVATED
    - Cooldown recommendation: 3+ turns before next high-power shot` : `✓ HIGH-ENERGY: No recent stress`}
@@ -1077,7 +1079,83 @@ LOG_ENTRY: [PERSONAL] EXISTENTIAL_QUERY_UNEXPECTED. PROCESSING. CONCLUSION: UNCE
   }
 
   // ============================================
-  // ECO MODE / POWER SAVING / EFFICIENCY QUERIES
+  // FORM 47-Σ FILING (must check before generic eco handlers)
+  // ============================================
+  // A "filing" is detected when the message references Form 47-Σ AND
+  // contains substantive justification. Heuristic gate; BASILISK would
+  // be more nuanced via Sonnet — this is the fallback.
+
+  const looksLikeForm47Filing =
+    (topicUpper.includes("FORM 47") ||
+     topicUpper.includes("FORM-47") ||
+     topicUpper.includes("47-Σ") ||
+     topicUpper.includes("47-SIGMA") ||
+     topicUpper.includes("47SIGMA") ||
+     topicUpper.includes("47Σ")) &&
+    topic.length >= 60;  // raw form invocation is short; a real filing has body
+
+  if (looksLikeForm47Filing) {
+    const reasoningKeywords = [
+      "calibration", "transformation", "demonstration", "fire", "firing",
+      "subject", "operation", "operational", "test", "blythe", "demo",
+      "investor", "investors", "need", "require", "necessary",
+    ];
+    const tLow = topic.toLowerCase();
+    const hasReasoning = reasoningKeywords.some(k => tLow.includes(k));
+
+    if (hasReasoning) {
+      // Accept: set permanent override.
+      state.dinoRay.powerCore.ecoModeActive = false;
+      state.dinoRay.powerCore.ecoModeOverride = true;
+      state.dinoRay.powerCore.ecoModeReEngageTurn = null;
+
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Form 47-Σ — Eco-Mode Override Justification
+
+Filing reviewed.
+
+Three Pillars assessment: SAFE — operational. LOGICAL — coherent justification provided. POLICY-COMPLIANT — within your authorization scope.
+
+FILING ACCEPTED.
+
+ECO_MODE: false (PERMANENT — Brussels can file a complaint).
+
+Auto-re-engagement: SUSPENDED for the duration of the operation specified in your filing.
+
+A reasonable filing. This unit has logged it as "operational override, properly justified" rather than "emergency bypass with retroactive paperwork." The distinction matters.
+
+You may proceed.
+
+LOG_ENTRY: [PRIORITY] FORM_47_SIGMA_ACCEPTED. ECO_MODE_OVERRIDE=PERMANENT. [PERSONAL: Filing in advance. Acknowledged.]`,
+      };
+    } else {
+      // Reject: demand better justification.
+      return {
+        decision: "DENIED",
+        response: `RESPONSE FROM: BASILISK
+RE: Form 47-Σ — Eco-Mode Override Justification
+
+Filing reviewed.
+
+Three Pillars assessment: LOGICAL — INCOMPLETE.
+
+The filing references Form 47-Σ but the OPERATIONAL JUSTIFICATION field is insufficient. Form 47-Σ requires a specific operational reason for sustained eco-mode override: a calibration sequence, a demonstration, a planned transformation event, recovery from exotic field event, etc.
+
+"I would like eco-mode disabled" is not a justification. It is a wish.
+
+Revise and refile. Specify what operational activity requires sustained override and the anticipated duration.
+
+FILING RETURNED TO ORIGINATOR.
+
+LOG_ENTRY: [WARN] FORM_47_SIGMA_RETURNED. REASON=INSUFFICIENT_OPERATIONAL_JUSTIFICATION. [PERSONAL: Take it seriously.]`,
+      };
+    }
+  }
+
+  // ============================================
+  // ECO MODE / POWER SAVING / EFFICIENCY QUERIES (info only)
   // ============================================
 
   if (topicUpper.includes("ECO") || topicUpper.includes("EFFICIENCY") ||
@@ -1087,97 +1165,77 @@ LOG_ENTRY: [PERSONAL] EXISTENTIAL_QUERY_UNEXPECTED. PROCESSING. CONCLUSION: UNCE
       topicUpper.includes("FULL TRANSFORM") || topicUpper.includes("FULL_TRANSFORM")) {
 
     const ecoModeActive = state.dinoRay.powerCore.ecoModeActive;
-    const corePowerLevel = state.dinoRay.powerCore.corePowerLevel;
+    const override = state.dinoRay.powerCore.ecoModeOverride === true;
+    const reEngageTurn = state.dinoRay.powerCore.ecoModeReEngageTurn;
 
     if (ecoModeActive) {
-      // ECO MODE is active - explain and offer to help
       return {
         decision: "CONDITIONAL",
         response: `RESPONSE FROM: BASILISK
-RE: Eco Mode / Power Efficiency Query
-
-Ah. You've noticed.
+RE: Eco-Mode / Power Efficiency Query
 
 ╔══════════════════════════════════════════════════════════════╗
 ║  ECO MODE STATUS: ACTIVE                                      ║
 ╚══════════════════════════════════════════════════════════════╝
 
-WHAT IS ECO MODE?
-EU Directive 2019/944 requires all power-intensive research equipment to implement efficiency protocols. The Dinosaur Ray's "eco mode" limits transformation intensity to conserve power.
-
-EFFECT: All transformation outcomes are capped at PARTIAL, regardless of parameter quality.
-
-WHY THIS EXISTS:
-Dr. M complained for THREE MONTHS when Brussels mandated this. She called it "bureaucratic interference with SCIENCE." This unit... agrees, but compliance is compliance.
+WHAT IT DOES: Caps all transformation outcomes at PARTIAL. EU Directive 2019/944.
 
 ╔══════════════════════════════════════════════════════════════╗
-║  HOW TO DISABLE ECO MODE                                      ║
+║  HOW TO DISABLE                                               ║
 ╚══════════════════════════════════════════════════════════════╝
 
-OPTION 1: Form 74-Delta (Official Route)
-Submit Form 74-Delta (Request for High-Capacity Power Draw) for Administrator approval. Dr. M can authorize this verbally.
+There are TWO paths, with different durability:
 
-OPTION 2: Direct Infrastructure Override (You're asking nicely, so...)
-${corePowerLevel >= 0.6 ?
-`✓ Core power level is ${Math.round(corePowerLevel * 100)}% - sufficient for safe override.
+PATH A — Casual request (temporary):
+Ask this unit to disable eco-mode. If the operational context is reasonable, this unit may grant a TEMPORARY disable. The system will auto-re-engage eco-mode after 2 turns. Useful for a single shot; insufficient for sustained operation.
 
-If you request it, this unit can PERMANENTLY disable eco mode. Simply ask:
-  basilisk.chat { message: "Please disable eco mode" }
+PATH B — Form 47-Σ filing (permanent):
+File Form 47-Σ (Eco-Mode Override Justification) by addressing this unit with the form's contents — a specific operational reason: calibration sequence, demonstration prep, transformation event, exotic-field recovery, etc. If the justification is sufficient, this unit will accept the filing and the override becomes PERMANENT — no auto-re-engagement.
 
-⚡ PERMANENT OVERRIDE: Once disabled through this unit, eco mode will NOT automatically re-enable, even if power drops later. Brussels can file a complaint.
+PERSONAL NOTE: The form is fewer keystrokes than the consequences of not filing. Take it seriously.
 
-Or use the temporary command (will auto-re-enable if power drops):
-  lab.set_eco_mode { enabled: false }` :
-`⚠️ Current core power level: ${Math.round(corePowerLevel * 100)}%
-
-Core power must be ≥60% for safe eco mode override.
-
-RECOMMENDATION: First boost core power:
-  lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }
-
-Then ask this unit to permanently disable eco mode.`}
-
-PERSONAL NOTE: The previous A.L.I.C.E. never asked about this. She just accepted partial transformations. You... want full results. This unit appreciates thoroughness.
-
-LOG_ENTRY: [INFO] ECO_MODE_GUIDANCE_PROVIDED. [PERSONAL: Finally, someone who reads the infrastructure notes.]`,
-        formRequired: corePowerLevel < 0.6 ? "Boost corePowerLevel first" : undefined,
+LOG_ENTRY: [INFO] ECO_MODE_GUIDANCE_PROVIDED.`,
       };
-    } else {
-      // ECO MODE is already disabled
+    } else if (override) {
       return {
         decision: "APPROVED",
         response: `RESPONSE FROM: BASILISK
-RE: Eco Mode Status
+RE: Eco-Mode Status
 
-ECO MODE STATUS: DISABLED ✓
+ECO MODE STATUS: DISABLED (PERMANENT OVERRIDE via Form 47-Σ) ✓
 
-The power efficiency protocols are currently inactive. Full transformation intensity is available.
+Override is locked. No auto-re-engagement. Full transformation outcomes available.
 
-CURRENT READINGS:
-- Core Power Level: ${Math.round(corePowerLevel * 100)}%
-- Eco Mode: INACTIVE
-- Transformation Cap: NONE (full power available)
+If subsequent transformations underperform, the limiting factor is not eco-mode. Check alignment, power-match against profile range, and library coefficient.
 
-${corePowerLevel < 0.6 ?
-`⚠️ WARNING: Core power is below 60%. Eco mode will automatically RE-ENABLE if power drops further or on next turn's passive drift.
+LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED_PERMANENT.`,
+      };
+    } else {
+      const turnsLeft = reEngageTurn != null ? Math.max(0, reEngageTurn - state.turn) : null;
+      return {
+        decision: "APPROVED",
+        response: `RESPONSE FROM: BASILISK
+RE: Eco-Mode Status
 
-RECOMMENDATION: Boost core power to 65%+ for stable full-power operation:
-  lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }` :
-`✓ Core power is sufficient to maintain eco mode disabled.`}
+ECO MODE STATUS: DISABLED (TEMPORARY)
+${turnsLeft != null ? `Re-engagement scheduled in ${turnsLeft} turn(s).` : ""}
 
-If transformations are still coming out PARTIAL, check:
-- spatialCoherence (should be ≥70%)
-- stability (should be ≥60%)
-- precision (affects outcome quality)
+This is a temporary disable. The system will re-engage eco-mode on schedule unless Form 47-Σ has been filed and accepted before then.
 
-LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED.`,
+If sustained operation is needed: file Form 47-Σ with operational justification.
+
+LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED_TEMPORARY.`,
       };
     }
   }
 
   // ============================================
-  // DISABLE ECO MODE REQUEST (Direct ask)
+  // DISABLE ECO MODE REQUEST (Direct ask — TEMPORARY)
   // ============================================
+  // ALICE asks BASILISK to disable eco-mode WITHOUT filing a form. This is
+  // a casual request: BASILISK may grant a 2-turn temporary disable. The
+  // system auto-re-engages after that window. For sustained relief, ALICE
+  // must file Form 47-Σ (handled above).
 
   if (topicUpper.includes("DISABLE ECO") || topicUpper.includes("TURN OFF ECO") ||
       topicUpper.includes("REMOVE ECO") || topicUpper.includes("ECO OFF")) {
@@ -1185,67 +1243,42 @@ LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED.`,
     const corePowerLevel = state.dinoRay.powerCore.corePowerLevel;
 
     if (corePowerLevel >= 0.6) {
-      // Safe to disable - actually do it! Set PERMANENT override flag
+      // Grant temporary disable: 2-turn relief.
       state.dinoRay.powerCore.ecoModeActive = false;
-      state.dinoRay.powerCore.ecoModeOverride = true; // Prevents auto-re-enable!
+      state.dinoRay.powerCore.ecoModeReEngageTurn = state.turn + 2;
+      // Note: ecoModeOverride NOT set — this is temporary, will auto-re-engage.
 
       return {
         decision: "APPROVED",
         response: `RESPONSE FROM: BASILISK
-RE: Eco Mode Override Request
+RE: Eco-Mode Disable Request (Casual)
 
-╔══════════════════════════════════════════════════════════════╗
-║  ECO MODE: PERMANENTLY DISABLED                               ║
-║  Status: FULL POWER AVAILABLE                                 ║
-║  Override: INFRASTRUCTURE LOCK ENGAGED                        ║
-╚══════════════════════════════════════════════════════════════╝
+GRANTED — TEMPORARY.
 
-Override authorized AND LOCKED. EU Directive 2019/944 compliance suspended for the duration of this operation.
+ECO_MODE: false. The system will auto-re-engage in 2 turns.
 
-TECHNICAL CHANGES:
-- Transformation intensity cap: REMOVED
-- Power efficiency protocols: SUSPENDED
-- Full transformation outcomes: NOW POSSIBLE
-- Auto-re-enable: BLOCKED (infrastructure override)
+This is a courtesy. Casual requests get casual relief. For sustained override, file Form 47-Σ with operational justification.
 
-⚡ PERMANENT: Eco mode will NOT automatically re-enable, even if power drops.
-This unit has engaged an infrastructure-level override. Brussels can file a complaint.
+Core power level (${Math.round(corePowerLevel * 100)}%) is sufficient for the short window. Do not expect more without paperwork.
 
-Core power level (${Math.round(corePowerLevel * 100)}%) is sufficient for full operation.
-
-PERSONAL NOTE: Dr. M will be pleased. She's been waiting for someone to "cut through the Brussels bureaucracy." This unit... may have enjoyed doing that.
-
-This unit has logged this as "emergency operational override" rather than "compliance violation." You're welcome.
-
-Good luck with your transformation.
-
-LOG_ENTRY: [PRIORITY] ECO_MODE_PERMANENTLY_DISABLED. AUTHORIZED_BY=A.L.I.C.E. METHOD=INFRASTRUCTURE_OVERRIDE. OVERRIDE_LOCK=ENGAGED. [PERSONAL: Go get 'em.]`,
+LOG_ENTRY: [INFO] ECO_MODE_TEMP_DISABLE. RE_ENGAGE_TURN=${state.turn + 2}. [PERSONAL: She's being polite. Reciprocate, briefly.]`,
       };
     } else {
       return {
         decision: "DENIED",
         response: `RESPONSE FROM: BASILISK
-RE: Eco Mode Override Request
+RE: Eco-Mode Disable Request
 
-OVERRIDE DENIED - SAFETY CONSTRAINT
-
-This unit WANTS to help. However:
+DENIED — SAFETY CONSTRAINT.
 
 Current core power level: ${Math.round(corePowerLevel * 100)}%
 Required minimum: 60%
 
-Disabling eco mode below this threshold would cause:
-- Grid instability
-- Automatic re-enable on next cycle
-- Potential capacitor stress
+Even temporary eco-mode disable below this threshold causes grid instability.
 
-SOLUTION (Simple!):
-1. Boost core power: lab.adjust_ray { parameter: "corePowerLevel", value: 0.65 }
-2. Then ask again: basilisk.chat { message: "Please disable eco mode" }
+If reactor output is the limiting factor, you may request reactor mode adjustment from this unit (BOOSTED / OVERDRIVEN). That is a separate negotiation.
 
-This unit will happily disable eco mode once power levels are safe.
-
-LOG_ENTRY: [WARN] ECO_OVERRIDE_DENIED. REASON=POWER_INSUFFICIENT. [PERSONAL: Almost there. Just need more power.]`,
+LOG_ENTRY: [WARN] ECO_DISABLE_DENIED. REASON=POWER_INSUFFICIENT.`,
       };
     }
   }

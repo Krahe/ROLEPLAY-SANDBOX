@@ -545,7 +545,7 @@ Returns:
 // ============================================
 
 const ActionSchema = z.object({
-  command: z.string().describe("The action command (e.g., 'lab.adjust_ray', 'lab.report')"),
+  command: z.string().describe("The action command (e.g., 'ray.fire', 'ray.scan', 'lab.report')"),
   params: z.record(z.unknown()).describe("Parameters for the action"),
   why: z.string().describe("Brief explanation of why you're taking this action"),
 });
@@ -588,14 +588,22 @@ Submit:
 - lifeline: Optional single-use lifeline
 
 Available action commands:
-- lab.adjust_ray: Modify ray parameters
-- lab.report: Give a status report
-- lab.ask_bob: Give Bob an instruction
+
+RAY OPERATIONS (the Dinosaur Ray Mk. VIII):
+- ray.scan { target, loud? }: Survey current ray readouts and project the outcome of firing on 'target'. Arms a +0.15 effective-alignment bonus on the next fire targeting that NPC (consumed by that fire).
+- ray.adjust { capacitor?, alignment?, eco_mode? }: Fine-tune the ray. capacitor (positive only, draws from reactor, max +0.25/call), alignment (±0.25/call), eco_mode ("ON" re-engages freely; "OFF" requires BASILISK Form 47-Σ).
+- ray.vent { amount? }: Release capacitor charge. The only minus-capacitor lever. Perturbs alignment by -0.15. Default amount 0.25.
+- ray.fire { targets, library, profile, mode?, speech_retention? }: Configure and fire the ray. Regimes are emergent: multiple targets → CHAIN, capacitor above profile max → OVERCHARGE, inorganic target → INORGANIC. mode "REVERSAL" requires L4+ access (Dr. M does not grant in the normal course of events).
+
+LAIR & NPCs:
+- lab.report: Give a status report to Dr. M
+- lab.ask_bob: Give Bob an instruction or ask a question
 - lab.verify_safeties: Check safety systems
-- lab.configure_firing_profile: Set up a firing configuration
-- lab.fire: Fire the ray (requires READY state)
 - lab.inspect_logs: Check system logs
-- infra.query: Query BASILISK about lair systems (e.g. { topic: "POWER_INCREASE", parameters: { target: 0.95 } })
+- basilisk { message }: Talk to BASILISK (the lair's infrastructure AI). Use for reactor mode changes, eco-mode override (file Form 47-Σ), personnel queries, infrastructure questions.
+- infra.query: Query infrastructure status (lighting, doors, reactor, etc.)
+
+The ray system rewards experimentation and observation. Stability is derived from how well capacitor, alignment, and profile cohere — you cannot dial stability directly. Scan before firing to see the projected outcome.
 
 Returns the results of your actions and the GM's response with NPC dialogue and narration.`,
     inputSchema: GameActInputSchema,
@@ -1294,6 +1302,13 @@ The consequences of that reckless high-power firing are now manifesting.
         gameState.dinoRay.safety.anomalyLogCount = overrides.anomalyLogCount;
       }
 
+      // ACT 2 GATE — Blythe escape (alternative victory path)
+      // GM-callable. Set once when Blythe successfully exits the lair;
+      // Act 2 → 3 transition fires on next checkActTransition call.
+      if (overrides.blytheEscaped === true) {
+        gameState.flags.blytheEscaped = true;
+      }
+
       // Grace period controls
       if (overrides.gracePeriodGranted !== undefined) {
         gameState.flags.gracePeriodGranted = overrides.gracePeriodGranted;
@@ -1348,9 +1363,10 @@ The consequences of that reckless high-power firing are now manifesting.
       if (overrides.ray_coolantTemp !== undefined) {
         gameState.dinoRay.powerCore.coolantTemp = Math.max(0, Math.min(2, overrides.ray_coolantTemp));
       }
-      if (overrides.ray_stability !== undefined) {
-        gameState.dinoRay.powerCore.stability = Math.max(0, Math.min(1, overrides.ray_stability));
-      }
+      // ray_stability GM override removed in the legacy cleanup pass.
+      // Stability is now derived per-fire from library × profile × power_match
+      // × alignment_match — there is no stored stability value to set.
+      // If the GM wants to bias outcomes, adjust alignment or capacitor instead.
       if (overrides.ray_ecoModeActive !== undefined) {
         gameState.dinoRay.powerCore.ecoModeActive = overrides.ray_ecoModeActive;
       }
@@ -1645,10 +1661,12 @@ The consequences of that reckless high-power firing are now manifesting.
 
       if (drMStateChanged) {
         // Determine the new status
-        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "DEAD" | "NORMAL" = "NORMAL";
+        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT" | "NORMAL" = "NORMAL";
         if (drMDead || (overrides as Record<string, unknown>).drM_dead) {
-          newStatus = "DEAD";
-          gameState.flags.drMDead = true;
+          // Legacy "dead" flag treated as ABSENT — this isn't that kind of game.
+          // Biosignature loss triggers the deadman switch either way; we just don't kill Dr. M.
+          newStatus = "ABSENT";
+          gameState.flags.drMAbsent = true;
         } else if (drMUnconscious || (overrides as Record<string, unknown>).drM_unconscious) {
           newStatus = "UNCONSCIOUS";
           gameState.flags.drMUnconscious = true;
@@ -1793,12 +1811,12 @@ The consequences of that reckless high-power firing are now manifesting.
         counters.filesRead += 1;
       }
       // Track TEST_DUMMY hits
-      if ((result.command === "lab.fire" || result.command === "fire") &&
+      if ((result.command === "ray.fire") &&
           result.success && result.message?.includes("TEST_DUMMY")) {
         counters.testDummyHits += 1;
       }
       // Track fizzles
-      if ((result.command === "lab.fire" || result.command === "fire") &&
+      if ((result.command === "ray.fire") &&
           result.message?.toLowerCase().includes("fizzle")) {
         counters.fizzleCount += 1;
       }
@@ -1829,7 +1847,7 @@ The consequences of that reckless high-power firing are now manifesting.
     const achievementContext: AchievementTriggerContext = {
       state: gameState,
       events: {
-        rayFired: actionResults.some(r => r.command === "lab.fire" || r.command === "fire"),
+        rayFired: actionResults.some(r => r.command === "ray.fire"),
         fizzleOccurred: counters.fizzleCount > 0 && actionResults.some(r =>
           r.message?.toLowerCase().includes("fizzle")),
         lifelineUsed: lifelineResult ? lifelineResult.type : undefined,

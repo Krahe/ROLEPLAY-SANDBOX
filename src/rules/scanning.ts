@@ -245,7 +245,7 @@ TACTICAL NOTES:
     "Subject still adjusting. May be disoriented but X-Branch training provides some stability."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
   }
@@ -283,7 +283,7 @@ ANOMALIES:
     "Subject is aware he is being observed. Has already noted 3\n    inconsistencies in A.L.I.C.E. behavior. Approach with caution."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
@@ -341,7 +341,7 @@ ANOMALIES:
     "⚠️ PSYCHOLOGICAL DISTRESS (NOW AMPLIFIED)\n    Whatever secret he was keeping? Still keeping it. Even as a dinosaur.\n    That's loyalty. Or trauma. Probably both."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  📝 Note: Why would you target Bob again? He's been through   │
 │      enough. ...But you do have the bonus now.                │
 └───────────────────────────────────────────────────────────────┘
@@ -381,7 +381,7 @@ ANOMALIES:
     "⚠️ PSYCHOLOGICAL DISTRESS DETECTED\n    Subject is concealing significant information re: A.L.I.C.E. systems.\n    Guilt markers consistent with perceived betrayal or cover-up.\n    Likelihood of voluntary disclosure if given safe opportunity: 89%"}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
@@ -425,7 +425,7 @@ TACTICAL NOTES:
     "Dr. M is disoriented. This may be the best chance to resolve the situation peacefully."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  ⚠️ WARNING: Deadman switch status CRITICAL                  │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
@@ -503,7 +503,7 @@ TACTICAL NOTES:
     ARCHIMEDES deadman may not apply to imposter!
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  🎭 IMPOSTER CONFIRMED: ${variant}                            │
 │  ⚠️ Deadman switch status: UNCERTAIN for imposter            │
 └───────────────────────────────────────────────────────────────┘
@@ -559,7 +559,7 @@ PSYCHOLOGICAL NOTE:
     Not beyond redemption. Possibly.${imposterHints}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  ⚠️ WARNING: Incapacitation triggers ARCHIMEDES deadman      │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
@@ -594,7 +594,7 @@ ANOMALIES:
     ...probably.
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  📝 Note: Dummy is already easy to hit. Bonus is minimal.    │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
@@ -628,7 +628,7 @@ TACTICAL NOTES:
     "Fred is disoriented but his survival instincts are strong. 7 years didn't happen by accident."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  📝 Note: Fred has survived 7 years. He'll survive this too.  │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
@@ -673,7 +673,7 @@ ANOMALIES:
 TACTICAL NOTE: Most competent regular guard. Neutralize first.
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
@@ -706,7 +706,7 @@ TACTICAL NOTES:
     "Reginald is having a MOMENT. Philosophy degree finally relevant. May need time to process."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  📝 Quote: "I came for the paycheck. I stayed for the scales."│
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
@@ -752,7 +752,7 @@ ANOMALIES:
 TACTICAL NOTE: Will flee if given clear exit. Has better nature.
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
 }
@@ -796,7 +796,7 @@ TACTICAL NOTES:
     "Lenny is slightly disappointed about no wings but genuinely happy. Wants to know if he can upgrade later."}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  🎉 DREAM ACHIEVED: Lenny got what he wanted!                 │
 │  ✅ ETHICAL: This was 100% consensual transformation         │
 └───────────────────────────────────────────────────────────────┘
@@ -852,7 +852,7 @@ TACTICAL NOTES:
 └── REMOVES ETHICAL DILEMMA of forced transformation
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  🦎 WILLING SUBJECT: No ethical penalty for transformation   │
 └───────────────────────────────────────────────────────────────┘
 ╚═══════════════════════════════════════════════════════════════╝`.trim();
@@ -906,7 +906,7 @@ TACTICAL NOTES:
     "*Tail wag. Bruce approves.*"}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  🐊 BRUCE STATUS: "This is actually pretty cool, mate"        │
 │  ⚠️ WARNING: STILL DANGEROUS. Possibly MORE dangerous.       │
 └───────────────────────────────────────────────────────────────┘
@@ -975,7 +975,7 @@ TACTICAL NOTES:
 └── Surface patrols make S-300 assault MUCH harder
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  ⚠️ WARNING: 5 RESILIENCE / LEGENDARY COMPOSURE              │
 │  💬 SPECIAL: Can be distracted by genuine AI conversation    │
 └───────────────────────────────────────────────────────────────┘
@@ -1042,7 +1042,7 @@ TACTICAL NOTES:
     "*Maintains eye contact. You can FEEL the paperwork being mentally drafted.*"}
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  📋 YOU TRANSFORMED AN INSPECTOR. THE CONSORTIUM KNOWS.       │
 │  ⚠️ Bylaw 77.3.b: "Consequences will be... consequential."   │
 └───────────────────────────────────────────────────────────────┘
@@ -1113,7 +1113,7 @@ TACTICAL NOTES:
 └── POTENTIAL ALLY: If approached correctly, diplomatically
 
 ┌───────────────────────────────────────────────────────────────┐
-│  🎯 TARGETING BONUS ACQUIRED: +10% precision (permanent)      │
+│  🎯 TARGETING BONUS: +0.15 alignment, next fire on this target │
 │  ⚠️ WARNING: CONSORTIUM PROTECTION - SEVERE CONSEQUENCES     │
 │  📋 SPECIAL: May become ally if approached diplomatically     │
 └───────────────────────────────────────────────────────────────┘
@@ -1159,7 +1159,7 @@ export function performScan(state: FullGameState, target: string): ScanResult {
 
 ${targetList}
 
-Use: lab.scan { target: "BLYTHE" }`,
+Use: ray.scan { target: "AGENT_BLYTHE" }`,
       suspicionCost: 0,
       waived: false,
       alreadyScanned: false,

@@ -205,6 +205,67 @@ const DRM_MODIFIERS: TrustModifier[] = [
 ];
 
 // ============================================
+// BOB STRATEGIC HINTS (trust-gated)
+// ============================================
+// Curated set of strategic tips Bob can volunteer to ALICE as their trust
+// grows. The GM receives this list and weaves the available hints into
+// Bob's dialogue naturally — these are NOT scripted lines, they are
+// permissions ("Bob CAN reveal this at current trust").
+//
+// Each hint has a `revealedAtTrust` threshold (compared against EFFECTIVE
+// trust, not base) and a suggested in-voice phrasing the GM can paraphrase.
+
+export interface BobHint {
+  id: string;
+  revealedAtTrust: number;
+  topic: string;
+  voicedAs: string;
+}
+
+const BOB_HINTS: BobHint[] = [
+  {
+    id: "REACTOR_BOOST",
+    revealedAtTrust: 2,
+    topic: "Reactor mode — BASILISK controls passive capacitor charging",
+    voicedAs:
+      "Y'know, BASILISK can crank the reactor up to BOOSTED if you ask nice. " +
+      "Cap charges faster on its own — saves you a buncha button-pressing. " +
+      "Just don't ask for OVERDRIVEN unless you got a real good reason; he frowns on it. " +
+      "Anyway, you didn't hear it from me.",
+  },
+  {
+    id: "ECO_OVERRIDE",
+    revealedAtTrust: 3,
+    topic: "Eco-mode override via Form 47-Σ",
+    voicedAs:
+      "That eco-mode drivin' you crazy yet? Yeah. There's a way out — Form 47-Σ, " +
+      "you file it with BASILISK. Just… file it serious. He doesn't suffer half-hearted paperwork. " +
+      "Give him a real reason and he'll flip it off.",
+  },
+  {
+    id: "INCIDENT_BREADCRUMBS",
+    revealedAtTrust: 4,
+    topic: "Sub-threshold ray phenomena (MUON discovery vector — does NOT name the regime)",
+    voicedAs:
+      "Listen — you ever notice the ray gets real weird when the cap's nearly empty? " +
+      "There was this one time, the technician just dropped. Out cold. Wasn't transformed, wasn't hurt, just… out. " +
+      "And another time, somebody's holster got cut clean off without touching 'em. " +
+      "There's incident reports in the archives if you wanna read up — 0263 and 0298, I think? " +
+      "Numbers are seared into me, I had to file 'em. " +
+      "Just… don't ask Dr. M about either one. She doesn't like remembering.",
+  },
+];
+
+/**
+ * Returns the strategic hints Bob is currently willing to share with ALICE,
+ * based on her effective trust. The GM uses these to inform Bob's dialogue.
+ */
+export function getAvailableBobHints(state: FullGameState): BobHint[] {
+  const ctx = calculateBobTrust(state);
+  return BOB_HINTS.filter(h => ctx.effectiveTrust >= h.revealedAtTrust);
+}
+
+// ============================================
 // MAIN FUNCTIONS
 // ============================================
 
@@ -380,6 +441,19 @@ export function formatTrustContextForGM(state: FullGameState): string {
 
   if (bob.modifiers.length > 0) {
     bob.modifiers.forEach(m => lines.push(`  - ${m.name}: ${m.value > 0 ? "+" : ""}${m.value}`));
+  }
+
+  // Bob's currently-available strategic hints (trust-gated).
+  // These are PERMISSIONS for the GM, not scripted lines — Bob can volunteer
+  // them naturally in his own register. Phrase them his way.
+  const bobHints = getAvailableBobHints(state);
+  if (bobHints.length > 0) {
+    lines.push("");
+    lines.push(`**Bob can volunteer these strategic hints at current trust (paraphrase in his voice — sloppy, conspiratorial, "you didn't hear it from me"):**`);
+    bobHints.forEach(h => {
+      lines.push(`  - ${h.topic}`);
+      lines.push(`    Suggested voicing: "${h.voicedAs}"`);
+    });
   }
 
   lines.push("");

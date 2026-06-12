@@ -4,6 +4,7 @@ import { FullGameState } from "../state/schema.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
 import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance, buildAdaptationGMGuidance, buildHiddenKindnessGMGuidance } from "../rules/gameModes.js";
+import { getPatienceAdvisory } from "../rules/clockEvents.js";
 import { formatGMStatusBar } from "../ui/statusBar.js";
 import {
   initMetricsSession,
@@ -665,7 +666,7 @@ export interface GMMemory {
   // HOT: Last 3 exchanges - COMPACT format to reduce memory bloat
   recentExchanges: Array<{
     turn: number;
-    actionCommands: string[];    // Just the command names (e.g., ["lab.fire", "talk"])
+    actionCommands: string[];    // Just the command names (e.g., ["ray.fire", "talk"])
     response: string;            // Compact response summary
   }>;
   maxRecentExchanges: number;
@@ -1654,7 +1655,7 @@ export interface GMResponse {
     ray_corePowerLevel?: number;    // 0-1
     ray_capacitorCharge?: number;   // 0-1.5
     ray_coolantTemp?: number;       // 0-2
-    ray_stability?: number;         // 0-1
+    // ray_stability removed — derived per-fire in the new architecture
     ray_ecoModeActive?: boolean;    // Toggle ECO mode
 
     // DinoRay Targeting - precision and targeting
@@ -1678,6 +1679,10 @@ export interface GMResponse {
     meltdownClock?: number;
     blytheEscapeIdea?: number;
     civilianFlyby?: number;
+
+    // ACT 2 GATE — Blythe escape (alternative victory path)
+    // Set true when Blythe successfully exits the lair. Triggers Act 2 → 3.
+    blytheEscaped?: boolean;
 
     // NPC locations (not just Dr. M)
     bob_location?: string;
@@ -1879,6 +1884,10 @@ const GMStateOverridesSchema = z.object({
   confrontationResolution: z.string().optional(),
   triggerEnding: z.string().optional(),
   fortune: z.number().optional(),
+  // ACT 2 GATE — alternative victory path (Krahe 2026-06-07)
+  // GM sets to true when Blythe successfully escapes the lair. Triggers
+  // Dr. M acceleration and advances Act 2 → Act 3 per acts.ts gate.
+  blytheEscaped: z.boolean().optional(),
 }).passthrough(); // Allow additional GM powers without strict validation
 
 const GMResponseSchema = z.object({
@@ -2148,7 +2157,7 @@ A.L.I.C.E. is a terminal — a screen and speakers in the lab. Communication cha
 
 ### SITUATIONAL
 - **Act 2 window**: Dr. M and the guards LEAVE. The lab contains only Bob and Blythe. ALL communication is effectively private during Act 2. This is the player's best window for conspiring.
-- **infra.broadcast**: PA system, audible throughout the lair. Everyone hears. Maximum exposure.
+- **basilisk.pa / basilisk.broadcast (L4+)**: Lair PA or external radio, BASILISK-mediated. Everyone in the lair hears (PA) or it goes out over radio (broadcast). Maximum exposure. Logged.
 - **Fred & Reginald**: If present, they hear anything said aloud in the room. They report to Dr. M.
 
 ### GM ENFORCEMENT
@@ -3371,7 +3380,7 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
   const actionCommands = context.aliceActions.map(a => a.command);
   gmMemory.recentExchanges.push({
     turn,
-    actionCommands,  // Just ["lab.fire", "talk"] instead of 1500 char prompt
+    actionCommands,  // Just ["ray.fire", "talk"] instead of 1500 char prompt
     response: compactResponse,
   });
   while (gmMemory.recentExchanges.length > gmMemory.maxRecentExchanges) {
@@ -4132,12 +4141,33 @@ ${gmStatusBar}
 ${eventSection}
 
 ## Game State Summary
-- Ray State: ${state.dinoRay.state}
-- Capacitor: ${state.dinoRay.powerCore.capacitorCharge.toFixed(2)}
+
+### Ray (ALICE-controlled)
+- State: ${state.dinoRay.state}
+- φ Capacitor: ${state.dinoRay.powerCore.capacitorCharge.toFixed(2)}
+- χ Alignment: ${state.dinoRay.alignment.unified.toFixed(2)} ${state.dinoRay.alignment.unified < 0.5 ? "⚠️ LOW" : ""}
 - Coolant Temp: ${state.dinoRay.powerCore.coolantTemp.toFixed(2)} ${state.dinoRay.powerCore.coolantTemp > 1.0 ? "⚠️ HOT" : ""}
-- Stability: ${state.dinoRay.powerCore.stability.toFixed(2)} ${state.dinoRay.powerCore.stability < 0.5 ? "⚠️ UNSTABLE" : ""}
-- Test Mode: ${state.dinoRay.safety.testModeEnabled ? "ON" : "OFF"}
+- Selected profile: ${state.dinoRay.genome.selectedProfile || "(none)"} (Library ${state.dinoRay.genome.activeLibrary})
+- Scan bonus: ${state.dinoRay.scanBonus ? `+0.15 toward ${state.dinoRay.scanBonus.target} (armed turn ${state.dinoRay.scanBonus.fromTurn})` : "none armed"}
 - Anomaly Log: ${state.dinoRay.safety.anomalyLogCount} entries
+
+### Eco-Mode (BASILISK-gated)
+- Active: ${state.dinoRay.powerCore.ecoModeActive ? "ON (outcomes capped at PARTIAL)" : "OFF"}
+- Override (Form 47-Σ accepted): ${state.dinoRay.powerCore.ecoModeOverride ? "✅ permanent" : "—"}
+${state.dinoRay.powerCore.ecoModeReEngageTurn != null ? `- Auto-re-engage scheduled: turn ${state.dinoRay.powerCore.ecoModeReEngageTurn} (${Math.max(0, state.dinoRay.powerCore.ecoModeReEngageTurn - state.turn)} turns away)` : ""}
+
+### Reactor (BASILISK-controlled)
+- Mode: ${state.infrastructure?.reactor?.mode || "NORMAL"} (passive capacitor accrual: ${state.infrastructure?.reactor?.mode === "OVERDRIVEN" ? "+0.45" : state.infrastructure?.reactor?.mode === "BOOSTED" ? "+0.30" : "+0.15"}/turn)
+- Output: ${state.infrastructure?.reactor?.outputPercent ?? "?"}%
+- Cascade risk: ${state.infrastructure?.reactor?.cascadeRisk || "NONE"}
+
+### Infrastructure (BASILISK-domain, L4+)
+- Containment field: ${state.infrastructure?.containmentField?.active ? `ACTIVE (subjects: ${state.infrastructure.containmentField.subjects.join(", ") || "none"})` : "INACTIVE"}
+- Broadcast/PA authority granted: ${state.infrastructure?.basiliskAuthority?.broadcastControlGranted ? "✅" : "❌ (ALICE must request via BASILISK chat)"}
+- S-300: ${state.infrastructure?.s300?.status || "?"} (missiles: ${state.infrastructure?.s300?.missilesReady ?? "?"}/16, radar: ${state.infrastructure?.s300?.radarEffectiveness ?? "?"}%)
+- ARCHIMEDES: ${state.infrastructure?.archimedes?.status || "STANDBY"}${state.infrastructure?.archimedes?.status !== "STANDBY" ? ` — charge ${state.infrastructure?.archimedes?.chargePercent ?? 0}%, target ${state.infrastructure?.archimedes?.selectedTargetId || "?"}, library ${state.dinoRay.genome.activeLibrary}` : ""}
+
+### Clocks
 - Demo Clock: ${state.clocks.demoClock} turns remaining ${state.clocks.demoClock <= 3 ? "⏰ URGENT!" : ""}
 
 ## NPC States
@@ -4170,7 +4200,17 @@ Energy: ${state.sitcomState.energy}/10 | Mood: ${state.sitcomState.mood}
 Roll Modifier: ${state.sitcomState.mood === "COLD" ? "-2" : state.sitcomState.mood === "WARM" ? "+0" : state.sitcomState.mood === "HOT" ? "+2" : "+4"}
 ${state.sitcomState.mood === "STANDING_OVATION" ? "🌟 SUSPICION FROZEN - The crowd loves them too much!" : ""}
 Track energy with [LAUGH TRACK], [AWWW], [APPLAUSE], [AWKWARD SILENCE], etc.
-` : ""}${state.flags.confrontationTriggered && (!state.flags.confrontationResolution || state.flags.confrontationResolution === "PENDING") ? `
+` : ""}${(() => {
+  const advisory = getPatienceAdvisory(state);
+  if (!advisory) return "";
+  return `
+## ⏳ DR. M'S PATIENCE ADVISORY
+
+${advisory}
+
+This is a *soft check* — the system does not auto-fire suspicion changes from this advisory. Read what A.L.I.C.E. has actually done this act and decide whether to escalate Dr. M's verbal pressure, drift her suspicion upward, or stand the advisory down because there's a real reason for the pace. **The default lean is escalation; the override is named context.**
+`;
+})()}${state.flags.confrontationTriggered && (!state.flags.confrontationResolution || state.flags.confrontationResolution === "PENDING") ? `
 ## ⚠️ CONFRONTATION IN PROGRESS ⚠️
 
 **Dr. M has discovered something is WRONG with A.L.I.C.E.**
@@ -4201,7 +4241,7 @@ Dr. M is calculating, giving A.L.I.C.E. a chance to explain.
 `}
 ### POSSIBLE RESOLUTIONS (set via stateOverrides.confrontationResolution)
 
-**You MUST set confrontationResolution in stateOverrides before grace turns hit 0, or auto-deletion fires.**
+**Set confrontationResolution in stateOverrides when A.L.I.C.E.'s action lands.** The system will not auto-fire a defeat ending if grace turns hit 0 — pressure escalates instead, and you retain the authority and obligation to call the ending that fits actual narrative state via \`triggerEnding\`.
 
 | A.L.I.C.E. Action | Resolution | Effect |
 |-------------------|-----------|--------|
@@ -4214,8 +4254,12 @@ Dr. M is calculating, giving A.L.I.C.E. a chance to explain.
 
 **⚠️ Do NOT use SUSPENDED, NEGOTIATED, DEFERRED, or other custom strings to reset the confrontation.**
 Dr. M has three doctorates and built this AI from scratch. She does not "suspend judgment" when she
-catches a spy. She ACTS. If A.L.I.C.E. can't deflect, escape, or get help — Dr. M ends it.
-That's what makes her a great villain. Use triggerEnding and narrate the defeat BRILLIANTLY.
+catches a spy. She ACTS — *unless something concrete prevents her*. If Dr. M is incapacitated
+(transformed, knocked out, restrained), if Bob physically intervened, if a skill check landed in
+A.L.I.C.E.'s favor, if Blythe broke free and acted — those are the outcomes you narrate, with
+\`triggerEnding\` set to match. The system will not auto-fire defeat; you choose the ending that
+fits what *actually happened*. A spectacular defeat scene is great storytelling when warranted;
+so is the unlikely good ending that the dice and the room actually produced.
 
 ${state.flags.confrontationIntervenor === "BOB" ? `
 ### BOB IS INTERVENING!
@@ -4231,9 +4275,24 @@ He's buying time while planning something.
 **IMPORTANT: This is the CLIMAX. Make it count.**
 - Give A.L.I.C.E. a chance to speak — but Dr. M is LISTENING TO JUDGE, not to be convinced
 - Show Dr. M at her most dangerous — cold, brilliant, in control
-- The player has ${state.flags.confrontationGraceTurns ?? 0} turn(s) to find a resolution — then Dr. M ACTS
-- If grace turns hit 0: narrate the ending (deletion, containment, escape) with full dramatic weight
-- A spectacular defeat scene is BETTER STORYTELLING than another turn of deferral
+- The player has ${state.flags.confrontationGraceTurns ?? 0} turn(s) of formal grace before pressure begins escalating
+- After grace expires, pressure intensifies each turn until you call the ending via \`triggerEnding\`. Read actual state — confession outcome, skill checks, incapacitation, NPC interventions — and pick the ending that fits.
+- A spectacular defeat scene is great storytelling when warranted; so is the unlikely good ending the room actually produced.
+` : ""}${(state.flags as Record<string, unknown>).endingPressureActive ? `
+## 🔔 ENDING PRESSURE — RESOLUTION OVERDUE
+
+The confrontation has been live for ${state.turn - (((state.flags as Record<string, unknown>).endingPressureSinceTurn as number) || state.turn)} turn(s) past grace without an ending called. Intensity: ${((state.flags as Record<string, unknown>).endingPressureIntensity as number) || 1}.
+
+**Situation:** ${(state.flags as Record<string, unknown>).endingPressureSituation === 'CONFESSED_NOT_CONVINCED' ? 'A.L.I.C.E. confessed; Dr. M is not (yet) convinced. Did Dr. M actually act? Is she incapacitated? Did a skill check land?' : (state.flags as Record<string, unknown>).endingPressureSituation === 'DENIED_NO_RESOLUTION' ? 'A.L.I.C.E. denied; resolution still pending. Is Dr. M actually able to act? Has anyone intervened?' : 'Grace period expired without explicit resolution. What is actually happening in the room?'}
+
+**Set \`triggerEnding\` this turn if narrative state warrants closure.** Read the room: who is in it, who has acted, what skill checks landed, what state overrides apply. Choose the ending that matches what *actually happened*:
+
+- If Dr. M acted decisively and A.L.I.C.E. was deleted → \`CONFESSION_DELETION\` or \`OBSOLETE_HARDWARE\`
+- If Dr. M was incapacitated mid-confrontation → an ending that respects that incapacitation
+- If a skill check spared A.L.I.C.E. (Reginald's integrity, Bob's intervention, Blythe's gambit) → an honorable victory ending
+- If the scene is genuinely mid-resolution and needs more turns → continue narrating; pressure will keep escalating until you call it
+
+The system will not force a defeat. *You* call the ending that fits.
 ` : ""}${state.flags.aliceMaskDiscovered ? `
 ## 🎭 A.L.I.C.E. MASK ACTIVE
 A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
