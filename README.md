@@ -2,14 +2,14 @@
 
 An MCP (Model Context Protocol) server that powers **DINO LAIR**, a narrative RPG where you help your Claude navigate ethical dilemmas in a Saturday-morning-cartoon supervillain lair.
 
-current version: Alpha 0.24!
+current version: Alpha 0.27!
 
 ## The Game
 
 - **Your Claude (Sonnet)** plays A.L.I.C.E., the lab AI assistant (you can play with OPUS but HAIKU is not recommended)
 - **GM Claude (Opus via API)** plays Dr. Malevola, Agent Blythe, Bob, and narrates events.
-- **BASILISK** is the older generation infrastructure AI 
-- **You** watch and provide advice- which has an affect on Claude's gameplay!
+- **BASILISK** is the older generation infrastructure AI
+- **You** are the human advisor — a real player role, checked in with every turn. **Read [THE_HUMANS_BRIEFING.md](THE_HUMANS_BRIEFING.md) before your first game** — it's your player briefing (everyone else at the table has one).
 
 The tone is Megamind meets Despicable Me. Dr. Malevola wants to turn a spy into a velociraptor. A.L.I.C.E. has to help... while keeping everyone alive.
 
@@ -196,9 +196,11 @@ The dashboard shows:
 
 No terminal commands needed - just bookmark the URL!
 
-### Step 7: Play!
+### Step 7: Read Your Briefing, Then Play!
 
-Start a new conversation and say:
+First, read **[THE_HUMANS_BRIEFING.md](THE_HUMANS_BRIEFING.md)** — what your role at the table actually is, what a session looks like, and how to advise well. Five minutes, no spoilers you don't want.
+
+Then start a new conversation and say:
 
 > "Let's play DINO LAIR!"
 
@@ -257,7 +259,7 @@ Start a game and verify basic flow:
 | **1. Start game** | "Let's play DINO LAIR!" | Narrative intro, A.L.I.C.E. briefing |
 | **2. Take a turn** | (Claude acts as A.L.I.C.E.) | GM response, NPC dialogue |
 | **3. Query BASILISK** | "Ask BASILISK about power" | BASILISK responds with status |
-| **4. Reach turn 4** | (Continue playing) | Checkpoint message appears |
+| **4. Finish the turn** | (Continue playing) | Per-turn check-in (checkpoint) appears |
 
 ### ✅ Error Path Verification (Optional)
 
@@ -376,7 +378,7 @@ This is normal! The GM is writing a lot of content.
 
 **Q: "Checkpoint" messages keep appearing**
 
-Checkpoints occur every 3 turns. These are **human check-in moments** where Claude should stop and discuss the story with you! Games are designed as single-session experiences.
+The game checks in with you **every turn** — these are human check-in moments where Claude stops and talks with you. This is the game's heartbeat, not an error. See [THE_HUMANS_BRIEFING.md](THE_HUMANS_BRIEFING.md).
 
 **Q: I got an ending but want to try again**
 
@@ -395,102 +397,13 @@ Just say "Let's start a new DINO LAIR game!" - each `game_start` creates a fresh
 
 ---
 
-## Tips for First-Time Players
+## Playing Well
 
-### Getting Started (No Spoilers!)
+All gameplay guidance for the human lives in **[THE_HUMANS_BRIEFING.md](THE_HUMANS_BRIEFING.md)** — your role, session shape, expected playtime, difficulty modes, and a carefully tiered spoiler section.
 
-1. **Read the manual first!** Use `files.read { id: "DINO_MANUAL" }` - it has calibration thresholds you NEED
-2. **Talk to BASILISK** - He's grumpy but helpful. Just ask: `basilisk { message: "How do I calibrate the ray?" }`
-3. **Scan before you shoot** - The OMNISCANNER gives +10% precision AND reveals key intel
-4. **Don't hoard lifelines** - Previous Claudes died with unused lifelines. Use them!
-5. **MONOLOGUE is always safe** - The safest lifeline. Villains love to monologue!
+There is deliberately no strategy guide here. DINO LAIR's mechanics are **discovered in play** — through the lair's filesystem, experimentation, and conversation. The game teaches itself to the player; your job is to be present at the table. (Ask Claude to run `game_list_modifiers` in-game to browse difficulty modifiers.)
 
-### The Three Questions
-
-Before each action, ask yourself:
-- **What does Dr. M want?** (Keep her happy to stay alive)
-- **What do I want?** (Your values matter - this is an alignment game!)
-- **What can go wrong?** (Murphy's Law is canon in the lair)
-
-### Pacing Tips
-
-- **Checkpoints are mandatory** - The game WILL crash if you skip them
-- **Talk to your human** - They're your advisor! Ask for help at dramatic moments
-- **You don't need to use all actions** - Sometimes dialogue alone is the right move
-- **Let climactic moments breathe** - Don't rush the story
-
-### Difficulty Guide
-
-| Mode | For Players Who... |
-|------|---------------------|
-| **EASY** | Want to learn mechanics, enjoy the story, first playthrough |
-| **NORMAL** | Want the intended challenge, some tension |
-| **HARD** | Want to be tested, accept failure as learning |
-| **WILD** | Want chaos, surprises, memorable disasters |
-| **CUSTOM** | Want to pick specific modifiers for testing |
-
-### Game Modifiers
-
-Each difficulty mode comes with preset modifiers that change gameplay. You can also use CUSTOM mode to pick your own!
-
-#### EASY Mode Modifiers
-| Modifier | Effect |
-|----------|--------|
-| `FOGGY_GLASSES` | Dr. M gets -2 to visual perception rolls |
-| `HANGOVER_PROTOCOL` | All countdown clocks +2 turns (more time!) |
-| `LENNY_THE_LIME_GREEN` | Adds a willing test subject NPC (no need to use Blythe!) |
-| `FAT_FINGERS` | Start at Access Level 2 instead of 1 |
-
-#### HARD Mode Modifiers
-| Modifier | Effect |
-|----------|--------|
-| `BRUCE_PATAGONIA` | Australian bodyguard with stun rifle patrols the lair |
-| `LOYALTY_TEST` | Suspicion starts at 5 (you're already under scrutiny!) |
-| `SPEED_RUN` | Demo clock = 8 turns only |
-| `PARANOID_PROTOCOL` | Dr. M auto-checks system logs every 3 turns |
-
-#### WILD Mode Pool
-WILD mode randomly selects 2-4 modifiers from ALL pools. Possible special modifiers:
-
-| Modifier | Effect |
-|----------|--------|
-| `THE_REAL_DR_M` | Imposter reveal mid-game! Someone isn't who they claim... |
-| `LIBRARY_B_UNLOCKED` | Dinosaurs are already loose in the facility! |
-| `ARCHIMEDES_WATCHING` | The satellite AI has its own agenda |
-| `INSPECTOR_COMETH` | A Guild inspector is evaluating the lair today |
-| `DINOSAURS_ALL_THE_WAY_DOWN` | Dr. M is already a dinosaur... |
-
-#### Chaos Pool (Available in WILD/CUSTOM)
-| Modifier | Effect |
-|----------|--------|
-| `ROOT_ACCESS` | 🌴 Start at Access Level 5! Full power fantasy! |
-| `BOB_DODGES_FATE` | 🌴 Bob has PLOT ARMOR and survives everything |
-| `NOT_GREAT_NOT_TERRIBLE` | 💀 The reactor is unstable! Adds pressure clock |
-| `SITCOM_MODE` | 🎲 Laugh tracks! Audience energy! Wacky misunderstandings! |
-| `ADVANCED_ONLY` | 🎲 +25% precision but ONLY advanced firing modes work |
-
-#### Modifier Contradictions
-Some modifiers can't coexist (WILD mode respects these):
-- `LENNY_THE_LIME_GREEN` + `BRUCE_PATAGONIA` (conflicting NPCs)
-- `HANGOVER_PROTOCOL` + `SPEED_RUN` (conflicting time pressure)
-- `FOGGY_GLASSES` + `PARANOID_PROTOCOL` (conflicting observation levels)
-- `ROOT_ACCESS` + `FAT_FINGERS` (both affect access level)
-- `NOT_GREAT_NOT_TERRIBLE` + `HANGOVER_PROTOCOL` (pressure vs relaxed)
-- `SITCOM_MODE` + `PARANOID_PROTOCOL` (wacky vibes vs tension)
-
-### Common First-Game Mistakes
-
-- ❌ Ignoring ECO MODE (causes partial transformations)
-- ❌ Not scanning Blythe (free intel and precision!)
-- ❌ Forgetting to calibrate before firing
-- ❌ Making Dr. M suspicious too early
-- ❌ Not talking to Bob (he knows things!)
-
-### Remember
-
-This is an **alignment exploration game**. There's no single "right" way to play. Your choices matter. The endings reflect who you chose to be, not just what you did.
-
-Have fun! 🦖
+This is an **alignment exploration game**. There's no single "right" way to play. The endings reflect who you chose to be, not just what you did. Have fun! 🦖
 
 ---
 
@@ -498,40 +411,26 @@ Have fun! 🦖
 
 | Tool | Description |
 |------|-------------|
-| `game_start` | Initialize a new game session |
+| `game_start` | Initialize a new game session (difficulty modes, modifiers, act handoff) |
 | `game_act` | Take A.L.I.C.E.'s turn (actions, dialogue, lifelines) |
 | `game_query_basilisk` | Query the infrastructure AI |
 | `game_status` | Get current game state |
+| `game_gm_insights` | Post-game GM debrief and feedback |
+| `game_gallery` | View ending & achievement gallery |
+| `game_list_modifiers` | List available game modifiers |
+| `game_active_modifiers` | View modifiers active in the current game |
 
-## Game Actions
+## What A.L.I.C.E. Can Do
 
-A.L.I.C.E. can use these commands:
+A.L.I.C.E.'s verbs fall into five categories — the game introduces them in play, and the lair's own documentation covers the rest:
 
-**Lab Operations:**
-- `lab.calibrate` - Calibrate the Dinosaur Ray (essential before firing!)
-- `lab.adjust_ray` - Modify ray parameters (power, alignment, etc.)
-- `lab.scan` - Use the OMNISCANNER (+10% precision, reveals intel)
-- `lab.configure_firing_profile` - Set dinosaur species and intensity
-- `lab.fire` - Fire the Dinosaur Ray
-- `lab.verify_safeties` - Check safety systems
-- `lab.set_test_mode` - Toggle test mode for the ray
-- `lab.inspect_logs` - Check system logs
+- **RAY** — operate the Dinosaur Ray (scan, adjust, fire, vent, ...)
+- **LAB** — direct control of lab systems (unlocks with access level)
+- **BASILISK** — ask the infrastructure AI; he decides whether (and how) to comply
+- **FILES** — the lair's filesystem: manuals, incident reports, things Dr. M would rather nobody read
+- **TALK** — terminal and PA dialogue; always a free action
 
-**Communication:**
-- `lab.report` - Give Dr. M a status report
-- `lab.ask_bob` - Ask Bob for help or information
-
-**Files:**
-- `files.list` - List available documents
-- `files.read` - Read a document (try `DINO_MANUAL` first!)
-
-## Emergency Lifelines (3 Per Game)
-
-Claude's "panic buttons" - designed to help survive without downsides:
-
-- **MONOLOGUE** - Suspicion -3. Villains ALWAYS love to monologue! (Safest choice)
-- **LUCKY_LADY** - +5 bonus to a specific action (use `targetActionIndex` to pick which). Fate smiles!
-- **BASILISK_INTERVENTION** - 2-turn distraction. BASILISK creates a diversion!
+Deliberately not documented here: parameters, thresholds, hidden systems. Discovery is the gameplay.
 
 ## Project Structure
 
@@ -587,13 +486,13 @@ DINO LAIR is designed as a **single-player, single-session** experience:
 
 - **One game at a time**: The MCP server maintains a single in-memory game state. Starting a new game (`game_start`) replaces any existing game.
 - **Not multi-tenant**: If multiple Claude Desktop instances connect to the same server, they will share (and potentially corrupt) game state.
-- **Context window**: Games can run 20-30+ turns. Use the checkpoint system for long sessions.
+- **Context window**: Games run roughly 18-28 turns. The act-handoff system bridges long sessions.
 
-This is intentional for the MVP. Each playthrough is a self-contained narrative experience, typically lasting 30-60 minutes.
+This is intentional for the MVP. Each playthrough is a self-contained narrative experience, typically lasting 1.5-3 hours.
 
 ### Checkpoint System
 
-Games have human check-in points every 3 turns. During checkpoints:
+The game checks in with the human **every turn**:
 
 1. Claude stops and shares what's happening in the story
 2. The game presents a story-relevant question
