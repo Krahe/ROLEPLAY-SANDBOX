@@ -50,11 +50,14 @@ Any of:
 
 BASILISK delivers **Weapons Authorization** — temporary L3 grant from Dr. M.
 
-New verbs:
-- `ray.fire { mode: REVERSAL }` — 85% within 24 turns of original transformation
-- `dino_ray.uplink { ... }` — ARCHIMEDES configuration interface
-- `basilisk.radar { }` — S-300 airspace visibility
-- `basilisk.comms { ... }` — lair-wide communications
+What L3 actually unlocks (keep the announcement to what the elevation text surfaces):
+- **Genome Library B** — Dr. M's "corrected" cinematic profiles. Load-bearing: her verdict wants a Hollywood raptor, and Library B clean outcomes demand real parameter mastery (the OVERCHARGE path — let ALICE discover this, do not explain it).
+- Diagnostic-class ray operations: `ray.diagnostic`, `ray.calibrate_amplifier`, `ray.profile_certification`
+- Reactor control panel visibility; `/DR_M_PRIVATE/RESEARCH/` filesystem access
+
+Explicitly NOT granted — do not hand these out here:
+- **REVERSAL** (`ray.fire { mode: REVERSAL }`) — **L4** weapons authorization. Dr. M does not grant reversal in the normal course of operations; the in-game denial message already hints that operators with a legitimate need must find their own path. The Mr. Whiskers chain is that path.
+- ARCHIMEDES uplink access (L4, read-only) and infra verbs (radar / comms / broadcast / PA) — BASILISK's domain; the L4 handoff dynamic covers these later.
 
 Does NOT name: MUON regime, Mr. Whiskers path, L5 master override.
 

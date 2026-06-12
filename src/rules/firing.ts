@@ -893,10 +893,28 @@ function resolveStandardFire(state: FullGameState, params: StandardFireParams): 
   // for CHAIN, only the scanned target gets it. baseAlignment here excludes
   // the bonus — it's added per-target in the map below.
 
-  // INORGANIC: library coefficient halved (§10).
-  const adjustedProfile: GenomeProfile = isInorganic
-    ? { ...profile, libraryCoefficient: profile.libraryCoefficient * 0.5 }
+  // OVERCHARGE (§8): brute force overrides waveform incoherence and structural
+  // fragility — a discharge with more potential than the profile envelope can
+  // contain forces even an incoherent Library B waveform through. Both
+  // libraryCoefficient and integrity are treated as 1.0 in the stability calc.
+  // The price is paid elsewhere and is non-negotiable: powerMatch degrades
+  // with overshoot, the Hollywood chaos overlay fires on any FULL/PARTIAL
+  // (exotic field event lands ON TOP of the transformation), coolant spikes,
+  // and the spectacle is unmissable. This is THE path to clean Library B
+  // outcomes — high alignment + minimal overshoot + scan prep can reach FULL;
+  // greedy overshoot degrades toward PARTIAL while the chaos gets worse.
+  let adjustedProfile: GenomeProfile = isOvercharge
+    ? { ...profile, libraryCoefficient: 1.0, integrity: 1.0 }
     : profile;
+  // INORGANIC: library coefficient halved (§10) — applies even under
+  // OVERCHARGE (brute force does not make a Swiffer a better canvas), and the
+  // CHIMERA clamp below holds regardless.
+  if (isInorganic) {
+    adjustedProfile = {
+      ...adjustedProfile,
+      libraryCoefficient: adjustedProfile.libraryCoefficient * 0.5,
+    };
+  }
 
   // -- Per-target outcome tier ---------------------------------------------
   const chaos = chaosConditionsActive(state);
@@ -1006,8 +1024,13 @@ function resolveStandardFire(state: FullGameState, params: StandardFireParams): 
   // -- ECO mode capping (preserved per §16) ---------------------------------
   if (ray.powerCore.ecoModeActive && outcome === "FULL_DINO" && ray.powerCore.capacitorCharge <= 1.1) {
     outcome = "PARTIAL";
+    // Discoverable-gremlin discipline: name the CAUSE (eco-mode), never the
+    // CURE. The override path (Form 47-Σ via BASILISK) is carried by the
+    // designed discovery chain — /SYSTEMS/FORMS/, Bob's hint ladder, asking
+    // BASILISK. Do not reinstate a solution hint here; it dead-letters all
+    // three of those.
     narrativeHooks.push("⚠️ ECO MODE ACTIVE: Full transformation capped at PARTIAL!");
-    narrativeHooks.push("💡 To disable: file Form 47-Σ via BASILISK (requires 60%+ core power).");
+    narrativeHooks.push("Output governor engaged — the capacitor delivered less than it held. The eco-mode subsystem appears to have strong opinions about energy budgets, and somewhere in the lair there is presumably paperwork about that.");
   }
 
   // -- Speech retention (precision-gated, preserved) ------------------------

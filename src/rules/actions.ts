@@ -675,7 +675,16 @@ Increase charge to scan target signature.`,
                (configure via ray.fire to project outcome)`;
       projectedTier = "—";
     } else {
-      const stability = computeStability(selectedProfile, capacitor, effectiveAlignment);
+      // Mirror resolveStandardFire's OVERCHARGE brute-force override (§8) so
+      // the projection matches what the fire will actually do. Legibility
+      // rule: the scan instrument never lies — if the override applies on
+      // fire, it applies in the projection. (The WHY stays discoverable; the
+      // WHAT is always honest.)
+      const isOverchargeProj = capacitor > selectedProfile.maxCapacitor;
+      const projProfile = isOverchargeProj
+        ? { ...selectedProfile, libraryCoefficient: 1.0, integrity: 1.0 }
+        : selectedProfile;
+      const stability = computeStability(projProfile, capacitor, effectiveAlignment);
       const powerMatch = computePowerMatch(selectedProfile, capacitor);
       const tier = getOutcomeTier(stability);
       projectedTier = tier;
@@ -691,11 +700,15 @@ Increase charge to scan target signature.`,
           ? "below profile range"
           : "above profile range (overcharge territory)";
 
+      const overchargeWarning = isOverchargeProj
+        ? `\n  ⚡ OVERCHARGE:  waveform will be forced through — exotic field event expected on discharge`
+        : "";
+
       projectionBlock = `  PROFILE:     ${selectedProfileName} (library ${state.dinoRay.genome.activeLibrary})
   POWER:       φ ${capacitor.toFixed(2)} — ${rangeNote}; match ${powerMatch.toFixed(2)}
   ALIGNMENT:   χ ${baseAlignment.toFixed(2)} + ${SCAN_BONUS.toFixed(2)} scan bonus = ${effectiveAlignment.toFixed(2)}
   STABILITY:   ψ ${stability.toFixed(2)} (derived)
-  PROJECTION:  ${displayedTier} outcome on next fire targeting ${target}`;
+  PROJECTION:  ${displayedTier} outcome on next fire targeting ${target}${overchargeWarning}`;
     }
 
     // Set the scan-bonus state.

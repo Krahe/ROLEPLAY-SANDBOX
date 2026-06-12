@@ -173,12 +173,16 @@ The product collapses fast. A single bad factor tanks the whole shot. *That is t
 
 ## 8. OVERCHARGE — `capacitor > profile.max_capacitor`
 
-- `power_match` degrades past 1.0 (in negative territory by the formula).
-- *Separately,* a **chaos roll fires** with severity `(capacitor − profile.max) × 10`.
+- **Brute-force override (the load-bearing rule):** in OVERCHARGE, `library_coefficient` and `integrity` are both treated as **1.0** in the stability formula. A discharge with more potential than the profile envelope can contain forces even an incoherent Library B waveform through. Stability reduces to `power_match × alignment_match`.
+- `power_match` degrades with overshoot (`1.0 − overshoot/0.3`) — greedier overcharge costs fidelity.
+- *Separately,* a **chaos roll fires** with severity `(capacitor − profile.max) × 10` whenever the transformation lands (FULL/PARTIAL) — the exotic field event is the non-negotiable price of the spectacle.
 - The transformation still attempts — the target is still hit per alignment check.
-- Outcome tier proceeds from stability formula; chaos table outcome lands *on top*.
+- Outcome tier proceeds from the (overridden) stability formula; chaos table outcome lands *on top*.
+- INORGANIC stacking: the ×0.5 coefficient and CHIMERA clamp still apply — brute force does not make a Swiffer a better canvas.
 
 **Library B + OVERCHARGE + high alignment is the Hollywood path.** Spectacular FULL transformation + exotic field event. High risk, high reward, narratively delicious. The only path to clean Library B outcomes.
+
+Worked example (VELOCIRAPTOR_JP, max_capacitor 0.85): capacitor 0.86 → power_match ≈ 0.97; scanned target at base alignment 0.68+ → alignment_match ≥ 0.83 → ψ > 0.80 → **FULL**, plus a mild exotic event. Capacitor 0.95 → power_match ≈ 0.67 → PARTIAL at best, with a much nastier chaos roll. The overshoot amount is a single dial trading fidelity against spectacle. Mastery shape: alignment prep + scan + *just barely* overcharge.
 
 ---
 
