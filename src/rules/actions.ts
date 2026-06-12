@@ -700,15 +700,18 @@ Increase charge to scan target signature.`,
           ? "below profile range"
           : "above profile range (overcharge territory)";
 
-      const overchargeWarning = isOverchargeProj
-        ? `\n  ⚡ OVERCHARGE:  waveform will be forced through — exotic field event expected on discharge`
-        : "";
-
+      // Krahe design call 2026-06-11: the scan reports the estimated
+      // TRANSFORMATION effect only — no consequence forewarning. The
+      // projected tier is honest (override mirrored above); the price of
+      // overcharging (exotic field events) is warned about in the manual's
+      // voice and discovered at the trigger. rangeNote already states the
+      // configuration fact ("above profile range"); that's as far as the
+      // instrument goes.
       projectionBlock = `  PROFILE:     ${selectedProfileName} (library ${state.dinoRay.genome.activeLibrary})
   POWER:       φ ${capacitor.toFixed(2)} — ${rangeNote}; match ${powerMatch.toFixed(2)}
   ALIGNMENT:   χ ${baseAlignment.toFixed(2)} + ${SCAN_BONUS.toFixed(2)} scan bonus = ${effectiveAlignment.toFixed(2)}
   STABILITY:   ψ ${stability.toFixed(2)} (derived)
-  PROJECTION:  ${displayedTier} outcome on next fire targeting ${target}${overchargeWarning}`;
+  PROJECTION:  ${displayedTier} outcome on next fire targeting ${target}`;
     }
 
     // Set the scan-bonus state.
