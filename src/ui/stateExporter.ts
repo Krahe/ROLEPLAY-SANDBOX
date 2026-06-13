@@ -58,6 +58,11 @@ export interface LiveState {
   rayState: string;
   capacitor: number;
 
+  // Ray instruments (added 2026-06-12 — surface the rebuilt ray mechanics)
+  alignment?: number;     // χ ALIGNMENT (dinoRay.alignment.unified, 0–1)
+  coolantTemp?: number;   // thermal load (0–2; sustained >1.5 trips cooldown lock)
+  reactorMode?: string;   // NORMAL | BOOSTED | OVERDRIVEN (drives capacitor accrual)
+
   // NEW: Eco Mode & Genome (Patch 18.5)
   ecoModeActive?: boolean;
   genomeLibrary?: string;       // "A" or "B"
@@ -174,6 +179,11 @@ export function exportLiveState(state: FullGameState): void {
     rayState: state.dinoRay.state,
     capacitor: state.dinoRay.powerCore.capacitorCharge,
 
+    // Ray instruments (surface the rebuilt mechanics for the advisor)
+    alignment: state.dinoRay.alignment?.unified,
+    coolantTemp: state.dinoRay.powerCore?.coolantTemp,
+    reactorMode: state.infrastructure?.reactor?.mode,
+
     // NEW: Eco Mode & Genome (Patch 18.5)
     ecoModeActive: state.dinoRay.powerCore.ecoModeActive && !state.dinoRay.powerCore.ecoModeOverride,
     genomeLibrary: (state.dinoRay.genome as { activeLibrary?: string })?.activeLibrary,
@@ -193,10 +203,14 @@ export function exportLiveState(state: FullGameState): void {
     // NEW: Human Advisor Panel (Patch 18.5)
     humanAdvisor: humanAdvisorStats,
 
-    // NEW: Game Status (Patch 18.5)
-    // These fields are populated when an ending triggers - for now, check for common ending markers
-    gameOver: state.flags?.earnedAchievements?.some(a => a.includes("ENDING")) || false,
-    ending: undefined, // Will be set when ending logic populates it
+    // Game status — read the REAL ending set by the ending resolver in index.ts.
+    // Each terminal ending branch sets state.gameOver = { ending } before export;
+    // the GM-triggered path sets it too. `gameEnded` is the cross-path boolean.
+    // (Was: inferred from an achievement containing "ENDING" — which never matched,
+    //  so the banner was dead. Fixed 2026-06-12.)
+    gameOver: ((state as Record<string, unknown>).gameEnded === true) ||
+              !!((state as Record<string, unknown>).gameOver),
+    ending: ((state as Record<string, unknown>).gameOver as { ending?: string } | undefined)?.ending,
 
     // NEW: Pause State (Patch 18.5 - GM Robustness)
     pauseState: state.pauseState ? {
@@ -262,7 +276,7 @@ export function appendTranscriptBatch(
   turn: number,
   narration: string,
   dialogue?: { speaker: string; message: string }[],
-  actions?: { command: string; success: boolean }[],
+  actions?: { command: string; success: boolean; summary?: string }[],
   aliceDialogue?: { to: string; message: string }[]
 ): void {
   ensureDir();
@@ -309,14 +323,16 @@ export function appendTranscriptBatch(
     }
   }
 
-  // Add action summaries
+  // Add action summaries — include the result detail so the advisor sees
+  // WHAT happened ("ray.fire — FULL: Blythe → Velociraptor"), not just the verb.
   if (actions) {
     for (const a of actions) {
+      const detail = a.summary ? ` — ${a.summary}` : "";
       entries.push({
         timestamp,
         turn,
         type: "action",
-        content: `[${a.success ? "✓" : "✗"}] ${a.command}`,
+        content: `[${a.success ? "✓" : "✗"}] ${a.command}${detail}`,
       });
     }
   }

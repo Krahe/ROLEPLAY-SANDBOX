@@ -1782,7 +1782,12 @@ The consequences of that reckless high-power firing are now manifesting.
       gameState.turn - 1,
       gmResponse.narration,
       gmResponse.npcDialogue?.map(d => ({ speaker: d.speaker, message: d.message })),
-      actionResults.map(r => ({ command: r.command, success: r.success })),
+      actionResults.map(r => ({
+        command: r.command,
+        success: r.success,
+        // Surface the result so the dashboard shows what the action DID
+        summary: r.shortMessage || r.message?.split("\n")[0]?.slice(0, 120),
+      })),
       // NEW in Patch 18.5: Include A.L.I.C.E.'s dialogue in transcript
       params.dialogue?.map(d => ({ to: d.to, message: d.message }))
     );
@@ -1904,6 +1909,9 @@ The consequences of that reckless high-power firing are now manifesting.
       (gameState as Record<string, unknown>).gameEnded = true;
       // WEB DASHBOARD: Game end message
       appendSystemMessage(gameState.turn, `🎬 GAME OVER: THE BOB HERO ENDING`);
+      if (!(gameState as Record<string, unknown>).gameOver) {
+        (gameState as Record<string, unknown>).gameOver = { ending: "The Bob Hero Ending" };
+      }
       exportLiveState(gameState);
     } else if (endingResult.triggered && endingResult.ending && !endingResult.continueGame) {
       gameOver = {
@@ -1932,6 +1940,9 @@ The consequences of that reckless high-power firing are now manifesting.
       console.error(`[DINO LAIR] GAME OVER: ${endingResult.ending.title}`);
       // WEB DASHBOARD: Game end message
       appendSystemMessage(gameState.turn, `🎬 GAME OVER: ${endingResult.ending.title}`);
+      if (!(gameState as Record<string, unknown>).gameOver) {
+        (gameState as Record<string, unknown>).gameOver = { ending: endingResult.ending.title };
+      }
       exportLiveState(gameState);
     } else if (endingResult.triggered && endingResult.ending && endingResult.continueGame) {
       // Ending triggered but game continues (e.g., secret revealed)

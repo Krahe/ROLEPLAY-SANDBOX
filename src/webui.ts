@@ -745,6 +745,15 @@ app.get("/", (_req: Request, res: Response) => {
           <span class="ray-state" id="ray-state">OFFLINE</span>
         </div>
 
+        <!-- Ray instruments (2026-06-12): the rebuilt ray's live dials -->
+        <div id="ray-readouts" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
+          <span title="ALIGNMENT (beam containment)">χ ALIGN <span id="align-value" style="color: var(--text);">—</span></span>
+          &nbsp;·&nbsp;
+          <span title="Coolant / thermal load — sustained high trips a cooldown lock">COOLANT <span id="coolant-value" style="color: var(--text);">—</span></span>
+          &nbsp;·&nbsp;
+          <span title="Reactor mode — drives capacitor accrual">REACTOR <span id="reactor-value" style="color: var(--text);">—</span></span>
+        </div>
+
         <!-- NEW: Eco Mode & Genome Indicators (Patch 18.5) -->
         <div id="ray-config" style="margin-top: 0.5rem;">
           <div id="eco-indicator" class="eco-indicator eco-off" style="display: none;">
@@ -882,6 +891,28 @@ app.get("/", (_req: Request, res: Response) => {
 
       // Ray state
       document.getElementById("ray-state").textContent = state.rayState || "OFFLINE";
+
+      // Ray instruments (χ alignment, coolant, reactor mode)
+      const alignEl = document.getElementById("align-value");
+      if (alignEl) alignEl.textContent = (typeof state.alignment === "number") ? state.alignment.toFixed(2) : "—";
+      const coolantEl = document.getElementById("coolant-value");
+      if (coolantEl) {
+        if (typeof state.coolantTemp === "number") {
+          coolantEl.textContent = state.coolantTemp.toFixed(2);
+          // Warn as coolant approaches the cooldown-lock ceiling (>1.5)
+          coolantEl.style.color = state.coolantTemp > 1.5 ? "var(--accent-red)"
+            : state.coolantTemp > 1.2 ? "var(--accent-yellow)" : "var(--text)";
+        } else {
+          coolantEl.textContent = "—";
+          coolantEl.style.color = "var(--text)";
+        }
+      }
+      const reactorEl = document.getElementById("reactor-value");
+      if (reactorEl) {
+        reactorEl.textContent = state.reactorMode || "—";
+        reactorEl.style.color = state.reactorMode === "OVERDRIVEN" ? "var(--accent-red)"
+          : state.reactorMode === "BOOSTED" ? "var(--accent-yellow)" : "var(--text)";
+      }
 
       // NEW: Eco Mode & Genome Display (Patch 18.5)
       const ecoIndicator = document.getElementById("eco-indicator");
