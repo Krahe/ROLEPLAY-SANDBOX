@@ -14,7 +14,8 @@ import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
-import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions } from "./rules/clockEvents.js";
+import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyAlignmentDrift, applyEcoModeReEngage, applyCapacitorAccrual } from "./rules/clockEvents.js";
+import { advanceRayDiagnostic } from "./rules/rayDiagnostics.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
@@ -195,6 +196,10 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
     hint = "⏰ Demo imminent! Dr. M is watching closely.";
   } else if (state.npcs.drM.suspicionScore >= 6) {
     hint = "⚠️ Dr. M is growing suspicious of your behavior.";
+  } else if (state.dinoRay.powerCore.coolantTemp > 1.5) {
+    hint = `🌡️ COOLANT LOCKOUT (${state.dinoRay.powerCore.coolantTemp.toFixed(2)}): fires are blocked until coolant drops below 1.5. Vent or let it cool (~-0.02/turn idle).`;
+  } else if (state.dinoRay.state === "COOLDOWN") {
+    hint = "🔁 Ray cooling — clears to READY next turn, does NOT block firing, and the capacitor keeps charging. (The real fire-gate is COOLANT > 1.5, not this state.)";
   } else if (state.dinoRay.state === "READY") {
     hint = "🦖 Ray is READY to fire.";
   } else if (state.dinoRay.state === "UNCALIBRATED") {
@@ -914,6 +919,25 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // MAIN: Process A.L.I.C.E.'s Actions
     // ============================================
     const actionResults = await processActions(gameState, params.actions);
+
+    // ============================================
+    // CALIBRATION SPINE (Act 1 objective)
+    // ============================================
+    // Every successful ray.* action readies the ray. Novelty-weighted so Act 1
+    // rewards experimentation over grinding: +0.10 the first time a given ray
+    // action is used this game, +0.05 on repeats. Reaching 1.0 ends Act 1
+    // (acts.ts checkAct1Transition gate). Act-1-only; the bar is gone in Act 2.
+    if (gameState.actConfig.currentAct === "ACT_1") {
+      if (gameState.dinoRay.calibration == null) gameState.dinoRay.calibration = 0;
+      if (!Array.isArray(gameState.dinoRay.calibrationActionsSeen)) gameState.dinoRay.calibrationActionsSeen = [];
+      const seen = gameState.dinoRay.calibrationActionsSeen;
+      for (const r of actionResults) {
+        if (!r.success || !r.command || !r.command.startsWith("ray.")) continue;
+        const firstUse = !seen.includes(r.command);
+        if (firstUse) seen.push(r.command);
+        gameState.dinoRay.calibration = Math.min(1, gameState.dinoRay.calibration + (firstUse ? 0.10 : 0.05));
+      }
+    }
 
     // ============================================
     // POST-ACTION: Check for Bob Accidental Transformation
@@ -1699,7 +1723,28 @@ The consequences of that reckless high-power firing are now manifesting.
     // Apply state changes
     gameState.turn += 1;
     advanceActTurn(gameState); // Advance act-specific turn counter
-    gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
+    // Demo clock is an Act 2+ pressure — it does not tick (or surface) during
+    // Act 1, the self-contained calibration sandbox. It starts at the Act 1→2
+    // transition, keeping each act's pressure source distinct.
+    if (gameState.actConfig.currentAct !== "ACT_1") {
+      gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
+    }
+
+    // ============================================
+    // PRESSURE LOOP (ray-mechanics §12)
+    // ============================================
+    // These were wired into gameRunner.advanceTurn (CLI path) ONLY — the
+    // Desktop game_act path never ran them, so passive capacitor accrual,
+    // alignment drift, and eco-mode auto-re-engage were all dead in real play.
+    // That is why turn-1 capacitor barely moved (the +0.03 was ALICE's own
+    // ray.adjust, not the +0.15 reactor feed). Order matches gameRunner:
+    // drift → eco re-engage (BEFORE accrual, so a re-engage this turn cancels
+    // this turn's accrual) → accrual → diagnostic/calibration tick (AFTER
+    // accrual so net capacitor reflects both reactor input and diagnostic draw).
+    applyAlignmentDrift(gameState);
+    applyEcoModeReEngage(gameState);
+    applyCapacitorAccrual(gameState);
+    advanceRayDiagnostic(gameState);
 
     // ============================================
     // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)

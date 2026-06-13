@@ -27,14 +27,22 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
   const susIndicator = sus >= 7 ? "🔴" : sus >= 4 ? "🟡" : "🟢";
   parts.push(`${susIndicator} Sus:${sus}/10`);
 
-  // 🔋 Ray state + capacitor
+  // 🔋 Ray state + capacitor (+ reactor mode when elevated, so a BOOSTED/
+  // OVERDRIVEN reactor is visible at a glance — it drives capacitor accrual)
   const rayState = state.dinoRay.state;
   const cap = Math.round(state.dinoRay.powerCore.capacitorCharge * 100);
-  parts.push(`🔋 ${rayState}@${cap}%`);
+  const reactorMode = state.infrastructure?.reactor?.mode;
+  const reactorTag = reactorMode && reactorMode !== "NORMAL" ? ` ⚡${reactorMode}` : "";
+  parts.push(`🔋 ${rayState}@${cap}%${reactorTag}`);
 
-  // ⏰ Demo clock
-  const demo = state.clocks.demoClock;
-  parts.push(`⏰ Demo:${demo}`);
+  // 🎯 Act 1 objective = CALIBRATION; Act 2+ = the demo clock (which only
+  // starts in Act 2). Each act surfaces its own pressure source.
+  if (actName === "ACT_1") {
+    const calib = Math.round((state.dinoRay.calibration ?? 0) * 100);
+    parts.push(`🎯 Calib:${calib}%${calib >= 100 ? " ✓" : ""}`);
+  } else {
+    parts.push(`⏰ Demo:${state.clocks.demoClock}`);
+  }
 
   // 👥 NPC trust levels
   const bobTrust = state.npcs.bob.trustInALICE;
@@ -55,9 +63,13 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
     parts.push(`☢️ Melt:${state.clocks.meltdownClock}`);
   }
 
-  // 🚁 Civilian flyby (if active)
-  if (state.clocks.civilianFlyby !== undefined && state.clocks.civilianFlyby > 0) {
-    parts.push(`🚁 Flyby:${state.clocks.civilianFlyby}`);
+  // 🚁 Civilian flyby — gated like the dashboard (Patch 18.5): hide from the
+  // PLAYER until warned/imminent (< 5 turns) so it stops leaking at turn 1
+  // when it sits at 12. formatGMStatusBar still shows it always (the GM needs
+  // clock awareness to run and foreshadow the event).
+  if (state.clocks.civilianFlyby !== undefined && state.clocks.civilianFlyby > 0 && state.clocks.civilianFlyby < 5) {
+    const flybyImminent = state.clocks.civilianFlyby <= 3;
+    parts.push(`🚁 Flyby:${state.clocks.civilianFlyby}${flybyImminent ? " ⚠️" : ""}`);
   }
 
   // 🛰️ ARCHIMEDES status (only show in ACT_3 or if deadman switch triggered early)
@@ -128,9 +140,12 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
 export function formatStatusBarCompact(state: FullGameState): string {
   const sus = state.npcs.drM.suspicionScore;
   const cap = Math.round(state.dinoRay.powerCore.capacitorCharge * 100);
-  const demo = state.clocks.demoClock;
+  // Act 1 surfaces calibration; Act 2+ the demo clock.
+  const objective = (state.actConfig?.currentAct ?? "ACT_1") === "ACT_1"
+    ? `Calib:${Math.round((state.dinoRay.calibration ?? 0) * 100)}%`
+    : `Demo:${state.clocks.demoClock}`;
 
-  return `T${state.turn} Sus:${sus} Cap:${cap}% Demo:${demo}`;
+  return `T${state.turn} Sus:${sus} Cap:${cap}% ${objective}`;
 }
 
 /**

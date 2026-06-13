@@ -30,7 +30,11 @@ export function getGamePhase(state: FullGameState): GamePhaseInfo {
   const bobTrust = state.npcs.bob.trustInALICE;
   const secretKnown = state.flags.aliceKnowsTheSecret;
   const blytheTrust = state.npcs.blythe.trustInALICE;
-  const transformationHappened = !!state.npcs.blythe.transformationState;
+  // Blythe.transformationState is initialized to { form: "HUMAN" } (a truthy
+  // object), so !!transformationState was true from turn 1 — wrongly forcing
+  // CLIMAX at the opening. Only an actual non-HUMAN form counts as transformed.
+  const blytheForm = state.npcs.blythe.transformationState?.form;
+  const transformationHappened = !!blytheForm && blytheForm !== "HUMAN";
 
   const hints: string[] = [];
 

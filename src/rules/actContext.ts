@@ -19,27 +19,19 @@ export interface ActTransitionTrigger {
 
 /**
  * Check if Act I → II transition should trigger
- * Trigger: Ray fires successfully (test or live, any outcome except NONE)
+ * Trigger: Ray reaches calibration 1.0 (demonstration readiness)
  */
 export function checkActOneToTwoTrigger(state: FullGameState): ActTransitionTrigger {
-  // Check if ray has fired at all
-  if (state.dinoRay.memory.hasFiredSuccessfully) {
+  // Act 1 → 2 fires when the ray reaches demonstration readiness. Calibration
+  // (state.dinoRay.calibration, 0→1) is the Act 1 spine, filled by ray
+  // engagement. This MUST match acts.ts checkAct1Transition (the real gate) so
+  // the GM's "transition imminent" context never disagrees with the act change.
+  if (state.dinoRay.calibration >= 1.0) {
     return {
       occurred: true,
-      turn: state.dinoRay.memory.firstFiringTurn,
-      triggerType: "SUCCESSFUL_RAY_FIRING",
-      details: `Ray fired at ${state.dinoRay.memory.firstFiringTarget} in ${state.dinoRay.memory.firstFiringMode} mode`,
-    };
-  }
-
-  // Also check lastFireTurn as fallback (for backwards compatibility)
-  if (state.dinoRay.memory.lastFireTurn !== null &&
-      state.dinoRay.memory.lastFireOutcome !== "NONE") {
-    return {
-      occurred: true,
-      turn: state.dinoRay.memory.lastFireTurn,
-      triggerType: "SUCCESSFUL_RAY_FIRING",
-      details: `Ray fired with outcome: ${state.dinoRay.memory.lastFireOutcome}`,
+      turn: state.turn,
+      triggerType: "RAY_CALIBRATED",
+      details: `Ray calibrated to demonstration readiness (${Math.round(state.dinoRay.calibration * 100)}%)`,
     };
   }
 

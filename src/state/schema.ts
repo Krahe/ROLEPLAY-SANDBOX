@@ -216,6 +216,12 @@ export const DinoRaySchema = z.object({
     pendingAlignmentDelta: null,
     pendingProfileName: null,
   }),
+  // Act 1 calibration spine: 0→1 progress bar filled by ray engagement
+  // (novelty-weighted: +0.10 the first time a given ray.* action is used this
+  // game, +0.05 on repeats). Reaching 1.0 ends Act 1. calibrationActionsSeen
+  // tracks which ray.* commands have already paid their first-use bonus.
+  calibration: z.number().min(0).max(1).default(0),
+  calibrationActionsSeen: z.array(z.string()).default([]),
 });
 
 // ============================================

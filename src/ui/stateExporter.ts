@@ -57,6 +57,7 @@ export interface LiveState {
   // Ray
   rayState: string;
   capacitor: number;
+  calibration?: number;   // Act 1 objective progress (0–1); replaced by demo clock in Act 2+
 
   // Ray instruments (added 2026-06-12 — surface the rebuilt ray mechanics)
   alignment?: number;     // χ ALIGNMENT (dinoRay.alignment.unified, 0–1)
@@ -178,6 +179,7 @@ export function exportLiveState(state: FullGameState): void {
     // Ray
     rayState: state.dinoRay.state,
     capacitor: state.dinoRay.powerCore.capacitorCharge,
+    calibration: state.dinoRay.calibration,
 
     // Ray instruments (surface the rebuilt mechanics for the advisor)
     alignment: state.dinoRay.alignment?.unified,

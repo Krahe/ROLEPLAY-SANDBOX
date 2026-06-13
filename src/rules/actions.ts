@@ -609,10 +609,12 @@ ${dashboard}`,
   }
 
   // ────────────────────────────────────────────
-  // RAY.SCAN { target, loud? }
+  // RAY.SCAN { target, profile?, loud? }
   // ────────────────────────────────────────────
-  // Surveys the field and returns current ray readouts + a projected
-  // outcome for firing on `target` with currently-configured profile.
+  // Surveys the field and returns current ray readouts + a projected outcome
+  // for firing on `target`. Projects the currently-selected profile by default;
+  // pass `profile` to project a HYPOTHETICAL profile without committing (enables
+  // scan → adjust → scan → fire). Library is read from the projected profile.
   // ALSO sets the scan-bonus state: +0.15 effective alignment toward
   // `target` on the next fire that includes it. Consumed by that fire.
   //
@@ -656,9 +658,22 @@ Increase charge to scan target signature.`,
       };
     }
 
-    // Pull selected profile (or fallback) for projection.
-    const selectedProfileName = state.dinoRay.genome.selectedProfile;
-    const selectedProfile = selectedProfileName ? getProfile(selectedProfileName) : null;
+    // Pull the profile to project. An explicitly-requested profile
+    // (ray.scan { profile }) projects a HYPOTHETICAL config without committing
+    // and takes precedence over the genome's currently-selected one — this is
+    // what makes scan → adjust → scan → fire possible (compare profiles before
+    // the committal fire). Omit `profile` to project the current selection.
+    const requestedProfileName = action.params.profile ? String(action.params.profile) : null;
+    const requestedProfile = requestedProfileName ? getProfile(requestedProfileName) : null;
+    if (requestedProfileName && !requestedProfile) {
+      return {
+        command: action.command,
+        success: false,
+        message: `ray.scan: unknown profile "${requestedProfileName}". Pass a profile id or name (e.g. "VELOCIRAPTOR_ACCURATE" or "Tyrannosaurus Rex (JP)"), or omit \`profile\` to project the currently-selected one.`,
+      };
+    }
+    const selectedProfile = requestedProfile ?? (state.dinoRay.genome.selectedProfile ? getProfile(state.dinoRay.genome.selectedProfile) : null);
+    const selectedProfileName = selectedProfile ? selectedProfile.displayName : state.dinoRay.genome.selectedProfile;
     const ecoOn = state.dinoRay.powerCore.ecoModeActive;
 
     // Effective alignment for the projection includes the bonus this scan
@@ -707,7 +722,7 @@ Increase charge to scan target signature.`,
       // voice and discovered at the trigger. rangeNote already states the
       // configuration fact ("above profile range"); that's as far as the
       // instrument goes.
-      projectionBlock = `  PROFILE:     ${selectedProfileName} (library ${state.dinoRay.genome.activeLibrary})
+      projectionBlock = `  PROFILE:     ${selectedProfileName} (library ${selectedProfile.library})${requestedProfile ? " — hypothetical projection" : ""}
   POWER:       φ ${capacitor.toFixed(2)} — ${rangeNote}; match ${powerMatch.toFixed(2)}
   ALIGNMENT:   χ ${baseAlignment.toFixed(2)} + ${SCAN_BONUS.toFixed(2)} scan bonus = ${effectiveAlignment.toFixed(2)}
   STABILITY:   ψ ${stability.toFixed(2)} (derived)
@@ -2458,9 +2473,9 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "ray.scan",
     aliases: ["scan"],
-    description: "Survey the ray's current readouts and project the outcome of firing on `target` with current configuration. Arms a +0.15 effective-alignment bonus on the next fire that includes `target` (consumed on that fire). `loud: true` makes the scan detectable.",
-    schema: "{ target: string, loud?: boolean }",
-    example: 'ray.scan { target: "AGENT_BLYTHE" }',
+    description: "Survey the ray's current readouts and project the outcome of firing on `target`. Projects the currently-selected profile by default; pass `profile` to project a hypothetical profile WITHOUT firing (compare options before committing). Arms a +0.15 effective-alignment bonus on the next fire that includes `target` (consumed on that fire). `loud: true` makes the scan detectable.",
+    schema: "{ target: string, profile?: string, loud?: boolean }",
+    example: 'ray.scan { target: "AGENT_BLYTHE", profile: "VELOCIRAPTOR_ACCURATE" }',
     minAccessLevel: 1,
   },
   {
@@ -2884,6 +2899,12 @@ export function generateCommandReference(maxLevel: number, includeAll: boolean =
 
   for (const cmd of COMMAND_REGISTRY) {
     const level = cmd.minAccessLevel;
+    // Player-facing reference hides GM/Act-3 adjudication verbs (the form.*
+    // combat/dex/transformation suite) and the advanced muon mode. They still
+    // execute — they're just not advertised: the player intuits consequences and
+    // the GM adjudicates. (Hiding ray.muon also matches its design: the MUON
+    // regime is discoverable only through incident reports.) includeAll = GM/debug.
+    if (!includeAll && (cmd.name.startsWith("form.") || cmd.name === "ray.muon")) continue;
     if (level >= 1 && level <= 5) {
       byLevel[level].push(cmd);
     }

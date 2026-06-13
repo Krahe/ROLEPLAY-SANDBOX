@@ -115,9 +115,11 @@ function checkAct1Transition(state: FullGameState): ActTransitionResult {
     return { shouldTransition: false };
   }
 
-  // Primary: ray has been fired (test or live — any outcome counts)
-  if (state.dinoRay.memory.lastFireTurn !== null) {
-    return buildTransition(state, "First test firing completed - Dr. M moves to Phase 2");
+  // Primary: the ray has been calibrated to demonstration readiness.
+  // Calibration (state.dinoRay.calibration, 0→1) is the Act 1 spine — it fills
+  // as ALICE works the ray (see the calibration hook in index.ts). 1.0 = ready.
+  if (state.dinoRay.calibration >= 1.0) {
+    return buildTransition(state, "Ray calibrated to demonstration readiness - Dr. M moves to Phase 2");
   }
 
   return { shouldTransition: false };

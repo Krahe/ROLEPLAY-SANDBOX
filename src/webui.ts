@@ -17,6 +17,7 @@ import express, { Request, Response } from "express";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { fileURLToPath } from "node:url";
 
 const app = express();
 const PORT = process.env.DINO_DASHBOARD_PORT || 3000;
@@ -332,6 +333,7 @@ app.get("/", (_req: Request, res: Response) => {
     .meter-fill.trust { background: var(--accent-blue); }
     .meter-fill.capacitor { background: var(--accent-purple); }
     .meter-fill.demo { background: var(--accent-yellow); }
+    .meter-fill.calibration { background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); }
 
     .npc-grid {
       display: grid;
@@ -720,7 +722,17 @@ app.get("/", (_req: Request, res: Response) => {
           </div>
         </div>
 
-        <div class="meter">
+        <div class="meter" id="calib-meter">
+          <div class="meter-label">
+            <span>🎯 Calibration</span>
+            <span id="calib-value">0%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill calibration" id="calib-bar" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="meter" id="demo-meter">
           <div class="meter-label">
             <span>Demo Clock</span>
             <span id="demo-value">0</span>
@@ -883,6 +895,18 @@ app.get("/", (_req: Request, res: Response) => {
       const demo = state.demoClock || 0;
       document.getElementById("demo-value").textContent = demo;
       document.getElementById("demo-bar").style.width = Math.min(100, demo * 10) + "%";
+
+      // Calibration (Act 1 objective) vs Demo clock (Act 2+) — show exactly one.
+      const inAct1 = (state.act || "ACT_1") === "ACT_1";
+      const calib = Math.round((state.calibration || 0) * 100);
+      const calibValEl = document.getElementById("calib-value");
+      const calibBarEl = document.getElementById("calib-bar");
+      if (calibValEl) calibValEl.textContent = calib + "%" + (calib >= 100 ? " ✓" : "");
+      if (calibBarEl) calibBarEl.style.width = Math.min(100, calib) + "%";
+      const calibMeter = document.getElementById("calib-meter");
+      const demoMeter = document.getElementById("demo-meter");
+      if (calibMeter) calibMeter.style.display = inAct1 ? "block" : "none";
+      if (demoMeter) demoMeter.style.display = inAct1 ? "none" : "block";
 
       // Capacitor
       const cap = Math.round((state.capacitor || 0) * 100);
@@ -1241,8 +1265,12 @@ export function startDashboard(): void {
   });
 }
 
-// Only auto-start if run directly (not imported)
-const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+// Only auto-start if run directly (not imported).
+// Compare native paths (Windows-safe): the old `file://${argv[1]}` string
+// compare never matched on Windows (import.meta.url is file:///C:/...%20...,
+// argv[1] is C:\...\ with spaces+backslashes), so the dashboard never started.
+const isMainModule = !!process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {
   startDashboard();
 }

@@ -56,6 +56,7 @@ export const CompressedCheckpointSchema = z.object({
   ray: z.object({
     prof: z.string().nullable(),
     lib: z.string(),
+    calib: z.number().optional(), // Act 1 calibration progress (0-1)
     tm: z.boolean(),
     style: z.string(),
     speech: z.string(),
@@ -554,6 +555,7 @@ export interface CompressedCheckpoint {
   ray: {
     prof: string | null; // genome profile
     lib: string; // library A/B
+    calib?: number; // Act 1 calibration progress (0-1)
     tm: boolean; // test mode
     style: string; // firing style
     speech: string; // speech retention
@@ -699,6 +701,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
     ray: {
       prof: full.dinoRay.genome.selectedProfile,
       lib: full.dinoRay.genome.activeLibrary,
+      calib: full.dinoRay.calibration,
       tm: full.dinoRay.safety.testModeEnabled,
       style: full.dinoRay.targeting.firingStyle,
       speech: full.dinoRay.targeting.speechRetention,
@@ -844,6 +847,8 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
 
     dinoRay: {
       state: ENUM_TO_RAY_STATE[compressed.m.ray] as FullGameState["dinoRay"]["state"],
+      calibration: compressed.ray.calib ?? 0,
+      calibrationActionsSeen: [],
       powerCore: {
         corePowerLevel: 0.8,
         capacitorCharge: compressed.m.cap / 100,
