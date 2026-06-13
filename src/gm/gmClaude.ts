@@ -2883,7 +2883,7 @@ function getAnthropicClient(): Anthropic {
 }
 
 export function getGMModel(): string {
-  return gmModelOverride ?? "claude-opus-4-6";
+  return gmModelOverride ?? "claude-opus-4-8";
 }
 
 export function setGMModel(model: string): void {

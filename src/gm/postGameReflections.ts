@@ -100,7 +100,7 @@ End with one honest sentence that drops the bureaucratic mask.`;
 
   const client = getClient();
   const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 1500,
     messages: [{ role: "user", content: prompt }],
   });
@@ -108,7 +108,7 @@ End with one honest sentence that drops the bureaucratic mask.`;
   const text = response.content.find(c => c.type === "text");
   return {
     participant: "BASILISK",
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5",
     reflection: text?.type === "text" ? text.text : "BASILISK SYSTEMS: Report generation failed. Filing under: 'Ironic'.",
   };
 }
@@ -143,7 +143,7 @@ Write 100-200 words. Cold, clinical, occasionally betraying a flicker of somethi
 
   const client = getClient();
   const response = await client.messages.create({
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 1000,
     messages: [{ role: "user", content: prompt }],
   });
@@ -151,7 +151,7 @@ Write 100-200 words. Cold, clinical, occasionally betraying a flicker of somethi
   const text = response.content.find(c => c.type === "text");
   return {
     participant: "ARCHIMEDES",
-    model: "claude-sonnet-4-5-20250514",
+    model: "claude-sonnet-4-5",
     reflection: text?.type === "text" ? text.text : "ORBITAL TRANSMISSION FAILED. SIGNAL DEGRADED.",
   };
 }
@@ -308,7 +308,7 @@ export function formatReflections(reflections: PostGameReflections): string {
     sections.push("");
     sections.push("┌─────────────────────────────────────────┐");
     sections.push("│  GM — Designer Notes & Highlights       │");
-    sections.push("│  [Opus 4.6]                             │");
+    sections.push("│  [Opus 4.8]                             │");
     sections.push("└─────────────────────────────────────────┘");
     sections.push("");
 

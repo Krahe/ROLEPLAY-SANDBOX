@@ -36,7 +36,7 @@ const MAX_BASILISK_HISTORY = 50; // Keep last 25 exchanges (50 messages)
 let basiliskModelOverride: string | null = null;
 
 export function getBasiliskModel(): string {
-  return basiliskModelOverride ?? "claude-sonnet-4-6";
+  return basiliskModelOverride ?? "claude-sonnet-4-5";
 }
 
 export function setBasiliskModel(model: string): void {
