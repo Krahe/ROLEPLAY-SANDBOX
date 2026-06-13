@@ -1152,7 +1152,7 @@ ${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
     } else {
       // Good report might improve mood
       if (state.npcs.drM.suspicionScore > 0) {
-        state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - 0.5);
+        state.npcs.drM.suspicionScore = Math.max(-3, state.npcs.drM.suspicionScore - 0.5);
       }
     }
     

@@ -803,7 +803,11 @@ export type TransformationState = z.infer<typeof TransformationStateSchema>;
 // ============================================
 
 export const DrMalevolaSchema = z.object({
-  suspicionScore: z.number().min(0).max(10),
+  // Floor is -3 (not 0): suspicion can bank below zero as "credit" earned by
+  // deliberate good play — Dr. M recontextualizes prior suspicions favorably.
+  // Banked credit is spent down before suspicion climbs again. (Design 2026-06-01;
+  // implemented 2026-06-13.) Tunable: -3 ↔ -5.
+  suspicionScore: z.number().min(-3).max(10),
   mood: z.string(),
   location: z.string(),
   latestCommandToALICE: z.string().optional(),

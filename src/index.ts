@@ -696,7 +696,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         if (gmResponse.stateOverrides) {
           const overrides = gmResponse.stateOverrides;
           if (overrides.drM_suspicion !== undefined) {
-            gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10, overrides.drM_suspicion));
+            gameState.npcs.drM.suspicionScore = Math.max(-3, Math.min(10, overrides.drM_suspicion));
           }
           if (overrides.drM_mood !== undefined) {
             gameState.npcs.drM.mood = overrides.drM_mood;
@@ -1231,7 +1231,7 @@ The consequences of that reckless high-power firing are now manifesting.
 
       // NPC state overrides - Dr. M
       if (overrides.drM_suspicion !== undefined) {
-        gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10, overrides.drM_suspicion));
+        gameState.npcs.drM.suspicionScore = Math.max(-3, Math.min(10, overrides.drM_suspicion));
       }
       if (overrides.drM_mood !== undefined) {
         gameState.npcs.drM.mood = overrides.drM_mood;
@@ -1589,7 +1589,7 @@ The consequences of that reckless high-power firing are now manifesting.
         const deltas = result.success ? req.applyOnSuccess : req.applyOnFailure;
         if (deltas) {
           if (deltas.drM_suspicion_delta) {
-            gameState.npcs.drM.suspicionScore = Math.max(0, Math.min(10,
+            gameState.npcs.drM.suspicionScore = Math.max(-3, Math.min(10,
               gameState.npcs.drM.suspicionScore + (deltas.drM_suspicion_delta as number)));
           }
           if (deltas.bob_anxiety_delta) {

@@ -495,7 +495,7 @@ export class GameRunner {
     const o = gmResponse.stateOverrides;
 
     // NPC overrides - Dr. M
-    if (o.drM_suspicion !== undefined) state.npcs.drM.suspicionScore = Math.max(0, Math.min(10, o.drM_suspicion));
+    if (o.drM_suspicion !== undefined) state.npcs.drM.suspicionScore = Math.max(-3, Math.min(10, o.drM_suspicion));
     if (o.drM_mood !== undefined) state.npcs.drM.mood = o.drM_mood;
     if (o.drM_location !== undefined) state.npcs.drM.location = o.drM_location;
 
@@ -577,7 +577,7 @@ export class GameRunner {
       const deltas = result.success ? req.applyOnSuccess : req.applyOnFailure;
       if (deltas) {
         if (deltas.drM_suspicion_delta) {
-          state.npcs.drM.suspicionScore = Math.max(0, Math.min(10,
+          state.npcs.drM.suspicionScore = Math.max(-3, Math.min(10,
             state.npcs.drM.suspicionScore + (deltas.drM_suspicion_delta as number)));
         }
         if (deltas.bob_anxiety_delta) {

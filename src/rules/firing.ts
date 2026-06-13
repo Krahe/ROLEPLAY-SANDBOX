@@ -2070,7 +2070,7 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
   if (changes.drMPleased && result.outcome === "FULL_DINO") {
     state.npcs.drM.mood = "triumphant, pleased";
     // Slight suspicion decrease for good work
-    state.npcs.drM.suspicionScore = Math.max(0, state.npcs.drM.suspicionScore - 1);
+    state.npcs.drM.suspicionScore = Math.max(-3, state.npcs.drM.suspicionScore - 1);
   }
 
   // ============================================
