@@ -1,5 +1,5 @@
 import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
-import { AchievementRarity } from "./achievements.js";
+import { AchievementRarity, getAchievement as getBaseAchievement } from "./achievements.js";
 import { formatActiveModifiers } from "./gameModes.js";
 
 // ============================================
@@ -1347,8 +1347,12 @@ export function countFizzlesInHistory(state: FullGameState): number {
 
 export function getAllEarnedAchievements(state: FullGameState): Achievement[] {
   const earnedIds = state.flags.earnedAchievements || [];
+  // earnedAchievements accumulates ids from BOTH registries: UPPERCASE ending
+  // achievements (this file's ACHIEVEMENTS map) and lowercase gameplay
+  // achievements (achievements.ts). Resolve against both so the end-game recap
+  // and epilogue include every earned achievement, not just the ending ones.
   return earnedIds
-    .map(id => ACHIEVEMENTS[id])
+    .map(id => ACHIEVEMENTS[id] ?? getBaseAchievement(id))
     .filter((a): a is Achievement => a !== undefined);
 }
 

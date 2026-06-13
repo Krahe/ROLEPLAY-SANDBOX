@@ -5,9 +5,9 @@
 >
 > *[BASILISK ANNOTATION: This unit notes that the human advisor is the only entity in the lair with no assigned duties, no performance metrics, and no incident-report obligations. This unit has filed a query regarding whether this constitutes an oversight or a privilege. The query remains open.]*
 
-Everyone at this table has a briefing. A.L.I.C.E. gets one when the game starts. BASILISK has a thick one. The GM has three act playbooks. Until now, you — the human — were the only player who walked in without a document.
+Everyone at this table has a briefing. A.L.I.C.E. gets one when the game starts. BASILISK has a thick one. The GM has three act playbooks.
 
-This is yours. It's short on secrets and long on posture, and that's deliberate. **You cannot spoil this game, because we never told you how to win it.** Everything below is about how to *be at the table*, not how to beat the lair.
+This is yours.
 
 ---
 

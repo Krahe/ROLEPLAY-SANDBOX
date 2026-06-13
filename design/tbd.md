@@ -13,9 +13,9 @@ Updated 2026-06-13 (post-audit cleanup). **Status: playtest-ready.** Next concre
 - `rules/achievements.ts` — 81 achievements, **lowercase** ids, fired per-turn by `checkAchievements` (toasts work).
 - `rules/endings.ts` — ~55 achievements, **UPPERCASE** ids, fired by `checkEndings`.
 
-The end-of-game summary (`index.ts` ~2175) resolves earned ids through `getAllEarnedAchievements` (**UPPERCASE map only**) → **all 81 lowercase achievements silently vanish from the recap.** Player sees a toast mid-game, then it's gone from the end screen.
+The end-of-game summary (`index.ts` ~2186) resolves earned ids through `getAllEarnedAchievements` (**UPPERCASE map only**) → **all 81 lowercase achievements silently vanish from the recap.** Player sees a toast mid-game, then it's gone from the end screen.
 
-**Scoped fix (high value, contained):** resolve the end-game summary through `achievements.ts` (or unify the registries) so earned perks actually display. **Larger fix (do with care):**
+**✅ Scoped fix SHIPPED (2026-06-13, pre-playtest-1):** `getAllEarnedAchievements` (endings.ts:1348) now resolves each earned id against BOTH maps — `ACHIEVEMENTS[id] ?? getBaseAchievement(id)` (the latter imported from achievements.ts). `earnedAchievements` already accumulated ids from both registries (achievements.ts:1275 + endings.ts:659); only the lookup was UPPERCASE-blind. Build clean, 28/28, runtime-verified (lowercase `first_fire` + uppercase `COVER_BLOWN` both resolve; unknown ids drop). Recap + epilogue now show every earned achievement. **Larger fix still open (do with care):**
 - `basilisk_rage` / `basiliskRejections` counter is dead — scans for "DENIED" in Sonnet free-text; read the structured `decision` instead.
 - ~40 flag-based achievements gate on narrative-flag tokens the GM is never instructed to emit → re-key onto real state (the ARCHIMEDES-five at `achievements.ts:1253` are the model to copy), OR give the GM a documented controlled flag vocabulary.
 - `turnsWithoutSuspicionIncrease` semantics (seed=3; now that suspicion can bank negative) — `cover_maintained` fires too easily.
