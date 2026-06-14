@@ -1767,14 +1767,7 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     recordFirstFiring(state, targetId, mode);
   }
 
-  if (changes.capacitorCharge !== undefined) {
-    state.dinoRay.powerCore.capacitorCharge = changes.capacitorCharge as number;
-  }
-
-  if (changes.coolantTemp !== undefined) {
-    state.dinoRay.powerCore.coolantTemp = changes.coolantTemp as number;
-  }
-
+  // Patch 30: capacitor / coolant mutations CUT (those fields no longer exist).
   if (changes.lastHighEnergyTurn !== undefined) {
     state.flags.lastHighEnergyTurn = changes.lastHighEnergyTurn as number;
   }
@@ -1783,13 +1776,7 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     state.flags.exoticFieldEventOccurred = true;
   }
 
-  // HIGH_POWER_FIRE alignment degradation — apply if the new path flagged it.
-  if (changes.alignmentHighPowerDelta !== undefined) {
-    state.dinoRay.alignment.unified = applyAlignmentDegradation(
-      state.dinoRay.alignment.unified,
-      changes.alignmentHighPowerDelta as number,
-    );
-  }
+  // Patch 30: HIGH_POWER alignment degradation CUT (alignment gone).
 
   // Test mode firing: disable test mode after use (single-use safety)
   if (changes.disableTestModeAfterFiring) {

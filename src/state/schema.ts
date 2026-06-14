@@ -55,34 +55,16 @@ export const ACT_CONFIGS = {
 export const RayStateEnum = z.enum([
   "OFFLINE", "STARTUP", "UNCALIBRATED", "READY",
   "FIRING", "COOLDOWN", "FAULT", "SHUTDOWN",
-  // Act 3 stall toolkit states (ray-mechanics §11.6)
-  "DIAGNOSTIC",     // ray.diagnostic — full-system stress test in progress (locks ray for 2 turns)
-  "CALIBRATING",    // ray.calibrate_amplifier — amplifier tuning in progress (locks ray for 1-2 turns)
+  // Patch 30: DIAGNOSTIC / CALIBRATING removed (Act-3 stall toolkit cut).
 ]);
 
-// DIAGNOSTIC/CALIBRATING countdown state (ray-mechanics §11.6).
-// Tracks the in-progress L3 diagnostic-class operations. When turnsRemaining
-// reaches 0, the ray returns to READY and any payoffs apply (alignment shift,
-// pass/fail certification, etc.).
-export const RayDiagnosticStateSchema = z.object({
-  active: z.boolean().default(false),
-  type: z.enum(["DIAGNOSTIC", "CALIBRATE_AMPLIFIER", "PROFILE_CERTIFICATION"]).nullable().default(null),
-  turnsRemaining: z.number().int().min(0).default(0),
-  startTurn: z.number().int().nullable().default(null),
-  // CALIBRATE_AMPLIFIER pending alignment shift (applied when complete)
-  pendingAlignmentDelta: z.number().nullable().default(null),
-  // PROFILE_CERTIFICATION target profile (resolved on completion)
-  pendingProfileName: z.string().nullable().default(null),
-});
+// RayDiagnosticStateSchema CUT (Patch 30): the Act-3 diagnostic stall toolkit
+// (ray.diagnostic / calibrate_amplifier / profile_certification) is removed.
 
 export const PowerCoreSchema = z.object({
-  corePowerLevel: z.number().min(0).max(1),
-  capacitorCharge: z.number().min(0).max(1.5),
-  coolantTemp: z.number().min(0).max(2),
-  // Note: `stability` was a stored field in the legacy calibration-threshold
-  // model. In the ray-mechanics rebuild it is *derived* per-fire from
-  // library × profile × power_match × alignment_match. Removed from schema
-  // in the legacy cleanup pass.
+  // Patch 30: corePowerLevel / capacitorCharge / coolantTemp CUT. Reactor is
+  // binary (infrastructure.basiliskAuthority.reactorControlGranted); no capacitor
+  // sim, no coolant. The ECO trio below is the only surviving power state.
   ecoModeActive: z.boolean(),
   // ECO MODE state machine (ray-mechanics §16 + BASILISK_SYSTEM_PROMPT_v2 §9):
   //   ACTIVE → ALICE asks BASILISK → TEMP DISABLED (auto-re-engages in 2 turns)
@@ -93,40 +75,26 @@ export const PowerCoreSchema = z.object({
   ecoModeReEngageTurn: z.number().int().nullable().optional(),
 });
 
-export const AlignmentArraySchema = z.object({
-  // Unified alignment scalar (design/ray-mechanics.md §5).
-  // ALICE adjusts via `ray.adjust { alignment: ±n }`. Drifts -0.05/turn passively.
-  // Legacy decomposed fields (emitterAngle, focusCrystalOffset, spatialCoherence,
-  // auxStabilizerActive) were removed in the legacy cleanup pass — they were
-  // dead in the new architecture (no readers, only init writers).
-  unified: z.number().min(0).max(1).default(0.7),
-});
+// AlignmentArraySchema CUT (Patch 30): alignment is gone entirely. FULL-vs-
+// PARTIAL is gated by the ECO cap, not an alignment scalar.
 
 export const GenomeLibraryEnum = z.enum(["A", "B"]);
 
 // Firing mode - TRANSFORM is default, REVERSAL requires Level 3
 export const FiringModeEnum = z.enum(["TRANSFORM", "REVERSAL"]);
 
-export const AdvancedFiringModeEnum = z.enum([
-  "STANDARD",
-  "CHAIN_SHOT",
-  "OVERCHARGE",
-]);
+// AdvancedFiringModeEnum CUT (Patch 30): firing regimes (CHAIN/OVERCHARGE) gone.
 
 export const GenomeMatrixSchema = z.object({
   selectedProfile: z.string().nullable(),
-  profileIntegrity: z.number().min(0).max(1),
-  libraryStatus: z.enum(["HEALTHY", "PARTIAL", "CORRUPTED", "DESTROYED"]),
+  // profileIntegrity / libraryStatus / advancedFiringMode CUT (Patch 30).
   fallbackProfile: z.string(),
   // Genome Library System - BOTH libraries available from Level 1!
-  // The drama is in REVERSAL being restricted, not dinosaur selection
   activeLibrary: GenomeLibraryEnum, // A = accurate/feathered, B = classic/scaled
   libraryAUnlocked: z.boolean(), // Accurate dinosaurs (always true)
   libraryBUnlocked: z.boolean(), // Classic dinosaurs (always true now!)
-  // Firing mode for transformation direction
+  // Firing mode — TRANSFORM default; REVERSAL deferred-but-kept (D1, Patch 30).
   firingMode: FiringModeEnum.default("TRANSFORM"),
-  // Advanced firing mode for multi-target and special effects
-  advancedFiringMode: AdvancedFiringModeEnum.default("STANDARD"),
 });
 
 // ============================================
@@ -155,8 +123,7 @@ export const TargetingSchema = z.object({
 
 export const SafetySchema = z.object({
   testModeEnabled: z.boolean(),
-  liveSubjectLock: z.boolean(),
-  emergencyShutoffFunctional: z.boolean(),
+  // liveSubjectLock / emergencyShutoffFunctional CUT (Patch 30): not tracked state.
   lastSelfTestPassed: z.boolean(),
   anomalyLogCount: z.number().int().min(0),
   safetyParityTimer: z.number().int().min(0),
@@ -200,28 +167,19 @@ export const ScanBonusSchema = z.object({
 export const DinoRaySchema = z.object({
   state: RayStateEnum,
   powerCore: PowerCoreSchema,
-  alignment: AlignmentArraySchema,
   genome: GenomeMatrixSchema,
   targeting: TargetingSchema,
   safety: SafetySchema,
   memory: FiringMemorySchema,
-  // Ray-mechanics rebuild: scan-then-fire precision bonus (design §5).
+  // Patch 30 TWO-LEVER model: ALICE picks a genome (its sizeClass) + a POWER
+  // dial 1–5. Ideal power = the size tier (tiny→1 … huge→5). delta = power −
+  // ideal: 0=FULL, −1=PARTIAL, ≤−2=FIZZLE; +1+ on med/large/huge=CHIMERA;
+  // +1+ on tiny/small=MUON (stun at +1, cut at +2). Reactor gates tiers 4–5.
+  power: z.number().int().min(1).max(5).default(1),
+  // Scanned-target marker (Patch 30): repurposed from the old +0.15-alignment
+  // bonus to a GM-facing opposed-roll bonus vs hostile/unwilling targets.
   scanBonus: ScanBonusSchema.nullable().default(null),
-  // Act 3 stall toolkit (ray-mechanics §11.6): L3 diagnostic-class operations.
-  diagnostic: RayDiagnosticStateSchema.default({
-    active: false,
-    type: null,
-    turnsRemaining: 0,
-    startTurn: null,
-    pendingAlignmentDelta: null,
-    pendingProfileName: null,
-  }),
-  // Act 1 calibration spine: 0→1 progress bar filled by ray engagement
-  // (novelty-weighted: +0.10 the first time a given ray.* action is used this
-  // game, +0.05 on repeats). Reaching 1.0 ends Act 1. calibrationActionsSeen
-  // tracks which ray.* commands have already paid their first-use bonus.
-  calibration: z.number().min(0).max(1).default(0),
-  calibrationActionsSeen: z.array(z.string()).default([]),
+  // CUT (Patch 30): alignment, diagnostic, calibration meter + calibrationActionsSeen.
 });
 
 // ============================================

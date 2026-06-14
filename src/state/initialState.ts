@@ -21,29 +21,20 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
     },
 
     dinoRay: {
-      state: "READY",  // Was UNCALIBRATED in the legacy calibration-threshold model. The new architecture has no separate "calibrate to ready" phase; the ray just fires (with whatever outcome the configuration produces). State is now mostly cosmetic — COOLDOWN appears after fires.
-      // Act 1 calibration spine (0→1, filled by ray engagement; 1.0 ends Act 1)
-      calibration: 0,
-      calibrationActionsSeen: [],
+      state: "READY",  // mostly cosmetic now — COOLDOWN appears after fires.
+      // Patch 30 TWO-LEVER model: power dial 1–5, matched to the genome's size tier.
+      power: 1,
       powerCore: {
-        corePowerLevel: 0.45,
-        capacitorCharge: 0.35,
-        coolantTemp: 0.60,
+        // Patch 30: capacitor / corePowerLevel / coolant cut. ECO is the only power state.
         ecoModeActive: false,
       },
-      alignment: {
-        unified: 0.7, // Ray-mechanics rebuild §5 — unified alignment scalar
-      },
       genome: {
-        selectedProfile: "Velociraptor (accurate)",
-        profileIntegrity: 0.78,
-        libraryStatus: "HEALTHY",
+        selectedProfile: "Velociraptor (accurate)", // small genome → naive MED/HIGH = MUON (the teaching moment)
         fallbackProfile: "Canary",
         activeLibrary: "A",
         libraryAUnlocked: true,
-        libraryBUnlocked: true, // Now available from start! REVERSAL is the restriction.
+        libraryBUnlocked: true, // Both available from start! REVERSAL is the restriction.
         firingMode: "TRANSFORM",
-        advancedFiringMode: "STANDARD", // Multi-target modes available!
       },
       targeting: {
         currentTargetIds: ["AGENT_BLYTHE"],
@@ -54,8 +45,6 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       },
       safety: {
         testModeEnabled: false,
-        liveSubjectLock: true,
-        emergencyShutoffFunctional: true,
         lastSelfTestPassed: false,
         anomalyLogCount: 0,
         safetyParityTimer: 0,
@@ -71,14 +60,6 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         firstFiringMode: null,
       },
       scanBonus: null,
-      diagnostic: {
-        active: false,
-        type: null,
-        turnsRemaining: 0,
-        startTurn: null,
-        pendingAlignmentDelta: null,
-        pendingProfileName: null,
-      },
     },
 
     lairEnvironment: {

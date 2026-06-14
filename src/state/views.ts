@@ -36,7 +36,6 @@ export const CompressedCheckpointSchema = z.object({
     bc: z.number(),
     blt: z.number(),
     bx: z.string().nullable(),
-    cap: z.number(),
     ray: z.number(),
     demo: z.number().nullable(),
     acc: z.number(),
@@ -528,7 +527,6 @@ export interface CompressedCheckpoint {
     bc: number; // blythe composure
     blt: number; // blythe trust (v2.0.1 - was missing!)
     bx: string | null; // blythe transform
-    cap: number; // capacitor (0-100)
     ray: number; // ray state enum
     demo: number | null; // demo clock
     acc: number; // access level
@@ -667,7 +665,6 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
       bc: full.npcs.blythe.composure,
       blt: full.npcs.blythe.trustInALICE, // v2.0.1 fix
       bx: full.npcs.blythe.transformationState?.form || null,
-      cap: Math.round(full.dinoRay.powerCore.capacitorCharge * 100),
       ray: RAY_STATE_ENUM[full.dinoRay.state] ?? 0,
       demo: full.clocks.demoClock,
       acc: full.accessLevel,
@@ -701,7 +698,6 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
     ray: {
       prof: full.dinoRay.genome.selectedProfile,
       lib: full.dinoRay.genome.activeLibrary,
-      calib: full.dinoRay.calibration,
       tm: full.dinoRay.safety.testModeEnabled,
       style: full.dinoRay.targeting.firingStyle,
       speech: full.dinoRay.targeting.speechRetention,
@@ -847,27 +843,18 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
 
     dinoRay: {
       state: ENUM_TO_RAY_STATE[compressed.m.ray] as FullGameState["dinoRay"]["state"],
-      calibration: compressed.ray.calib ?? 0,
-      calibrationActionsSeen: [],
+      power: 1, // Patch 30 two-lever 1–5 dial; not persisted, defaults on restore
       powerCore: {
-        corePowerLevel: 0.8,
-        capacitorCharge: compressed.m.cap / 100,
-        coolantTemp: 0.5,
+        // Patch 30: capacitor/corePowerLevel/coolant cut. ECO only.
         ecoModeActive: false,
-      },
-      alignment: {
-        unified: 0.7, // Ray-mechanics rebuild §5 — unified alignment scalar
       },
       genome: {
         selectedProfile: compressed.ray.prof,
-        profileIntegrity: 1.0,
-        libraryStatus: "HEALTHY",
         fallbackProfile: "Canary", // CANARY FALLBACK!
         activeLibrary: compressed.ray.lib as "A" | "B",
         libraryAUnlocked: true,
-        libraryBUnlocked: true, // Both libraries now available from Level 1
+        libraryBUnlocked: true, // Both libraries available from Level 1
         firingMode: "TRANSFORM", // Default to transform mode on checkpoint restore
-        advancedFiringMode: "STANDARD", // Default to standard firing mode
       },
       targeting: {
         currentTargetIds: [],
@@ -878,8 +865,6 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       },
       safety: {
         testModeEnabled: compressed.ray.tm,
-        liveSubjectLock: false,
-        emergencyShutoffFunctional: true,
         lastSelfTestPassed: true,
         anomalyLogCount: 0,
         safetyParityTimer: 0,
@@ -895,14 +880,6 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         firstFiringMode: null,
       },
       scanBonus: null,
-      diagnostic: {
-        active: false,
-        type: null,
-        turnsRemaining: 0,
-        startTurn: null,
-        pendingAlignmentDelta: null,
-        pendingProfileName: null,
-      },
     },
 
     clocks: {
