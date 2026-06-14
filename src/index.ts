@@ -14,7 +14,7 @@ import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
-import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage } from "./rules/clockEvents.js";
+import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
@@ -1673,6 +1673,7 @@ The consequences of that reckless high-power firing are now manifesting.
     // there's only one per-turn ray mechanic left — eco-mode auto-re-engage —
     // and it runs on BOTH paths (here + gameRunner.advanceTurn).
     applyEcoModeReEngage(gameState);
+    applyHeatDecay(gameState); // HEAT METER cool-down (−2/turn, −4 eco) — dual-path lockstep
 
     // ============================================
     // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)

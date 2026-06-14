@@ -667,7 +667,7 @@ export class DinoLairOrchestrator {
     lines.push("");
 
     lines.push(`**Dinosaur Ray:** ${view.rayState}`);
-    lines.push(`**Capacitor:** ${Math.round(view.capacitorCharge * 100)}%`);
+    lines.push(`**Heat:** ${view.heat}/10${view.heat >= 10 ? " 🔥 OVERHEATED (every shot risks chaos)" : ""}`);
     lines.push(`**Test Mode:** ${view.testModeOn ? "ON" : "OFF"}`);
     lines.push("");
 

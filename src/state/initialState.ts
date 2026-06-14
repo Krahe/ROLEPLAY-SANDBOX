@@ -24,6 +24,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       state: "READY",  // mostly cosmetic now — COOLDOWN appears after fires.
       // Patch 30 TWO-LEVER model: power dial 1–5, matched to the genome's size tier.
       power: 1,
+      heat: 0, // HEAT METER (Patch 30): 0→10 spam-limiter; cools −2/turn (−4 eco).
       powerCore: {
         // Patch 30: capacitor / corePowerLevel / coolant cut. ECO is the only power state.
         ecoModeActive: false,

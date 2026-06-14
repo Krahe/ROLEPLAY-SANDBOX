@@ -176,6 +176,11 @@ export const DinoRaySchema = z.object({
   // ideal: 0=FULL, −1=PARTIAL, ≤−2=FIZZLE; +1+ on med/large/huge=CHIMERA;
   // +1+ on tiny/small=MUON (stun at +1, cut at +2). Reactor gates tiers 4–5.
   power: z.number().int().min(1).max(5).default(1),
+  // HEAT METER (Patch 30 re-add): 0→10 spam-limiter. Each fire adds `power` heat;
+  // cools −2/turn (−4 with eco on). At 10 (overheated) every fire rolls the chaos
+  // table until it cools. The cost-of-firing that protects the social layer from
+  // "just transform everyone."
+  heat: z.number().int().min(0).max(10).default(0),
   // Scanned-target marker (Patch 30): repurposed from the old +0.15-alignment
   // bonus to a GM-facing opposed-roll bonus vs hostile/unwilling targets.
   scanBonus: ScanBonusSchema.nullable().default(null),

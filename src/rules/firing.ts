@@ -678,25 +678,43 @@ export function resolveFiring(state: FullGameState): FiringResult {
   const matrix = resolveMatrix(profile.sizeClass, effectivePower);
 
   // MUON corners (emergent) — route to the GM-adjudicated muon resolvers.
+  let result: FiringResult;
   if (matrix.outcome === "MUON_STUN") {
     const muon = resolveMuonBeta({ ecoModeActive: ray.powerCore.ecoModeActive });
-    return muonResolutionToFiringResult(state, "MUON_BETA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
-  }
-  if (matrix.outcome === "MUON_CUT") {
+    result = muonResolutionToFiringResult(state, "MUON_BETA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
+  } else if (matrix.outcome === "MUON_CUT") {
     const muon = resolveMuonAlpha({ ecoModeActive: ray.powerCore.ecoModeActive });
-    return muonResolutionToFiringResult(state, "MUON_ALPHA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
+    result = muonResolutionToFiringResult(state, "MUON_ALPHA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
+  } else {
+    // Standard transformation tiers (FULL / PARTIAL / CHIMERA / FIZZLE).
+    result = resolveTransformFire(state, {
+      profile,
+      effectiveProfileName: selectedProfileName,
+      primaryTargetId,
+      matrix,
+      effectivePower,
+      requestedPower,
+      reactorClamped,
+    });
   }
 
-  // Standard transformation tiers (FULL / PARTIAL / CHIMERA / FIZZLE).
-  return resolveTransformFire(state, {
-    profile,
-    effectiveProfileName: selectedProfileName,
-    primaryTargetId,
-    matrix,
-    effectivePower,
-    requestedPower,
-    reactorClamped,
-  });
+  // HEAT METER overheat (Patch 30): if the ray was ALREADY at the ceiling (10)
+  // when ALICE pulled the trigger, this shot overlays a chaos roll on its outcome
+  // — bigger shots throw fiercer chaos. Heat is added post-fire (applyFiringResults),
+  // so the shot that *fills* the meter is clean; every shot after, while pinned at
+  // 10, throws chaos until it cools. The "stop spamming the ray" brake — and the
+  // home the dormant chaos table comes back to.
+  if (ray.heat >= 10) {
+    const chaos = rollChaosFizzle(effectivePower * 0.4);
+    result.chaosEvent = chaos;
+    result.environmentalEffects = [...result.environmentalEffects, chaos.description];
+    result.narrativeHooks = [
+      `🔥 OVERHEATED (heat ${ray.heat}/10): the ray throws a chaos field on top of the shot — "${chaos.name}" [${chaos.severity}]. Let it cool (idle, or eco-on) before firing again.`,
+      ...result.narrativeHooks,
+    ];
+  }
+
+  return result;
 }
 
 // LEGACY K-VIOLATION PATH excised 2026-06-06 (Step 7).
@@ -982,6 +1000,12 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
       state.dinoRay.scanBonus = null;
     }
   }
+
+  // HEAT METER (Patch 30): every discharge adds `power` heat (ceiling 10). Cools
+  // −2/turn (−4 eco) via applyHeatDecay (clockEvents). resolveFiring read this
+  // value BEFORE this add to decide overheat-chaos, so the meter-filling shot
+  // itself stays clean; the next shot while pinned at 10 throws chaos.
+  state.dinoRay.heat = Math.min(10, state.dinoRay.heat + state.dinoRay.power);
 
   // Apply direct state changes
   if (changes.anomalyLogCount !== undefined) {

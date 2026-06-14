@@ -33,6 +33,18 @@ export function applyEcoModeReEngage(state: FullGameState): void {
 }
 
 // ============================================
+// HEAT DECAY (Patch 30 — the heat meter's per-turn cool-down)
+// ============================================
+// The ray sheds heat each turn: −2 normally, −4 with eco on (eco runs the ray
+// cool but caps outcomes at PARTIAL). Runs on BOTH turn paths via the advanceTurn
+// blocks, alongside applyEcoModeReEngage — single definition, no dual-path drift.
+
+export function applyHeatDecay(state: FullGameState): void {
+  const decay = state.dinoRay.powerCore.ecoModeActive ? 4 : 2;
+  state.dinoRay.heat = Math.max(0, state.dinoRay.heat - decay);
+}
+
+// ============================================
 // CLOCK EVENTS — Modifier-Gated and Advisory
 // ============================================
 // Per Patch 22 redesign:

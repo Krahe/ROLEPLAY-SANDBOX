@@ -27,19 +27,20 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
   const susIndicator = sus >= 7 ? "🔴" : sus >= 4 ? "🟡" : "🟢";
   parts.push(`${susIndicator} Sus:${sus}/10`);
 
-  // 🔋 Ray state + capacitor (+ reactor mode when elevated, so a BOOSTED/
-  // OVERDRIVEN reactor is visible at a glance — it drives capacitor accrual)
+  // 🔋 Ray state + HEAT meter (+ reactor mode when elevated). Heat is the spam
+  // brake: ❄️COOL → ♨️WARM → 🔥OVERHEAT (at 10, every shot throws chaos).
   const rayState = state.dinoRay.state;
-  const cap = Math.round(state.dinoRay.powerCore.capacitorCharge * 100);
+  const heat = state.dinoRay.heat;
+  const heatBand = heat >= 10 ? "🔥OVERHEAT" : heat >= 6 ? "♨️WARM" : "❄️COOL";
   const reactorMode = state.infrastructure?.reactor?.mode;
   const reactorTag = reactorMode && reactorMode !== "NORMAL" ? ` ⚡${reactorMode}` : "";
-  parts.push(`🔋 ${rayState}@${cap}%${reactorTag}`);
+  parts.push(`🔋 ${rayState} heat:${heat}/10 ${heatBand}${reactorTag}`);
 
-  // 🎯 Act 1 objective = CALIBRATION; Act 2+ = the demo clock (which only
-  // starts in Act 2). Each act surfaces its own pressure source.
+  // 🎯 Act 1 objective = test-fire the ray (calibration meter cut, Patch 30);
+  // Act 2+ = the demo clock (which only starts in Act 2).
   if (actName === "ACT_1") {
-    const calib = Math.round((state.dinoRay.calibration ?? 0) * 100);
-    parts.push(`🎯 Calib:${calib}%${calib >= 100 ? " ✓" : ""}`);
+    const fired = state.dinoRay.memory.hasFiredSuccessfully;
+    parts.push(`🎯 Test-fire${fired ? " ✓" : ""}`);
   } else {
     parts.push(`⏰ Demo:${state.clocks.demoClock}`);
   }
@@ -139,13 +140,13 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
  */
 export function formatStatusBarCompact(state: FullGameState): string {
   const sus = state.npcs.drM.suspicionScore;
-  const cap = Math.round(state.dinoRay.powerCore.capacitorCharge * 100);
-  // Act 1 surfaces calibration; Act 2+ the demo clock.
+  const heat = state.dinoRay.heat;
+  // Act 1 surfaces the test-fire objective; Act 2+ the demo clock.
   const objective = (state.actConfig?.currentAct ?? "ACT_1") === "ACT_1"
-    ? `Calib:${Math.round((state.dinoRay.calibration ?? 0) * 100)}%`
+    ? `Test-fire:${state.dinoRay.memory.hasFiredSuccessfully ? "✓" : "—"}`
     : `Demo:${state.clocks.demoClock}`;
 
-  return `T${state.turn} Sus:${sus} Cap:${cap}% ${objective}`;
+  return `T${state.turn} Sus:${sus} Heat:${heat}/10 ${objective}`;
 }
 
 /**
@@ -185,10 +186,10 @@ export function formatGMStatusBar(state: FullGameState): string {
   const blytheStatus = blytheTrust >= 4 ? "ALLIED" : blytheTrust >= 2 ? "FRIENDLY" : blytheTrust >= 0 ? "WARY" : "HOSTILE";
   parts1.push(`Bob:${bobStatus}(${bobTrust}) Blythe:${blytheStatus}(${blytheTrust})`);
 
-  // Ray state
+  // Ray state + heat
   const rayState = state.dinoRay.state;
-  const cap = Math.round(state.dinoRay.powerCore.capacitorCharge * 100);
-  parts1.push(`Ray:${rayState}@${cap}%`);
+  const heat = state.dinoRay.heat;
+  parts1.push(`Ray:${rayState} heat:${heat}/10`);
 
   lines.push(parts1.join(" | "));
 

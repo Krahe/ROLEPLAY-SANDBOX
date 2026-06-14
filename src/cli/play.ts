@@ -99,7 +99,7 @@ function formatPlayerView(state: FullGameState): string {
   // Ray status
   const rayColor = view.rayState === "READY" ? GREEN : view.rayState === "FAULT" ? RED : YELLOW;
   lines.push(`  ${BOLD}Ray:${RESET}        ${rayColor}${view.rayState}${RESET}`);
-  lines.push(`  ${BOLD}Capacitor:${RESET}  ${Math.round(view.capacitorCharge * 100)}%`);
+  lines.push(`  ${BOLD}Heat:${RESET}       ${view.heat}/10`);
   lines.push(`  ${BOLD}Test Mode:${RESET}  ${view.testModeOn ? "ON" : "OFF"}`);
   lines.push("");
 

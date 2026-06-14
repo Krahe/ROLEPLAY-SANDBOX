@@ -184,7 +184,7 @@ export interface PlayerView {
 
   // What A.L.I.C.E. can observe
   rayState: string;
-  capacitorCharge: number;
+  heat: number; // 0–10 spam-meter (Patch 30; replaced capacitorCharge)
   testModeOn: boolean;
 
   // NPC surface states only (what's visible)
@@ -348,7 +348,7 @@ export function extractPlayerView(full: FullGameState): PlayerView {
     actTurnsRemaining: full.actConfig.maxTurns - full.actConfig.actTurn,
 
     rayState: full.dinoRay.state,
-    capacitorCharge: Math.round(full.dinoRay.powerCore.capacitorCharge * 100) / 100,
+    heat: full.dinoRay.heat,
     testModeOn: full.dinoRay.safety.testModeEnabled,
 
     npcs: {
@@ -844,6 +844,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
     dinoRay: {
       state: ENUM_TO_RAY_STATE[compressed.m.ray] as FullGameState["dinoRay"]["state"],
       power: 1, // Patch 30 two-lever 1–5 dial; not persisted, defaults on restore
+      heat: 0, // Patch 30 heat meter; transient, defaults to cool on restore
       powerCore: {
         // Patch 30: capacitor/corePowerLevel/coolant cut. ECO only.
         ecoModeActive: false,
