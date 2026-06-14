@@ -15,7 +15,6 @@ import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, applyAlignmentDrift, applyCapacitorAccrual, applyEcoModeReEngage, checkIntermissionEnd } from "../rules/clockEvents.js";
-import { advanceRayDiagnostic } from "../rules/rayDiagnostics.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadgets.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
@@ -690,12 +689,8 @@ export class GameRunner {
     // Talking to BASILISK is the high-leverage move for action-budget relief.
     applyCapacitorAccrual(state);
 
-    // Ray diagnostic/calibration tick (ray-mechanics §11.6). Advances any
-    // active DIAGNOSTIC/CALIBRATING state, drains capacitor per-turn, applies
-    // completion effects when turnsRemaining hits 0. Must run AFTER accrual
-    // so the net per-turn capacitor change accounts for both reactor input
-    // and diagnostic draw.
-    advanceRayDiagnostic(state);
+    // Ray diagnostic/calibration tick CUT (Patch 30): the stall toolkit +
+    // rayDiagnostics.ts are gone. Act-3 stalling moves to the social layer.
 
     // NOT_GREAT_NOT_TERRIBLE reactor instability
     if (isModifierActive(state, "NOT_GREAT_NOT_TERRIBLE") && state.meltdownState) {

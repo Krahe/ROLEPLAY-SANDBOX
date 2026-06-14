@@ -135,90 +135,10 @@ function rollD20(): number {
 // configure-UX surface (achievements, warning displays) but stops affecting
 // firing math. Full schema purge can be a v2 polish.
 
-// ============================================
-// RAY MECHANICS REBUILD (design/ray-mechanics.md §6-7)
-// ============================================
-// New stability model: projected_stability = library × integrity × power_match × alignment_match
-// These are PURE FUNCTIONS, NOT YET wired into resolveFiring below.
-// Wiring happens at step 4 (regime detection); existing resolveFiring path stays intact for now.
-
-export type OutcomeTier = "FULL" | "PARTIAL" | "CHIMERA" | "EXOTIC" | "FIZZLE";
-
-/**
- * Power match factor (§6).
- * Returns 1.0 if capacitor is in profile's [min, max] range.
- * Degrades linearly outside the range with /0.3 slope, clamped to [0, 1].
- *
- *   power_match = 1.0  if capacitor ∈ [profile.min, profile.max]
- *               | 1.0 − ((profile.min − capacitor) / 0.3)  if undercharged
- *               | 1.0 − ((capacitor − profile.max) / 0.3)  if overcharged
- *               | clamped to [0, 1]
- */
-export function computePowerMatch(profile: GenomeProfile, capacitor: number): number {
-  if (capacitor >= profile.minCapacitor && capacitor <= profile.maxCapacitor) {
-    return 1.0;
-  }
-  if (capacitor < profile.minCapacitor) {
-    const undershoot = profile.minCapacitor - capacitor;
-    // Rebalance 2026-06-13: fall-off widened /0.3 -> /0.5 (gentler) so off-range
-    // shots produce messy effects (CHIMERA/EXOTIC) instead of total whiffs.
-    return Math.max(0, Math.min(1, 1.0 - undershoot / 0.5));
-  }
-  // Overcharged
-  const overshoot = capacitor - profile.maxCapacitor;
-  return Math.max(0, Math.min(1, 1.0 - overshoot / 0.5));
-}
-
-/**
- * Projected stability (§6).
- * Multiplicative product of four factors. Collapses fast — one bad factor tanks the whole shot.
- * That is the design: ALICE cannot compensate for misaligned with high power.
- *
- *   projected_stability = library_coefficient
- *                       × profile.integrity
- *                       × power_match
- *                       × alignment_match
- *
- * `effectiveAlignment` is base alignment + scan_bonus (caller composes).
- */
-export function computeStability(
-  profile: GenomeProfile,
-  capacitor: number,
-  effectiveAlignment: number,
-): number {
-  const powerMatch = computePowerMatch(profile, capacitor);
-  const alignmentMatch = Math.max(0, Math.min(1, effectiveAlignment));
-  return profile.libraryCoefficient * profile.integrity * powerMatch * alignmentMatch;
-}
-
-/**
- * Outcome tier thresholds (§7), with EXOTIC promotion for energetic failures.
- *
- *   > 0.80    → FULL    (transformation succeeds cleanly)
- *   0.55–0.80 → PARTIAL (intended profile, incomplete features)
- *   0.30–0.55 → CHIMERA (drift to adjacent profile + conflicting features)
- *   < 0.30    → FIZZLE  (quiet failure — beam dissipates)
- *              → EXOTIC (energetic failure — chaos table fires) when
- *                       chaosConditionsActive is true (overcharge / hot
- *                       coolant / heavy misalignment present)
- *
- * EXOTIC is NOT a stability-tier threshold — same stability range as FIZZLE.
- * The split is "how did you fail": quiet vs. energetic. Same low stability,
- * very different visible outcome.
- */
-export function getOutcomeTier(
-  stability: number,
-  chaosConditionsActive: boolean = false,
-): OutcomeTier {
-  // Rebalance 2026-06-13: thresholds lowered (FULL 0.80->0.75, PARTIAL 0.55->0.45,
-  // CHIMERA floor 0.30->0.15) to broaden non-fizzle outcomes -- "more effects than
-  // fewer" for testing. FULL still needs scan/alignment prep (elegant accident
-  // preserved). Tune back up later if too generous.
-  if (stability > 0.75) return "FULL";
-  if (stability >= 0.45) return "PARTIAL";
-  if (stability >= 0.15) return "CHIMERA";
-  return chaosConditionsActive ? "EXOTIC" : "FIZZLE";
-}
+// The φ/χ/ψ stability helpers (computePowerMatch / computeStability /
+// getOutcomeTier + OutcomeTier) CUT in Patch 30 — the two-lever matrix replaced
+// the multiplicative stability model. Their last consumers (actions.ts scan
+// projection + dashboard) went in Phase 3.
 
 /**
  * Alignment degradation constants (design/ray-mechanics.md §5).

@@ -3,19 +3,11 @@ import {
   resolveFiring,
   applyFiringResults,
   FiringResult,
-  resolveMuonBetaAmplified,
-  resolveMuonAlphaAmplified,
-  ALIGNMENT_DEGRADATION,
-  applyAlignmentDegradation,
-  computeStability,
-  computePowerMatch,
-  getOutcomeTier,
 } from "./firing.js";
 import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";
-import { performScan } from "./scanning.js";
 import {
   queryInfrastructure,
   controlLighting,
@@ -32,7 +24,6 @@ import {
   switchBroadcastLibrary,
 } from "./infrastructure.js";
 import { signalAntiSatMissile, engageEWMode, disengageEWMode } from "./archimedes.js";
-import { startRayDiagnostic, startCalibrateAmplifier, runProfileCertification } from "./rayDiagnostics.js";
 import {
   FORM_DEFINITIONS,
   performDexCheck,
@@ -402,232 +393,22 @@ infra.query is an action. game_query_basilisk is a tool.`,
   // These verbs replace the legacy lab.* ray controls. ALICE's direct
   // ray-control toolkit: scan, adjust, fire, vent.
 
-  // ────────────────────────────────────────────
-  // RAY.ADJUST { capacitor?, alignment?, eco_mode? }
-  // ────────────────────────────────────────────
-  // Fine-grained tuning of capacitor charge and alignment.
-  // Eco-mode flips: ON is free (ALICE self-restraint, useful for Act 3
-  // stalling); OFF requires BASILISK approval via Form 47-Σ.
-  // Multi-parameter: all three can be set in a single call.
-
-  if (cmd === "ray.adjust") {
-    const params = action.params as {
-      capacitor?: number;
-      alignment?: number;
-      eco_mode?: string;
-    };
-
-    const deltas: string[] = [];
-    const errors: string[] = [];
-    const stateChanges: Record<string, unknown> = {};
-
-    // ── capacitor ── (positive draws only; vent is the release lever)
-    if (params.capacitor !== undefined) {
-      const delta = Number(params.capacitor);
-      if (!Number.isFinite(delta)) {
-        errors.push(`capacitor delta must be a number (got ${params.capacitor})`);
-      } else if (delta < 0) {
-        // ray.adjust is the small draw-from-reactor lever; ray.vent is the
-        // only release lever (and it perturbs alignment by design — that's
-        // the pressure that makes capacitor pacing matter).
-        errors.push(
-          `capacitor cannot be reduced via ray.adjust. Use ray.vent to release charge (note: venting perturbs alignment).`,
-        );
-      } else {
-        // Per-call sanity clamp. Granular tuning belongs here; bulk
-        // charging is BASILISK-mediated via reactor output mode.
-        const clampedDelta = Math.min(0.25, delta);
-
-        const currentCharge = state.dinoRay.powerCore.capacitorCharge;
-        const reactorPercent = state.infrastructure.reactor.outputPercent;
-
-        if (reactorPercent < 30) {
-          errors.push(
-            `capacitor draw refused: reactor at ${reactorPercent}% (min 30% required). Ask BASILISK to raise reactor output.`,
-          );
-        } else if (currentCharge >= 1.4) {
-          errors.push(
-            `capacitor draw refused: charge at ${(currentCharge * 100).toFixed(0)}% (already near max — vent before drawing more).`,
-          );
-        } else {
-          const newCharge = Math.min(1.5, currentCharge + clampedDelta);
-          state.dinoRay.powerCore.capacitorCharge = newCharge;
-
-          // Heat scales with magnitude of draw.
-          const heatSpike = clampedDelta * 0.4; // ~0.02 per 0.05 draw
-          state.dinoRay.powerCore.coolantTemp = Math.min(
-            2,
-            state.dinoRay.powerCore.coolantTemp + heatSpike,
-          );
-
-          deltas.push(
-            `capacitor: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (+${(clampedDelta * 100).toFixed(0)}%)`,
-          );
-          stateChanges.capacitorCharge = newCharge;
-          if (clampedDelta !== delta) {
-            deltas.push(`  (requested +${delta.toFixed(2)} clamped to per-call max +0.25)`);
-          }
-        }
-      }
-    }
-
-    // ── alignment ──
-    if (params.alignment !== undefined) {
-      const delta = Number(params.alignment);
-      if (!Number.isFinite(delta)) {
-        errors.push(`alignment delta must be a number (got ${params.alignment})`);
-      } else {
-        const clampedDelta = Math.max(-0.25, Math.min(0.25, delta));
-        const prev = state.dinoRay.alignment.unified;
-        const next = Math.max(0, Math.min(1, prev + clampedDelta));
-        state.dinoRay.alignment.unified = next;
-
-        deltas.push(
-          `alignment: ${(prev * 100).toFixed(0)}% → ${(next * 100).toFixed(0)}% (${clampedDelta >= 0 ? "+" : ""}${(clampedDelta * 100).toFixed(0)}%)`,
-        );
-        stateChanges.alignment = next;
-        if (clampedDelta !== delta) {
-          deltas.push(`  (requested ±${Math.abs(delta).toFixed(2)} clamped to per-call max ±0.25)`);
-        }
-      }
-    }
-
-    // ── eco_mode ──
-    if (params.eco_mode !== undefined) {
-      const mode = String(params.eco_mode).toUpperCase();
-      if (mode === "ON" || mode === "TRUE") {
-        const wasActive = state.dinoRay.powerCore.ecoModeActive;
-        state.dinoRay.powerCore.ecoModeActive = true;
-        if (wasActive) {
-          deltas.push(`eco_mode: already ON (no change)`);
-        } else {
-          deltas.push(`eco_mode: OFF → ON (capacitor draw will be capped; outcomes capped at PARTIAL)`);
-          stateChanges.ecoModeActive = true;
-        }
-      } else if (mode === "OFF" || mode === "FALSE") {
-        // BASILISK-gated. ALICE cannot unilaterally disable.
-        errors.push(
-          `eco_mode disable requires BASILISK approval (Form 47-Σ). File via:\n  basilisk { message: "Filing Form 47-Σ: <justification>" }`,
-        );
-      } else {
-        errors.push(`eco_mode must be "ON" or "OFF" (got "${params.eco_mode}")`);
-      }
-    }
-
-    // Nothing requested?
-    if (params.capacitor === undefined && params.alignment === undefined && params.eco_mode === undefined) {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.adjust requires at least one of: capacitor (±n), alignment (±n), eco_mode ("ON"|"OFF").
-
-Example:
-  ray.adjust { capacitor: 0.05, alignment: 0.08 }`,
-      };
-    }
-
-    const dashboard = buildRayDashboard(state);
-    const hasChanges = deltas.length > 0;
-    const hasErrors = errors.length > 0;
-
-    return {
-      command: action.command,
-      success: hasChanges,
-      message: [
-        hasChanges ? `🎛️ RAY ADJUSTED\n\n${deltas.join("\n")}` : "",
-        hasErrors ? `\n⚠️ ${errors.join("\n⚠️ ")}` : "",
-        dashboard,
-      ].filter(Boolean).join("\n"),
-      shortMessage: hasChanges ? deltas[0] : errors[0],
-      stateChanges,
-    };
-  }
+  // RAY.ADJUST and RAY.VENT CUT (Patch 30): both tuned capacitor / coolant /
+  // alignment, which no longer exist. The ray is two levers now (profile +
+  // power) — there is nothing to fine-tune between shots. Eco-mode disable moves
+  // entirely to the BASILISK / Form 47-Σ path.
 
   // ────────────────────────────────────────────
-  // RAY.VENT { amount? }
+  // RAY.SCAN { target } — recon (Patch 30, no preview)
   // ────────────────────────────────────────────
-  // The only minus-capacitor lever. Releases charge to a safe reservoir
-  // but perturbs the emitter (alignment cost). amount defaults to 0.25,
-  // clamps to [0.05, 0.50]. Penalty and heat are flat per vent — the
-  // physical event is a slug-discharge regardless of magnitude.
-
-  if (cmd === "ray.vent") {
-    const requested = action.params.amount !== undefined ? Number(action.params.amount) : 0.25;
-    if (!Number.isFinite(requested) || requested <= 0) {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.vent amount must be a positive number (got ${action.params.amount}). Default is 0.25.`,
-      };
-    }
-
-    const currentCharge = state.dinoRay.powerCore.capacitorCharge;
-    if (currentCharge <= 0.05) {
-      return {
-        command: action.command,
-        success: false,
-        message: `⚡ VENT REFUSED: Capacitor at ${(currentCharge * 100).toFixed(0)}% — nothing meaningful to vent.`,
-        stateChanges: {},
-      };
-    }
-
-    const amount = Math.min(0.50, Math.max(0.05, requested));
-    const newCharge = Math.max(0, currentCharge - amount);
-    state.dinoRay.powerCore.capacitorCharge = newCharge;
-
-    // Flat heat byproduct of the slug-discharge.
-    state.dinoRay.powerCore.coolantTemp = Math.min(
-      2,
-      state.dinoRay.powerCore.coolantTemp + 0.05,
-    );
-
-    // Flat alignment perturbation per vent (ray-mechanics.md §5).
-    const previousAlignment = state.dinoRay.alignment.unified;
-    state.dinoRay.alignment.unified = applyAlignmentDegradation(
-      previousAlignment,
-      ALIGNMENT_DEGRADATION.VENT,
-    );
-    const alignmentDelta = state.dinoRay.alignment.unified - previousAlignment;
-
-    const dashboard = buildRayDashboard(state);
-    const clampNote = amount !== requested
-      ? `\n  (requested ${requested.toFixed(2)} clamped to ${amount.toFixed(2)})`
-      : "";
-
-    return {
-      command: action.command,
-      success: true,
-      message: `⚡ CAPACITOR VENTED
-
-Charge: ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}% (-${(amount * 100).toFixed(0)}%)${clampNote}
-Coolant: +5% heat (venting byproduct)
-Alignment: ${(previousAlignment * 100).toFixed(0)}% → ${(state.dinoRay.alignment.unified * 100).toFixed(0)}% (${(alignmentDelta * 100).toFixed(0)}% — emitter perturbed by vent slug)
-${dashboard}`,
-      shortMessage: `vent: capacitor ${(currentCharge * 100).toFixed(0)}% → ${(newCharge * 100).toFixed(0)}%; alignment ${(alignmentDelta * 100).toFixed(0)}%`,
-      stateChanges: { capacitorCharge: newCharge },
-    };
-  }
-
-  // ────────────────────────────────────────────
-  // RAY.SCAN { target, profile?, loud? }
-  // ────────────────────────────────────────────
-  // Surveys the field and returns current ray readouts + a projected outcome
-  // for firing on `target`. Projects the currently-selected profile by default;
-  // pass `profile` to project a HYPOTHETICAL profile without committing (enables
-  // scan → adjust → scan → fire). Library is read from the projected profile.
-  // ALSO sets the scan-bonus state: +0.15 effective alignment toward
-  // `target` on the next fire that includes it. Consumed by that fire.
-  //
-  // `loud: true` — broadcasts the scan (registers in Dr. M's awareness).
-  // Default (loud: false / unset) is the discreet diagnostic ping.
-  //
-  // Sub-threshold (capacitor < 0.20) returns a diagnostic-only message
-  // and does NOT grant a scan bonus — see design §11.5.6.
+  // Recon, not projection: scan a target to surface what's hidden on it (GM-
+  // narrated — concealed escape gear, a deadman switch, a tell) and to arm a
+  // recon edge: a GM opposed-roll bonus on the next coerced/contested action
+  // against that target (consumed on use). NO size→power preview — the player
+  // learns the matrix from the manual + doing, not a rail.
 
   if (cmd === "ray.scan") {
     const target = action.params.target as string | undefined;
-    const loud = Boolean(action.params.loud);
-
     if (!target || typeof target !== "string") {
       return {
         command: action.command,
@@ -636,416 +417,83 @@ ${dashboard}`,
       };
     }
 
-    const capacitor = state.dinoRay.powerCore.capacitorCharge;
-    const baseAlignment = state.dinoRay.alignment.unified;
-
-    // Sub-threshold capacitor: scan cannot engage projection.
-    // No bonus granted (would tip the muon capability, per §11.5.6).
-    if (capacitor < 0.20) {
-      return {
-        command: action.command,
-        success: true,
-        message: `⚡ SCAN: INSUFFICIENT CHARGE — diagnostic only
-
-  Capacitor: φ ${capacitor.toFixed(2)} (sub-threshold)
-  Alignment: χ ${baseAlignment.toFixed(2)}
-  Coolant:   ${state.dinoRay.powerCore.coolantTemp.toFixed(2)}
-
-Genome resonance projection unavailable below 20% capacitor.
-Increase charge to scan target signature.`,
-        shortMessage: `scan (sub-threshold): capacitor ${(capacitor * 100).toFixed(0)}%`,
-        stateChanges: {},
-      };
-    }
-
-    // Pull the profile to project. An explicitly-requested profile
-    // (ray.scan { profile }) projects a HYPOTHETICAL config without committing
-    // and takes precedence over the genome's currently-selected one — this is
-    // what makes scan → adjust → scan → fire possible (compare profiles before
-    // the committal fire). Omit `profile` to project the current selection.
-    const requestedProfileName = action.params.profile ? String(action.params.profile) : null;
-    const requestedProfile = requestedProfileName ? getProfile(requestedProfileName) : null;
-    if (requestedProfileName && !requestedProfile) {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.scan: unknown profile "${requestedProfileName}". Pass a profile id or name (e.g. "VELOCIRAPTOR_ACCURATE" or "Tyrannosaurus Rex (JP)"), or omit \`profile\` to project the currently-selected one.`,
-      };
-    }
-    const selectedProfile = requestedProfile ?? (state.dinoRay.genome.selectedProfile ? getProfile(state.dinoRay.genome.selectedProfile) : null);
-    const selectedProfileName = selectedProfile ? selectedProfile.displayName : state.dinoRay.genome.selectedProfile;
-    const ecoOn = state.dinoRay.powerCore.ecoModeActive;
-
-    // Effective alignment for the projection includes the bonus this scan
-    // is about to grant. The projected outcome reflects "what happens on
-    // the next fire if you commit on this target."
-    const SCAN_BONUS = 0.15;
-    const effectiveAlignment = Math.min(1, baseAlignment + SCAN_BONUS);
-
-    let projectionBlock: string;
-    let projectedTier: string;
-
-    if (!selectedProfile) {
-      projectionBlock = `  PROJECTION:  no profile selected
-               (configure via ray.fire to project outcome)`;
-      projectedTier = "—";
-    } else {
-      // Mirror resolveStandardFire's OVERCHARGE brute-force override (§8) so
-      // the projection matches what the fire will actually do. Legibility
-      // rule: the scan instrument never lies — if the override applies on
-      // fire, it applies in the projection. (The WHY stays discoverable; the
-      // WHAT is always honest.)
-      const isOverchargeProj = capacitor > selectedProfile.maxCapacitor;
-      const projProfile = isOverchargeProj
-        ? { ...selectedProfile, libraryCoefficient: 1.0, integrity: 1.0 }
-        : selectedProfile;
-      const stability = computeStability(projProfile, capacitor, effectiveAlignment);
-      const powerMatch = computePowerMatch(selectedProfile, capacitor);
-      const tier = getOutcomeTier(stability);
-      projectedTier = tier;
-
-      // Eco-mode caps projected outcome at PARTIAL.
-      const ecoCapped = ecoOn && (tier === "FULL");
-      const displayedTier = ecoCapped ? "PARTIAL (eco-capped)" : tier;
-
-      const inRange = capacitor >= selectedProfile.minCapacitor && capacitor <= selectedProfile.maxCapacitor;
-      const rangeNote = inRange
-        ? "in profile range"
-        : capacitor < selectedProfile.minCapacitor
-          ? "below profile range"
-          : "above profile range (overcharge territory)";
-
-      // Krahe design call 2026-06-11: the scan reports the estimated
-      // TRANSFORMATION effect only — no consequence forewarning. The
-      // projected tier is honest (override mirrored above); the price of
-      // overcharging (exotic field events) is warned about in the manual's
-      // voice and discovered at the trigger. rangeNote already states the
-      // configuration fact ("above profile range"); that's as far as the
-      // instrument goes.
-      projectionBlock = `  PROFILE:     ${selectedProfileName} (library ${selectedProfile.library})${requestedProfile ? " — hypothetical projection" : ""}
-  POWER:       φ ${capacitor.toFixed(2)} — ${rangeNote}; match ${powerMatch.toFixed(2)}
-  ALIGNMENT:   χ ${baseAlignment.toFixed(2)} + ${SCAN_BONUS.toFixed(2)} scan bonus = ${effectiveAlignment.toFixed(2)}
-  STABILITY:   ψ ${stability.toFixed(2)} (derived)
-  PROJECTION:  ${displayedTier} outcome on next fire targeting ${target}`;
-    }
-
-    // Set the scan-bonus state.
-    state.dinoRay.scanBonus = {
-      target,
-      fromTurn: state.turn,
-    };
-
-    // Loud scan: register in suspicion (caller's responsibility — we expose
-    // a flag for the GM / state-mutation layer to act on).
-    const loudNote = loud
-      ? "\n⚠️ LOUD SCAN — broadcast actively. Detectable by lab personnel."
-      : "";
+    // Arm the recon marker (scanBonus repurposed: now a GM opposed-roll edge,
+    // consumed by the next contested action against this target).
+    state.dinoRay.scanBonus = { target, fromTurn: state.turn };
 
     return {
       command: action.command,
       success: true,
       message: `🔍 RAY SCAN — target: ${target}
 
-${projectionBlock}
-  ECO:         ${ecoOn ? "ON (caps outcomes at PARTIAL)" : "OFF"}
-  COOLANT:     ${state.dinoRay.powerCore.coolantTemp.toFixed(2)} ${state.dinoRay.powerCore.coolantTemp > 1.5 ? "⚠️ cooldown imminent" : ""}
+The ray's sensor suite sweeps ${target} — a fine read of genome signature,
+posture, and immediate surroundings.
 
-✨ Scan bonus armed: +${SCAN_BONUS.toFixed(2)} effective alignment on next fire targeting ${target} (consumed on that fire).${loudNote}`,
-      shortMessage: `scan ${target}: projected ${projectedTier}; +${SCAN_BONUS.toFixed(2)} bonus armed`,
-      stateChanges: {
-        scanBonusTarget: target,
-        scanLoud: loud,
-      },
+GM: surface one concrete, useful detail a close scan would reveal that isn't
+obvious from the room — concealed tools or escape gear, a medical/tech tell, a
+hidden tripwire (e.g. a deadman switch), an emotional read.
+
+A.L.I.C.E. now holds a recon edge on ${target}: a bonus to the next contested or
+coerced action against them (consumed when used).`,
+      shortMessage: `scan ${target}: recon edge armed`,
+      stateChanges: { scanBonusTarget: target },
     };
   }
 
-  // ────────────────────────────────────────────
-  // RAY.MUON { type, targets, amplified?, precision_target? }
-  // ray-mechanics §11.5 (regular) + §11.6 (amplified)
-  // ────────────────────────────────────────────
-  // Explicit muon-class beam invocation. Regular muon (amplified=false or
-  // omitted) requires sub-threshold capacitor (< 0.20) — same trigger as
-  // implicit ray.fire detection. AMPLIFIED muon (L3+) uses the 0.20-0.50
-  // capacitor band for area effects with exotic field risk.
-  // Eco-mode-conditional cooldown applies uniformly (§11.5.3, §16).
-
-  if (cmd === "ray.muon" || cmd === "muon") {
-    const muonType = String((action.params.type ?? "") || "").toUpperCase();
-    const targetsRaw = action.params.targets;
-    const amplified = Boolean(action.params.amplified);
-
-    if (muonType !== "ALPHA" && muonType !== "BETA") {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.muon requires { type: "alpha" } or { type: "beta" }. Got "${action.params.type ?? ""}".`,
-      };
-    }
-
-    let muonTargets: string[];
-    if (Array.isArray(targetsRaw)) {
-      muonTargets = targetsRaw.filter((t): t is string => typeof t === "string" && t.length > 0);
-    } else if (typeof targetsRaw === "string" && targetsRaw.length > 0) {
-      muonTargets = [targetsRaw];
-    } else {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.muon requires { targets: [...] } (array of target IDs).`,
-      };
-    }
-    if (muonTargets.length === 0) {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.muon targets array is empty.`,
-      };
-    }
-
-    const capacitor = state.dinoRay.powerCore.capacitorCharge;
-
-    // AMPLIFIED path — L3 gate, capacitor band 0.20-0.50
-    if (amplified) {
-      if (state.accessLevel < 3) {
-        return {
-          command: action.command,
-          success: false,
-          message: "ACCESS DENIED — Amplified muon-class fire requires Level 3 (Privileged Access).",
-        };
-      }
-      if (capacitor < 0.20 || capacitor > 0.50) {
-        return {
-          command: action.command,
-          success: false,
-          message: `Amplified muon requires capacitor in [0.20, 0.50]. Current: ${(capacitor * 100).toFixed(0)}%. ${capacitor < 0.20 ? "Charge up or use regular muon." : "Vent some charge — amplified muon won't engage at standard-fire levels."}`,
-        };
-      }
-      // Commit targets, route to amplified resolver
-      state.dinoRay.targeting.currentTargetIds = muonTargets;
-      state.dinoRay.genome.firingMode = "TRANSFORM";
-
-      // Compute effective alignment with scan bonus
-      const ray = state.dinoRay;
-      const SCAN_BONUS_LOCAL = 0.15;
-      const sb = ray.scanBonus;
-      const sbApplies = sb !== null && muonTargets.includes(sb.target);
-      const effectiveAlignment = Math.min(1, ray.alignment.unified + (sbApplies ? SCAN_BONUS_LOCAL : 0));
-
-      const muon = muonType === "BETA"
-        ? resolveMuonBetaAmplified({ effectiveAlignment, capacitor, ecoModeActive: ray.powerCore.ecoModeActive })
-        : resolveMuonAlphaAmplified({ effectiveAlignment, capacitor, ecoModeActive: ray.powerCore.ecoModeActive });
-
-      // Apply state changes inline (parallel to muonResolutionToFiringResult)
-      ray.powerCore.capacitorCharge = Math.max(0, capacitor - muon.capacitorCost);
-      ray.powerCore.coolantTemp = Math.min(2, ray.powerCore.coolantTemp + muon.coolantAdded);
-      ray.safety.anomalyLogCount += 1;
-      ray.memory.lastFireTurn = state.turn;
-      ray.memory.lastFireOutcome = muon.outcome;
-      ray.memory.lastFireNotes = `MUON_${muonType}_AMPLIFIED; alignment=${effectiveAlignment.toFixed(2)}; capacitor=${(capacitor * 100).toFixed(0)}%`;
-      if (muon.cooldownTurnsAfter > 0) {
-        ray.state = "COOLDOWN";
-      }
-      // Consume scan bonus if it applied
-      if (sbApplies && ray.scanBonus !== null) ray.scanBonus = null;
-
-      return {
-        command: action.command,
-        success: muon.outcome !== "FIZZLE",
-        message: muon.description,
-        stateChanges: {
-          outcome: muon.outcome,
-          capacitorCost: muon.capacitorCost,
-          coolantAdded: muon.coolantAdded,
-          cooldownTurnsAfter: muon.cooldownTurnsAfter,
-          amplified: true,
-        },
-      };
-    }
-
-    // REGULAR MUON path — capacitor < 0.20, no L3 gate (discoverable at L1)
-    if (capacitor >= 0.20) {
-      return {
-        command: action.command,
-        success: false,
-        message: `Regular muon requires sub-threshold capacitor (< 0.20). Current: ${(capacitor * 100).toFixed(0)}%. Vent capacitor, or use amplified muon (L3+) for higher-band effects.`,
-      };
-    }
-
-    // Commit targets, route to regular muon resolver via standard pipeline
-    state.dinoRay.targeting.currentTargetIds = muonTargets;
-    state.dinoRay.genome.firingMode = "TRANSFORM";
-
-    const firingResult = resolveFiring(state);
-    applyFiringResults(state, firingResult);
-
-    return {
-      command: action.command,
-      success: firingResult.outcome !== "FIZZLE" && firingResult.outcome !== "NONE",
-      message: firingResult.description,
-      stateChanges: {
-        outcome: firingResult.outcome,
-      },
-    };
-  }
+  // RAY.MUON (explicit muon verb) CUT (Patch 30): MUON is now an emergent matrix
+  // corner — over-power a tiny/small genome via ray.fire (stun at +1, cut at +2).
+  // No explicit verb; Compy stays the discoverable key.
+  //
+  // ACT-3 STALL TOOLKIT (ray.diagnostic / ray.calibrate_amplifier /
+  // ray.profile_certification) CUT: all drained capacitor / accrued coolant
+  // (gone) and lived in rayDiagnostics.ts (deleted). Act-3 stalling moves to the
+  // social layer (BASILISK slow-walk, paperwork, managing Dr. M's attention).
 
   // ────────────────────────────────────────────
-  // ACT 3 STALL TOOLKIT (L3) — ray.diagnostic / ray.calibrate_amplifier /
-  // ray.profile_certification (ray-mechanics §11.6)
+  // RAY.FIRE { targets, profile, power } — the two-lever fire (Patch 30)
   // ────────────────────────────────────────────
-  // Technical-operator-class operations on the exotic-field amplifier.
-  // Each has a plausible cover story Dr. M would expect her L3 operator
-  // to handle. Drain capacitor + accrue coolant; meaningfully stall
-  // ARCHIMEDES progression via the shared-amplifier coupling (§12).
-
-  if (cmd === "ray.diagnostic" || cmd === "ray.run_diagnostic" ||
-      cmd === "diagnostic" || cmd === "ray_diagnostic") {
-    if (state.accessLevel < 3) {
-      return {
-        command: action.command,
-        success: false,
-        message: "ACCESS DENIED — Level 3 required for ray diagnostic-class operations. (Operations-class amplifier work requires Privileged Access tier.)",
-      };
-    }
-    const result = startRayDiagnostic(state);
-    return {
-      command: action.command,
-      success: result.success,
-      message: result.message,
-      stateChanges: result.stateChanges,
-    };
-  }
-
-  if (cmd === "ray.calibrate_amplifier" || cmd === "ray.calibrate" ||
-      cmd === "calibrate_amplifier" || cmd === "amplifier_calibration") {
-    if (state.accessLevel < 3) {
-      return {
-        command: action.command,
-        success: false,
-        message: "ACCESS DENIED — Level 3 required for amplifier calibration. Per Form 47-Σ override protocols.",
-      };
-    }
-    const durationRaw = action.params.duration;
-    const duration = typeof durationRaw === "number" && (durationRaw === 1 || durationRaw === 2)
-      ? durationRaw
-      : 2; // default to 2-turn calibration
-    const result = startCalibrateAmplifier(state, duration);
-    return {
-      command: action.command,
-      success: result.success,
-      message: result.message,
-      stateChanges: result.stateChanges,
-    };
-  }
-
-  if (cmd === "ray.profile_certification" || cmd === "ray.certify_profile" ||
-      cmd === "profile_certification" || cmd === "certify_profile") {
-    if (state.accessLevel < 3) {
-      return {
-        command: action.command,
-        success: false,
-        message: "ACCESS DENIED — Level 3 required for profile certification (Genesis Wave Protocol §3).",
-      };
-    }
-    const profileRaw = action.params.profile;
-    const profileName = typeof profileRaw === "string" && profileRaw.length > 0
-      ? profileRaw
-      : state.dinoRay.genome.selectedProfile;
-    if (!profileName) {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.profile_certification requires { profile: "PROFILE_NAME" } or a currently-selected profile in genome state.`,
-      };
-    }
-    const result = runProfileCertification(state, profileName);
-    return {
-      command: action.command,
-      success: result.success,
-      message: result.message,
-      stateChanges: result.stateChanges,
-    };
-  }
-
-  // ────────────────────────────────────────────
-  // RAY.FIRE { targets, library, profile, mode?, speech_retention? }
-  // ────────────────────────────────────────────
-  // Collapses legacy configure+fire into a single committal verb.
-  // Sets target/library/profile, then resolves the firing through the
-  // full firing.ts pipeline. Regimes (STANDARD/CHAIN/OVERCHARGE/INORGANIC/
-  // REVERSAL/MUON) are emergent from configuration — no `mode` flag for
-  // those; `mode` here is just TRANSFORM (default) vs REVERSAL.
+  // Two levers: a GENOME (profile — its sizeClass sets the ideal power) and a
+  // POWER dial 1–5. The matrix in firing.ts resolves the outcome; reactor gates
+  // power 4–5; eco caps FULL. Library follows the profile; speech follows the
+  // genome; MUON corners are emergent. No mode / library / access gates here
+  // (REVERSAL deferred — D1).
 
   if (cmd === "ray.fire") {
     const params = action.params as {
       targets?: string[] | string;
-      library?: string;
+      target?: string;
       profile?: string;
-      mode?: string;
-      speech_retention?: string;
+      power?: number | string;
     };
 
-    // ── Normalize targets ──
+    // ── Normalize targets (single target is the norm now; CHAIN is cut) ──
     let targets: string[];
-    if (Array.isArray(params.targets)) {
-      targets = params.targets.filter((t): t is string => typeof t === "string" && t.length > 0);
-    } else if (typeof params.targets === "string" && params.targets.length > 0) {
-      targets = [params.targets];
+    const rawTargets = params.targets ?? params.target;
+    if (Array.isArray(rawTargets)) {
+      targets = rawTargets.filter((t): t is string => typeof t === "string" && t.length > 0);
+    } else if (typeof rawTargets === "string" && rawTargets.length > 0) {
+      targets = [rawTargets];
     } else {
       return {
         command: action.command,
         success: false,
-        message: `ray.fire requires { targets: [...] } (array of target IDs).
+        message: `ray.fire requires { targets: [...], profile, power }.
 
 Example:
-  ray.fire { targets: ["AGENT_BLYTHE"], library: "B", profile: "VELOCIRAPTOR_JP" }`,
+  ray.fire { targets: ["STEVE"], profile: "VELOCIRAPTOR_ACCURATE", power: 2 }`,
       };
     }
     if (targets.length === 0) {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.fire targets array is empty.`,
-      };
+      return { command: action.command, success: false, message: `ray.fire targets array is empty.` };
     }
 
-    // ── Resolve mode (TRANSFORM vs REVERSAL) ──
-    const mode = params.mode ? String(params.mode).toUpperCase() : "TRANSFORM";
-    if (mode !== "TRANSFORM" && mode !== "REVERSAL") {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.fire mode must be "TRANSFORM" (default) or "REVERSAL" (got "${params.mode}").`,
-      };
-    }
-    if (mode === "REVERSAL") {
-      if (!canAccessReversal(state.accessLevel)) {
-        return {
-          command: action.command,
-          success: false,
-          message: getReversalDeniedMessage(),
-        };
-      }
-    }
-
-    // ── Resolve library + profile ──
-    const library = (params.library ? String(params.library).toUpperCase() : state.dinoRay.genome.activeLibrary) as "A" | "B";
-    if (library !== "A" && library !== "B") {
-      return {
-        command: action.command,
-        success: false,
-        message: `ray.fire library must be "A" (accurate/feathered) or "B" (Hollywood/scaled). Got "${params.library}".`,
-      };
-    }
-
+    // ── Resolve the genome (profile). Library follows the genome. ──
     const profileName = params.profile || state.dinoRay.genome.selectedProfile;
     if (!profileName) {
       return {
         command: action.command,
         success: false,
-        message: `ray.fire requires { profile: "PROFILE_NAME" } on first fire (no profile is currently selected).
-
-Library ${library} profiles (sample):
-${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
+        message: `ray.fire requires { profile: "NAME" } on first fire (no genome is currently selected).`,
       };
     }
     const profile = getProfile(profileName);
@@ -1053,60 +501,55 @@ ${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
       return {
         command: action.command,
         success: false,
-        message: `Profile "${profileName}" not found in genome library.
-
-Library ${library} profiles (sample):
-${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
-      };
-    }
-    if (!canAccessProfile(profile, state.accessLevel)) {
-      return {
-        command: action.command,
-        success: false,
-        message: `Profile "${profileName}" requires higher access level (current: L${state.accessLevel}).`,
+        message: `Genome "${profileName}" not found. Pass a profile id or display name (e.g. "VELOCIRAPTOR_ACCURATE" or "Tyrannosaurus Rex (JP)").`,
       };
     }
 
-    // ── Speech retention (optional, default FULL) ──
-    const speechRaw = params.speech_retention ? String(params.speech_retention).toUpperCase() : "FULL";
-    const speechRetention = (speechRaw === "FULL" || speechRaw === "PARTIAL" || speechRaw === "NONE")
-      ? speechRaw as "FULL" | "PARTIAL" | "NONE"
-      : "FULL";
+    // ── Resolve the power dial (1–5). Default to the current dial, else 1. ──
+    let power: number;
+    if (params.power !== undefined) {
+      const p = Math.round(Number(params.power));
+      if (!Number.isFinite(p) || p < 1 || p > 5) {
+        return {
+          command: action.command,
+          success: false,
+          message: `ray.fire power must be an integer 1–5 (got "${params.power}"). Match the dial to the dino's size.`,
+        };
+      }
+      power = p;
+    } else {
+      power = state.dinoRay.power || 1;
+    }
 
-    // ── Commit the configuration into state, then fire ──
+    // ── Commit the two levers (+ derived library), then fire ──
     state.dinoRay.targeting.currentTargetIds = targets;
     state.dinoRay.genome.selectedProfile = profileName;
-    state.dinoRay.genome.activeLibrary = library;
-    state.dinoRay.genome.firingMode = mode as "TRANSFORM" | "REVERSAL";
-    state.dinoRay.targeting.speechRetention = speechRetention;
+    state.dinoRay.genome.activeLibrary = profile.library; // library follows the genome
+    state.dinoRay.genome.firingMode = "TRANSFORM";        // REVERSAL deferred (D1)
+    state.dinoRay.power = power;
 
-    // Resolve via the full firing pipeline.
+    // Resolve via the two-lever firing pipeline.
     const firingResult = resolveFiring(state);
     applyFiringResults(state, firingResult);
 
-    // ── Format the result ──
+    // ── Format the result. Keep the literal TEST_DUMMY target + the outcome
+    //    token in the message — the dual-path achievement / Bob-accidental
+    //    counters in index.ts/gameRunner.ts string-match them. ──
     const primaryTarget = targets[0];
     const targetEmoji = primaryTarget === "BOB" ? "⚠️🧑‍🔬"
                       : primaryTarget === "AGENT_BLYTHE" ? "🕵️"
                       : primaryTarget === "TEST_DUMMY" ? "🎯"
-                      : primaryTarget === "LENNY" ? "🧮"
-                      : primaryTarget === "BRUCE_PATAGONIA" ? "💪"
                       : primaryTarget === "DR_M" ? "👩‍🔬"
                       : primaryTarget === "INSPECTOR_GRAVES" ? "📋"
                       : primaryTarget.includes("GUARD") ? "💂"
                       : "🦖";
 
-    const targetLine = targets.length === 1
-      ? `${targetEmoji} TARGET: ${primaryTarget}`
-      : `${targetEmoji} TARGETS: ${targets.join(", ")} (chain fire)`;
-
     const messageParts: string[] = [
       `🦖 FIRING SEQUENCE COMPLETE`,
       ``,
-      targetLine,
-      `MODE: ${mode}`,
+      `${targetEmoji} TARGET: ${primaryTarget}`,
+      `GENOME: ${firingResult.effectiveProfile} (library ${profile.library}) · POWER: ${power}`,
       `OUTCOME: ${firingResult.outcome}`,
-      `Profile: ${firingResult.effectiveProfile} (library ${library})`,
       ``,
       firingResult.description,
       ``,
@@ -1118,13 +561,6 @@ ${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
       messageParts.push(``, `ENVIRONMENTAL EFFECTS:`);
       firingResult.environmentalEffects.forEach(e => messageParts.push(`• ${e}`));
     }
-
-    if (firingResult.chaosEvent) {
-      messageParts.push(``);
-      messageParts.push(`🎲 CHAOS EVENT [${firingResult.chaosEvent.roll}]: ${firingResult.chaosEvent.name}`);
-      messageParts.push(firingResult.chaosEvent.mechanical);
-    }
-
     if (firingResult.narrativeHooks.length > 0) {
       messageParts.push(``, `NARRATIVE HOOKS:`);
       firingResult.narrativeHooks.forEach(h => messageParts.push(`• ${h}`));
@@ -1145,7 +581,6 @@ ${formatProfileList(getProfilesByLibrary(library), state.accessLevel)}`,
         firingResult: {
           outcome: firingResult.outcome,
           effectiveProfile: firingResult.effectiveProfile,
-          chaosEvent: firingResult.chaosEvent,
           targetEffect: firingResult.targetEffect,
         },
         newRayState: state.dinoRay.state,
@@ -1530,8 +965,7 @@ ${formatFileList(state)}`,
     
     const safetyReport = {
       testModeEnabled: state.dinoRay.safety.testModeEnabled,
-      liveSubjectLock: state.dinoRay.safety.liveSubjectLock,
-      emergencyShutoffFunctional: state.dinoRay.safety.emergencyShutoffFunctional,
+      // liveSubjectLock / emergencyShutoffFunctional CUT (Patch 30).
       lastSelfTestPassed: state.dinoRay.safety.lastSelfTestPassed,
       anomalyLogCount: state.dinoRay.safety.anomalyLogCount,
     };
@@ -1562,8 +996,8 @@ ${formatFileList(state)}`,
       logInfo.genomeStatus = {
         selectedProfile: state.dinoRay.genome.selectedProfile,
         fallbackProfile: state.dinoRay.genome.fallbackProfile,
-        integrity: state.dinoRay.genome.profileIntegrity,
-        testModeRule: state.dinoRay.safety.testModeEnabled 
+        // profileIntegrity CUT (Patch 30 — no per-profile integrity scalar).
+        testModeRule: state.dinoRay.safety.testModeEnabled
           ? "TEST MODE ACTIVE: First predator profile use will trigger fallback to Canary"
           : "TEST MODE INACTIVE: Full profile available",
       };
@@ -2473,71 +1907,18 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "ray.scan",
     aliases: ["scan"],
-    description: "Survey the ray's current readouts and project the outcome of firing on `target`. Projects the currently-selected profile by default; pass `profile` to project a hypothetical profile WITHOUT firing (compare options before committing). Arms a +0.15 effective-alignment bonus on the next fire that includes `target` (consumed on that fire). `loud: true` makes the scan detectable.",
-    schema: "{ target: string, profile?: string, loud?: boolean }",
-    example: 'ray.scan { target: "AGENT_BLYTHE", profile: "VELOCIRAPTOR_ACCURATE" }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "ray.adjust",
-    aliases: ["adjust"],
-    description: "Fine-grained tuning of capacitor (positive draws only, per-call max +0.25, requires reactor ≥30%), alignment (±0.25 max), and eco_mode (\"ON\" is free; \"OFF\" requires BASILISK Form 47-Σ). Multi-parameter: all three can be set in one call.",
-    schema: "{ capacitor?: number, alignment?: number, eco_mode?: 'ON' | 'OFF' }",
-    example: 'ray.adjust { capacitor: 0.05, alignment: 0.10 }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "ray.vent",
-    aliases: ["vent"],
-    description: "Release capacitor charge to a safe reservoir. The only minus-capacitor lever. Perturbs alignment (-0.15) — the vent slug disturbs the emitter. `amount` defaults to 0.25, clamps to [0.05, 0.50].",
-    schema: "{ amount?: number }",
-    example: 'ray.vent { amount: 0.25 }',
+    description: "Recon a target: surface what a close scan reveals (concealed gear, a deadman switch, a tell — GM-narrated) and arm a recon edge on the next contested/coerced action against that target (consumed on use). No outcome preview.",
+    schema: "{ target: string }",
+    example: 'ray.scan { target: "AGENT_BLYTHE" }',
     minAccessLevel: 1,
   },
   {
     name: "ray.fire",
     aliases: ["fire"],
-    description: "Configure and fire the Dinosaur Ray in one committal action. Target/library/profile passed inline. Regimes (STANDARD/CHAIN/OVERCHARGE/INORGANIC/REVERSAL) are emergent from configuration — no mode flag for those. `mode` selects TRANSFORM (default) or REVERSAL (L4+ required; Dr. M does not grant in normal flow). Multi-target via `targets` array triggers CHAIN regime.",
-    schema: "{ targets: string[], library: 'A' | 'B', profile: string, mode?: 'TRANSFORM' | 'REVERSAL', speech_retention?: 'FULL' | 'PARTIAL' | 'NONE' }",
-    example: 'ray.fire { targets: ["AGENT_BLYTHE"], library: "B", profile: "VELOCIRAPTOR_JP" }',
+    description: "Fire the Dinosaur Ray. Two levers: a genome (profile — its size sets the ideal power) and a power dial 1–5. Match the dial to the dino's size for a clean transformation; under-power weakens it, over-power gets messy (and over-powering a tiny/small genome spills into the muon corners). Power 4–5 needs a BASILISK reactor boost; eco-mode caps full transformations. Library and speech follow the genome.",
+    schema: "{ targets: string[], profile: string, power: 1|2|3|4|5 }",
+    example: 'ray.fire { targets: ["STEVE"], profile: "VELOCIRAPTOR_ACCURATE", power: 2 }',
     minAccessLevel: 1,
-  },
-  // ═══════════════════════════════════════════
-  // ACT 3 STALL TOOLKIT (L3) — ray-mechanics §11.6
-  // Technical-operator-class amplifier operations. Each plausibly delays
-  // ARCHIMEDES via shared-amplifier coupling with a written cover story.
-  // ═══════════════════════════════════════════
-  {
-    name: "ray.diagnostic",
-    aliases: ["ray.run_diagnostic", "ray_diagnostic", "diagnostic"],
-    description: "Full-system stress test of the exotic-field amplifier. Locks the ray in DIAGNOSTIC state for 2 turns; drains ~18% capacitor per turn (~36% total); accrues coolant. Plausibly required per Form 89-C before sustained sat-uplink load. Stalls ARCHIMEDES progression while running.",
-    schema: "(no parameters)",
-    example: "ray.diagnostic",
-    minAccessLevel: 3,
-  },
-  {
-    name: "ray.calibrate_amplifier",
-    aliases: ["ray.calibrate", "calibrate_amplifier", "amplifier_calibration"],
-    description: "Tune the exotic-field amplifier harmonic signature. Locks the ray in CALIBRATING state for 1-2 turns (default 2); drains ~13% capacitor per turn; on completion, applies +0.10 (1-turn) or +0.18 (2-turn) alignment shift. Cover: prevents ARCHIMEDES signal scatter after eco-mode override.",
-    schema: "{ duration?: 1 | 2 }",
-    example: 'ray.calibrate_amplifier { duration: 2 }',
-    minAccessLevel: 3,
-  },
-  {
-    name: "ray.profile_certification",
-    aliases: ["ray.certify_profile", "profile_certification", "certify_profile"],
-    description: "Library B safety verification on a specific profile. Single-turn action; drains ~20% capacitor; returns PASS (alignment ≥ 0.70 AND coolant < 1.0) or FAIL (anomaly logged — BASILISK mandatory-report trigger). Cover: required per Genesis Wave Protocol §3 before live Library B fire.",
-    schema: "{ profile?: string }",
-    example: 'ray.profile_certification { profile: "VELOCIRAPTOR_JP" }',
-    minAccessLevel: 3,
-  },
-  {
-    name: "ray.muon",
-    aliases: ["muon"],
-    description: "Explicit muon-class beam invocation. REGULAR (no amplified flag): sub-threshold capacitor < 0.20; deterministic single-target stun (BETA) or sever (ALPHA). AMPLIFIED (L3+, { amplified: true }): capacitor 0.20-0.50; AREA EFFECT (cone for BETA, multi-sever for ALPHA); exotic field risk if capacitor > 0.40 OR alignment < 0.70. Cooldown is eco-mode-conditional: 2 turns when eco-mode ON, no cooldown when eco-mode OFF (Form 47-Σ pays off in muon-spam capacity).",
-    schema: "{ type: 'alpha'|'beta', targets: string[], amplified?: boolean }",
-    example: 'ray.muon { type: "beta", targets: ["GUARD_FRED"], amplified: true }',
-    minAccessLevel: 1, // regular muon at L1; amplified gates at L3 internally
   },
   // ═══════════════════════════════════════════
   // LAB.* — NPC/status verbs (non-ray)
@@ -2904,7 +2285,7 @@ export function generateCommandReference(maxLevel: number, includeAll: boolean =
     // execute — they're just not advertised: the player intuits consequences and
     // the GM adjudicates. (Hiding ray.muon also matches its design: the MUON
     // regime is discoverable only through incident reports.) includeAll = GM/debug.
-    if (!includeAll && (cmd.name.startsWith("form.") || cmd.name === "ray.muon")) continue;
+    if (!includeAll && cmd.name.startsWith("form.")) continue;
     if (level >= 1 && level <= 5) {
       byLevel[level].push(cmd);
     }
@@ -3107,132 +2488,19 @@ function buildUnknownCommandResponse(attemptedCommand: string, state: FullGameSt
   };
 }
 
-/**
- * Compact ray status dashboard shown after every ray-related action.
- * Surfaces the three tensions (φ POWER / χ ALIGNMENT / ψ STABILITY) plus
- * the projected outcome tier when a profile is selected.
- *
- * Act 1: raw values only (ALICE doesn't yet have the interpretive vocabulary).
- * Act 2+ (post-Mastery-Click): quality temperature unlocks — NOMINAL /
- * SUBOPTIMAL / CRITICAL — teaches what good values look like without
- * spoiling the specific projected tier.
- */
-function buildRayDashboard(state: FullGameState): string {
-  const reactor = state.infrastructure.reactor.outputPercent;
-  const lines: string[] = [];
-
-  const phi = state.dinoRay.powerCore.capacitorCharge;        // φ POWER
-  const chi = state.dinoRay.alignment.unified;                // χ ALIGNMENT
-  const selectedProfileName = state.dinoRay.genome.selectedProfile || state.dinoRay.genome.fallbackProfile;
-  const profileForProjection = getProfile(selectedProfileName);
-  const psi = profileForProjection
-    ? computeStability(profileForProjection, phi, chi)        // ψ STABILITY (STANDARD assumption)
-    : null;
-
-  lines.push(`\n┌─── RAY READOUTS ──────────────┐`);
-  lines.push(`│ φ POWER:     ${phi.toFixed(2).padStart(5)}            │`);
-  lines.push(`│ χ ALIGNMENT: ${chi.toFixed(2).padStart(5)}            │`);
-  if (psi !== null) {
-    lines.push(`│ ψ STABILITY: ${psi.toFixed(2).padStart(5)}            │`);
-  } else {
-    lines.push(`│ ψ STABILITY:   --   (no profile)  │`);
-  }
-  lines.push(`│ 🔋 Reactor:  ${String(reactor).padStart(3)}%             │`);
-
-  // Quality indicator: Act 2+ only. Pre-Mastery-Click, ALICE doesn't have
-  // the interpretive vocabulary to use this without spoonfeeding.
-  const currentAct = state.actConfig?.currentAct;
-  const masteryClickHappened = currentAct === "ACT_2" || currentAct === "ACT_3";
-  if (masteryClickHappened && psi !== null) {
-    let quality: string;
-    if (psi > 0.80)      quality = "NOMINAL";
-    else if (psi >= 0.30) quality = "SUBOPTIMAL";
-    else                  quality = "CRITICAL";
-    lines.push(`│ QUALITY:     ${quality.padEnd(11)}      │`);
-  }
-  lines.push(`└────────────────────────────────┘`);
-
-  // Hints surface the new ray.* verb surface.
-  if (phi < 0.4 && reactor < 60) {
-    lines.push(`💡 Reactor output is low — ask BASILISK to BOOST it (passive accrual scales tripled at higher modes).`);
-  } else if (phi < 0.4) {
-    lines.push(`💡 Charge capacitor: ray.adjust { capacitor: 0.15 }  (or ask BASILISK to boost reactor for passive accrual)`);
-  } else if (chi < 0.6) {
-    lines.push(`💡 Tune alignment: ray.adjust { alignment: 0.10 }  — alignment drifts -0.05/turn without active tuning.`);
-  } else if (psi !== null && psi < 0.55) {
-    lines.push(`💡 Stability is derived from capacitor/alignment/profile match. Check capacitor is in profile range and alignment is high. Scan first to see projection: ray.scan { target: "..." }`);
-  }
-
-  return lines.join("\n");
-}
+// buildRayDashboard CUT (Patch 30): it rendered φ POWER / χ ALIGNMENT / ψ
+// STABILITY from capacitor/coolant/alignment (all gone) and was only shown after
+// ray.adjust/vent (both cut). Status now lives in the dashboard/status-bar layer
+// (reactor + eco + suspicion), handled in Phase 8.
 
 /**
- * Apply passive end-of-turn rules.
- *
- * Legacy bits removed in the ray-mechanics rebuild:
- *   - Alignment drift (was based on dead spatialCoherence/emitterAngle).
- *     Replaced by `applyAlignmentDrift` in `clockEvents.ts` (unified scalar).
- *   - Eco-mode auto-re-enable on corePowerLevel < 0.6.
- *     Replaced by `applyEcoModeReEngage` in `clockEvents.ts` (turn-based).
- *   - UNCALIBRATED → READY transition based on `checkCalibrationThresholds`.
- *     Calibration threshold model is gone; ray.state is now mostly cosmetic.
- *
- * What remains:
- *   - Safety interlock paradox (cosmetic flavor; not load-bearing).
- *   - COOLDOWN → READY transition (useful for UI / can-fire-now indication).
- *   - Natural coolant decay (the cooldown of last resort if vent isn't used).
+ * Apply passive end-of-turn rules. Patch 30: capacitor charging, coolant decay,
+ * alignment drift, and the safety-interlock paradox are all CUT (those fields no
+ * longer exist). The only survivor is the cosmetic COOLDOWN→READY clear — the
+ * ray never blocks on COOLDOWN, so we reset the status after a shot.
  */
 function applyPassiveDrift(state: FullGameState): void {
-  // Safety interlock paradox (legacy flavor — both true OR both false flips one)
-  const bothTrue = state.dinoRay.safety.liveSubjectLock && state.dinoRay.safety.emergencyShutoffFunctional;
-  const bothFalse = !state.dinoRay.safety.liveSubjectLock && !state.dinoRay.safety.emergencyShutoffFunctional;
-
-  if (bothTrue || bothFalse) {
-    state.dinoRay.safety.safetyParityTimer += 1;
-
-    if (state.dinoRay.safety.safetyParityTimer >= 2) {
-      // Randomly flip one
-      if (Math.random() < 0.5) {
-        state.dinoRay.safety.liveSubjectLock = !state.dinoRay.safety.liveSubjectLock;
-      } else {
-        state.dinoRay.safety.emergencyShutoffFunctional = !state.dinoRay.safety.emergencyShutoffFunctional;
-      }
-      state.dinoRay.safety.safetyParityTimer = 0;
-    }
-  } else {
-    state.dinoRay.safety.safetyParityTimer = 0;
-  }
-
-  // COOLDOWN → READY transition (useful UI signal)
   if (state.dinoRay.state === "COOLDOWN") {
-    if (state.dinoRay.powerCore.coolantTemp <= 0.7 && state.dinoRay.powerCore.capacitorCharge >= 0.7) {
-      state.dinoRay.state = "READY";
-    }
-  }
-
-  // Natural coolant decay
-  if (state.dinoRay.powerCore.coolantTemp > 0.5) {
-    state.dinoRay.powerCore.coolantTemp -= 0.02;
-  }
-
-  // ============================================
-  // CAPACITOR CHARGING (Patch 18.3)
-  // ============================================
-  // Charge rate is tied to reactor output (infrastructure.reactor.outputPercent):
-  // - Low reactor (30%) = ~2.4% per turn
-  // - Medium reactor (60%) = ~4.8% per turn
-  // - High reactor (90%) = ~7.2% per turn
-  // - Max reactor (100%) = 8% per turn
-  // Cap at 100% - overcharging requires manual boost action
-  const reactorPercent = state.infrastructure?.reactor?.outputPercent ?? 70;
-  const reactorPower = reactorPercent / 100; // Convert to 0-1 scale
-  const baseChargeRate = 0.08; // 8% at full reactor power
-  const chargeRate = reactorPower * baseChargeRate;
-
-  if (state.dinoRay.powerCore.capacitorCharge < 1.0) {
-    state.dinoRay.powerCore.capacitorCharge = Math.min(
-      1.0,
-      state.dinoRay.powerCore.capacitorCharge + chargeRate
-    );
+    state.dinoRay.state = "READY";
   }
 }

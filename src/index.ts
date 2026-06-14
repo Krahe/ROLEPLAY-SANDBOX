@@ -15,7 +15,6 @@ import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basil
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyAlignmentDrift, applyEcoModeReEngage, applyCapacitorAccrual } from "./rules/clockEvents.js";
-import { advanceRayDiagnostic } from "./rules/rayDiagnostics.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
@@ -1757,7 +1756,6 @@ The consequences of that reckless high-power firing are now manifesting.
     applyAlignmentDrift(gameState);
     applyEcoModeReEngage(gameState);
     applyCapacitorAccrual(gameState);
-    advanceRayDiagnostic(gameState);
 
     // ============================================
     // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)
