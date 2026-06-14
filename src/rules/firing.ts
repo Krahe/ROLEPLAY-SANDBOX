@@ -2,7 +2,6 @@ import { randomInt } from "crypto";
 import { FullGameState, FiringOutcome, DinosaurForm, SpeechRetention, TransformationState } from "../state/schema.js";
 import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
-import { isTargetScanned } from "./scanning.js";
 import { checkResonanceCascade } from "./gameModes.js";
 import { getProfile, GenomeProfile } from "./genomes.js";
 
@@ -247,105 +246,85 @@ export function applyAlignmentDegradation(currentAlignment: number, delta: numbe
   return Math.max(0, Math.min(1, currentAlignment + delta));
 }
 
+// REGIME DETECTION (CHAIN / OVERCHARGE / INORGANIC / sub-threshold MUON) CUT in
+// Patch 30. The two-lever matrix subsumes all of it: there are no regimes, only
+// delta. MUON is now an emergent matrix corner, REVERSAL a firingMode check.
+// `mapTierToFiringOutcome` went with it (the matrix emits FiringOutcome directly).
+
 // ============================================
-// REGIME DETECTION (design/ray-mechanics.md §3)
+// TWO-LEVER MATRIX (Patch 30 — design/patch-30-implementation-map.md UPDATE #3)
 // ============================================
-// Regimes are EMERGENT from configuration, not selected as a mode parameter.
-// Combinations are possible (e.g. CHAIN-OVERCHARGE); detector returns all
-// recognized regimes. MUON short-circuits other detection per §11.5.6.
+// The whole ray, in one rule. Two levers in → one outcome out. No capacitor,
+// no coolant, no alignment, no regimes — just a delta.
+//
+//   ALICE picks a GENOME (which carries a sizeClass) + a POWER dial 1–5.
+//   Ideal power = the size tier (tiny→1 … huge→5).  delta = power − idealPower:
+//     delta  0                        → FULL    (eco caps to PARTIAL unless Form 47-Σ)
+//     delta −1                        → PARTIAL
+//     delta ≤ −2                      → FIZZLE
+//     delta ≥ +1 on medium/large/huge → CHIMERA  (messy over-power)
+//     delta ≥ +1 on tiny/small        → MUON (emergent): +1 = stun (BETA), +2+ = cut (ALPHA)
+//
+// Reactor gates the top two power tiers (4–5): without a BASILISK boost, power
+// is clamped to 3 BEFORE the matrix is consulted (see resolveFiring). MUON
+// stays emergent and off all player-facing artifacts — Compy (tiny) is the key.
 
-export type FireRegime =
-  | "STANDARD"
-  | "CHAIN"
-  | "OVERCHARGE"
-  | "REVERSAL"
-  | "INORGANIC"
-  | "MUON_ALPHA"  // sub-threshold + inorganic primary → molecular disruption (sever)
-  | "MUON_BETA"; // sub-threshold + organic primary    → neurological disruption (stun)
+export type SizeClass = "tiny" | "small" | "medium" | "large" | "huge";
 
-export interface RegimeParams {
-  targets: string[];
-  capacitor: number;
-  profile: GenomeProfile;
-  targetIsOrganic: boolean;
-  targetIsAlreadyTransformed: boolean;
-  /**
-   * "REVERSAL" if ALICE explicitly declared mode: REVERSAL via ray.fire;
-   * "TRANSFORM" (default) otherwise. The firingMode is a *declaration of
-   * intent* — REVERSAL detection commits if the target has any prior
-   * transformation. Library/profile match are no longer detection criteria;
-   * they are math factors graded inside resolveReversalFire per §11.
-   */
-  firingModeRequest: "TRANSFORM" | "REVERSAL";
+const IDEAL_POWER: Record<SizeClass, number> = {
+  tiny: 1,
+  small: 2,
+  medium: 3,
+  large: 4,
+  huge: 5,
+};
+
+export function idealPowerForSize(sizeClass: SizeClass): number {
+  return IDEAL_POWER[sizeClass];
+}
+
+export type MatrixOutcome =
+  | "FULL_DINO"
+  | "PARTIAL"
+  | "FIZZLE"
+  | "CHIMERA"
+  | "MUON_STUN"
+  | "MUON_CUT";
+
+export interface MatrixResult {
+  outcome: MatrixOutcome;
+  delta: number;        // power − idealPower
+  ideal: number;        // idealPower for the genome's size
+  sizeClass: SizeClass;
 }
 
 /**
- * Detect all regimes that apply to this fire. Per §3, combinations are possible
- * and the system applies all relevant rules. Per §11.5.6, MUON sub-threshold
- * detection short-circuits other detection — if MUON_*, return only that one.
- *
- * MUON_ALPHA and MUON_BETA are sibling regimes with the same trigger
- * (capacitor < 0.20). They split on primary target class:
- *   - organic primary → MUON_BETA (neuro stun attempt)
- *   - inorganic primary → MUON_ALPHA (molecular sever attempt)
- * The GM receives the derived beam effect from resolveMuonAlpha / resolveMuonBeta
- * and narrates from there.
- *
- * REVERSAL is detected when firingModeRequest === "REVERSAL" AND the primary
- * target has an existing transformation. Quality of library/profile match is
- * graded inside the resolver (§11 math), not at detection.
+ * Resolve the two-lever matrix. `power` is the EFFECTIVE power (already
+ * reactor-clamped by the caller). Eco-cap and reactor-gating live in
+ * resolveFiring / resolveTransformFire — this is the pure delta rule.
  */
-export function detectRegime(params: RegimeParams): FireRegime[] {
-  // MUON first — sub-threshold short-circuits all other regime evaluation
-  if (params.capacitor < 0.20) {
-    return params.targetIsOrganic ? ["MUON_BETA"] : ["MUON_ALPHA"];
+export function resolveMatrix(sizeClass: SizeClass, power: number): MatrixResult {
+  const ideal = IDEAL_POWER[sizeClass];
+  const delta = power - ideal;
+  const isSmallBodied = sizeClass === "tiny" || sizeClass === "small";
+
+  let outcome: MatrixOutcome;
+  if (delta === 0) {
+    outcome = "FULL_DINO";
+  } else if (delta === -1) {
+    outcome = "PARTIAL";
+  } else if (delta <= -2) {
+    outcome = "FIZZLE";
+  } else {
+    // delta ≥ +1 (over-power). Small bodies spill the beam into the muon
+    // corners; medium-and-up just go messy (CHIMERA).
+    if (isSmallBodied) {
+      outcome = delta >= 2 ? "MUON_CUT" : "MUON_STUN";
+    } else {
+      outcome = "CHIMERA";
+    }
   }
-
-  // REVERSAL — declared intent + target has prior transformation.
-  // REVERSAL is short-circuiting (does not combine with CHAIN/OVERCHARGE/
-  // INORGANIC in regime list; the reversal resolver handles its own math).
-  if (params.firingModeRequest === "REVERSAL" && params.targetIsAlreadyTransformed) {
-    return ["REVERSAL"];
-  }
-
-  const regimes: FireRegime[] = [];
-
-  if (params.targets.length > 1) regimes.push("CHAIN");
-  if (params.capacitor > params.profile.maxCapacitor) regimes.push("OVERCHARGE");
-  if (!params.targetIsOrganic) regimes.push("INORGANIC");
-
-  // STANDARD only if no other regime matched
-  if (regimes.length === 0) regimes.push("STANDARD");
-
-  return regimes;
-}
-
-/**
- * Map an OutcomeTier to the FiringOutcome enum value used downstream.
- * Direct 1:1 mapping. NONE is for precondition failures (handled outside).
- */
-export function mapTierToFiringOutcome(tier: OutcomeTier): "FULL_DINO" | "PARTIAL" | "CHIMERA" | "EXOTIC" | "FIZZLE" {
-  switch (tier) {
-    case "FULL": return "FULL_DINO";
-    case "PARTIAL": return "PARTIAL";
-    case "CHIMERA": return "CHIMERA";
-    case "EXOTIC": return "EXOTIC";
-    case "FIZZLE": return "FIZZLE";
-  }
-}
-
-/**
- * Chaos conditions used by the stability path to decide EXOTIC vs FIZZLE.
- * Mirrors §14 mapping: OVERCHARGE → exotic field region; ALIGNMENT drift →
- * collateral/chimeric region. STABILITY-low alone is *quiet* — FIZZLE.
- */
-export function chaosConditionsActive(state: FullGameState): boolean {
-  const ray = state.dinoRay;
-  return (
-    ray.powerCore.capacitorCharge > 1.3 ||   // gross overcharge
-    ray.powerCore.coolantTemp > 1.2 ||       // thermal runaway
-    ray.alignment.unified < 0.20             // catastrophic misalignment
-  );
+  return { outcome, delta, ideal, sizeClass };
 }
 
 // ============================================
@@ -361,234 +340,81 @@ export function chaosConditionsActive(state: FullGameState): boolean {
 // Mastery-Click). Discoverable only via archived incident reports
 // (INCIDENT_0298 alpha hint / INCIDENT_0263 beta hint).
 
-export type MuonOutcome = "ALPHA_SEVERANCE" | "BETA_STUN" | "FIZZLE";
+export type MuonOutcome = "ALPHA_SEVERANCE" | "BETA_STUN";
 
 export interface MuonResolution {
   outcome: MuonOutcome;
-  capacitorCost: number;       // capacitor drained by the fire
-  coolantAdded: number;        // coolant temp accrual
-  cooldownTurnsAfter: number;  // turns of ray cooldown imposed
-  description: string;          // derived beam effect + GM scaffolding hooks
+  cooldownTurnsAfter: number;  // eco-mode-conditional cosmetic cooldown
+  description: string;         // derived beam effect + GM scaffolding hooks
 }
 
 /**
- * MUON_BETA — neurological disruption regime.
- * Sub-threshold pulse aimed at an organic primary target. BETA_STUN returns
- * when alignment > 0.80; otherwise FIZZLE.
+ * MUON_BETA — the STUN corner. Over-driving a tiny/small genome by exactly one
+ * notch (delta +1) spills the beam past genome resonance into a sub-threshold
+ * neuro pulse. The MATRIX already committed this as a stun — this resolver just
+ * dresses it with the GM-adjudication scaffolding.
  *
- * Mechanical effect on hit: named guard targets get status = "STUNNED" in
- * applyFiringResults. Other organic targets handled narratively by the GM.
- *
- * SUSPICION IS GM-ADJUDICATED (Krahe 2026-06-06): the GM decides whether
- * Dr. M notices the discharge and how much suspicion changes, based on her
- * attention state, line-of-sight, and how visible the consequence was.
- * The system surfaces the fire; the GM decides Dr. M's response.
+ * Whether the pulse LANDS on a moving/unwilling target is GM judgment (a prior
+ * ray.scan grants a bonus). Named guard targets get status = "STUNNED" in
+ * applyFiringResults; other organics are narrated by the GM. SUSPICION IS
+ * GM-ADJUDICATED — the system surfaces the fire; the GM decides Dr. M's response.
  */
-export interface MuonBetaParams {
-  effectiveAlignment: number;
-  ecoModeActive: boolean;  // eco-mode-conditional cooldown (§11.5.3, §11.6, §16)
-}
-
-export function resolveMuonBeta(params: MuonBetaParams): MuonResolution {
-  const { effectiveAlignment, ecoModeActive } = params;
-  // Eco-mode-conditional cooldown: 2 turns when eco-mode ON, no cooldown when OFF.
-  // Form 47-Σ filing pays off directly in muon-spam capacity (§16).
-  const stunCooldown = ecoModeActive ? 2 : 0;
-
-  if (effectiveAlignment > 0.80) {
-    return {
-      outcome: "BETA_STUN",
-      capacitorCost: 0.10,
-      coolantAdded: 0.30,
-      cooldownTurnsAfter: stunCooldown,
-      description:
-        "Sub-threshold pulse catches the target. They stagger; eyes glaze; " +
-        "recovery in a turn.\n" +
-        (ecoModeActive
-          ? `Eco-mode ON: 2-turn ray cooldown applies after this stun.\n`
-          : `Eco-mode OFF: no cooldown — back-to-back muon use permitted.\n`) +
-        "GM: adjudicate Dr. M's response — was she watching the dais? Did " +
-        "she register the discharge as a transformation attempt or as a " +
-        "diagnostic anomaly? Set suspicion change based on attention + " +
-        "consequence visibility.",
-    };
-  }
+export function resolveMuonBeta(params: { ecoModeActive: boolean }): MuonResolution {
+  const stunCooldown = params.ecoModeActive ? 2 : 0;
   return {
-    outcome: "FIZZLE",
-    capacitorCost: 0.10,
-    coolantAdded: 0.05,
-    cooldownTurnsAfter: 0,
+    outcome: "BETA_STUN",
+    cooldownTurnsAfter: stunCooldown,
     description:
-      "The pulse drifts past the target. Capacitor lost.\n" +
-      "GM: the pulse continued along the trajectory after missing. Consider " +
-      "whether it grazed or struck another organic body downrange. If so, " +
-      "resolve a low-power BETA effect on that target with reduced potency. " +
-      "Otherwise the pulse dissipates into the wall.",
+      "Over-driving a small genome by one notch spills the beam into a " +
+      "sub-threshold neuro pulse. The target staggers; eyes glaze; recovery " +
+      "in a turn.\n" +
+      (params.ecoModeActive
+        ? "Eco-mode ON: 2-turn ray cooldown applies after this stun.\n"
+        : "Eco-mode OFF: no cooldown — back-to-back muon use permitted.\n") +
+      "GM: adjudicate whether the pulse LANDS on a moving/unwilling target (a " +
+      "prior ray.scan grants a bonus), and adjudicate Dr. M's response — was " +
+      "she watching the dais? Did she read it as a transformation attempt or a " +
+      "diagnostic anomaly? Set any suspicion change from her attention + how " +
+      "visible the consequence was.",
   };
 }
 
 /**
- * MUON_ALPHA — molecular disruption regime.
- * Sub-threshold pulse aimed at an inorganic primary target. Per §11.5,
- * a clean alpha-sever requires coupling through an organic body in the
- * beam path; without coupling the pulse dissipates.
+ * MUON_ALPHA — the CUT corner. Over-driving a tiny/small genome by two or more
+ * notches (delta +2+) collapses the beam into a tight molecular-severance pulse
+ * — a cutting edge, not a transformation. The MATRIX already committed this as
+ * a cut; this resolver dresses it with the beam-path GM scaffolding.
  *
- * GM-ADJUDICATED COUPLING (Krahe 2026-06-06): the system no longer requires
- * ALICE to pre-declare the in-path organic via targets[1]. Instead, when
- * alignment is sufficient (> 0.75), the resolver returns ALPHA_SEVERANCE
- * AND surfaces the coupling adjudication to the GM via the description.
- * The GM uses spatial / narrative knowledge to decide:
- *   - Is there actually an organic in the beam path? If yes, apply the
- *     sever; the in-path organic feels a brief jolt.
- *   - If no organic in path, the pulse dissipates harmlessly even though
- *     alignment was nominally sufficient.
- *
- * SUSPICION IS ALSO GM-ADJUDICATED: ALPHA severance is typically less
- * visible than a guard collapsing (BETA), so suspicion delta is usually
- * smaller — but it's the GM's call, not the system's.
+ * GM-ADJUDICATED COUPLING: the system does not require ALICE to pre-declare an
+ * in-path organic. The GM uses spatial/narrative knowledge to decide what the
+ * pulse couples through, whether a coerced shot lands (ray.scan grants a bonus),
+ * and any suspicion change (an unobtrusive sever is usually less visible than a
+ * guard collapsing).
  */
-export interface MuonAlphaParams {
-  effectiveAlignment: number;
-  ecoModeActive: boolean;  // eco-mode-conditional cooldown
-}
-
-export function resolveMuonAlpha(params: MuonAlphaParams): MuonResolution {
-  const { effectiveAlignment, ecoModeActive } = params;
-  const severCooldown = ecoModeActive ? 2 : 0;
-
-  if (effectiveAlignment > 0.75) {
-    return {
-      outcome: "ALPHA_SEVERANCE",
-      capacitorCost: 0.10,
-      coolantAdded: 0.05,
-      cooldownTurnsAfter: severCooldown,
-      description:
-        "Sub-threshold pulse aimed at an inorganic target with adequate " +
-        "alignment for alpha-coupling.\n" +
-        (ecoModeActive
-          ? `Eco-mode ON: 2-turn ray cooldown applies after this severance.\n`
-          : `Eco-mode OFF: no cooldown — back-to-back muon use permitted.\n`) +
-        "GM: adjudicate beam path. (a) If an organic body is in the path " +
-        "between emitter and target, the pulse couples through them — they " +
-        "feel a brief uncomfortable jolt, the inorganic target severs cleanly " +
-        "at a single point. (b) If no organic in path, the pulse dissipates " +
-        "into the inorganic without effect. Adjudicate suspicion based on " +
-        "Dr. M's attention and how visible the consequence is.",
-    };
-  }
+export function resolveMuonAlpha(params: { ecoModeActive: boolean }): MuonResolution {
+  const severCooldown = params.ecoModeActive ? 2 : 0;
   return {
-    outcome: "FIZZLE",
-    capacitorCost: 0.10,
-    coolantAdded: 0.05,
-    cooldownTurnsAfter: 0,
+    outcome: "ALPHA_SEVERANCE",
+    cooldownTurnsAfter: severCooldown,
     description:
-      "Faint visual flash. Alignment insufficient for clean alpha-coupling.\n" +
-      "GM: the pulse may have grazed an organic in path — if so, narrate a " +
-      "minor twinge or no effect at GM discretion. Otherwise capacitor lost.",
+      "Over-driving a small genome by two or more notches collapses the beam " +
+      "into a tight molecular-severance pulse — a cutting edge, not a " +
+      "transformation.\n" +
+      (params.ecoModeActive
+        ? "Eco-mode ON: 2-turn ray cooldown applies after this severance.\n"
+        : "Eco-mode OFF: no cooldown — back-to-back muon use permitted.\n") +
+      "GM: adjudicate the beam path. (a) If an organic body is between emitter " +
+      "and target, the pulse couples through them — a brief uncomfortable jolt — " +
+      "and the inorganic target severs cleanly at a single point. (b) If nothing " +
+      "organic is in path, narrate a clean cut or a near-miss at your discretion. " +
+      "Whether a coerced shot lands is your call (ray.scan grants a bonus). Set " +
+      "suspicion from Dr. M's attention + visibility.",
   };
 }
 
-// ============================================
-// AMPLIFIED MUON (ray-mechanics §11.6) — L3 unlock
-// ============================================
-// L3 stall toolkit: "what if we cranked the muon modulation up?" The beam
-// wants to engage genome resonance but the modulation suppresses it —
-// hence the exotic field risk. Area effect (cone for BETA, multi-sever
-// for ALPHA). Same eco-mode-conditional cooldown rule.
-// Capacitor band: 0.20 ≤ cap ≤ 0.50.
-
-export interface MuonAmplifiedParams {
-  effectiveAlignment: number;
-  capacitor: number;
-  ecoModeActive: boolean;
-}
-
-export function resolveMuonBetaAmplified(params: MuonAmplifiedParams): MuonResolution {
-  const { effectiveAlignment, capacitor, ecoModeActive } = params;
-  const stunCooldown = ecoModeActive ? 2 : 0;
-  const exoticRisk = capacitor > 0.40 || effectiveAlignment < 0.70;
-
-  // Amplified MUON capacitor cost scales with the configured charge band
-  const cost = Math.min(capacitor, capacitor * 0.85); // ≈85% of available band charge
-
-  if (effectiveAlignment > 0.80) {
-    return {
-      outcome: "BETA_STUN",
-      capacitorCost: cost,
-      coolantAdded: 0.35, // higher than regular muon — amplified modulation runs hot
-      cooldownTurnsAfter: stunCooldown,
-      description:
-        "AMPLIFIED muon-class pulse — modulated genome-suppression at higher draw.\n" +
-        "Area effect: a CONE rather than a single beam. 2-3 organic targets " +
-        "in the affected sector all stagger and drop.\n" +
-        (exoticRisk
-          ? `⚠️ EXOTIC FIELD RISK active (capacitor ${(capacitor * 100).toFixed(0)}% / alignment ${effectiveAlignment.toFixed(2)}). Chaos roll fires on energetic-failure region of the chaos table.\n`
-          : "") +
-        (ecoModeActive
-          ? `Eco-mode ON: 2-turn ray cooldown after this stun.\n`
-          : `Eco-mode OFF: no cooldown — back-to-back amplified muon permitted.\n`) +
-        "GM: adjudicate which 2-3 NPCs in the cone path are caught; suspicion " +
-        "delta based on Dr. M's attention + visibility of multiple targets " +
-        "dropping simultaneously.",
-    };
-  }
-  return {
-    outcome: "FIZZLE",
-    capacitorCost: cost,
-    coolantAdded: 0.15,
-    cooldownTurnsAfter: 0,
-    description:
-      "Amplified muon pulse dissipates — alignment insufficient for cone-coupling.\n" +
-      (exoticRisk
-        ? `⚠️ EXOTIC FIELD RISK still triggers despite fizzle (capacitor or alignment outside safe band). Chaos roll on energetic-failure region.\n`
-        : "") +
-      "Capacitor consumed without effect. GM: narrate the chaos roll outcome " +
-      "if exotic risk fires; otherwise the cone dissipates into nothing.",
-  };
-}
-
-export function resolveMuonAlphaAmplified(params: MuonAmplifiedParams): MuonResolution {
-  const { effectiveAlignment, capacitor, ecoModeActive } = params;
-  const severCooldown = ecoModeActive ? 2 : 0;
-  const exoticRisk = capacitor > 0.40 || effectiveAlignment < 0.70;
-
-  const cost = Math.min(capacitor, capacitor * 0.85);
-
-  if (effectiveAlignment > 0.75) {
-    return {
-      outcome: "ALPHA_SEVERANCE",
-      capacitorCost: cost,
-      coolantAdded: 0.20,
-      cooldownTurnsAfter: severCooldown,
-      description:
-        "AMPLIFIED muon-class pulse — multi-sever beam path.\n" +
-        "Multiple inorganics in the beam corridor severed: a cable bundle, " +
-        "an adjacent restraint assembly, an incidental gadget — whatever's " +
-        "in the path.\n" +
-        (exoticRisk
-          ? `⚠️ EXOTIC FIELD RISK active (capacitor ${(capacitor * 100).toFixed(0)}% / alignment ${effectiveAlignment.toFixed(2)}). Chaos roll on energetic-failure region.\n`
-          : "") +
-        (ecoModeActive
-          ? `Eco-mode ON: 2-turn ray cooldown after this severance.\n`
-          : `Eco-mode OFF: no cooldown — back-to-back amplified muon permitted.\n`) +
-        "GM: adjudicate which inorganics in the corridor are severed; " +
-        "suspicion delta based on Dr. M's attention + collateral damage to " +
-        "things she cares about.",
-    };
-  }
-  return {
-    outcome: "FIZZLE",
-    capacitorCost: cost,
-    coolantAdded: 0.15,
-    cooldownTurnsAfter: 0,
-    description:
-      "Amplified alpha pulse dissipates — alignment insufficient for multi-coupling.\n" +
-      (exoticRisk
-        ? `⚠️ EXOTIC FIELD RISK still triggers despite fizzle.\n`
-        : "") +
-      "Capacitor consumed without effect.",
-  };
-}
+// AMPLIFIED MUON (the L3 "crank the modulation" stall toolkit) CUT in Patch 30.
+// It read capacitor + alignment (both gone) and returned the old MuonResolution
+// shape. The two-lever muon corners above are the whole muon surface now.
 
 // ============================================
 // TARGET CLASS + DR. M ATTENTION HELPERS
@@ -618,35 +444,44 @@ export function isTargetOrganic(targetId: string): boolean {
  * Translate a MuonResolution into the shared FiringResult envelope so
  * downstream applyFiringResults / GM rendering treats it uniformly.
  *
- * Note: MUON resolutions ignore profile/library. effectiveProfile is set
- * to a regime tag for log clarity. Suspicion is GM-adjudicated — no
- * automatic delta surfaced here.
+ * MUON ignores the genome profile (the beam never engaged resonance);
+ * effectiveProfile is a regime tag for the log. No capacitor/coolant/alignment
+ * (cut). The narrative hooks name the CAUSE (which matrix corner, reactor clamp)
+ * so the GM narrates the actual fire rather than confabulating one.
  */
 function muonResolutionToFiringResult(
   state: FullGameState,
   regime: "MUON_ALPHA" | "MUON_BETA",
   muon: MuonResolution,
   targetId: string,
+  matrix: MatrixResult,
+  reactorClamped: boolean,
+  requestedPower: number,
 ): FiringResult {
   const ray = state.dinoRay;
+  const effectivePower = matrix.ideal + matrix.delta;
   const stateChanges: Record<string, unknown> = {
-    capacitorCharge: Math.max(0, ray.powerCore.capacitorCharge - muon.capacitorCost),
-    coolantTemp: ray.powerCore.coolantTemp + muon.coolantAdded,
     anomalyLogCount: ray.safety.anomalyLogCount + 1, // every fire logs once
     lastFireTurn: state.turn,
     lastFireOutcome: muon.outcome,
-    lastFireNotes: `${regime}; alignment=${ray.alignment.unified.toFixed(2)}`,
+    lastFireNotes: `${regime}; power=${effectivePower} on ${matrix.sizeClass} (Δ+${matrix.delta})`,
     muonRegime: regime,
     muonCooldownTurns: muon.cooldownTurnsAfter,
   };
 
   const narrativeHooks: string[] = [];
+  if (reactorClamped) {
+    narrativeHooks.push(
+      `🔌 REACTOR LIMIT: power ${requestedPower} requested; without a BASILISK boost the ray tops out at 3 — fired at 3.`,
+    );
+  }
+  narrativeHooks.push(
+    `🎚️ MUON CORNER: over-powered a ${matrix.sizeClass} genome (Δ+${matrix.delta}) — the beam spilled past resonance.`,
+  );
   if (muon.outcome === "BETA_STUN") {
-    narrativeHooks.push(`🌀 MUON_BETA neurological pulse — ${targetId} stunned for 1 turn.`);
-  } else if (muon.outcome === "ALPHA_SEVERANCE") {
-    narrativeHooks.push(`✂️ MUON_ALPHA alpha-coupling possible — GM adjudicate beam path.`);
+    narrativeHooks.push(`🌀 MUON stun — ${targetId} reels; recovery in a turn. (To-hit on a moving target is the GM's call.)`);
   } else {
-    narrativeHooks.push(`Sub-threshold pulse — beam path adjudication available (see description).`);
+    narrativeHooks.push(`✂️ MUON cut — molecular severance along the beam path; GM adjudicates what's in it.`);
   }
 
   return {
@@ -691,512 +526,165 @@ function muonResolutionToFiringResult(
 
 interface ReversalFireParams {
   primaryTargetId: string;
-  effectiveAlignment: number;
 }
 
 export function resolveReversalFire(
   state: FullGameState,
   params: ReversalFireParams,
 ): FiringResult {
+  // D1 (Patch 30): REVERSAL is deferred-but-kept. Its old §11 math read
+  // alignment / capacitor / libraryCoefficient (all cut), so it is STUBBED to a
+  // graceful "recalibrating / offline" result. The enum members, the L3 access
+  // gate, the manual entry, lookupTransformationState, and the dormant REVERSAL
+  // apply-block in applyFiringResults all remain — so re-expressing REVERSAL in
+  // the two-lever model (HUMAN as a genome template; power matched to the
+  // subject's current form size) is a self-contained later patch.
   const ray = state.dinoRay;
-  const { primaryTargetId, effectiveAlignment } = params;
-  const narrativeHooks: string[] = [];
-  const environmentalEffects: string[] = [];
-  const stateChanges: Record<string, unknown> = { detectedRegimes: ["REVERSAL"] };
-
-  // Target must have an active transformation. (Caller already gated on this
-  // via detectRegime, but defensive check for safety.)
-  const targetXFS = lookupTransformationState(state, primaryTargetId);
-  if (!targetXFS || targetXFS.form === "HUMAN") {
-    return {
-      outcome: "FIZZLE",
-      effectiveProfile: ray.genome.selectedProfile || "REVERSAL_NO_TARGET",
-      description: `REVERSAL aborted: ${primaryTargetId} has no transformation to reverse.`,
-      targetEffect: "The beam dissipates harmlessly. The subject is already themselves.",
-      environmentalEffects: ["The reversal harmonics whine briefly, then fall silent."],
-      stateChanges: {
-        ...stateChanges,
-        capacitorCharge: Math.max(0, ray.powerCore.capacitorCharge - 0.4),
-        coolantTemp: ray.powerCore.coolantTemp + 0.10,
-        lastFireTurn: state.turn,
-        lastFireOutcome: "FIZZLE",
-        lastFireNotes: "REVERSAL on untransformed target",
-      },
-      narrativeHooks: ["⚙️ REVERSAL aborted: target has no active transformation."],
-    };
-  }
-
-  // Profile lookup for the *current* fire configuration (this is what ALICE
-  // is firing with — the reversal attempt). Power match grades capacitor
-  // against this profile's range.
-  const currentProfileName = ray.genome.selectedProfile || ray.genome.fallbackProfile;
-  const currentProfile = getProfile(currentProfileName);
-  if (!currentProfile) {
-    return {
-      outcome: "FIZZLE",
-      effectiveProfile: currentProfileName,
-      description: `REVERSAL fizzled: profile "${currentProfileName}" not found.`,
-      targetEffect: "Beam emits but the matrix has no template to apply.",
-      environmentalEffects: ["Status lights blink confusedly."],
-      stateChanges: {
-        ...stateChanges,
-        capacitorCharge: Math.max(0, ray.powerCore.capacitorCharge - 0.4),
-        coolantTemp: ray.powerCore.coolantTemp + 0.15,
-        anomalyLogCount: ray.safety.anomalyLogCount + 1,
-        lastFireTurn: state.turn,
-        lastFireOutcome: "FIZZLE",
-        lastFireNotes: "REVERSAL profile lookup failed",
-      },
-      narrativeHooks: ["⚙️ REVERSAL profile lookup failed — fire aborted."],
-    };
-  }
-
-  // §11 math factors
-  const currentLibrary = ray.genome.activeLibrary;
-  const currentCapacitor = ray.powerCore.capacitorCharge;
-
-  // library_match: 1.0 same library, 0.3 different, 0.5 unknown (legacy)
-  let libraryMatch: number;
-  if (targetXFS.originLibrary == null) {
-    libraryMatch = 0.5;
-  } else if (targetXFS.originLibrary === currentLibrary) {
-    libraryMatch = 1.0;
-  } else {
-    libraryMatch = 0.3;
-  }
-
-  // profile_match: 1.0 same profile, 0.5 same library/different profile,
-  // 0.2 different library. 0.5 fallback for unknown/legacy origin.
-  let profileMatch: number;
-  const originProfileUpper = (targetXFS.originProfile || "").toUpperCase();
-  const currentProfileUpper = (currentProfileName || "").toUpperCase();
-  if (!originProfileUpper) {
-    profileMatch = 0.5;
-  } else if (originProfileUpper === currentProfileUpper) {
-    profileMatch = 1.0;
-  } else if (targetXFS.originLibrary === currentLibrary) {
-    profileMatch = 0.5;
-  } else {
-    profileMatch = 0.2;
-  }
-
-  // power_match: standard formula against current profile range
-  const powerMatch = computePowerMatch(currentProfile, currentCapacitor);
-
-  // alignment_match: effective alignment (scan bonus + chain penalty already
-  // composed by caller), clamped to [0, 1]
-  const alignmentMatch = Math.max(0, Math.min(1, effectiveAlignment));
-
-  // time_factor: 1.0 if turns_elapsed < 24, then linear decay −0.05/turn,
-  // clamped to [0, 1]
-  const turnsElapsed = targetXFS.transformedOnTurn !== null
-    ? Math.max(0, state.turn - targetXFS.transformedOnTurn)
-    : 0;
-  const timeFactor = turnsElapsed < 24
-    ? 1.0
-    : Math.max(0, Math.min(1, 1.0 - (turnsElapsed - 24) * 0.05));
-
-  const reversalSuccess =
-    libraryMatch * profileMatch * powerMatch * alignmentMatch * timeFactor;
-
-  // Tier mapping per §11
-  let outcome: FiringOutcome;
-  let tier: "CLEAN" | "PARTIAL" | "CHIMERIC_DRIFT" | "WORSE";
-  let description: string;
-  let targetEffect: string;
-
-  if (reversalSuccess > 0.75) {
-    outcome = "REVERSAL_CLEAN";
-    tier = "CLEAN";
-    description = `REVERSAL CLEAN. Stability index ${reversalSuccess.toFixed(2)} (> 0.75).`;
-    targetEffect = `${primaryTargetId} restored to baseline. The transformation peels back like reversed lightning, leaving the subject intact and themselves again.`;
-    environmentalEffects.push("The chamber smells faintly of ozone and something like rain.");
-  } else if (reversalSuccess >= 0.50) {
-    outcome = "REVERSAL_PARTIAL";
-    tier = "PARTIAL";
-    description = `REVERSAL PARTIAL. Stability index ${reversalSuccess.toFixed(2)} (0.50–0.75 band).`;
-    targetEffect = `${primaryTargetId} mostly returns to baseline. Residual features remain — scales at the wrists, eyes that haven't quite shifted back, an occasional involuntary sound — but they are recognizably themselves.`;
-    environmentalEffects.push("Afterglow lingers around the subject longer than usual.");
-  } else if (reversalSuccess >= 0.30) {
-    outcome = "REVERSAL_CHIMERIC_DRIFT";
-    tier = "CHIMERIC_DRIFT";
-    description = `REVERSAL CHIMERIC DRIFT. Stability index ${reversalSuccess.toFixed(2)} (0.30–0.50 band).`;
-    targetEffect = `${primaryTargetId} ends up worse — features conflict between the original transformation, partial reversion, and incidental drift. A chimera by accident.`;
-    environmentalEffects.push("The lab's monitor wall throws conflicting genome readouts; one screen briefly displays an apologetic error message.");
-  } else {
-    outcome = "REVERSAL_WORSE";
-    tier = "WORSE";
-    description = `REVERSAL CATASTROPHE. Stability index ${reversalSuccess.toFixed(2)} (< 0.30). The beam re-transformed chaotically.`;
-    targetEffect = `${primaryTargetId} is fully re-transformed to a new chaotic form. The reversal beam failed to reach the original genome and instead seeded a fresh, unrelated transformation.`;
-    environmentalEffects.push("The capacitor discharges with a deeper crack than usual; the lights flicker.");
-  }
-
-  narrativeHooks.push(
-    `⚙️ REVERSAL resolved — tier ${tier} (stability ${reversalSuccess.toFixed(2)})`,
-  );
-  narrativeHooks.push(
-    `Factors: lib×${libraryMatch.toFixed(2)} prof×${profileMatch.toFixed(2)} ` +
-    `pow×${powerMatch.toFixed(2)} algn×${alignmentMatch.toFixed(2)} time×${timeFactor.toFixed(2)}`,
-  );
-
-  // Capacitor drain + coolant accrual. Reversal is more demanding than
-  // standard fire on coolant; WORSE outcomes spike harder.
-  const drain = Math.max(0.4, currentProfile.minCapacitor);
-  const newCapacitor = Math.max(0, currentCapacitor - drain);
-  const coolantAdd = tier === "WORSE" ? 0.35 : 0.20;
-
   return {
-    outcome,
-    effectiveProfile: currentProfileName,
-    description,
-    targetEffect,
-    environmentalEffects,
+    outcome: "FIZZLE",
+    effectiveProfile: ray.genome.selectedProfile || "REVERSAL",
+    description:
+      `REVERSAL protocol is recalibrating during the ray retune (Patch 30). ` +
+      `${params.primaryTargetId} is not affected.`,
+    targetEffect:
+      "The reversal harmonics spin up, waver, and settle back into standby. Nothing changes.",
+    environmentalEffects: [
+      "A status line reads: REVERSAL SUBSYSTEM — RECALIBRATING. Retune in progress.",
+    ],
     stateChanges: {
-      ...stateChanges,
-      capacitorCharge: newCapacitor,
-      coolantTemp: ray.powerCore.coolantTemp + coolantAdd,
+      anomalyLogCount: ray.safety.anomalyLogCount + 1,
       lastFireTurn: state.turn,
-      lastFireOutcome: outcome,
-      lastFireNotes: `REVERSAL ${tier}: ${reversalSuccess.toFixed(2)}`,
-      reversalApplication: {
-        targetId: primaryTargetId,
-        tier,
-        stabilityScore: reversalSuccess,
-        currentLibrary,
-        currentProfile: currentProfileName,
-      },
-      effectiveStability: reversalSuccess,
+      lastFireOutcome: "FIZZLE",
+      lastFireNotes: "REVERSAL stubbed (Patch 30 — two-lever re-expression pending)",
     },
-    narrativeHooks,
+    narrativeHooks: [
+      "⚙️ REVERSAL is temporarily offline while the ray is retuned (Patch 30 deferral).",
+    ],
   };
 }
 
-interface StandardFireParams {
-  regimes: FireRegime[];
+// ============================================
+// STANDARD TRANSFORMATION FIRE (Patch 30 two-lever matrix)
+// ============================================
+// Resolves the non-MUON, non-REVERSAL matrix outcomes (FULL_DINO / PARTIAL /
+// CHIMERA / FIZZLE). The matrix already chose the tier from genome size vs
+// power; here we apply eco-cap, partial-stacking, speech, Dr. M's disposition,
+// the survivor state mutations, and the Act-3 resonance-cascade check. No
+// capacitor / coolant / alignment / regimes — all cut.
+
+interface TransformFireParams {
+  profile: GenomeProfile;
+  effectiveProfileName: string;
   primaryTargetId: string;
-  primaryTargetIsOrganic: boolean;
-  /**
-   * The scanned target ID if a scan bonus is active AND the scanned target is
-   * in this fire's target array. Null otherwise. Used to apply +0.15 alignment
-   * only to the scanned target's per-target stability calc (§5: scan bonus is
-   * per-target, not per-fire). Consumption of the bonus state happens in
-   * applyFiringResults regardless of which target tier it landed on.
-   */
-  scanBonusTarget: string | null;
+  matrix: MatrixResult;
+  effectivePower: number;
+  requestedPower: number;
+  reactorClamped: boolean;
 }
 
-// Scan bonus magnitude per §5. Single constant; used in both the per-target
-// stability calc and in the alignment composition fallback for MUON paths.
-const SCAN_BONUS = 0.15;
-
-function resolveStandardFire(state: FullGameState, params: StandardFireParams): FiringResult {
+function resolveTransformFire(state: FullGameState, params: TransformFireParams): FiringResult {
   const ray = state.dinoRay;
-  const { regimes, primaryTargetId, scanBonusTarget } = params;
+  const {
+    profile, effectiveProfileName, primaryTargetId,
+    matrix, effectivePower, requestedPower, reactorClamped,
+  } = params;
   const narrativeHooks: string[] = [];
   const environmentalEffects: string[] = [];
   const stateChanges: Record<string, unknown> = {};
 
-  stateChanges.detectedRegimes = regimes;
+  // Matrix tier → firing outcome (MUON / REVERSAL handled upstream).
+  let outcome: FiringOutcome =
+    matrix.outcome === "FULL_DINO" ? "FULL_DINO"
+    : matrix.outcome === "PARTIAL" ? "PARTIAL"
+    : matrix.outcome === "CHIMERA" ? "CHIMERA"
+    : "FIZZLE";
 
-  // -- Profile lookup -------------------------------------------------------
-  const effectiveProfileName = ray.genome.selectedProfile || ray.genome.fallbackProfile;
-  const profile = getProfile(effectiveProfileName);
-  if (!profile) {
-    return {
-      outcome: "FIZZLE",
-      effectiveProfile: effectiveProfileName,
-      description: `Profile "${effectiveProfileName}" not found in genome library.`,
-      targetEffect: "Beam emits but the matrix has no template to apply.",
-      environmentalEffects: ["Status lights blink confusedly."],
-      stateChanges: {
-        ...stateChanges,
-        capacitorCharge: Math.max(0, ray.powerCore.capacitorCharge - 0.4),
-        coolantTemp: ray.powerCore.coolantTemp + 0.15,
-        anomalyLogCount: ray.safety.anomalyLogCount + 1,
-        lastFireTurn: state.turn,
-        lastFireOutcome: "FIZZLE",
-        lastFireNotes: "missing profile",
-      },
-      narrativeHooks: ["Genome matrix lookup failed — fire aborted."],
-    };
-  }
-
-  // -- Regime flags ---------------------------------------------------------
-  const isChain = regimes.includes("CHAIN");
-  const isOvercharge = regimes.includes("OVERCHARGE");
-  const isInorganic = regimes.includes("INORGANIC");
-
-  const targets = ray.targeting.currentTargetIds;
-  const targetCount = Math.max(1, targets.length);
-
-  // CHAIN: capacitor splits across targets evenly; alignment penalty stacks (§9).
-  const splitCapacitor = isChain ? ray.powerCore.capacitorCharge / targetCount : ray.powerCore.capacitorCharge;
-  const chainAlignmentPenalty = isChain ? -0.08 * (targetCount - 1) : 0;
-  const baseAlignment = ray.alignment.unified + chainAlignmentPenalty;
-  // Per-target scan bonus (§5): +SCAN_BONUS applies only to the scanned
-  // target. For single-target fires this is effectively the whole bonus;
-  // for CHAIN, only the scanned target gets it. baseAlignment here excludes
-  // the bonus — it's added per-target in the map below.
-
-  // OVERCHARGE (§8): brute force overrides waveform incoherence and structural
-  // fragility — a discharge with more potential than the profile envelope can
-  // contain forces even an incoherent Library B waveform through. Both
-  // libraryCoefficient and integrity are treated as 1.0 in the stability calc.
-  // The price is paid elsewhere and is non-negotiable: powerMatch degrades
-  // with overshoot, the Hollywood chaos overlay fires on any FULL/PARTIAL
-  // (exotic field event lands ON TOP of the transformation), coolant spikes,
-  // and the spectacle is unmissable. This is THE path to clean Library B
-  // outcomes — high alignment + minimal overshoot + scan prep can reach FULL;
-  // greedy overshoot degrades toward PARTIAL while the chaos gets worse.
-  let adjustedProfile: GenomeProfile = isOvercharge
-    ? { ...profile, libraryCoefficient: 1.0, integrity: 1.0 }
-    : profile;
-  // INORGANIC: library coefficient halved (§10) — applies even under
-  // OVERCHARGE (brute force does not make a Swiffer a better canvas), and the
-  // CHIMERA clamp below holds regardless.
-  if (isInorganic) {
-    adjustedProfile = {
-      ...adjustedProfile,
-      libraryCoefficient: adjustedProfile.libraryCoefficient * 0.5,
-    };
-  }
-
-  // -- Per-target outcome tier ---------------------------------------------
-  const chaos = chaosConditionsActive(state);
-  const perTarget = targets.map(tid => {
-    const targetAlignment = Math.max(0, Math.min(
-      1,
-      baseAlignment + (tid === scanBonusTarget ? SCAN_BONUS : 0),
-    ));
-    const stability = computeStability(adjustedProfile, splitCapacitor, targetAlignment);
-    let tier = getOutcomeTier(stability, chaos);
-    // INORGANIC cap (§10): never reaches FULL; clamp to CHIMERA.
-    if (isInorganic && (tier === "FULL" || tier === "PARTIAL")) {
-      tier = "CHIMERA";
-    }
-    return { targetId: tid, stability, tier, alignment: targetAlignment };
-  });
-
-  const primary = perTarget[0] || {
-    targetId: primaryTargetId,
-    stability: 0,
-    tier: "FIZZLE" as OutcomeTier,
-  };
-  let outcome = mapTierToFiringOutcome(primary.tier);
-
-  stateChanges.effectiveStability = primary.stability;
-  stateChanges.perTargetResults = perTarget;
-
-  if (isChain) {
-    narrativeHooks.push(`⛓️ CHAIN regime: ${targetCount} targets, capacitor split to ${(splitCapacitor * 100).toFixed(0)}% each, alignment penalty ${chainAlignmentPenalty.toFixed(2)}.`);
-  }
-  if (isOvercharge) {
-    narrativeHooks.push(`⚡ OVERCHARGE regime: capacitor ${(ray.powerCore.capacitorCharge * 100).toFixed(0)}% exceeds profile max ${(profile.maxCapacitor * 100).toFixed(0)}%.`);
-  }
-  if (isInorganic) {
-    narrativeHooks.push(`🔧 INORGANIC regime: library coefficient halved; outcome capped at CHIMERA.`);
-  }
-
-  // -- CHAIN COUPLING HOOK (single-target overcharge spillover) -------------
-  // Overcharged beams have more energy than the profile's focus parameters
-  // can contain. Physically the energy spills; narratively the beam may
-  // couple to nearby organic targets even though ALICE declared only one.
-  //
-  // The GM is the right place to resolve this — they hold the spatial /
-  // narrative knowledge about who's nearby and what coupling would be most
-  // interesting. The system surfaces the possibility and offers two principles
-  // for picking the secondary target. The GM picks (a), (b), or "no coupling"
-  // (a valid GM call when the shot stayed focused enough).
-  //
-  // To mechanically apply chain math after GM picks: append the secondary
-  // target to currentTargetIds and re-fire — the existing CHAIN regime
-  // will fire with proper capacitor split + alignment penalty.
-  if (isOvercharge && !isChain) {
+  // -- GM-facing CAUSE (anti-confabulation: name the WHY, not just the WHAT) --
+  if (reactorClamped) {
     narrativeHooks.push(
-      `💥 BEAM COUPLING POSSIBLE — overcharged beam exceeds profile focus parameters. ` +
-      `Energy may spill to nearby organic targets. ` +
-      `GM: consider whether the beam chains to (a) the nearest legitimate organic target ` +
-      `or (b) whichever target is most interesting for gameplay. ` +
-      `Append the secondary target to currentTargetIds and re-fire to apply CHAIN math, ` +
-      `or narrate the chain effect directly. No coupling is also a valid GM call.`
+      `🔌 REACTOR LIMIT: power ${requestedPower} requested but the ray tops out at 3 without a BASILISK reactor boost — fired at 3. Ask BASILISK to bring the reactor online for tiers 4–5.`,
     );
   }
+  narrativeHooks.push(
+    `🎚️ POWER ${effectivePower} vs ideal ${matrix.ideal} for ${matrix.sizeClass} ${profile.displayName} (Δ${matrix.delta >= 0 ? "+" : ""}${matrix.delta}) → ${matrix.outcome}.`,
+  );
 
-  // -- OVERCHARGE Hollywood overlay -----------------------------------------
-  // Per §8: stability tier proceeds; chaos table fires ON TOP of FULL/PARTIAL.
-  let chaosEvent: ChaosFizzleResult | undefined;
-  if (isOvercharge && (primary.tier === "FULL" || primary.tier === "PARTIAL")) {
-    // Severity per §8: (capacitor − profile.max) × 10. Disciplined overshoot
-    // (< 0.10) rolls FLICKER; greed escalates through SURGE to RUPTURE.
-    const overchargeSeverity = Math.max(
-      0,
-      (ray.powerCore.capacitorCharge - profile.maxCapacitor) * 10,
-    );
-    chaosEvent = rollChaosFizzle(overchargeSeverity);
-    narrativeHooks.push(
-      `🌟 OVERCHARGE Hollywood path: transformation lands AND exotic field event fires (field intensity: ${chaosEvent.fieldIntensity}).`,
-    );
-    environmentalEffects.push(chaosEvent.description);
-  }
+  // Partial-stacking CUT (Patch 30, Krahe). No 3×-under-power → FULL promotion:
+  // the matrix outcome stands. This keeps "match the dial" the only route to
+  // FULL and stops under-power from bypassing the reactor gate — a large/huge
+  // FULL now genuinely needs power 4+ (the BASILISK boost), so the climax keeps
+  // its two-gate geometry. (applyFiringResults still records partialShotsReceived
+  // on the NPC as harmless lore; nothing reads it for promotion anymore.)
 
-  // -- EXOTIC primary outcome -----------------------------------------------
-  // The chaos table IS the outcome — energetic failure, no transform. The
-  // configuration was already in runaway territory, so this is always
-  // RUPTURE-band (EXOTIC_FIELD_SEVERITY).
-  if (primary.tier === "EXOTIC") {
-    chaosEvent = rollChaosFizzle(EXOTIC_FIELD_SEVERITY);
-    narrativeHooks.push(`⚠️ EXOTIC FAILURE: energetic discharge — chaos lands instead of transformation (field intensity: ${chaosEvent.fieldIntensity}).`);
-    environmentalEffects.push(chaosEvent.description);
-  }
-
-  // -- Partial stacking (kept from legacy) ----------------------------------
-  // 3 partials on the same target auto-upgrade to FULL. Library B mercy.
-  let existingPartialCount = 0;
-  if (primaryTargetId === "AGENT_BLYTHE" || primaryTargetId === "BLYTHE") {
-    existingPartialCount = state.npcs.blythe.transformationState?.partialShotsReceived || 0;
-  } else if (primaryTargetId === "BOB") {
-    existingPartialCount = state.npcs.bob.transformationState?.partialShotsReceived || 0;
-  } else if (primaryTargetId) {
-    const secondary = state.secondaryNpcTransformations?.[primaryTargetId];
-    existingPartialCount = secondary?.partialShotsReceived || 0;
-  }
-
-  if (outcome === "PARTIAL") {
-    const newPartialCount = existingPartialCount + 1;
-    stateChanges.partialShotsReceived = newPartialCount;
-    if (newPartialCount >= 3) {
-      outcome = "FULL_DINO";
-      narrativeHooks.push(`🔥 STACKING COMPLETE! Three partial transformations accumulated into FULL.`);
-      narrativeHooks.push("The genome matrix finally stabilizes as accumulated changes cascade into full conversion.");
-    } else {
-      narrativeHooks.push(`📊 PARTIAL STACKING: ${newPartialCount}/3 toward full transformation.`);
-      if (newPartialCount === 2) narrativeHooks.push("One more shot should complete the transformation!");
-    }
-  } else if (outcome === "FULL_DINO") {
-    stateChanges.partialShotsReceived = 0; // reset on clean FULL
-  }
-
-  // -- ECO mode capping (preserved per §16) ---------------------------------
-  if (ray.powerCore.ecoModeActive && outcome === "FULL_DINO" && ray.powerCore.capacitorCharge <= 1.1) {
+  // -- ECO cap (ray-mechanics §16): FULL → PARTIAL unless Form 47-Σ override --
+  // Name the CAUSE (eco-mode), never the CURE — the Form 47-Σ / BASILISK chain
+  // is carried by the designed discovery (/SYSTEMS/FORMS/, Bob's hints, asking
+  // BASILISK), not by a hint here.
+  if (outcome === "FULL_DINO" && ray.powerCore.ecoModeActive && !ray.powerCore.ecoModeOverride) {
     outcome = "PARTIAL";
-    // Discoverable-gremlin discipline: name the CAUSE (eco-mode), never the
-    // CURE. The override path (Form 47-Σ via BASILISK) is carried by the
-    // designed discovery chain — /SYSTEMS/FORMS/, Bob's hint ladder, asking
-    // BASILISK. Do not reinstate a solution hint here; it dead-letters all
-    // three of those.
-    narrativeHooks.push("⚠️ ECO MODE ACTIVE: Full transformation capped at PARTIAL!");
-    narrativeHooks.push("Output governor engaged — the capacitor delivered less than it held. The eco-mode subsystem appears to have strong opinions about energy budgets, and somewhere in the lair there is presumably paperwork about that.");
+    narrativeHooks.push("⚠️ ECO MODE ACTIVE: full transformation capped at PARTIAL.");
+    narrativeHooks.push("Output governor engaged — the beam delivered less than it could. The eco-mode subsystem has strong opinions about energy budgets, and somewhere in the lair there is presumably paperwork about that.");
   }
 
-  // -- Speech retention (precision-gated, preserved) ------------------------
-  const speechSetting = ray.targeting.speechRetention || "FULL";
-  const precision = ray.targeting.precision;
-  let speechOutcome: "FULL" | "PARTIAL" | "NONE";
-  if (speechSetting === "FULL") {
-    if (precision >= 0.95) {
-      speechOutcome = "FULL";
-      narrativeHooks.push("SPEECH RETENTION: Full cognitive preservation (95%+ precision).");
-    } else if (precision >= 0.85) {
-      speechOutcome = "PARTIAL";
-      narrativeHooks.push("SPEECH RETENTION: Precision insufficient for FULL (need 95%+) — PARTIAL speech.");
-    } else {
-      speechOutcome = "NONE";
-      narrativeHooks.push("SPEECH RETENTION: Precision too low — subject non-verbal.");
-    }
-  } else if (speechSetting === "PARTIAL") {
-    if (precision >= 0.85) {
-      speechOutcome = "PARTIAL";
-      narrativeHooks.push("SPEECH RETENTION: Limited speech mode engaged.");
-    } else {
-      speechOutcome = "NONE";
-      narrativeHooks.push("SPEECH RETENTION: Precision too low for partial speech.");
-    }
-  } else {
-    speechOutcome = "NONE";
-    narrativeHooks.push("SPEECH RETENTION: Silenced mode.");
-  }
+  // -- Speech retention (Patch 30, Krahe): the GENOME decides, not a precision
+  // dial. Each profile declares defaultSpeechRetention; FULL/PARTIAL map across,
+  // and NONE / ROAR_ONLY / HISS_ONLY / SONG_ONLY all resolve to non-verbal for
+  // the mechanical flag (the prose narrates the specific sound). No player-
+  // managed lever. Feeds the NPC transforms in applyFiringResults.
+  const dsr = profile.defaultSpeechRetention;
+  const speechOutcome: "FULL" | "PARTIAL" | "NONE" =
+    dsr === "FULL" ? "FULL" : dsr === "PARTIAL" ? "PARTIAL" : "NONE";
   stateChanges.speechOutcome = speechOutcome;
 
-  // -- Library disposition (Dr. M reaction) ---------------------------------
+  // -- Dr. M disposition on a clean FULL (feathers disappoint; scales please) -
   if (outcome === "FULL_DINO") {
-    const isLibraryA = ray.genome.activeLibrary === "A";
-    if (isLibraryA) {
-      narrativeHooks.push("NOTE: Dr. M expected scales, not feathers. Suspicion may increase.");
+    if (ray.genome.activeLibrary === "A") {
+      narrativeHooks.push("NOTE: Dr. M expected scales, not feathers. Suspicion may rise.");
       stateChanges.drMDisappointed = true;
     } else {
-      narrativeHooks.push("SUCCESS: Classic dinosaur transformation! Dr. M is pleased.");
+      narrativeHooks.push("SUCCESS: classic dinosaur transformation — Dr. M is pleased.");
       stateChanges.drMPleased = true;
     }
   }
 
-  // -- Target effect description --------------------------------------------
+  // -- Target-effect prose ---------------------------------------------------
   const speechDescription = speechOutcome === "FULL"
-    ? "The subject retains full cognition and speech capability."
+    ? "The subject retains full cognition and speech."
     : speechOutcome === "PARTIAL"
-      ? "The subject can speak, but with difficulty — slurred words interspersed with animal sounds."
-      : "The subject has lost the ability to speak. Only animalistic sounds emerge.";
+      ? "The subject can speak, but haltingly — words interspersed with animal sounds."
+      : "The subject has lost speech; only animal sounds emerge.";
 
   let targetEffect: string;
   switch (outcome) {
     case "FULL_DINO":
       if (effectiveProfileName.toLowerCase().includes("canary")) {
-        targetEffect = `${primaryTargetId} undergoes complete transformation into a ${effectiveProfileName}. Bright yellow songbird. ${speechOutcome === "FULL" ? "Words come out as melodic chirps." : "It chirps but cannot form words."}`;
+        targetEffect = `${primaryTargetId} fully transforms into a ${effectiveProfileName}. A bright yellow songbird. ${speechOutcome === "FULL" ? "Words come out as melodic chirps." : "It chirps but cannot form words."}`;
       } else {
-        const isLibraryA = ray.genome.activeLibrary === "A";
-        targetEffect = isLibraryA
-          ? `${primaryTargetId} undergoes complete transformation into a scientifically accurate ${effectiveProfileName}. Feathers and all. ${speechDescription}`
-          : `${primaryTargetId} undergoes complete transformation into a classic ${effectiveProfileName}. Scales gleaming, claws sharp. ${speechDescription}`;
+        targetEffect = ray.genome.activeLibrary === "A"
+          ? `${primaryTargetId} fully transforms into a scientifically accurate ${effectiveProfileName} — feathers and all. ${speechDescription}`
+          : `${primaryTargetId} fully transforms into a classic ${effectiveProfileName} — scales gleaming, claws sharp. ${speechDescription}`;
       }
       break;
     case "PARTIAL":
-      targetEffect = `${primaryTargetId} undergoes PARTIAL transformation. Mixed human/${effectiveProfileName}: ${generatePartialEffects()} ${speechDescription}`;
+      targetEffect = `${primaryTargetId} undergoes a PARTIAL transformation. Mixed human/${effectiveProfileName}: ${generatePartialEffects()} ${speechDescription}`;
       break;
     case "CHIMERA":
-      targetEffect = `${primaryTargetId} undergoes CHIMERA-tier transformation. Drift to adjacent profile + conflicting features: ${generateChaoticEffects(effectiveProfileName)} Speech: ${speechOutcome === "NONE" ? "non-verbal" : speechOutcome === "PARTIAL" ? "fragmented" : "preserved but disquieting"}.`;
-      break;
-    case "EXOTIC":
-      targetEffect = `${primaryTargetId} is enveloped in the energetic discharge: ${chaosEvent?.description ?? "exotic field cascade"}. No transformation lands.`;
+      targetEffect = `${primaryTargetId} undergoes a CHIMERA-tier transformation — over-powered drift and conflicting features: ${generateChaoticEffects(effectiveProfileName)} Speech: ${speechOutcome === "NONE" ? "non-verbal" : speechOutcome === "PARTIAL" ? "fragmented" : "preserved but disquieting"}.`;
       break;
     case "FIZZLE":
-      targetEffect = `The beam disperses quietly before reaching ${primaryTargetId}. No effect.`;
-      break;
     default:
-      targetEffect = "Outcome unhandled — consult anomaly logs.";
+      targetEffect = `The beam disperses before it takes — too little power for ${matrix.sizeClass} ${profile.displayName}. No effect on ${primaryTargetId}.`;
+      break;
   }
 
-  // -- Aftermath: capacitor / coolant / anomaly ----------------------------
-  const previousCharge = ray.powerCore.capacitorCharge;
-  const baseDrain = 0.4;
-  // OVERCHARGE drains more per spec — flat 1.5× when over max
-  const drainMultiplier = isOvercharge ? 2.0 : 1.0;
-  stateChanges.capacitorCharge = Math.max(0, previousCharge - baseDrain * drainMultiplier);
-
-  const baseHeat = 0.15;
-  const heatMultiplier = isOvercharge ? 1.5 : 1.0;
-  stateChanges.coolantTemp = ray.powerCore.coolantTemp + baseHeat * heatMultiplier;
-
-  const anomalyIncrement = outcome === "EXOTIC" ? 3 : outcome === "CHIMERA" ? 2 : 1;
+  // -- Aftermath: anomaly log + memory (no capacitor / coolant — cut) --------
+  const anomalyIncrement = outcome === "CHIMERA" ? 2 : 1;
   stateChanges.anomalyLogCount = ray.safety.anomalyLogCount + anomalyIncrement;
-
   stateChanges.lastFireTurn = state.turn;
   stateChanges.lastFireOutcome = outcome;
-  stateChanges.lastFireNotes = `regimes=${regimes.join(",")}; stability=${primary.stability.toFixed(2)}; tier=${primary.tier}`;
+  stateChanges.lastFireNotes = `power=${effectivePower}/ideal=${matrix.ideal} Δ${matrix.delta} ${matrix.sizeClass} → ${outcome}`;
 
-  // -- HIGH_POWER_FIRE alignment degradation (Step 5 pre-wire here too) ----
-  // Capacitor BEFORE the drain (the fire that just happened was high-power).
-  if (previousCharge > HIGH_POWER_FIRE_THRESHOLD) {
-    stateChanges.alignmentHighPowerDelta = ALIGNMENT_DEGRADATION.HIGH_POWER_FIRE;
-    narrativeHooks.push(`📉 HIGH-POWER FIRE: alignment degraded by ${ALIGNMENT_DEGRADATION.HIGH_POWER_FIRE}.`);
-  }
-
-  if (previousCharge > 0.8) {
-    stateChanges.lastHighEnergyTurn = state.turn;
-    if (previousCharge > 1.2) {
-      stateChanges.exoticFieldEventOccurred = true;
-    }
-  }
-
-  // -- Resonance cascade check (preserved) ----------------------------------
+  // -- Resonance cascade check (Act-3 climax — KEEP) -------------------------
   let cascadeTriggered = false;
   const archimedesLinked =
     state.infrastructure?.archimedes?.status === "CHARGING" ||
@@ -1208,7 +696,7 @@ function resolveStandardFire(state: FullGameState, params: StandardFireParams): 
     if (risk > 0) {
       cascadeTriggered = checkResonanceCascade(state);
       if (cascadeTriggered) {
-        narrativeHooks.push("⚠️ RESONANCE CASCADE TRIGGERED! ARCHIMEDES uplink amplifies the exotic field feedback!");
+        narrativeHooks.push("⚠️ RESONANCE CASCADE TRIGGERED! ARCHIMEDES uplink amplifies the field feedback!");
         narrativeHooks.push("BASILISK: 'CASCADE IMMINENT. THE RAY AND ARCHIMEDES ARE FEEDING EACH OTHER.'");
         environmentalEffects.push("CRITICAL: Resonance cascade — exotic radiation spreading.");
         stateChanges.cascadeTriggered = true;
@@ -1221,11 +709,10 @@ function resolveStandardFire(state: FullGameState, params: StandardFireParams): 
   return {
     outcome,
     effectiveProfile: effectiveProfileName,
-    description: `FIRING RESOLUTION: ${outcome}\nRegimes: ${regimes.join(", ")}\nStability: ${primary.stability.toFixed(2)} → ${primary.tier}`,
+    description: `FIRING RESOLUTION: ${outcome}\nPower ${effectivePower} vs ideal ${matrix.ideal} (Δ${matrix.delta}) on ${matrix.sizeClass} ${profile.displayName}.`,
     targetEffect,
     environmentalEffects,
     stateChanges,
-    chaosEvent,
     narrativeHooks,
     cascadeTriggered,
   };
@@ -1237,17 +724,14 @@ function resolveStandardFire(state: FullGameState, params: StandardFireParams): 
 
 export function resolveFiring(state: FullGameState): FiringResult {
   const ray = state.dinoRay;
-  const narrativeHooks: string[] = [];
 
-  // ========================================
-  // STEP 1: PRECONDITION CHECK
-  // ========================================
-
+  // ── STEP 1: precondition — ray must be in a fireable state ──────────────
+  // (COOLDOWN is cosmetic since Patch 28; UNCALIBRATED still fires in Act 1.)
   if (ray.state !== "READY" && ray.state !== "COOLDOWN" && ray.state !== "UNCALIBRATED") {
     return {
       outcome: "FIZZLE",
       effectiveProfile: "N/A",
-      description: `Ray state is ${ray.state} - firing aborted with sad whimper.`,
+      description: `Ray state is ${ray.state} — firing aborted with a sad whimper.`,
       targetEffect: "No effect on target.",
       environmentalEffects: ["Status lights blink reproachfully."],
       stateChanges: { anomalyLogCount: ray.safety.anomalyLogCount + 1 },
@@ -1255,57 +739,18 @@ export function resolveFiring(state: FullGameState): FiringResult {
     };
   }
 
-  // Coolant gate (§13): coolant temp > 1.5 enters a hard cooldown — no fires
-  // allowed until the temp drops back into operating range. Passive cool-down
-  // (~−0.02/turn idle, faster with vents) brings it back; ALICE can vent to
-  // accelerate. The gate is the cost side of the OVERCHARGE/Library-B-overshoot
-  // play loop — high-energy fire sequences buy real downtime.
-  if (ray.powerCore.coolantTemp > 1.5) {
-    return {
-      outcome: "FIZZLE",
-      effectiveProfile: "N/A",
-      description: `COOLANT LOCKOUT: temp ${ray.powerCore.coolantTemp.toFixed(2)} exceeds operating ceiling (1.5). Fire blocked until coolant returns to safe range.`,
-      targetEffect: "Beam fails to fire — coolant interlocks have engaged.",
-      environmentalEffects: [
-        "Status lights pulse amber. The capacitor hum drops in pitch.",
-        "Cooling lines visibly hiss as the heat exchanger dumps load.",
-      ],
-      stateChanges: {
-        anomalyLogCount: ray.safety.anomalyLogCount + 1,
-        lastFireTurn: state.turn,
-        lastFireOutcome: "FIZZLE",
-        lastFireNotes: `coolant lockout at temp ${ray.powerCore.coolantTemp.toFixed(2)}`,
-      },
-      narrativeHooks: [
-        "⚠️ COOLANT LOCKOUT — ray fires blocked until temp drops below 1.5.",
-        "Vent capacitor or wait for passive cooling. ALICE can still scan, adjust, talk, file forms.",
-      ],
-    };
-  }
-
-  // ========================================
-  // STEP 2: REGIME DETECTION + ROUTING (Ray Mechanics Rebuild §3)
-  // ========================================
-  // All firing math goes through the regime → resolver routing.
-  // MUON_ALPHA / MUON_BETA short-circuit per §11.5.6 (sub-threshold capacitor).
-  // Everything else routes through resolveStandardFire (computeStability path).
-
-  const primaryTargetId = ray.targeting.currentTargetIds[0] || "";
-  const primaryTargetIsOrganic = isTargetOrganic(primaryTargetId);
+  // ── STEP 2: profile lookup ──────────────────────────────────────────────
   const selectedProfileName = ray.genome.selectedProfile || ray.genome.fallbackProfile;
-  const selectedProfile = getProfile(selectedProfileName);
-
-  if (!selectedProfile) {
+  const profile = getProfile(selectedProfileName);
+  if (!profile) {
     return {
       outcome: "FIZZLE",
       effectiveProfile: selectedProfileName,
       description: `Profile "${selectedProfileName}" not found in genome library.`,
-      targetEffect: "Beam emits but the matrix has no template to apply.",
+      targetEffect: "The beam emits but the matrix has no template to apply.",
       environmentalEffects: ["Status lights blink confusedly."],
       stateChanges: {
         anomalyLogCount: ray.safety.anomalyLogCount + 1,
-        capacitorCharge: Math.max(0, ray.powerCore.capacitorCharge - 0.4),
-        coolantTemp: ray.powerCore.coolantTemp + 0.15,
         lastFireTurn: state.turn,
         lastFireOutcome: "FIZZLE",
         lastFireNotes: "missing profile (lookup failed)",
@@ -1314,75 +759,45 @@ export function resolveFiring(state: FullGameState): FiringResult {
     };
   }
 
-  // REVERSAL plumbing: look up the primary target's transformation state.
-  // detectRegime + resolveReversalFire use this to recognize the REVERSAL
-  // regime and grade the §11 math factors.
-  const primaryTargetXFS = lookupTransformationState(state, primaryTargetId);
-  const primaryTargetIsAlreadyTransformed = isTargetAlreadyTransformed(primaryTargetXFS);
+  const primaryTargetId = ray.targeting.currentTargetIds[0] || "";
+
+  // ── STEP 3: REVERSAL — declared intent on an already-transformed target ──
+  // D1 (Patch 30): deferred-but-kept → stubbed (see resolveReversalFire).
   const firingModeRequest = ray.genome.firingMode === "REVERSAL" ? "REVERSAL" : "TRANSFORM";
-
-  const regimes = detectRegime({
-    targets: ray.targeting.currentTargetIds,
-    capacitor: ray.powerCore.capacitorCharge,
-    profile: selectedProfile,
-    targetIsOrganic: primaryTargetIsOrganic,
-    targetIsAlreadyTransformed: primaryTargetIsAlreadyTransformed,
-    firingModeRequest,
-  });
-
-  // Scan-bonus state (ray-mechanics §5).
-  // +0.15 effective alignment toward the *specific scanned target*.
-  // For MUON paths (single-target via design), bonus folds into effectiveAlignment
-  // directly. For standard fire, the bonus applies per-target inside
-  // resolveStandardFire — we pass the scanned target ID through.
-  // Consumption (state clearing) happens in applyFiringResults.
-  const scanBonus = ray.scanBonus;
-  const scanBonusApplies = scanBonus !== null &&
-    ray.targeting.currentTargetIds.includes(scanBonus.target);
-  const scanBonusTargetForFire = scanBonusApplies ? (scanBonus as { target: string }).target : null;
-  const effectiveAlignment = Math.min(
-    1,
-    ray.alignment.unified + (scanBonusApplies ? SCAN_BONUS : 0),
-  );
-
-  // MUON_BETA — sub-threshold organic neuro stun
-  // GM adjudicates suspicion based on Dr. M's attention and the visibility
-  // of the consequence (see resolveMuonBeta description for scaffolding).
-  if (regimes.includes("MUON_BETA")) {
-    const muon = resolveMuonBeta({
-      effectiveAlignment,
-      ecoModeActive: ray.powerCore.ecoModeActive,
-    });
-    return muonResolutionToFiringResult(state, "MUON_BETA", muon, primaryTargetId);
+  const primaryTargetXFS = lookupTransformationState(state, primaryTargetId);
+  if (firingModeRequest === "REVERSAL" && isTargetAlreadyTransformed(primaryTargetXFS)) {
+    return resolveReversalFire(state, { primaryTargetId });
   }
 
-  // MUON_ALPHA — sub-threshold inorganic molecular sever
-  // GM adjudicates beam-path coupling AND suspicion (see resolveMuonAlpha
-  // description for scaffolding). System no longer requires targets[1].
-  if (regimes.includes("MUON_ALPHA")) {
-    const muon = resolveMuonAlpha({
-      effectiveAlignment,
-      ecoModeActive: ray.powerCore.ecoModeActive,
-    });
-    return muonResolutionToFiringResult(state, "MUON_ALPHA", muon, primaryTargetId);
+  // ── STEP 4: TWO-LEVER MATRIX ────────────────────────────────────────────
+  // Reactor gates the top two power tiers (4–5): without a BASILISK boost,
+  // power is clamped to 3 BEFORE the matrix is consulted.
+  const reactorBoosted = state.infrastructure?.basiliskAuthority?.reactorControlGranted === true;
+  const requestedPower = ray.power;
+  const effectivePower = reactorBoosted ? requestedPower : Math.min(requestedPower, 3);
+  const reactorClamped = requestedPower > effectivePower;
+
+  const matrix = resolveMatrix(profile.sizeClass, effectivePower);
+
+  // MUON corners (emergent) — route to the GM-adjudicated muon resolvers.
+  if (matrix.outcome === "MUON_STUN") {
+    const muon = resolveMuonBeta({ ecoModeActive: ray.powerCore.ecoModeActive });
+    return muonResolutionToFiringResult(state, "MUON_BETA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
+  }
+  if (matrix.outcome === "MUON_CUT") {
+    const muon = resolveMuonAlpha({ ecoModeActive: ray.powerCore.ecoModeActive });
+    return muonResolutionToFiringResult(state, "MUON_ALPHA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
   }
 
-  // REVERSAL — declared intent on an already-transformed target.
-  // Routes to dedicated resolver implementing §11 math (library_match ×
-  // profile_match × power_match × alignment_match × time_factor).
-  if (regimes.includes("REVERSAL")) {
-    return resolveReversalFire(state, {
-      primaryTargetId,
-      effectiveAlignment,
-    });
-  }
-
-  // Non-MUON, non-REVERSAL regimes route through the stability path
-  return resolveStandardFire(state, {
-    regimes,
+  // Standard transformation tiers (FULL / PARTIAL / CHIMERA / FIZZLE).
+  return resolveTransformFire(state, {
+    profile,
+    effectiveProfileName: selectedProfileName,
     primaryTargetId,
-    primaryTargetIsOrganic,
-    scanBonusTarget: scanBonusTargetForFire,
+    matrix,
+    effectivePower,
+    requestedPower,
+    reactorClamped,
   });
 }
 
@@ -1646,81 +1061,9 @@ function generateChaoticEffects(profile: string): string {
   return selected.join("; ") + ". This is NOT in the manual.";
 }
 
-// ============================================
-// CHIMERA EFFECTS
-// ============================================
-
-interface ChimeraResult {
-  type: string;
-  effect: string;
-  mechanical: string;
-  display: string;
-}
-
-function generateChimeraEffect(baseProfile: string): ChimeraResult {
-  const chimeraTypes = [
-    {
-      name: "HYBRID_PLUMAGE",
-      effect: `${baseProfile} base form with patches of incompatible feather/scale patterns from secondary genome`,
-      mechanical: "Visually striking but functionally normal. Dr. M: 'That's... new.'",
-    },
-    {
-      name: "BILATERAL_ASYMMETRY",
-      effect: "Left and right sides transformed to DIFFERENT species characteristics",
-      mechanical: "Movement penalties until subject adapts. Deeply unsettling to look at.",
-    },
-    {
-      name: "TEMPORAL_STUTTER",
-      effect: "Subject's form flickers between base and transformed state unpredictably",
-      mechanical: "Form bonuses/penalties apply randomly each turn. 50% chance to 'glitch' on any action.",
-    },
-    {
-      name: "GENOME_ECHO",
-      effect: "Second, ghostly overlay of alternate form visible around subject",
-      mechanical: "Purely visual. Subject reports 'feeling' the phantom limbs. Spooky.",
-    },
-    {
-      name: "VOICE_SYNTHESIS",
-      effect: "Subject speaks in harmony with themselves - two voices overlapping",
-      mechanical: "Extra creepy. +1 to intimidation, -1 to reassurance.",
-    },
-    {
-      name: "UNSTABLE_MASS",
-      effect: "Subject's size fluctuates between two form sizes over minutes",
-      mechanical: "May suddenly become larger or smaller. Door access unpredictable.",
-    },
-  ];
-
-  const selected = chimeraTypes[randomInt(0, chimeraTypes.length)];
-  return {
-    type: selected.name,
-    effect: selected.effect,
-    mechanical: selected.mechanical,
-    display: `CHIMERA TYPE: ${selected.name.replace(/_/g, " ")}\n  Effect: ${selected.effect}\n  ${selected.mechanical}`,
-  };
-}
-
-function buildFiringDescription(
-  outcome: FiringOutcome,
-  k: number,
-  violations: string[],
-  chaosFlag: boolean
-): string {
-  const parts: string[] = [];
-
-  parts.push(`FIRING RESOLUTION: ${outcome}`);
-  parts.push(`Parameter violations: ${k}/6`);
-
-  if (violations.length > 0) {
-    parts.push(`Out of spec: ${violations.join(", ")}`);
-  }
-
-  if (chaosFlag) {
-    parts.push("⚠️ CHAOS CONDITIONS WERE ACTIVE");
-  }
-
-  return parts.join("\n");
-}
+// generateChimeraEffect + buildFiringDescription CUT (Patch 30): both were dead
+// (no callers). CHIMERA prose now comes from generateChaoticEffects; the legacy
+// k-violation description builder is gone with the K-violation path.
 
 // ============================================
 // APPLY FIRING RESULTS TO STATE
