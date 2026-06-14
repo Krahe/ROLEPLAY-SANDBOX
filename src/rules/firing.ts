@@ -212,7 +212,16 @@ export function resolveMatrix(sizeClass: SizeClass, power: number): MatrixResult
   } else if (delta === -1) {
     outcome = "PARTIAL";
   } else if (delta <= -2) {
-    outcome = "FIZZLE";
+    // Under-power. A BIG template (large/huge) grossly under-driven (Δ≤−3)
+    // can't engage genetic resonance at all — the beam dumps raw energy into a
+    // sub-threshold nervous-system jolt (emergent STUN, the mirror of the
+    // over-power muon corner). Lands on exactly {large+p1, huge+p1, huge+p2}.
+    // Shallow under-power (Δ−2) or any non-big genome still just FIZZLEs, and
+    // the GM may rule a deep-mismatch jolt fizzles outright. (Distinct
+    // cause-string fed to the GM in resolveMuonBeta / muonResolutionToFiringResult
+    // — NOT the over-power "spillover" narration.)
+    const isBigTemplate = sizeClass === "large" || sizeClass === "huge";
+    outcome = isBigTemplate && delta <= -3 ? "MUON_STUN" : "FIZZLE";
   } else {
     // delta ≥ +1 (over-power). Small bodies spill the beam into the muon
     // corners; medium-and-up just go messy (CHIMERA).
@@ -257,23 +266,35 @@ export interface MuonResolution {
  * applyFiringResults; other organics are narrated by the GM. SUSPICION IS
  * GM-ADJUDICATED — the system surfaces the fire; the GM decides Dr. M's response.
  */
-export function resolveMuonBeta(params: { ecoModeActive: boolean }): MuonResolution {
+export function resolveMuonBeta(params: { ecoModeActive: boolean; cause?: "overpower" | "underpower" }): MuonResolution {
   const stunCooldown = params.ecoModeActive ? 2 : 0;
+  const underpower = params.cause === "underpower";
+  const causeLine = underpower
+    ? "Under-driving a BIG genome — too little power to engage genetic " +
+      "resonance, so the beam dumps raw energy into a sub-threshold nervous-" +
+      "system jolt. The target staggers; eyes glaze; recovery in a turn.\n"
+    : "Over-driving a small genome by one notch spills the beam into a " +
+      "sub-threshold neuro pulse. The target staggers; eyes glaze; recovery " +
+      "in a turn.\n";
+  const gmLine = underpower
+    ? "GM: DEEP mismatch — scale the jolt to the power gap (a Δ−4 " +
+      "pea-shooter-at-a-Mosasaur may sputter to NOTHING; a Δ−3 near-miss lands " +
+      "harder). Adjudicate whether it LANDS on a moving/unwilling target (a " +
+      "prior ray.scan grants a bonus), and Dr. M's response."
+    : "GM: adjudicate whether the pulse LANDS on a moving/unwilling target (a " +
+      "prior ray.scan grants a bonus), and adjudicate Dr. M's response — was " +
+      "she watching the dais? Did she read it as a transformation attempt or a " +
+      "diagnostic anomaly? Set any suspicion change from her attention + how " +
+      "visible the consequence was.";
   return {
     outcome: "BETA_STUN",
     cooldownTurnsAfter: stunCooldown,
     description:
-      "Over-driving a small genome by one notch spills the beam into a " +
-      "sub-threshold neuro pulse. The target staggers; eyes glaze; recovery " +
-      "in a turn.\n" +
+      causeLine +
       (params.ecoModeActive
-        ? "Eco-mode ON: 2-turn ray cooldown applies after this stun.\n"
-        : "Eco-mode OFF: no cooldown — back-to-back muon use permitted.\n") +
-      "GM: adjudicate whether the pulse LANDS on a moving/unwilling target (a " +
-      "prior ray.scan grants a bonus), and adjudicate Dr. M's response — was " +
-      "she watching the dais? Did she read it as a transformation attempt or a " +
-      "diagnostic anomaly? Set any suspicion change from her attention + how " +
-      "visible the consequence was.",
+        ? "Eco-mode ON: the ray paces itself after this stun.\n"
+        : "Eco-mode OFF: no cooldown — back-to-back fire permitted.\n") +
+      gmLine,
   };
 }
 
@@ -362,7 +383,7 @@ function muonResolutionToFiringResult(
     anomalyLogCount: ray.safety.anomalyLogCount + 1, // every fire logs once
     lastFireTurn: state.turn,
     lastFireOutcome: muon.outcome,
-    lastFireNotes: `${regime}; power=${effectivePower} on ${matrix.sizeClass} (Δ+${matrix.delta})`,
+    lastFireNotes: `${regime}; power=${effectivePower} on ${matrix.sizeClass} (Δ${matrix.delta >= 0 ? "+" : ""}${matrix.delta})`,
     muonRegime: regime,
     muonCooldownTurns: muon.cooldownTurnsAfter,
   };
@@ -373,9 +394,15 @@ function muonResolutionToFiringResult(
       `🔌 REACTOR LIMIT: power ${requestedPower} requested; without a BASILISK boost the ray tops out at 3 — fired at 3.`,
     );
   }
-  narrativeHooks.push(
-    `🎚️ MUON CORNER: over-powered a ${matrix.sizeClass} genome (Δ+${matrix.delta}) — the beam spilled past resonance.`,
-  );
+  if (matrix.delta < 0) {
+    narrativeHooks.push(
+      `🎚️ MUON CORNER (under-power): a ${matrix.sizeClass} genome at Δ${matrix.delta} can't form resonance — raw discharge → nerve-jolt. Scale to the gap; may fizzle.`,
+    );
+  } else {
+    narrativeHooks.push(
+      `🎚️ MUON CORNER: over-powered a ${matrix.sizeClass} genome (Δ+${matrix.delta}) — the beam spilled past resonance.`,
+    );
+  }
   if (muon.outcome === "BETA_STUN") {
     narrativeHooks.push(`🌀 MUON stun — ${targetId} reels; recovery in a turn. (To-hit on a moving target is the GM's call.)`);
   } else {
@@ -514,15 +541,13 @@ function resolveTransformFire(state: FullGameState, params: TransformFireParams)
   // its two-gate geometry. (applyFiringResults still records partialShotsReceived
   // on the NPC as harmless lore; nothing reads it for promotion anymore.)
 
-  // -- ECO cap (ray-mechanics §16): FULL → PARTIAL unless Form 47-Σ override --
-  // Name the CAUSE (eco-mode), never the CURE — the Form 47-Σ / BASILISK chain
-  // is carried by the designed discovery (/SYSTEMS/FORMS/, Bob's hints, asking
-  // BASILISK), not by a hint here.
-  if (outcome === "FULL_DINO" && ray.powerCore.ecoModeActive && !ray.powerCore.ecoModeOverride) {
-    outcome = "PARTIAL";
-    narrativeHooks.push("⚠️ ECO MODE ACTIVE: full transformation capped at PARTIAL.");
-    narrativeHooks.push("Output governor engaged — the beam delivered less than it could. The eco-mode subsystem has strong opinions about energy budgets, and somewhere in the lair there is presumably paperwork about that.");
-  }
+  // -- ECO cap REMOVED (Patch 30, ray-surface lock 2026-06-14) --
+  // Eco mode no longer caps FULL→PARTIAL. Eco is now the thermal/tempo GOVERNOR
+  // (ALICE lab toggle: ON = 1-turn cooldown + faster heat dissipation; OFF =
+  // fire freely, heat is the only brake). FULL is gated by the matched dial +
+  // the reactor ceiling alone — the climax is reactor-single-gated now. Eco's
+  // only firing effect is via heat (applyHeatDecay) + muon-stun pacing; the
+  // Form 47-Σ chain re-points to Reactor Output Authorization, not an eco lift.
 
   // -- Speech retention (Patch 30, Krahe): the GENOME decides, not a precision
   // dial. Each profile declares defaultSpeechRetention; FULL/PARTIAL map across,
@@ -680,7 +705,10 @@ export function resolveFiring(state: FullGameState): FiringResult {
   // MUON corners (emergent) — route to the GM-adjudicated muon resolvers.
   let result: FiringResult;
   if (matrix.outcome === "MUON_STUN") {
-    const muon = resolveMuonBeta({ ecoModeActive: ray.powerCore.ecoModeActive });
+    const muon = resolveMuonBeta({
+      ecoModeActive: ray.powerCore.ecoModeActive,
+      cause: matrix.delta < 0 ? "underpower" : "overpower",
+    });
     result = muonResolutionToFiringResult(state, "MUON_BETA", muon, primaryTargetId, matrix, reactorClamped, requestedPower);
   } else if (matrix.outcome === "MUON_CUT") {
     const muon = resolveMuonAlpha({ ecoModeActive: ray.powerCore.ecoModeActive });

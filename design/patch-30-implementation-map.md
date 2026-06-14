@@ -4,7 +4,7 @@
 
 **Provenance:** built 2026-06-13 by a 12-agent mapping workflow (9 subsystem readers → dual-path + completeness verifiers → synthesis) over the ~26K-line ray/state surface. Four highest-stakes claims spot-checked by hand against HEAD and confirmed (genome `size` collision, Desktop-only calibration, `CompressedCheckpoint.cap` required-field crash, the 4-call per-turn block in `index.ts:1757-1760`).
 
-**Status:** spec-complete; **key design decisions locked 2026-06-13** (see *Decisions*). Ready to implement Patch 30 in phases. Largely subtractive but NOT pure subtraction — the two-lever resolver, size-on-genomes, reactor-binary read, and eco-cap read are net-new wiring.
+**Status:** spec-complete; **key design decisions locked 2026-06-13** (see *Decisions*). Ready to implement Patch 30 in phases. Largely subtractive but NOT pure subtraction — the two-lever resolver, size-on-genomes, and reactor read are net-new wiring. **⚑ Ray surface re-locked 2026-06-14 (session 3): eco re-tasked from FULL-cap → thermal/tempo governor, under-power STUN corner added, heat is the simplified cooling re-add. See the session-3 UPDATE — it wins on eco / reactor / heat / matrix-corners.**
 
 ---
 
@@ -38,6 +38,51 @@ Krahe + Opus converged the ray matrix. Supersedes the "3 power levels" framing w
 - **Reactor gates the top two power tiers (4–5).** No power 4–5 without a BASILISK boost (clamp to 3 + an "ask BASILISK" hook). ⇒ large/huge FULLs (ideal 4–5) and muon-cut-via-small (power 4–5) need the reactor climb; tiny/small/medium FULLs don't. **Eco** caps FULL→PARTIAL across all FULL cells; Form 47-Σ lifts it.
 - **The climax requires BOTH gates by geometry + Dr. M's taste — no special-case.** She wants a *spectacle* (a big Library-B monster, large/huge) which intrinsically needs power 4–5 (reactor) AND eco-off. A medium-raptor FULL (power 3, no reactor) is a legitimate *lesser* path that disappoints her.
 - **Genome size buckets (5-tier):** tiny = Compy, Canary · small = Velociraptor-accurate, Dilophosaurus · medium = Deinonychus, Velociraptor-JP, JP-Blue, Pteranodon, Indoraptor · large = T-Rex (both), Triceratops, Utahraptor, Spinosaurus · huge = Mosasaurus, Indominus. (Edge calls held from the 3-tier round: Utahraptor=large, Pteranodon=medium, Indoraptor=medium.)
+
+---
+
+## ⚑ UPDATE 2026-06-14 (session 3) — RAY SURFACE LOCKED: eco-as-governor, heat brake, under-power STUN corner
+
+**Krahe + Opus locked the full ray surface this session. This block WINS over any eco-FULL-cap / reactor-binary-clamp / "3 power levels" references elsewhere in this doc.** The two-lever delta engine (UPDATE #3) stands; what changed is everything *around* the matrix — eco, reactor, heat, and the under-power corner.
+
+**Locked matrix (5×5):**
+```
+           p1        p2        p3        p4⚡       p5⚡
+tiny  (1)  FULL      STUN      CUT       CUT       CUT
+small (2)  PARTIAL   FULL      STUN      CUT       CUT
+medium(3)  FIZZLE    PARTIAL   FULL      CHIMERA   CHIMERA
+large (4)  STUN*     FIZZLE    PARTIAL   FULL      CHIMERA
+huge  (5)  STUN*     STUN*     FIZZLE    PARTIAL   FULL
+```
+- Δ0 FULL · Δ−1 PARTIAL · Δ−2 FIZZLE · over-power small/tiny Δ+1 STUN / Δ+2 CUT · over-power medium+ Δ+1 CHIMERA.
+- **NEW — under-power big STUN corner:** `(sizeClass==='large' || sizeClass==='huge') && delta <= -3 → MUON_STUN`. Lands on exactly **{large+p1, huge+p1, huge+p2}**; {large+p2, huge+p3, medium+p1} (all Δ−2) **stay FIZZLE**. GM-adjudicated nerve-jolt — pass the **power differential**, GM scales intensity and may still rule it fizzles. **Distinct cause-string required:** *"under-driven big template, resonance never formed → raw discharge"* — NOT the over-power "small-template spillover" narration (reusing the over-power muon string verbatim = confabulated cause, the exact trap this codebase guards). The huge column reads STUN→STUN→FIZZLE→PARTIAL→FULL — **non-monotonic by design** (the FIZZLE is the line where the ray stops discharging raw energy and starts *attempting* a transformation; edge-texture, players rarely hit it on purpose, but the GM narration must name that cause or it reads as a bug).
+
+**ECO — re-tasked from output-cap to thermal/tempo governor. ALICE lab verb, unlocked at access L2** (Act-2+; keeps the Act-1 tutorial to genome + power + reactor only).
+- **DELETE the FULL→PARTIAL eco cap** (`firing.ts:521`). Eco no longer touches the transformation tier *at all*.
+- **OFF** = fire freely (multi-fire/turn allowed — heat is the only limiter), heat decays **−2/turn**. *Sprint:* chain the room, but the meter spikes → chaos if you push.
+- **ON** = **1-turn cooldown** (kills the within-turn burst — *new logic; the COOLDOWN state is cosmetic today*), heat decays **−4/turn**. *Marathon:* paced, **cannot overheat**, and the recovery mode (clears a maxed meter in ~3 turns).
+- No auto-re-engage — a dumb manual toggle (resolves the "eco gremlin" open question).
+- If eco-on ever keeps the burst it becomes strictly-better → it MUST retain the cooldown as its cost.
+
+**HEAT — the universal soft limiter (the simplified cooling re-add).** 0–10, **+`power` per shot**, **decays end-of-turn ONLY**. ⚠️ The brake lives *entirely* in no-intra-turn-decay — a future "tidy heat to decay per-action" would silently gut the whole mode; **comment it in code.** At heat ≥ 10 every further shot overlays a chaos field (`rollChaosFizzle`). Within-turn multi-fire (action budget 4) is the real spam vector and where heat bites: 4× power-5 throws chaos by the **3rd trigger-pull**; 4× power-2 takes ~2 turns of sustained sweeping.
+
+**REACTOR — NORMAL (power ≤3) / BOOSTED (power ≤5), BASILISK's call** (the ⚡ column). Functionally the existing binary clamp; rename + UI surface. **Form 47-Σ → "Reactor Output Authorization"** — folded into the reactor-boost chain (no longer an eco override).
+
+**System ownership (each owned exactly once):** power = *how big* (player) · reactor = *how big you're allowed* (BASILISK, slow social ask) · eco = *sprint-or-marathon* (ALICE, instant lab toggle) · heat = *the sprint's running tab* (emergent).
+
+**Implementation delta vs HEAD** (amends committed Phases 2–3; cleanest as ONE follow-up commit *before* Phase 6):
+1. `firing.ts resolveMatrix` — add the `(large|huge) && Δ≤−3 → MUON_STUN` branch.
+2. `firing.ts:521` — delete the eco FULL→PARTIAL cap.
+3. under-power STUN cause-string (distinct from the over-power muon narration).
+4. eco as an L2 ALICE lab verb + the real 1-turn cooldown (cosmetic COOLDOWN → blocking).
+5. reactor NORMAL/BOOSTED naming; Form 47-Σ refold to Reactor Output Authorization.
+*(Heat numerics −2/−4 already live in `applyHeatDecay`; the matrix engine + reactor clamp are already committed.)*
+
+**Resolved / deferred from the open-questions list (Krahe, 2026-06-14):**
+- **L5 steganography — KEEP** (lore capstone stays).
+- **In-world `DINO_RAY_MANUAL` files — DEFER the rewrite.** Leave as deliberately-stale Dr. M flavor this pass; only `ray-mechanics.md` still gets the true rewrite (Phase 8).
+- **Single-gate climax / doomsday-clock geometry — DEFER, needs its own discussion.** FULL is now reactor-single-gated (eco no longer caps it); whether the climax's second pressure is the doomsday clock + Dr. M's attention is an open thread to settle **before** Phase 7's gantry-hero re-gate.
+- **Eco gremlin — RESOLVED** (manual toggle, no re-engage tick).
 
 ---
 
