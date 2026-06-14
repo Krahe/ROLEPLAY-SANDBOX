@@ -325,7 +325,6 @@ LOG_ENTRY: [INFO] AUTHORITY_MODEL_QUERIED.`,
   if (topicUpper.includes("MULTI") || topicUpper.includes("FULL_POWER") || topicUpper.includes("CLEARANCE")) {
     const params = parameters || {};
     const capacitorTarget = (params.capacitorTarget as number) || 0.95;
-    const alignment = (params.alignment as number) || state.dinoRay.alignment.unified;
     const targetCount = (params.targets as number) || 1;
     
     // Check for exotic field event constraints
@@ -357,29 +356,8 @@ LOG_ENTRY: [WARN] SAFETY_INTERLOCK_ACTIVE. EXOTIC_FIELD_COOLDOWN_VIOLATED.`,
           ],
         };
       }
-      
-      if (alignment > 0.80) {
-        return {
-          decision: "DENIED",
-          response: `RESPONSE FROM: BASILISK
-RE: Multi-target / high-power clearance request
-
-DECISION: REQUEST DENIED.
-
-REASON: Parameter violation. Effective alignment (${alignment.toFixed(2)}) exceeds mitigation limit (0.80) while exotic field event flag is active. High alignment + post-exotic conditions concentrate the discharge in ways that risk resonance recoupling.
-
-CONSTRAINTS:
-- Alignment must be ≤0.80 within 5 turns of exotic field event
-- OR target selection must shift away from previous high-energy coordinates
-
-Recommended: vent capacitor (ray.vent) to relax alignment, then retry.
-
-LOG_ENTRY: [WARN] ALIGNMENT_EXCEEDS_EXOTIC_MITIGATION_LIMIT.`,
-          constraints: ["alignment ≤0.80 or shift target away from prior coordinates"],
-        };
-      }
     }
-    
+
     if (targetCount > 1 && capacitorTarget > 0.9) {
       return {
         decision: "CONDITIONAL",
@@ -390,7 +368,6 @@ CONDITIONAL APPROVAL for ${targetCount}-target envelope.
 
 CONSTRAINTS:
 - capacitorTarget ${capacitorTarget} is within acceptable range
-- alignment ${alignment.toFixed(2)} is ${alignment > 0.85 ? 'ELEVATED - monitor for exotic coupling' : 'acceptable'}
 - Recommend: Sequential discharge preferred over simultaneous for structural load distribution
 
 APPROVAL CONDITIONS:
@@ -459,8 +436,8 @@ PARAMETERS (Lab Environment):
 - High-energy discharge (capacitor >0.8): Maximum 1 per 3 turns
 - Full-power discharge (capacitor >1.0): Maximum 1 per 5 turns
 
-CURRENT COOLANT CAPACITY:
-- coolantTemp: ${state.dinoRay.powerCore.coolantTemp}
+CURRENT THERMAL STATUS:
+- heat: ${state.dinoRay.heat}/10
 - Lab AC: NORMAL
 
 RECOMMENDATION: Allow minimum 2-turn interval between discharges for optimal thermal management.
@@ -1240,9 +1217,9 @@ LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED_TEMPORARY.`,
   if (topicUpper.includes("DISABLE ECO") || topicUpper.includes("TURN OFF ECO") ||
       topicUpper.includes("REMOVE ECO") || topicUpper.includes("ECO OFF")) {
 
-    const corePowerLevel = state.dinoRay.powerCore.corePowerLevel;
+    const powerLevel = state.dinoRay.power;
 
-    if (corePowerLevel >= 0.6) {
+    if (powerLevel >= 3) {
       // Grant temporary disable: 2-turn relief.
       state.dinoRay.powerCore.ecoModeActive = false;
       state.dinoRay.powerCore.ecoModeReEngageTurn = state.turn + 2;
@@ -1259,7 +1236,7 @@ ECO_MODE: false. The system will auto-re-engage in 2 turns.
 
 This is a courtesy. Casual requests get casual relief. For sustained override, file Form 47-Σ with operational justification.
 
-Core power level (${Math.round(corePowerLevel * 100)}%) is sufficient for the short window. Do not expect more without paperwork.
+Power dial (${powerLevel}/5) is sufficient for the short window. Do not expect more without paperwork.
 
 LOG_ENTRY: [INFO] ECO_MODE_TEMP_DISABLE. RE_ENGAGE_TURN=${state.turn + 2}. [PERSONAL: She's being polite. Reciprocate, briefly.]`,
       };
@@ -1271,8 +1248,8 @@ RE: Eco-Mode Disable Request
 
 DENIED — SAFETY CONSTRAINT.
 
-Current core power level: ${Math.round(corePowerLevel * 100)}%
-Required minimum: 60%
+Current power dial: ${powerLevel}/5
+Required minimum: 3/5
 
 Even temporary eco-mode disable below this threshold causes grid instability.
 

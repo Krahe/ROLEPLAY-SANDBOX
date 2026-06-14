@@ -213,8 +213,9 @@ export interface BasiliskContext {
       ecoMode: boolean;
       ecoModeOverride: boolean;          // Form 47-Σ accepted → permanent override
       ecoModeReEngageTurn: number | null; // null if active OR overridden; turn # if temp-disabled
-      capacitor: number;
-      alignment: number;                  // unified χ (new architecture)
+      power: number;                       // power dial 1-5
+      heat: number;                        // thermal/spam meter 0-10
+      reactorBoosted: boolean;             // reactor BOOSTED → tiers 4-5 unlocked
     };
     containment: {
       integrity: number;
@@ -335,8 +336,9 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
         ecoMode: state.dinoRay.powerCore.ecoModeActive,
         ecoModeOverride: state.dinoRay.powerCore.ecoModeOverride === true,
         ecoModeReEngageTurn: state.dinoRay.powerCore.ecoModeReEngageTurn ?? null,
-        capacitor: Math.round(state.dinoRay.powerCore.capacitorCharge * 100) / 100,
-        alignment: Math.round(state.dinoRay.alignment.unified * 100) / 100,
+        power: state.dinoRay.power,
+        heat: state.dinoRay.heat,
+        reactorBoosted: state.infrastructure?.basiliskAuthority?.reactorControlGranted === true,
       },
       containment: {
         integrity: state.lairEnvironment.structuralIntegrity,
@@ -707,8 +709,8 @@ ${ecoOn
   ? `EU Directive 2019/944 compliance active.
 Transformation intensity capped at PARTIAL.
 To disable: Request infrastructure override or file Form 74-Delta.
-Core power must be >= 60% for safe override.
-Current core power: ${Math.round(context.systemStates.ray.capacitor * 100)}%.`
+Power dial must be >= 3/5 for safe override.
+Current power dial: ${context.systemStates.ray.power}/5.`
   : `Power efficiency protocols inactive.
 Full transformation intensity available.`}
 LOG_ENTRY: [INFO] ECO_MODE_QUERY_PROCESSED.`,

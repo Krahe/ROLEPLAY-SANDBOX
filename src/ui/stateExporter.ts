@@ -54,15 +54,12 @@ export interface LiveState {
   drMLocation: string;
   drMMood: string;
 
-  // Ray
+  // Ray (Patch 30 TWO-LEVER surface: genome sizeClass = ideal power, + power dial)
   rayState: string;
-  capacitor: number;
-  calibration?: number;   // Act 1 objective progress (0–1); replaced by demo clock in Act 2+
-
-  // Ray instruments (added 2026-06-12 — surface the rebuilt ray mechanics)
-  alignment?: number;     // χ ALIGNMENT (dinoRay.alignment.unified, 0–1)
-  coolantTemp?: number;   // thermal load (0–2; sustained >1.5 trips cooldown lock)
-  reactorMode?: string;   // NORMAL | BOOSTED | OVERDRIVEN (drives capacitor accrual)
+  power?: number;         // power dial 1–5 (matched to genome ideal → FULL)
+  heat?: number;          // spam/thermal meter 0–10 (cools −2/turn, −4 eco; 10 = overheated → chaos)
+  reactorGranted?: boolean; // reactor BOOSTED → enables power tiers 4–5
+  reactorMode?: string;   // NORMAL | BOOSTED | OVERDRIVEN
 
   // NEW: Eco Mode & Genome (Patch 18.5)
   ecoModeActive?: boolean;
@@ -176,14 +173,11 @@ export function exportLiveState(state: FullGameState): void {
     drMLocation: state.npcs.drM.location,
     drMMood: state.npcs.drM.mood,
 
-    // Ray
+    // Ray (Patch 30 TWO-LEVER surface)
     rayState: state.dinoRay.state,
-    capacitor: state.dinoRay.powerCore.capacitorCharge,
-    calibration: state.dinoRay.calibration,
-
-    // Ray instruments (surface the rebuilt mechanics for the advisor)
-    alignment: state.dinoRay.alignment?.unified,
-    coolantTemp: state.dinoRay.powerCore?.coolantTemp,
+    power: state.dinoRay.power,
+    heat: state.dinoRay.heat,
+    reactorGranted: state.infrastructure?.basiliskAuthority?.reactorControlGranted,
     reactorMode: state.infrastructure?.reactor?.mode,
 
     // NEW: Eco Mode & Genome (Patch 18.5)

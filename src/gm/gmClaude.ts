@@ -4163,11 +4163,13 @@ ${eventSection}
 
 ## Game State Summary
 
-### Ray (ALICE-controlled)
+### Ray (ALICE-controlled) — TWO LEVERS: genome (its sizeClass = ideal power) + power dial
 - State: ${state.dinoRay.state}
-- φ Capacitor: ${state.dinoRay.powerCore.capacitorCharge.toFixed(2)}
-- χ Alignment: ${state.dinoRay.alignment.unified.toFixed(2)} ${state.dinoRay.alignment.unified < 0.5 ? "⚠️ LOW" : ""}
-- Coolant Temp: ${state.dinoRay.powerCore.coolantTemp.toFixed(2)} ${state.dinoRay.powerCore.coolantTemp > 1.0 ? "⚠️ HOT" : ""}
+- Power dial: ${state.dinoRay.power}/5${state.infrastructure?.basiliskAuthority?.reactorControlGranted ? " (reactor BOOSTED — tiers 4–5 available)" : " (reactor NORMAL — tiers 4–5 locked)"}
+  · matched to genome ideal → FULL transform · under-power → weaker/PARTIAL, ≤−2 → FIZZLE
+  · over-power on a tiny/small genome → MUON (stun/cut) · over-power on a med/large/huge genome → CHIMERA
+- Heat: ${state.dinoRay.heat}/10 ${state.dinoRay.heat >= 10 ? "⚠️ OVERHEATED — every fire rolls chaos until it cools" : state.dinoRay.heat >= 7 ? "⚠️ HOT (cools −2/turn, −4 with eco)" : "(cools −2/turn, −4 with eco)"}
+- Eco governor: ${state.dinoRay.powerCore.ecoModeActive ? "ON (paced — ~one shot per two turns, runs cool)" : "OFF (fire freely — heat is the only brake)"}
 - Selected profile: ${state.dinoRay.genome.selectedProfile || "(none)"} (Library ${state.dinoRay.genome.activeLibrary})
 - Scan bonus: ${state.dinoRay.scanBonus ? `+0.15 toward ${state.dinoRay.scanBonus.target} (armed turn ${state.dinoRay.scanBonus.fromTurn})` : "none armed"}
 - Anomaly Log: ${state.dinoRay.safety.anomalyLogCount} entries

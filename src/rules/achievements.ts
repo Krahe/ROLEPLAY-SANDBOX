@@ -1015,11 +1015,9 @@ export function checkAchievements(ctx: AchievementTriggerContext): Achievement[]
     hasNarrativeFlag("DEMO_COMPLETE") && state.npcs.drM.suspicionScore < 3
   );
 
-  // chain_reaction - CHAIN_SHOT success
-  tryUnlock("chain_reaction",
-    state.dinoRay.genome.advancedFiringMode === "CHAIN_SHOT" &&
-    hasNarrativeFlag("CHAIN_SHOT_SUCCESS")
-  );
+  // chain_reaction - CHAIN_SHOT success (regimes are emergent now; the
+  // narrative flag is the signal that the chain shot landed)
+  tryUnlock("chain_reaction", hasNarrativeFlag("CHAIN_SHOT_SUCCESS"));
 
   // bob_transformed - Bob is dino
   tryUnlock("bob_transformed", hasNarrativeFlag("BOB_TRANSFORMED") || hasNarrativeFlag("DINO_BOB"));
@@ -1128,9 +1126,9 @@ export function checkAchievements(ctx: AchievementTriggerContext): Achievement[]
   // mad_scientist - 5+ violations
   tryUnlock("mad_scientist", hasNarrativeFlag("5_VIOLATIONS"));
 
-  // overcharge_master - 150%+ power success
+  // overcharge_master - max-dial (reactor-boosted power 5) success
   tryUnlock("overcharge_master",
-    state.dinoRay.powerCore.capacitorCharge >= 1.5 &&
+    state.dinoRay.power >= 5 &&
     state.dinoRay.memory.lastFireOutcome === "FULL_DINO"
   );
 

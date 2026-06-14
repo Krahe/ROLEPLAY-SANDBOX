@@ -113,7 +113,10 @@ describe('Initial State Creation', () => {
     const state = initialState();
     assert.ok(state.dinoRay, 'Should have dino ray');
     assert.ok(state.dinoRay.powerCore, 'Should have power core');
-    assert.ok(state.dinoRay.alignment, 'Should have alignment');
+    // Patch 30 two-lever surface (alignment/capacitor/coolant were cut).
+    assert.equal(typeof state.dinoRay.power, 'number', 'Should have power dial');
+    assert.equal(typeof state.dinoRay.heat, 'number', 'Should have heat meter');
+    assert.equal(typeof state.dinoRay.powerCore.ecoModeActive, 'boolean', 'Should have eco-mode governor');
   });
 
   it('initial state has NPCs configured', () => {
