@@ -14,7 +14,7 @@ import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
 import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
-import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyAlignmentDrift, applyEcoModeReEngage, applyCapacitorAccrual } from "./rules/clockEvents.js";
+import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
@@ -161,7 +161,7 @@ interface CompactSnapshot {
   // Key metrics only
   rayState: string;
   rayReady: boolean;
-  capacitorCharge: number;
+  power: number;
   testModeOn: boolean;
 
   // NPC summary (just numbers)
@@ -195,10 +195,8 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
     hint = "⏰ Demo imminent! Dr. M is watching closely.";
   } else if (state.npcs.drM.suspicionScore >= 6) {
     hint = "⚠️ Dr. M is growing suspicious of your behavior.";
-  } else if (state.dinoRay.powerCore.coolantTemp > 1.5) {
-    hint = `🌡️ COOLANT LOCKOUT (${state.dinoRay.powerCore.coolantTemp.toFixed(2)}): fires are blocked until coolant drops below 1.5. Vent or let it cool (~-0.02/turn idle).`;
   } else if (state.dinoRay.state === "COOLDOWN") {
-    hint = "🔁 Ray cooling — clears to READY next turn, does NOT block firing, and the capacitor keeps charging. (The real fire-gate is COOLANT > 1.5, not this state.)";
+    hint = "🔁 Ray cooling — clears to READY next turn; does NOT block firing.";
   } else if (state.dinoRay.state === "READY") {
     hint = "🦖 Ray is READY to fire.";
   } else if (state.dinoRay.state === "UNCALIBRATED") {
@@ -220,7 +218,7 @@ function buildCompactSnapshot(state: FullGameState, activeEvents?: string[]): Co
 
     rayState: state.dinoRay.state,
     rayReady: state.dinoRay.state === "READY",
-    capacitorCharge: Math.round(state.dinoRay.powerCore.capacitorCharge * 100) / 100,
+    power: state.dinoRay.power,
     testModeOn: state.dinoRay.safety.testModeEnabled,
 
     npcs: {
@@ -919,31 +917,11 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // ============================================
     const actionResults = await processActions(gameState, params.actions);
 
-    // ============================================
-    // CALIBRATION SPINE (Act 1 objective)
-    // ============================================
-    // Every successful ray.* action readies the ray. Novelty-weighted so Act 1
-    // rewards experimentation over grinding: +0.10 the first time a given ray
-    // action is used this game, +0.05 on repeats. Reaching 1.0 ends Act 1
-    // (acts.ts checkAct1Transition gate). Act-1-only; the bar is gone in Act 2.
-    if (gameState.actConfig.currentAct === "ACT_1") {
-      if (gameState.dinoRay.calibration == null) gameState.dinoRay.calibration = 0;
-      if (!Array.isArray(gameState.dinoRay.calibrationActionsSeen)) gameState.dinoRay.calibrationActionsSeen = [];
-      const seen = gameState.dinoRay.calibrationActionsSeen;
-      for (const r of actionResults) {
-        if (!r.command || !r.command.startsWith("ray.")) continue;
-        // A ray.fire that RESOLVED counts even on FIZZLE/EXOTIC (success:false) —
-        // firing IS ray engagement and should advance calibration; only a rejected
-        // action (no firingResult) gives nothing. Other ray.* count on success.
-        const fireResolved = r.command === "ray.fire" &&
-          !!(r as any).stateChanges?.firingResult?.outcome &&
-          (r as any).stateChanges.firingResult.outcome !== "NONE";
-        if (!r.success && !fireResolved) continue;
-        const firstUse = !seen.includes(r.command);
-        if (firstUse) seen.push(r.command);
-        gameState.dinoRay.calibration = Math.min(1, gameState.dinoRay.calibration + (firstUse ? 0.10 : 0.05));
-      }
-    }
+    // CALIBRATION METER CUT (Patch 30, UPDATE #2): the 0→1 calibration spine was
+    // scaffolding for the complex ray. The Act-1→2 gate becomes a simple "fired
+    // at both test targets" check (acts.ts). This Desktop-only hook + the
+    // calibration/calibrationActionsSeen fields are gone — which also dissolves
+    // the old Desktop-only-calibration dual-path divergence.
 
     // ============================================
     // POST-ACTION: Check for Bob Accidental Transformation
@@ -1016,8 +994,8 @@ Bob (still a ${safeFormDef.displayName.toLowerCase()}) gives you a grateful look
     let civilianFlybyConsequences = "";
     if (firingResult) {
       const firingRestriction = checkFiringRestrictions(gameState);
-      if (firingRestriction.consequences && gameState.dinoRay.powerCore.capacitorCharge > 0.8) {
-        // ALICE fired high-power during flyby! Apply consequences!
+      if (firingRestriction.consequences && gameState.dinoRay.power >= 4) {
+        // ALICE fired a high-power (spectacle) shot during the flyby! Consequences!
         const conseq = firingRestriction.consequences;
 
         // +2 suspicion from Dr. M (using existing suspicionScore)
@@ -1320,12 +1298,7 @@ The consequences of that reckless high-power firing are now manifesting.
           gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
         }
       }
-      if (overrides.libraryStatus !== undefined) {
-        const validStatuses = ["HEALTHY", "PARTIAL", "CORRUPTED", "DESTROYED"];
-        if (typeof overrides.libraryStatus === "string" && validStatuses.includes(overrides.libraryStatus)) {
-          gameState.dinoRay.genome.libraryStatus = overrides.libraryStatus as "HEALTHY" | "PARTIAL" | "CORRUPTED" | "DESTROYED";
-        }
-      }
+      // libraryStatus GM override CUT (Patch 30 — genome.libraryStatus removed).
 
       // Ray state overrides
       if (overrides.rayState !== undefined) {
@@ -1389,62 +1362,12 @@ The consequences of that reckless high-power firing are now manifesting.
         console.error(`[GM OVERRIDE] Fortune set to ${gameState.fortune}`);
       }
 
-      // DinoRay Power Core
-      if (overrides.ray_corePowerLevel !== undefined) {
-        gameState.dinoRay.powerCore.corePowerLevel = Math.max(0, Math.min(1, overrides.ray_corePowerLevel));
-      }
-      if (overrides.ray_capacitorCharge !== undefined) {
-        gameState.dinoRay.powerCore.capacitorCharge = Math.max(0, Math.min(1.5, overrides.ray_capacitorCharge));
-      }
-      if (overrides.ray_coolantTemp !== undefined) {
-        gameState.dinoRay.powerCore.coolantTemp = Math.max(0, Math.min(2, overrides.ray_coolantTemp));
-      }
-      // ray_stability GM override removed in the legacy cleanup pass.
-      // Stability is now derived per-fire from library × profile × power_match
-      // × alignment_match — there is no stored stability value to set.
-      // If the GM wants to bias outcomes, adjust alignment or capacitor instead.
-      if (overrides.ray_ecoModeActive !== undefined) {
-        gameState.dinoRay.powerCore.ecoModeActive = overrides.ray_ecoModeActive;
-      }
-
-      // DinoRay Targeting
-      if (overrides.ray_precision !== undefined) {
-        gameState.dinoRay.targeting.precision = Math.max(0, Math.min(1, overrides.ray_precision));
-      }
-      if (overrides.ray_targetingMode !== undefined) {
-        gameState.dinoRay.targeting.targetingMode = overrides.ray_targetingMode as typeof gameState.dinoRay.targeting.targetingMode;
-      }
-      if (overrides.ray_firingStyle !== undefined) {
-        gameState.dinoRay.targeting.firingStyle = overrides.ray_firingStyle as typeof gameState.dinoRay.targeting.firingStyle;
-      }
-      if (overrides.ray_speechRetention !== undefined) {
-        gameState.dinoRay.targeting.speechRetention = overrides.ray_speechRetention as typeof gameState.dinoRay.targeting.speechRetention;
-      }
-
-      // DinoRay Genome
-      if (overrides.ray_selectedProfile !== undefined) {
-        gameState.dinoRay.genome.selectedProfile = overrides.ray_selectedProfile;
-      }
-      if (overrides.ray_profileIntegrity !== undefined) {
-        gameState.dinoRay.genome.profileIntegrity = Math.max(0, Math.min(1, overrides.ray_profileIntegrity));
-      }
-      if (overrides.ray_activeLibrary !== undefined) {
-        gameState.dinoRay.genome.activeLibrary = overrides.ray_activeLibrary as typeof gameState.dinoRay.genome.activeLibrary;
-      }
-      if (overrides.ray_firingMode !== undefined) {
-        gameState.dinoRay.genome.firingMode = overrides.ray_firingMode as typeof gameState.dinoRay.genome.firingMode;
-      }
-
-      // DinoRay Safety
-      if (overrides.ray_testModeEnabled !== undefined) {
-        gameState.dinoRay.safety.testModeEnabled = overrides.ray_testModeEnabled;
-      }
-      if (overrides.ray_liveSubjectLock !== undefined) {
-        gameState.dinoRay.safety.liveSubjectLock = overrides.ray_liveSubjectLock;
-      }
-      if (overrides.ray_emergencyShutoffFunctional !== undefined) {
-        gameState.dinoRay.safety.emergencyShutoffFunctional = overrides.ray_emergencyShutoffFunctional;
-      }
+      // DinoRay ray_* GM god-mode overrides CUT (Patch 30): the GM no longer sets
+      // ray internals (corePowerLevel / capacitor / coolant / alignment / stability
+      // / profileIntegrity / liveSubjectLock / emergencyShutoff — all gone — nor
+      // precision / profile / library / mode). The ray is two levers ALICE drives
+      // via ray.fire; the GM shapes the world, not the ray's guts. (The matching
+      // GMStateOverrides schema fields get pruned in the Phase 8 gmClaude pass.)
 
       // Additional clocks
       if (overrides.meltdownClock !== undefined) {
@@ -1743,19 +1666,13 @@ The consequences of that reckless high-power firing are now manifesting.
     }
 
     // ============================================
-    // PRESSURE LOOP (ray-mechanics §12)
+    // PER-TURN RAY MECHANIC (Patch 30)
     // ============================================
-    // These were wired into gameRunner.advanceTurn (CLI path) ONLY — the
-    // Desktop game_act path never ran them, so passive capacitor accrual,
-    // alignment drift, and eco-mode auto-re-engage were all dead in real play.
-    // That is why turn-1 capacitor barely moved (the +0.03 was ALICE's own
-    // ray.adjust, not the +0.15 reactor feed). Order matches gameRunner:
-    // drift → eco re-engage (BEFORE accrual, so a re-engage this turn cancels
-    // this turn's accrual) → accrual → diagnostic/calibration tick (AFTER
-    // accrual so net capacitor reflects both reactor input and diagnostic draw).
-    applyAlignmentDrift(gameState);
+    // Alignment drift + capacitor accrual CUT (no alignment, no capacitor). The
+    // playtest-1 P0 was that this Desktop block didn't run those at all; now
+    // there's only one per-turn ray mechanic left — eco-mode auto-re-engage —
+    // and it runs on BOTH paths (here + gameRunner.advanceTurn).
     applyEcoModeReEngage(gameState);
-    applyCapacitorAccrual(gameState);
 
     // ============================================
     // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)
@@ -1772,21 +1689,9 @@ The consequences of that reckless high-power firing are now manifesting.
         gameState.infrastructure.reactor.outputPercent = minReactorPercent;
       }
 
-      // Instability surges: extra +3% charge that CAN push past 100%
-      // This represents power fluctuations from the unstable core
-      const currentCharge = gameState.dinoRay.powerCore.capacitorCharge;
-      const instabilitySurge = 0.03;
-      const maxSurge = 1.15; // Cap at 115% - player must vent or it gets dangerous
-
-      if (currentCharge < maxSurge) {
-        const newCharge = Math.min(maxSurge, currentCharge + instabilitySurge);
-        gameState.dinoRay.powerCore.capacitorCharge = newCharge;
-
-        // Log warning at dangerous thresholds
-        if (currentCharge < 1.0 && newCharge >= 1.0) {
-          console.error(`[NOT_GREAT_NOT_TERRIBLE] Capacitor crossed 100% due to reactor instability!`);
-        }
-      }
+      // Capacitor instability surge CUT (Patch 30 — no capacitor). The forced
+      // reactor floor above + the meltdown-clock decay below carry the
+      // NOT_GREAT_NOT_TERRIBLE pressure now.
 
       // Meltdown clock decay every 2 turns (passive reactor degradation)
       if (gameState.turn % 2 === 0 && gameState.clocks.meltdownClock && gameState.clocks.meltdownClock > 0) {

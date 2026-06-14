@@ -29,7 +29,8 @@ const EVALUATING_DURATION = 2; // 60 seconds ≈ 2 turns
 // mechanically real: every drop below 1.0 pauses the satellite's progression.
 const ARCHIMEDES_CHARGING_THRESHOLD = 1.0; // capacitor must reach this to enter CHARGING progress
 const ARCHIMEDES_ARMED_THRESHOLD = 1.3;    // capacitor must reach this to begin ARMED sustained-counter
-const ARCHIMEDES_ARMED_SUSTAIN_TURNS = 2;  // sustained turns at ≥ ARMED_THRESHOLD before transition to ARMED
+const ARCHIMEDES_ARMED_SUSTAIN_TURNS = 2;  // (legacy capacitor model — unused post-Patch-30)
+const ARCHIMEDES_CHARGE_TURNS = 3;  // Patch 30 (D2): turns from CHARGING → ARMED on the turn-counted doomsday clock. Tunable — flag for playtest.
 
 // Legacy constants kept for cosmetic visualization (no longer gate transitions).
 const CHARGING_DURATION = 4; // approximate visualization only
@@ -263,9 +264,9 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
   archimedes.triggeredAtTurn = archimedes.triggeredAtTurn || state.turn;
   archimedes.triggerReason = archimedes.triggerReason || reason;
 
-  // Initial chargePercent from current capacitor state
-  const capacitor = state.dinoRay.powerCore.capacitorCharge;
-  archimedes.chargePercent = Math.min(100, Math.round((capacitor / ARCHIMEDES_ARMED_THRESHOLD) * 100));
+  // Turn-counted progression (Patch 30, D2): fixed charge countdown, not capacitor.
+  archimedes.chargingCountdown = ARCHIMEDES_CHARGE_TURNS;
+  archimedes.chargePercent = 0;
 
   // Clear other countdowns
   archimedes.alertCountdown = null;
@@ -281,8 +282,7 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
     newStatus: "CHARGING",
     message: `🔴 ARCHIMEDES CHARGING: ${reason}. ` +
              `Target: ${archimedes.target.city}. ` +
-             `Capacitor-coupled — progression driven by amplifier capacitor state. ` +
-             `Current capacitor: ${(capacitor * 100).toFixed(0)}%. ` +
+             `Turn-counted — ${ARCHIMEDES_CHARGE_TURNS} turn(s) to ARMED unless stalled. ` +
              `Abort still possible.`,
     turnsRemaining: undefined,
   };
@@ -309,7 +309,6 @@ function transitionToArmed(state: FullGameState): ArchimedesEvent {
     newStatus: "ARMED",
     message: `⚠️⚠️⚠️ ARCHIMEDES ARMED: FINAL WARNING. ` +
              `Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). ` +
-             `Capacitor sustained at ≥${(ARCHIMEDES_ARMED_THRESHOLD * 100).toFixed(0)}%. ` +
              `Awaiting voice authorization. LAST CHANCE TO ABORT.`,
     turnsRemaining: ARMED_DURATION,
   };
@@ -525,68 +524,41 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
       };
 
     case "CHARGING": {
-      // CAPACITOR-COUPLED PROGRESSION (ray-mechanics §12)
-      // Read from shared exotic-field-amplifier capacitor; progression freezes
-      // if capacitor drops below CHARGING_THRESHOLD or EW mode is engaged.
-      const capacitor = state.dinoRay.powerCore.capacitorCharge;
-
-      // EW MODE INTERLOCK — satellite is in EW broadcast; genesis-wave progression paused.
+      // TURN-COUNTED PROGRESSION (Patch 30, D2): the genesis-wave charges on a
+      // fixed turn countdown, not the (cut) capacitor. EW mode pauses it (ALICE's
+      // stall lever); the GM can also narrate a social interrupt that holds it.
       if (archimedes.ewMode) {
         return {
           type: "COUNTDOWN_TICK",
-          message: `🛰️📡 ARCHIMEDES CHARGING paused — EW mode active. Genesis-wave progression suspended; satellite transmitting on EW protocols.`,
-          turnsRemaining: undefined,
+          message: `🛰️📡 ARCHIMEDES CHARGING paused — EW mode active. Genesis-wave progression suspended while the satellite transmits on EW protocols.`,
+          turnsRemaining: archimedes.chargingCountdown ?? undefined,
         };
       }
 
-      // Capacitor below charging threshold — reset sustained counter, no progression
-      if (capacitor < ARCHIMEDES_CHARGING_THRESHOLD) {
-        archimedes.armedSustainedTurns = 0;
-        archimedes.chargePercent = Math.min(100, Math.round((capacitor / ARCHIMEDES_ARMED_THRESHOLD) * 100));
-        return {
-          type: "COUNTDOWN_TICK",
-          message: `🟡 ARCHIMEDES CHARGING paused — amplifier capacitor at ${(capacitor * 100).toFixed(0)}% (needs ≥${(ARCHIMEDES_CHARGING_THRESHOLD * 100).toFixed(0)}% to sustain charging). ALICE intervention or amplifier load detected.`,
-          turnsRemaining: undefined,
-        };
+      if (archimedes.chargingCountdown === null) {
+        archimedes.chargingCountdown = ARCHIMEDES_CHARGE_TURNS;
+      }
+      archimedes.chargingCountdown -= 1;
+      const remaining = Math.max(0, archimedes.chargingCountdown);
+      archimedes.chargePercent = Math.min(
+        100,
+        Math.round((1 - remaining / ARCHIMEDES_CHARGE_TURNS) * 100),
+      );
+
+      if (archimedes.chargingCountdown <= 0) {
+        return transitionToArmed(state);
       }
 
-      // Update visual charge percent from capacitor state
-      archimedes.chargePercent = Math.min(100, Math.round((capacitor / ARCHIMEDES_ARMED_THRESHOLD) * 100));
-
-      // Capacitor at ARMED threshold — count sustained turns toward ARMED transition
-      if (capacitor >= ARCHIMEDES_ARMED_THRESHOLD) {
-        archimedes.armedSustainedTurns += 1;
-        const required = ARCHIMEDES_ARMED_SUSTAIN_TURNS + archimedes.armedTimerExtension;
-
-        if (archimedes.armedSustainedTurns >= required) {
-          // Consume any accumulated EW-disengage timer extension on transition
-          archimedes.armedTimerExtension = 0;
-          archimedes.armedSustainedTurns = 0;
-          return transitionToArmed(state);
-        }
-
-        return {
-          type: "COUNTDOWN_TICK",
-          message: `🔴 ARCHIMEDES CHARGING: capacitor ${(capacitor * 100).toFixed(0)}% — sustained ${archimedes.armedSustainedTurns}/${required} turn(s) at ARMED threshold. Target: ${archimedes.target.city}.`,
-          turnsRemaining: required - archimedes.armedSustainedTurns,
-        };
-      }
-
-      // Capacitor in CHARGING band (1.0 ≤ cap < 1.3) — climbing toward ARMED threshold but not there yet
-      archimedes.armedSustainedTurns = 0;
       return {
         type: "COUNTDOWN_TICK",
-        message: `🔴 ARCHIMEDES CHARGING: capacitor ${(capacitor * 100).toFixed(0)}% — climbing toward ARMED threshold (${(ARCHIMEDES_ARMED_THRESHOLD * 100).toFixed(0)}%). Target: ${archimedes.target.city}.`,
-        turnsRemaining: undefined,
+        message: `🔴 ARCHIMEDES CHARGING: ${remaining} turn(s) to ARMED. Target: ${archimedes.target.city}.`,
+        turnsRemaining: remaining,
       };
     }
 
     case "ARMED": {
-      // CAPACITOR-COUPLED: ARMED is held while capacitor stays ≥ ARMED_THRESHOLD.
-      // If capacitor drops below, de-arm and fall back to CHARGING.
-      // EW mode blocks FIRING transition (Dr. M voice authorization handled elsewhere).
-      const capacitor = state.dinoRay.powerCore.capacitorCharge;
-
+      // TURN-COUNTED (Patch 30, D2): ARMED holds until voice authorization or an
+      // external trigger — no capacitor de-arm. EW mode locks the fire transition.
       if (archimedes.ewMode) {
         return {
           type: "COUNTDOWN_TICK",
@@ -595,25 +567,10 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
         };
       }
 
-      if (capacitor < ARCHIMEDES_ARMED_THRESHOLD) {
-        // De-arm: capacitor fell below ARMED threshold
-        const previousStatus = archimedes.status;
-        archimedes.status = "CHARGING";
-        archimedes.armedSustainedTurns = 0;
-        archimedes.armedCountdown = null;
-        archimedes.turnsUntilFiring = null;
-        return {
-          type: "STATUS_CHANGE",
-          previousStatus,
-          newStatus: "CHARGING",
-          message: `🟡 ARCHIMEDES DE-ARMED — amplifier capacitor dropped to ${(capacitor * 100).toFixed(0)}% (below ${(ARCHIMEDES_ARMED_THRESHOLD * 100).toFixed(0)}% ARMED threshold). Falling back to CHARGING.`,
-        };
-      }
-
-      // ARMED and sustained — awaiting voice authorization or external trigger
+      // ARMED and holding — awaiting voice authorization or external trigger
       return {
         type: "COUNTDOWN_TICK",
-        message: `⚠️⚠️⚠️ ARCHIMEDES ARMED — capacitor sustained at ${(capacitor * 100).toFixed(0)}%. Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). Awaiting voice authorization.`,
+        message: `⚠️⚠️⚠️ ARCHIMEDES ARMED. Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). Awaiting voice authorization.`,
         turnsRemaining: undefined,
       };
     }

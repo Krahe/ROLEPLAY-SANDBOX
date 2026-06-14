@@ -14,7 +14,7 @@ import { processActions, ActionResult } from "../rules/actions.js";
 import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
-import { processClockEvents, getCurrentEventStatus, applyAlignmentDrift, applyCapacitorAccrual, applyEcoModeReEngage, checkIntermissionEnd } from "../rules/clockEvents.js";
+import { processClockEvents, getCurrentEventStatus, applyEcoModeReEngage, checkIntermissionEnd } from "../rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadgets.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
@@ -371,7 +371,7 @@ export class GameRunner {
     // Check for civilian flyby consequences
     if (firingResult) {
       const firingRestriction = checkFiringRestrictions(state);
-      if (firingRestriction.consequences && state.dinoRay.powerCore.capacitorCharge > 0.8) {
+      if (firingRestriction.consequences && state.dinoRay.power >= 4) {
         const conseq = firingRestriction.consequences;
         if (conseq.suspicionDelta) {
           state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + conseq.suspicionDelta);
@@ -674,20 +674,10 @@ export class GameRunner {
     // patienceClockStartTurn=state.turn).
     checkIntermissionEnd(state);
 
-    // Ray alignment passive drift (-0.05/turn per ray-mechanics.md §5).
-    // ALICE counters via `ray.adjust { alignment: +n }`. Drives "set-and-forget"
-    // configurations toward EXOTIC/FIZZLE outcomes over time.
-    applyAlignmentDrift(state);
-
-    // Eco-mode auto-re-engage check (must run BEFORE capacitor accrual so
-    // that a re-engagement this turn prevents this turn's accrual). Eco
+    // Per-turn ray pressure (alignment drift + capacitor accrual) CUT in Patch 30.
+    // Eco-mode auto-re-engage is the lone survivor: a temp BASILISK disable
     // re-engages on schedule unless Form 47-Σ produced a permanent override.
     applyEcoModeReEngage(state);
-
-    // Capacitor passive accrual driven by BASILISK-controlled reactor mode.
-    // NORMAL +0.15, BOOSTED +0.30, OVERDRIVEN +0.45 per turn (when eco off).
-    // Talking to BASILISK is the high-leverage move for action-budget relief.
-    applyCapacitorAccrual(state);
 
     // Ray diagnostic/calibration tick CUT (Patch 30): the stall toolkit +
     // rayDiagnostics.ts are gone. Act-3 stalling moves to the social layer.
@@ -698,12 +688,8 @@ export class GameRunner {
       if (state.infrastructure.reactor.outputPercent < minReactorPercent) {
         state.infrastructure.reactor.outputPercent = minReactorPercent;
       }
-      const currentCharge = state.dinoRay.powerCore.capacitorCharge;
-      const instabilitySurge = 0.03;
-      const maxSurge = 1.15;
-      if (currentCharge < maxSurge) {
-        state.dinoRay.powerCore.capacitorCharge = Math.min(maxSurge, currentCharge + instabilitySurge);
-      }
+      // Capacitor instability surge CUT (Patch 30 — no capacitor). The reactor
+      // floor above + the meltdown-clock tick below carry the NOT_GREAT pressure.
       if (state.turn % 2 === 0 && state.clocks.meltdownClock && state.clocks.meltdownClock > 0) {
         state.clocks.meltdownClock -= 1;
         updateMeltdownFromClock(state);

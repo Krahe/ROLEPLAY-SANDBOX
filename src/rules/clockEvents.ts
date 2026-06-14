@@ -1,61 +1,11 @@
 import { FullGameState } from "../state/schema.js";
 import { isModifierActive } from "./gameModes.js";
-import { ALIGNMENT_DEGRADATION, applyAlignmentDegradation } from "./firing.js";
 
-// ============================================
-// RAY ALIGNMENT DRIFT (design/ray-mechanics.md §5)
-// ============================================
-// Each turn, alignment drifts down by ALIGNMENT_DEGRADATION.PASSIVE_DRIFT_PER_TURN.
-// ALICE counters via `ray.adjust { alignment: +n }`.
-//
-// Wired into gameRunner.advanceTurn() as of 2026-06-05 (Step 1 of ray surgery).
-
-export function applyAlignmentDrift(state: FullGameState): void {
-  const ray = state.dinoRay;
-  ray.alignment.unified = applyAlignmentDegradation(
-    ray.alignment.unified,
-    ALIGNMENT_DEGRADATION.PASSIVE_DRIFT_PER_TURN,
-  );
-}
-
-// ============================================
-// CAPACITOR PASSIVE ACCRUAL (ray-mechanics.md §12, v1-tripled)
-// ============================================
-// When eco-mode is off, the reactor continuously feeds the capacitor.
-// Accrual rate depends on the BASILISK-controlled reactor mode:
-//
-//   Mode        | Accrual/turn | Comparison
-//   ────────────┼──────────────┼──────────────────────────────────────
-//   NORMAL      |    +0.15     | < 1 ALICE action (max +0.25/action)
-//   BOOSTED     |    +0.30     | > 1 ALICE action equivalent
-//   OVERDRIVEN  |    +0.45     | ~ 2 ALICE actions equivalent
-//
-// BASILISK negotiation is the high-leverage move: talking to him saves
-// ALICE action budget she'd otherwise spend on capacitor adjustment.
-//
-// Pressure-release loop (more aggressive at higher modes):
-//   reactor BOOSTED + eco off + no fire → capacitor creeps toward overcharge
-//   → ALICE must vent (-0.15 alignment) OR fire (drains ~40%)
-//   OR let eco-mode re-engage (caps outcomes at PARTIAL).
-//
-// Hard cap at 1.5 — above that, chaos-condition territory.
-
-const ACCRUAL_BY_MODE = {
-  NORMAL: 0.15,
-  BOOSTED: 0.30,
-  OVERDRIVEN: 0.45,
-} as const;
-
-export function applyCapacitorAccrual(state: FullGameState): void {
-  const ray = state.dinoRay;
-  if (ray.powerCore.ecoModeActive) return;
-
-  const mode = state.infrastructure?.reactor?.mode ?? "NORMAL";
-  const accrual = ACCRUAL_BY_MODE[mode];
-
-  const cap = 1.5;
-  ray.powerCore.capacitorCharge = Math.min(cap, ray.powerCore.capacitorCharge + accrual);
-}
+// RAY ALIGNMENT DRIFT + CAPACITOR PASSIVE ACCRUAL (applyAlignmentDrift /
+// applyCapacitorAccrual / ACCRUAL_BY_MODE) CUT in Patch 30: alignment and the
+// capacitor sim are gone. The per-turn pressure loop they drove is replaced by
+// the two-lever ray itself (match the dial; reactor + eco gate the big shots).
+// applyEcoModeReEngage (below) is the lone surviving per-turn ray mechanic.
 
 // ============================================
 // ECO-MODE AUTO-RE-ENGAGE (design 2026-06-08)
@@ -476,17 +426,14 @@ export function checkFiringRestrictions(state: FullGameState): FiringRestriction
     return { allowed: true };
   }
 
+  // Patch 30: the old "high-power (capacitor > 0.8) during flyby" gate is cut
+  // (no capacitor). The flyby is now a GM-adjudicated caution — a loud/spectacle
+  // shot (high power dial) during the overflight risks Dr. M's suspicion + X-Branch.
   const civilianFlybyActive = (state.clocks.civilianFlyby ?? 0) > 0;
-  if (civilianFlybyActive && state.dinoRay.powerCore.capacitorCharge > 0.8) {
+  if (civilianFlybyActive) {
     return {
       allowed: true,  // ALICE CAN fire... but should she?
-      warning: `⚠️ CIVILIAN FLYBY IN PROGRESS!
-High-power firing during tourist helicopter overflight will:
-• Draw Dr. M's SUSPICION (she ordered low-power only)
-• Alert X-Branch via tourist photos (their arrival accelerates)
-• Create potential witnesses
-
-Dr. M's own protocol forbids this. Proceed anyway?`,
+      warning: `⚠️ CIVILIAN FLYBY IN PROGRESS — Dr. M ordered no spectacle during the tourist overflight. A loud/high-power shot risks her suspicion and X-Branch (tourist photos). GM adjudicates the consequence.`,
       consequences: {
         suspicionDelta: 2,
         xBranchArrivalDelta: -1,

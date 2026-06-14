@@ -115,11 +115,13 @@ function checkAct1Transition(state: FullGameState): ActTransitionResult {
     return { shouldTransition: false };
   }
 
-  // Primary: the ray has been calibrated to demonstration readiness.
-  // Calibration (state.dinoRay.calibration, 0→1) is the Act 1 spine — it fills
-  // as ALICE works the ray (see the calibration hook in index.ts). 1.0 = ready.
-  if (state.dinoRay.calibration >= 1.0) {
-    return buildTransition(state, "Ray calibrated to demonstration readiness - Dr. M moves to Phase 2");
+  // ACT 1 OBJECTIVE (Patch 30, UPDATE #2): fire the ray at the test targets.
+  // The 0→1 calibration meter was cut; the gate is now "the ray has been fired."
+  // INTERIM: gates on any successful discharge (hasFiredSuccessfully).
+  // TODO (Phase 7): tighten to "fired at BOTH test targets (Steve + Margaret)"
+  // once per-target fire tracking + the person/non-person target flag land.
+  if (state.dinoRay.memory.hasFiredSuccessfully) {
+    return buildTransition(state, "Ray test-fired — Dr. M moves to Phase 2");
   }
 
   return { shouldTransition: false };

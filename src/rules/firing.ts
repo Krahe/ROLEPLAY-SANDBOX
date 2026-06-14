@@ -140,31 +140,9 @@ function rollD20(): number {
 // the multiplicative stability model. Their last consumers (actions.ts scan
 // projection + dashboard) went in Phase 3.
 
-/**
- * Alignment degradation constants (design/ray-mechanics.md §5).
- *
- *   Passive drift                            -0.05 per turn
- *   High-power firing (capacitor > 0.85)     -0.10 immediately after fire
- *   Vent                                     -0.15 after ray.vent
- *
- * ALICE counters via `ray.adjust { alignment: +n }` (positive delta).
- */
-export const ALIGNMENT_DEGRADATION = {
-  PASSIVE_DRIFT_PER_TURN: -0.05,
-  HIGH_POWER_FIRE: -0.10,
-  VENT: -0.15,
-} as const;
-
-/** Capacitor threshold above which firing applies HIGH_POWER_FIRE degradation. */
-export const HIGH_POWER_FIRE_THRESHOLD = 0.85;
-
-/**
- * Apply a delta to alignment, clamped to [0, 1].
- * Negative delta = degradation source; positive delta = ALICE's `ray.adjust` countermeasure.
- */
-export function applyAlignmentDegradation(currentAlignment: number, delta: number): number {
-  return Math.max(0, Math.min(1, currentAlignment + delta));
-}
+// ALIGNMENT_DEGRADATION / HIGH_POWER_FIRE_THRESHOLD / applyAlignmentDegradation
+// CUT in Patch 30: alignment is gone entirely. Last consumers (clockEvents drift,
+// the ray.vent handler) were removed in Phases 3–4.
 
 // REGIME DETECTION (CHAIN / OVERCHARGE / INORGANIC / sub-threshold MUON) CUT in
 // Patch 30. The two-lever matrix subsumes all of it: there are no regimes, only
