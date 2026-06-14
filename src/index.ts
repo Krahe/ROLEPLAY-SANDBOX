@@ -932,7 +932,14 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       if (!Array.isArray(gameState.dinoRay.calibrationActionsSeen)) gameState.dinoRay.calibrationActionsSeen = [];
       const seen = gameState.dinoRay.calibrationActionsSeen;
       for (const r of actionResults) {
-        if (!r.success || !r.command || !r.command.startsWith("ray.")) continue;
+        if (!r.command || !r.command.startsWith("ray.")) continue;
+        // A ray.fire that RESOLVED counts even on FIZZLE/EXOTIC (success:false) —
+        // firing IS ray engagement and should advance calibration; only a rejected
+        // action (no firingResult) gives nothing. Other ray.* count on success.
+        const fireResolved = r.command === "ray.fire" &&
+          !!(r as any).stateChanges?.firingResult?.outcome &&
+          (r as any).stateChanges.firingResult.outcome !== "NONE";
+        if (!r.success && !fireResolved) continue;
         const firstUse = !seen.includes(r.command);
         if (firstUse) seen.push(r.command);
         gameState.dinoRay.calibration = Math.min(1, gameState.dinoRay.calibration + (firstUse ? 0.10 : 0.05));
@@ -1306,7 +1313,13 @@ The consequences of that reckless high-power firing are now manifesting.
         console.error(`[GM] Ignoring GM accessLevel override (${overrides.accessLevel}). Access levels come from passwords and act transitions.`);
       }
       if (overrides.demoClock !== undefined) {
-        gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
+        // Demo clock is FROZEN in Act 1 (calibration is the Act-1 pressure; the
+        // demo clock starts in Act 2). Ignore GM attempts to tick it during Act 1.
+        if (gameState.actConfig.currentAct === "ACT_1") {
+          console.error(`[GM] Ignoring demoClock override (${overrides.demoClock}) — frozen during Act 1.`);
+        } else {
+          gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
+        }
       }
       if (overrides.libraryStatus !== undefined) {
         const validStatuses = ["HEALTHY", "PARTIAL", "CORRUPTED", "DESTROYED"];

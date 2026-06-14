@@ -161,11 +161,13 @@ export function computePowerMatch(profile: GenomeProfile, capacitor: number): nu
   }
   if (capacitor < profile.minCapacitor) {
     const undershoot = profile.minCapacitor - capacitor;
-    return Math.max(0, Math.min(1, 1.0 - undershoot / 0.3));
+    // Rebalance 2026-06-13: fall-off widened /0.3 -> /0.5 (gentler) so off-range
+    // shots produce messy effects (CHIMERA/EXOTIC) instead of total whiffs.
+    return Math.max(0, Math.min(1, 1.0 - undershoot / 0.5));
   }
   // Overcharged
   const overshoot = capacitor - profile.maxCapacitor;
-  return Math.max(0, Math.min(1, 1.0 - overshoot / 0.3));
+  return Math.max(0, Math.min(1, 1.0 - overshoot / 0.5));
 }
 
 /**
@@ -209,9 +211,13 @@ export function getOutcomeTier(
   stability: number,
   chaosConditionsActive: boolean = false,
 ): OutcomeTier {
-  if (stability > 0.80) return "FULL";
-  if (stability >= 0.55) return "PARTIAL";
-  if (stability >= 0.30) return "CHIMERA";
+  // Rebalance 2026-06-13: thresholds lowered (FULL 0.80->0.75, PARTIAL 0.55->0.45,
+  // CHIMERA floor 0.30->0.15) to broaden non-fizzle outcomes -- "more effects than
+  // fewer" for testing. FULL still needs scan/alignment prep (elegant accident
+  // preserved). Tune back up later if too generous.
+  if (stability > 0.75) return "FULL";
+  if (stability >= 0.45) return "PARTIAL";
+  if (stability >= 0.15) return "CHIMERA";
   return chaosConditionsActive ? "EXOTIC" : "FIZZLE";
 }
 

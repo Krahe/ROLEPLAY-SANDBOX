@@ -4056,6 +4056,7 @@ function formatGMPrompt(context: GMContext): string {
   // Build firing-specific context for GM
   let firingContext = "";
   if (hasFiring && firingOutcome) {
+    const engineResolution = (firingResult?.message || "").trim();
     firingContext = `
 ## 🦖 FIRING EVENT THIS TURN
 
@@ -4066,8 +4067,13 @@ ${firingOutcome.chaosEvent ? `**Chaos Event:** ${firingOutcome.chaosEvent.name} 
 **What Happened to Blythe:**
 ${firingOutcome.targetEffect || "No effect on target"}
 
+**⚙️ ENGINE RESOLUTION — CANONICAL. Narrate the CAUSE from this; never invent a different one:**
+${engineResolution || "(no detail reported)"}
+
 **GM GUIDANCE FOR REACTIONS:**
 ${getReactionGuidance(firingOutcome.outcome, firingOutcome.effectiveProfile, state)}
+
+⚠️ **FIDELITY:** The outcome and its cause above are canonical engine state — including the regime (OVERCHARGE / STANDARD / INORGANIC / etc.) and the narrativeHooks. Narrate what the diagnostics actually report. If the regime is OVERCHARGE and the capacitor exceeded the profile max, the shot OVERSHOT — do NOT narrate an undercharge, "fired on fumes," or a prior cooldown the engine did not report. NPC reactions, tone, and flavor are yours; the mechanical cause is not.
 `;
   }
 
