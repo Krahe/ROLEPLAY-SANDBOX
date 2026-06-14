@@ -181,6 +181,12 @@ export const DinoRaySchema = z.object({
   // table until it cools. The cost-of-firing that protects the social layer from
   // "just transform everyone."
   heat: z.number().int().min(0).max(10).default(0),
+  // ECO GOVERNOR cooldown (Patch 30 ray-surface lock): when eco-mode is ON, a
+  // fire paces the ray — set to `turn + 1`, blocking further fire (incl. a 2nd
+  // shot the same turn) until the turn AFTER next ⇒ ≈one shot per two turns.
+  // Eco OFF ignores it (heat is the only brake). Transient: defaults 0, so a
+  // restored game carries no stale cooldown.
+  cooldownUntilTurn: z.number().int().default(0),
   // Scanned-target marker (Patch 30): repurposed from the old +0.15-alignment
   // bonus to a GM-facing opposed-roll bonus vs hostile/unwilling targets.
   scanBonus: ScanBonusSchema.nullable().default(null),

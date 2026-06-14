@@ -459,6 +459,20 @@ coerced action against them (consumed when used).`,
   // (REVERSAL deferred — D1).
 
   if (cmd === "ray.fire") {
+    // ── ECO GOVERNOR gate (Patch 30): eco-ON paces the ray to ≈one shot every
+    //    other turn (and blocks a 2nd shot this turn). Flip eco OFF
+    //    (lab.eco { on: false }) to bypass and fire now — paid in heat. Eco-OFF
+    //    never blocks here. ──
+    if (
+      state.dinoRay.powerCore.ecoModeActive &&
+      state.turn <= state.dinoRay.cooldownUntilTurn
+    ) {
+      return {
+        command: action.command,
+        success: false,
+        message: `🧊 ECO GOVERNOR: the ray is pacing itself (eco-mode = ≈one shot every other turn). Cooled and ready next turn — or flip eco OFF ( lab.eco { on: false } ) to fire now and run hot.`,
+      };
+    }
     const params = action.params as {
       targets?: string[] | string;
       target?: string;
@@ -593,6 +607,37 @@ Example:
   // LAB.REPORT
   // ============================================
   
+  // ============================================
+  // LAB.ECO — eco-mode governor toggle (ALICE's console, L2)
+  // ============================================
+  // Patch 30 ray-surface lock: eco is the thermal/tempo GOVERNOR (NOT a FULL-cap).
+  //   ON  = ray paces itself (≈1 shot / 2 turns) + heat dissipates faster (−4/turn) → can't overheat.
+  //   OFF = fire freely (heat is the only brake, −2/turn) → sprint, but you can overheat into chaos.
+  if (cmd === "lab.eco" || cmd === "eco" || cmd.includes("eco_mode") || cmd.includes("eco-mode")) {
+    const p = action.params as { on?: boolean | string; enabled?: boolean | string; state?: string };
+    const raw = p.on ?? p.enabled ?? p.state;
+    let on: boolean;
+    if (typeof raw === "boolean") {
+      on = raw;
+    } else if (typeof raw === "string") {
+      on = /^(true|on|yes|enable|engage|1)$/i.test(raw.trim());
+    } else {
+      on = !state.dinoRay.powerCore.ecoModeActive; // no arg → toggle
+    }
+    state.dinoRay.powerCore.ecoModeActive = on;
+    if (!on) {
+      // Disengaging the governor clears any standing cooldown — you've bypassed it.
+      state.dinoRay.cooldownUntilTurn = 0;
+    }
+    return {
+      command: action.command,
+      success: true,
+      message: on
+        ? `🧊 ECO MODE ON — governor engaged. The ray paces itself (≈one shot every other turn) and runs cool; it won't overheat. The safe, sustainable setting.`
+        : `🔥 ECO MODE OFF — governor disengaged. Fire as fast as you like (multiple shots a turn), but heat is now your only brake — overheat and the ray throws chaos. The sprint setting.`,
+    };
+  }
+
   if (cmd === "lab.report" || cmd.includes("report")) {
     const message = action.params.message as string || "Systems nominal";
     
@@ -1915,7 +1960,7 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "ray.fire",
     aliases: ["fire"],
-    description: "Fire the Dinosaur Ray. Two levers: a genome (profile — its size sets the ideal power) and a power dial 1–5. Match the dial to the dino's size for a clean transformation; under-power weakens it, over-power gets messy (and over-powering a tiny/small genome spills into the muon corners). Power 4–5 needs a BASILISK reactor boost; eco-mode caps full transformations. Library and speech follow the genome.",
+    description: "Fire the Dinosaur Ray. Two levers: a genome (profile — its size sets the ideal power) and a power dial 1–5. Match the dial to the dino's size for a clean transformation; under-power weakens it, over-power gets messy (and over-powering a tiny/small genome spills into the muon corners). Power 4–5 needs a BASILISK reactor boost. Library and speech follow the genome.",
     schema: "{ targets: string[], profile: string, power: 1|2|3|4|5 }",
     example: 'ray.fire { targets: ["STEVE"], profile: "VELOCIRAPTOR_ACCURATE", power: 2 }',
     minAccessLevel: 1,
@@ -1923,6 +1968,14 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   // ═══════════════════════════════════════════
   // LAB.* — NPC/status verbs (non-ray)
   // ═══════════════════════════════════════════
+  {
+    name: "lab.eco",
+    aliases: ["eco", "eco_mode", "governor"],
+    description: "Toggle the ray's eco-mode governor (your console). ON = paced (≈1 shot every other turn) and runs cool, can't overheat — the safe setting. OFF = fire freely (multiple shots/turn) but heat is your only brake; overheat → chaos. Pass { on: true } / { on: false }, or no arg to toggle.",
+    schema: "{ on?: boolean }",
+    example: 'lab.eco { on: true }',
+    minAccessLevel: 2,
+  },
   {
     name: "lab.report",
     aliases: ["report", "status_report"],

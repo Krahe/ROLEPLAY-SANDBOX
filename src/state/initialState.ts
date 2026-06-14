@@ -25,6 +25,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       // Patch 30 TWO-LEVER model: power dial 1–5, matched to the genome's size tier.
       power: 1,
       heat: 0, // HEAT METER (Patch 30): 0→10 spam-limiter; cools −2/turn (−4 eco).
+      cooldownUntilTurn: 0, // ECO GOVERNOR: set to turn+1 on an eco-ON fire (every-other-turn pacing).
       powerCore: {
         // Patch 30: capacitor / corePowerLevel / coolant cut. ECO is the only power state.
         ecoModeActive: false,

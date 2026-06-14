@@ -845,6 +845,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       state: ENUM_TO_RAY_STATE[compressed.m.ray] as FullGameState["dinoRay"]["state"],
       power: 1, // Patch 30 two-lever 1–5 dial; not persisted, defaults on restore
       heat: 0, // Patch 30 heat meter; transient, defaults to cool on restore
+      cooldownUntilTurn: 0, // Patch 30 eco governor cooldown; transient, no stale cooldown on restore
       powerCore: {
         // Patch 30: capacitor/corePowerLevel/coolant cut. ECO only.
         ecoModeActive: false,

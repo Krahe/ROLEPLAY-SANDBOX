@@ -1035,6 +1035,14 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
   // itself stays clean; the next shot while pinned at 10 throws chaos.
   state.dinoRay.heat = Math.min(10, state.dinoRay.heat + state.dinoRay.power);
 
+  // ECO GOVERNOR (Patch 30 ray-surface lock): firing under eco-mode paces the
+  // ray — lock it until the turn AFTER next (every-other-turn; this also blocks
+  // a 2nd shot THIS turn, since the gate tests turn <= cooldownUntilTurn). Eco
+  // OFF leaves no cooldown — heat is the only brake there.
+  if (state.dinoRay.powerCore.ecoModeActive) {
+    state.dinoRay.cooldownUntilTurn = state.turn + 1;
+  }
+
   // Apply direct state changes
   if (changes.anomalyLogCount !== undefined) {
     state.dinoRay.safety.anomalyLogCount = changes.anomalyLogCount as number;
