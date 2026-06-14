@@ -1611,7 +1611,6 @@ Cascade Risk: ${reactor.cascadeRisk} (${reactor.cascadeRiskPercent}%)`,
 export function updateCascadeRisk(state: FullGameState): void {
   const reactor = state.infrastructure.reactor;
   const arch = state.infrastructure.archimedes;
-  const ray = state.dinoRay;
 
   let riskPercent = 0;
   const factors: string[] = [];
@@ -1622,17 +1621,9 @@ export function updateCascadeRisk(state: FullGameState): void {
     factors.push(`Reactor output ${reactor.outputPercent}% (+20%)`);
   }
 
-  // Dino Ray capacitor >100% (+25%)
-  if (ray.powerCore.capacitorCharge > 1.0) {
-    riskPercent += 25;
-    factors.push(`Capacitor ${(ray.powerCore.capacitorCharge * 100).toFixed(0)}% (+25%)`);
-  }
-
-  // Dino Ray firing while charging (+15%)
-  if (ray.state === "FIRING" && ray.powerCore.capacitorCharge > 0.8) {
-    riskPercent += 15;
-    factors.push("Firing while charging (+15%)");
-  }
+  // Dino-Ray capacitor cascade factors CUT (Patch 30 — no capacitor). Reactor
+  // output above is the proxy now: boosting the reactor for a high-power (4–5)
+  // shot raises outputPercent, which raises cascade risk — same pressure, one lever.
 
   // ARCHIMEDES uplink active (+10%)
   if (arch.groundConsoleOperational) {

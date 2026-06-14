@@ -243,7 +243,7 @@ export class GameRunner {
     }
 
     // Check action count based on access level
-    const maxActions = 3 + (state.accessLevel - 1);
+    const maxActions = 4; // Patch 30 (D4): flat 4/turn — access no longer scales the action budget
     if (input.actions.length > maxActions) {
       return {
         valid: false,

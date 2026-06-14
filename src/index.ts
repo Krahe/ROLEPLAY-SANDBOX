@@ -849,7 +849,7 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
 
     // Validate action count based on access level
     // Level 1: 3 actions, Level 2: 4 actions, ..., Level 5: 7 actions
-    const maxActions = 3 + (gameState.accessLevel - 1);
+    const maxActions = 4; // Patch 30 (D4): flat 4/turn — access no longer scales the action budget
     if (params.actions.length > maxActions) {
       return {
         content: [{
