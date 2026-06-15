@@ -1644,7 +1644,6 @@ export interface GMResponse {
     demoClock?: number;
     rayState?: string;
     anomalyLogCount?: number;
-    libraryStatus?: string;  // NEW: "HEALTHY" | "CORRUPTED" | "DESTROYED"
 
     // Grace period & ending controls
     gracePeriodGranted?: boolean;
@@ -1666,29 +1665,11 @@ export interface GMResponse {
     // Fortune system - GM can grant or spend fortune directly
     fortune?: number;  // Set fortune value (0-3)
 
-    // DinoRay Power Core - fine control over the weapon
-    ray_corePowerLevel?: number;    // 0-1
-    ray_capacitorCharge?: number;   // 0-1.5
-    ray_coolantTemp?: number;       // 0-2
-    // ray_stability removed — derived per-fire in the new architecture
-    ray_ecoModeActive?: boolean;    // Toggle ECO mode
-
-    // DinoRay Targeting - precision and targeting
-    ray_precision?: number;         // 0-1
-    ray_targetingMode?: string;     // "MANUAL" | "AUTO_TRACK" | "AREA_SWEEP"
-    ray_firingStyle?: string;       // "standard" | "conservative" | "aggressive" | "precision" | "burst"
-    ray_speechRetention?: string;   // "FULL" | "PARTIAL" | "NONE"
-
-    // DinoRay Genome - what species and how
-    ray_selectedProfile?: string;   // Genome profile name
-    ray_profileIntegrity?: number;  // 0-1
-    ray_activeLibrary?: string;     // "A" | "B"
-    ray_firingMode?: string;        // "TRANSFORM" | "REVERSAL"
-
-    // DinoRay Safety - override safety systems
-    ray_testModeEnabled?: boolean;
-    ray_liveSubjectLock?: boolean;
-    ray_emergencyShutoffFunctional?: boolean;
+    // DinoRay god-mode override fields CUT (Patch 30 ray-surface lock).
+    // capacitor / coolant / corePower / precision / profileIntegrity / etc. no
+    // longer exist — the ray is genome + power dial + heat + eco + reactor, all
+    // driven by ALICE's ray.fire and resolved server-side. No applier ever
+    // consumed any ray_* override; the GM does not touch ray internals.
 
     // Additional clocks
     meltdownClock?: number;
@@ -2389,9 +2370,6 @@ Your narration MUST be synced with mechanical state. When you narrate major even
   "drM_mood": "furious - caught the targeting discrepancy",
   "drM_suspicion": 8,
 
-  // When you narrate library destruction:
-  "libraryStatus": "DESTROYED",
-
   // When Bob confesses to A.L.I.C.E.:
   "bob_hasConfessedToALICE": true,
 
@@ -2428,7 +2406,6 @@ Use this ONLY when the story has reached a REAL conclusion:
 
 Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "The Hero Ending"
 
-⚠️ If you narrate "the library is burning" but don't set libraryStatus: "DESTROYED", the game state will desync!
 ⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
 
 ## 🎯 MECHANICS → NARRATIVE COUPLING (MANDATORY!)
@@ -2446,7 +2423,6 @@ GM drift (narrating without mechanics) kills immersion!
 | **DinoRay: Fire at subject** | \`"X_transformationState": "FORM_ID"\` | — |
 | **DinoRay: Reversal fire** | \`"X_transformationState": "HUMAN"\` | — |
 | **Reactor: Initiate SCRAM** | \`"reactor_scramAvailable": false\`, \`"reactor_outputPercent": 0\`, \`"reactor_cascadeRisk": "NOMINAL"\` | \`set: ["REACTOR_SCRAMMED"]\` |
-| **Library: Destroy genome data** | \`"libraryStatus": "DESTROYED"\` | — |
 | **S-300: Disable missiles** | \`"s300_status": "DISABLED"\` | — |
 | **Convince Bob to confess** | \`"bob_hasConfessedToALICE": true\` | — |
 | **Reveal identity to Dr. M** | \`"drM_suspicion": 10\` | \`set: ["ALICE_REVEALED"]\` |
@@ -2457,7 +2433,6 @@ GM drift (narrating without mechanics) kills immersion!
 | Narrative Event | Required stateOverrides |
 |-----------------|------------------------|
 | "Dr. M storms out / leaves" | \`"drM_location": "escaped"\` |
-| "Bob transforms into a [X]" | \`"bob_transformationState": "FORM_ID"\` |
 | "Blythe breaks free" | \`"blythe_restraintsStatus": "free"\` |
 | "ARCHIMEDES fires / beam hits" | \`"archimedes_status": "COMPLETE"\` |
 | "The reactor melts down" | \`"meltdownClock": 0\`, \`"reactor_cascadeRisk": "CRITICAL"\` |
@@ -2499,8 +2474,7 @@ Do NOT invent new forms. The following are the ONLY valid transformation forms:
 Use the override format with the EXACT form ID:
 \`\`\`json
 "stateOverrides": {
-  "blythe_transformationState": "VELOCIRAPTOR_JP",
-  "bob_transformationState": "CANARY"
+  "blythe_transformationState": "VELOCIRAPTOR_JP"
 }
 \`\`\`
 
@@ -2526,7 +2500,6 @@ A subject might be "VELOCIRAPTOR_JP with HYBRID_PLUMAGE chimera effect."
 ### ⚠️ Transformation Override Examples
 ✅ CORRECT:
 \`"blythe_transformationState": "VELOCIRAPTOR_JP"\`
-\`"bob_transformationState": "CANARY"\`
 
 ❌ WRONG:
 \`"blythe_transformationState": "Velociraptor"\` (use exact ID!)
@@ -2540,14 +2513,7 @@ You have FULL authority over all game systems. Additional overrides available:
 **Fortune System:**
 - \`"fortune": 2\` - Directly set A.L.I.C.E.'s fortune (0-3)
 
-**DinoRay Controls:**
-- \`"ray_corePowerLevel": 0.8\` - Set core power (0-1)
-- \`"ray_capacitorCharge": 1.0\` - Set capacitor (0-1.5)
-- \`"ray_precision": 0.95\` - Override targeting precision
-- \`"ray_selectedProfile": "VELOCIRAPTOR_JP"\` - Force genome selection (use exact form ID!)
-- \`"ray_firingMode": "REVERSAL"\` - Set TRANSFORM or REVERSAL mode
-- \`"ray_testModeEnabled": false\` - Toggle test mode
-- \`"ray_liveSubjectLock": false\` - Unlock for live targets
+**The DinoRay is NOT a GM lever.** It's ALICE's instrument — genome + power dial 1–5, resolved by the engine. You never set ray internals; you narrate the outcome the engine reports.
 
 **Clocks:**
 - \`"meltdownClock": 5\` - Set reactor meltdown timer
@@ -4073,7 +4039,7 @@ ${engineResolution || "(no detail reported)"}
 **GM GUIDANCE FOR REACTIONS:**
 ${getReactionGuidance(firingOutcome.outcome, firingOutcome.effectiveProfile, state)}
 
-⚠️ **FIDELITY:** The outcome and its cause above are canonical engine state — including the regime (OVERCHARGE / STANDARD / INORGANIC / etc.) and the narrativeHooks. Narrate what the diagnostics actually report. If the regime is OVERCHARGE and the capacitor exceeded the profile max, the shot OVERSHOT — do NOT narrate an undercharge, "fired on fumes," or a prior cooldown the engine did not report. NPC reactions, tone, and flavor are yours; the mechanical cause is not.
+⚠️ **FIDELITY:** The outcome and its cause above are canonical engine state. The ray has TWO levers — a genome (its size sets the ideal power) and a power dial 1–5: matched dial = FULL, under-power = weaker/FIZZLE, over-power on a tiny/small genome = MUON (stun/cut), over-power on a big genome = CHIMERA; the reactor gates tiers 4–5 and heat is the spam brake. Narrate the cause the engine reports (the matched/over/under result + the narrativeHooks). Do NOT invent a different mechanism — there is no capacitor, coolant, alignment, "regime", or prior cooldown. NPC reactions, tone, and flavor are yours; the mechanical cause is not.
 `;
   }
 
@@ -4171,17 +4137,11 @@ ${eventSection}
 - Heat: ${state.dinoRay.heat}/10 ${state.dinoRay.heat >= 10 ? "⚠️ OVERHEATED — every fire rolls chaos until it cools" : state.dinoRay.heat >= 7 ? "⚠️ HOT (cools −2/turn, −4 with eco)" : "(cools −2/turn, −4 with eco)"}
 - Eco governor: ${state.dinoRay.powerCore.ecoModeActive ? "ON (paced — ~one shot per two turns, runs cool)" : "OFF (fire freely — heat is the only brake)"}
 - Selected profile: ${state.dinoRay.genome.selectedProfile || "(none)"} (Library ${state.dinoRay.genome.activeLibrary})
-- Scan bonus: ${state.dinoRay.scanBonus ? `+0.15 toward ${state.dinoRay.scanBonus.target} (armed turn ${state.dinoRay.scanBonus.fromTurn})` : "none armed"}
+- Scan edge: ${state.dinoRay.scanBonus ? `armed vs ${state.dinoRay.scanBonus.target} — a recon bonus on your next contested/coerced roll against them (since turn ${state.dinoRay.scanBonus.fromTurn})` : "none armed"}
 - Anomaly Log: ${state.dinoRay.safety.anomalyLogCount} entries
 
-### Eco-Mode (BASILISK-gated)
-- Active: ${state.dinoRay.powerCore.ecoModeActive ? "ON (outcomes capped at PARTIAL)" : "OFF"}
-- Override (Form 47-Σ accepted): ${state.dinoRay.powerCore.ecoModeOverride ? "✅ permanent" : "—"}
-${state.dinoRay.powerCore.ecoModeReEngageTurn != null ? `- Auto-re-engage scheduled: turn ${state.dinoRay.powerCore.ecoModeReEngageTurn} (${Math.max(0, state.dinoRay.powerCore.ecoModeReEngageTurn - state.turn)} turns away)` : ""}
-
 ### Reactor (BASILISK-controlled)
-- Mode: ${state.infrastructure?.reactor?.mode || "NORMAL"} (passive capacitor accrual: ${state.infrastructure?.reactor?.mode === "OVERDRIVEN" ? "+0.45" : state.infrastructure?.reactor?.mode === "BOOSTED" ? "+0.30" : "+0.15"}/turn)
-- Output: ${state.infrastructure?.reactor?.outputPercent ?? "?"}%
+- Boost: ${state.infrastructure?.basiliskAuthority?.reactorControlGranted ? "BOOSTED — power dial 4–5 unlocked" : "NORMAL — power dial capped at 3 (ALICE must ask BASILISK to boost for tiers 4–5)"}
 - Cascade risk: ${state.infrastructure?.reactor?.cascadeRisk || "NONE"}
 
 ### Infrastructure (BASILISK-domain, L4+)
@@ -4453,14 +4413,26 @@ ${getBlytheGuidance(
   "Blythe flexes his partially-clawed hand and *" + blytheVocal + "* - the sound carries sardonic amusement despite lacking words."
 )}`;
 
-    case "CHAOTIC":
-      return `Dr. M should be ALARMED but trying to maintain composure.
-Bob should be panicking.
+    case "CHIMERA":
+      return `A CHIMERA — the shot OVER-powered the genome and the transformation came out messy: conflicting, half-blended features, not the clean form Dr. M wanted.
+Dr. M should be torn between fascinated and appalled — it's monstrous, but it's not her VISION.
+Bob should be disturbed by the wrongness of it.
 ${getBlytheGuidance(
-  "Blythe's reaction depends on how weird his transformation got.",
+  "Blythe's reaction depends on how grotesque the result is.",
   "Blythe makes sounds not found in any natural creature - if he had words, they'd probably be unprintable."
-)}
-Alarms may be going off. Something is very wrong.`;
+)}`;
+
+    case "BETA_STUN":
+      return `MUON STUN — the beam did NOT transform anyone. Over-driving a small genome (or grossly under-driving a big one) spilled the beam into a sub-threshold neuro pulse: the target staggers, eyes glaze, recovers in a turn. NO new dinosaur.
+Dr. M should be CONFUSED and impatient — "Why didn't it CHANGE?" She reads it as a malfunction, not sabotage (unless something tips her off).
+Bob should be quietly relieved that nothing transformed.
+(Whether the pulse LANDED on a moving/unwilling target is per the engine's narrativeHooks — narrate accordingly.)`;
+
+    case "ALPHA_SEVERANCE":
+      return `MUON CUT — the beam collapsed into a tight molecular-severance pulse: a cutting edge, not a transformation. It severs cleanly along the beam path (restraints, an object, a mechanism) — NOBODY is turned into a dinosaur.
+Dr. M should be ALARMED at the destructive, unexplained beam — and suspicious if something important was just cut.
+Bob should flinch at the violence of it.
+(What the pulse coupled through or cut is GM-adjudicated per the narrativeHooks.)`;
 
     case "FIZZLE":
       return `Dr. M should be FRUSTRATED - another failure!
@@ -4591,8 +4563,8 @@ function generateStubResponse(context: GMContext): GMResponse {
         actions.push("Bob backs away slowly, clutching his clipboard like a shield.");
         break;
 
-      case "CHAOTIC":
-        narration = "ALARMS BLARE. The ray's discharge spirals wildly, colors shifting through impossible spectrums. Something is very wrong.";
+      case "CHIMERA":
+        narration = "ALARMS BLARE. The ray over-powers the genome — the discharge spirals wildly and the transformation comes out wrong: conflicting, half-blended features. Something is very off.";
         dialogue.push({
           speaker: "Dr. M",
           message: "WHAT IS HAPPENING?! A.L.I.C.E., EXPLAIN YOURSELF!",

@@ -88,12 +88,6 @@ export function getGamePhase(state: FullGameState): GamePhaseInfo {
     if (bobTrust >= 2) {
       hints.push("Bob is warming up - might share more");
     }
-    if (state.dinoRay.state === "UNCALIBRATED") {
-      hints.push("Ray still needs calibration work");
-    }
-    if (state.dinoRay.safety.testModeEnabled) {
-      hints.push("Test mode is available for safe experiments");
-    }
 
     return {
       phase: "MID",
