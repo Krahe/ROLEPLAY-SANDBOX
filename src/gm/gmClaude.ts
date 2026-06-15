@@ -3857,10 +3857,21 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     const thinkingParam = useAdaptiveThinking
       ? { type: "adaptive", display: "summarized" } as unknown as { type: "enabled"; budget_tokens: number }
       : { type: "enabled" as const, budget_tokens: 4500 };
+    // GM EFFORT CAP (Patch 30). Default effort on 4.8 is `high`, which drives the
+    // expansive CoT that ballooned GM turns to ~8K tokens + minutes of generation
+    // — the Playtest-2 Act-1 stall. `medium` reins it in without losing
+    // adjudication quality. INTERIM mitigation; the structural fix is the 2-phase
+    // decide→narrate GM turn (see design/gm-load-audit.md). output_config isn't in
+    // the SDK-0.52 types, so spread it past the checker; only on the effort-capable
+    // adaptive models (4.5/Haiku 400 on `effort`).
+    const effortConfig = (useAdaptiveThinking
+      ? { output_config: { effort: "medium" } }
+      : {}) as object;
     const response = await client.messages.create({
       model,
       max_tokens: useAdaptiveThinking ? 16000 : 8000,
       thinking: thinkingParam,
+      ...effortConfig,
       system: [
         {
           type: "text",
