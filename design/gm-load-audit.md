@@ -25,6 +25,50 @@
 - **Decision ownership** (Fork 3). GM decides, advised by server mechanics — mostly narrating and sliding outcomes by judgment, not determining everything.
 - **Models.** GM: **tune 4.8 first** — `output_config.effort: "medium"` (default is `high`; this is the direct lever on the expansive 4.8 CoT that ballooned GM responses to ~8K tokens + ~1.3K thinking and caused the 2–4 min generation → Desktop timeout) + a "lead with the outcome, don't narrate routine actions" concision directive. If still too verbose → swap to **`claude-opus-4-7`** (same $5/$25, 1M ctx, terser/more-clipped by default). **BASILISK → `claude-sonnet-4-6`** ($3/$15, 1M ctx — enough for the Three-Pillars judgment, lighter than Opus). Haiku reserved for the oracle niches. **Player = whatever Claude Desktop runs** (platform constraint — can't pin Opus/Sonnet 4.5).
 
+### The 2-phase GM turn — the GM-tier architecture (specced 2026-06-14)
+
+**Why.** One GM call does the deciding (expansive CoT) AND the narrating (~8K prose) in a single generation — which is what timed out and froze Act 1, *and* what lets the GM confabulate (it decides and narrates in the same breath, free to drift from the engine). Splitting the GM turn into two calls fixes both, and makes the existing two-voice protocol *real* instead of aspirational. (The committed `effort: "medium"` cap — `037a41e` — is the interim monolith mitigation; this is the structural cure.)
+
+**Flow (per turn):**
+```
+ENGINE  resolves the deterministic outcome (tier, clean FORM_ID, heat, clocks…)
+   │      (+ optional HAIKU oracle for self-contained under-determined bits)
+   ▼
+PHASE 1 — DECIDE   GM, HIGH effort, terse STRUCTURED output (JSON; judgment only, no prose)
+   ▼
+SERVER  applies the decision to state  ← the ONE unified applier
+   ▼
+PHASE 2 — NARRATE  GM, MEDIUM effort, prose, STREAMED — emits ONLY prose, cannot desync state
+```
+
+**Phase 1 — the decision (structured output).** The judgment layer only — what the engine can't compute:
+- meter **deltas** + reason (`suspicion +2 — she caught the discrepancy`)
+- NPC **actions** this turn (what each does, from their established wants)
+- narrative-state **judgment booleans** (Bob confessed? Blythe broke free? Dr. M left?)
+- **under-determined outcome texture** (the CHIMERA blend / PARTIAL state / chaos specifics) — or a flag to defer that to the Haiku oracle
+- the **ending** call (`triggerEnding`, confrontation resolution) when the story has actually concluded
+- brief **reaction / tone cues** for Phase 2 (how the scene should feel; the beats)
+
+High effort (the real reasoning lives here), but the OUTPUT is small → the call is fast. This is where a Haiku oracle plugs in for self-contained sub-judgments.
+
+**Phase 2 — the narration.** Given the now-resolved state + Phase 1's canonical decision: write narration + NPC dialogue, nothing else. **It is told to narrate the decision faithfully, and it *cannot* invent a different outcome because it didn't decide one.** Medium effort (expressing, not reasoning), strong model (this prose IS the game), streamed (keeps the connection alive under the ~4-min client timeout).
+
+**What this SUBSUMES from the Tier-2 list:**
+- *Meters → delta-only* — Phase 1 emits the deltas.
+- *Unify the appliers* — the server applies exactly one thing: Phase 1's decision. The ~70-field hand-emit contract collapses into the Phase-1 schema.
+- *GM stops doing the server's arithmetic* — Phase 1 emits judgment; the engine applies it; Phase 2 only narrates.
+- *Confabulation* — structurally impossible now: Phase 2 narrates a decision it received, against state the server already applied.
+
+**Models / effort (per phase):** Phase 1 = `claude-opus-4-8` (or 4.7), HIGH effort, terse. Phase 2 = strong model, MEDIUM effort, streamed (Opus now; could be Sonnet later for cost, since it's handed the decision).
+
+**Latency + cost:** two calls, but each bounded under the client timeout (Phase 1 = small output; Phase 2 streams). The shared prefix (system prompt + state) is **prompt-cached**, so Phase 2 reads it at ~0.1× — the second call is cheap. The Tier-2 context reduction shrinks both. Net: reliability over the monolith, plausibly comparable cost.
+
+**Open questions to settle before building:**
+- Phase 1 via the structured-outputs API (`output_config.format` + JSON schema) vs a forced tool call. (Structured outputs is cleaner + validated.)
+- The exact Phase-1 schema (the field list above is the shape, not final).
+- Prompt structuring so both phases share the cached prefix (system + state first; phase-specific instructions after the breakpoint).
+- Whether Phase 1 ever needs the *prior narration* or only the structured state (likely state-only → smaller).
+
 ---
 
 ## Four shapes of burden
