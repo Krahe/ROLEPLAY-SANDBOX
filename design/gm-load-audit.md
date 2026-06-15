@@ -8,6 +8,25 @@
 
 ---
 
+## Target architecture — three tiers (locked 2026-06-14)
+
+> **⚑ Priority: this is the likely cause of the Playtest-2 fatal stall.** The GM overloaded and froze in **Act 1 — the simplest chapter**. Tier 2 is not optional polish; it is the fix for the failure that ended the last playtest. Treat it as load-bearing for Playtest 3.
+
+**1. ENGINE (server, deterministic) — owns all mechanical state.** Outcome *tier* (FULL/PARTIAL/FIZZLE/CHIMERA/MUON), clean transform FORM_IDs, meters (via deltas), clocks, reactor/eco/heat, command-echo effects (SCRAM, S-300, archimedes target, etc.). Resolves on the player's action; hands the GM a resolved snapshot + a narration cue.
+
+**2. HAIKU ORACLE (`claude-haiku-4-5`, $1/$5 — held in reserve, do NOT shoehorn).** A cheap, fast, *parallel* call for **small, self-contained, under-determined-result** judgments the engine can't compute but that don't need Opus. Fitting niches (Krahe): **chaos-table result elaboration, the specific texture of a CHIMERA / PARTIAL, combat-style outcomes** — "the engine said CHIMERA happened; what does *this* messy blend look like?" Curate tightly: only genuinely self-contained calls, fired in parallel (latency), only where a real niche appears. Most judgment stays with the GM.
+
+**3. GM (`claude-opus-4-8` tuned, or `claude-opus-4-7`) — narrates, voices NPCs, makes the rich scene-dependent calls, and *nudges* outcomes by judgment.** It does NOT do the server's arithmetic or hand-mirror state.
+
+### The locked decisions
+
+- **Meters → delta-only** (Fork 1). GM emits direction + magnitude + reason; server owns the integer, the hidden/visible split, and the `suspicion≥10` confrontation trigger (`endings.ts:905`). Kept as a *feature*: a delta that hits 10 fires the confrontation **next** turn → ALICE gets one turn at the brink (pull back / Hail Mary).
+- **Transforms → engine owns tier + clean FORM_ID; GM/Haiku owns the under-determined texture** (Fork 2). The GM never hand-sets "Blythe → VELOCIRAPTOR_JP" — **drop `transformationState` from the GM emit contract for clean transforms** (the engine already writes it on `ray.fire`). BUT the *under-determined* outcomes — a CHIMERA's specific conflicting features, a PARTIAL's half-state, chaos-event specifics — are GM-authored texture (and the prime Haiku niche). The engine decides *that* it's a CHIMERA; the GM/Haiku decides *what this* CHIMERA is. No GM-vs-engine contradiction possible, because they own different layers.
+- **Decision ownership** (Fork 3). GM decides, advised by server mechanics — mostly narrating and sliding outcomes by judgment, not determining everything.
+- **Models.** GM: **tune 4.8 first** — `output_config.effort: "medium"` (default is `high`; this is the direct lever on the expansive 4.8 CoT that ballooned GM responses to ~8K tokens + ~1.3K thinking and caused the 2–4 min generation → Desktop timeout) + a "lead with the outcome, don't narrate routine actions" concision directive. If still too verbose → swap to **`claude-opus-4-7`** (same $5/$25, 1M ctx, terser/more-clipped by default). **BASILISK → `claude-sonnet-4-6`** ($3/$15, 1M ctx — enough for the Three-Pillars judgment, lighter than Opus). Haiku reserved for the oracle niches. **Player = whatever Claude Desktop runs** (platform constraint — can't pin Opus/Sonnet 4.5).
+
+---
+
 ## Four shapes of burden
 
 **1. Ghost mechanics — GM told to read/emit systems Patch 30 CUT (the live confab engine).** The #1 priority; this *is* the playtest-2 failure, still wired in.
