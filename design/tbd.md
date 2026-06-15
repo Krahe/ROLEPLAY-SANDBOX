@@ -1,93 +1,91 @@
 # DINO LAIR — TBD Ledger (forward-looking)
 
-Open work only. **Shipped history → `sprint-v2.md`.** Superseded plan → `archive/v1-sprint.md`.
+Open work only. **Shipped history → `~/.claude/memory/projects/dino-lair-rebuild.md`** (and `sprint-v2.md` for the pre-Patch-30 sprint).
 
-Updated 2026-06-13 (post-audit cleanup). **Status: playtest-ready.** Next concrete action: **run playtest 1** (NORMAL mode, smoke test) and let real data drive what moves up this list.
+**Updated 2026-06-14.** Status: **Patch 30 build is GREEN + 28/28 smoke** — but **NOT playtest-ready.** The engine is correct and compiles; the layer the **human and the AIs actually read to learn the rules** (in-world manuals, briefings, GM/BASILISK prompts, the dashboard) still teaches the *old, cut* ray. A playtest right now would have the player following dead instructions and the GM/BASILISK confabulating cut mechanics — reproducing the exact Playtest-2 failures. **The road to Playtest 3 is below, in priority order.**
 
----
-
-## 🔴 POST-PLAYTEST PRIORITY (the audit-surfaced real bugs)
-
-### 1. Achievement system refactor — the dual-registry bug
-**The big one.** Two parallel registries exist and the wiring crosses them:
-- `rules/achievements.ts` — 81 achievements, **lowercase** ids, fired per-turn by `checkAchievements` (toasts work).
-- `rules/endings.ts` — ~55 achievements, **UPPERCASE** ids, fired by `checkEndings`.
-
-The end-of-game summary (`index.ts` ~2186) resolves earned ids through `getAllEarnedAchievements` (**UPPERCASE map only**) → **all 81 lowercase achievements silently vanish from the recap.** Player sees a toast mid-game, then it's gone from the end screen.
-
-**✅ Scoped fix SHIPPED (2026-06-13, pre-playtest-1):** `getAllEarnedAchievements` (endings.ts:1348) now resolves each earned id against BOTH maps — `ACHIEVEMENTS[id] ?? getBaseAchievement(id)` (the latter imported from achievements.ts). `earnedAchievements` already accumulated ids from both registries (achievements.ts:1275 + endings.ts:659); only the lookup was UPPERCASE-blind. Build clean, 28/28, runtime-verified (lowercase `first_fire` + uppercase `COVER_BLOWN` both resolve; unknown ids drop). Recap + epilogue now show every earned achievement. **Larger fix still open (do with care):**
-- `basilisk_rage` / `basiliskRejections` counter is dead — scans for "DENIED" in Sonnet free-text; read the structured `decision` instead.
-- ~40 flag-based achievements gate on narrative-flag tokens the GM is never instructed to emit → re-key onto real state (the ARCHIMEDES-five at `achievements.ts:1253` are the model to copy), OR give the GM a documented controlled flag vocabulary.
-- `turnsWithoutSuspicionIncrease` semantics (seed=3; now that suspicion can bank negative) — `cover_maintained` fires too easily.
-- Duplicate `CONSCIENCE_PROTOCOL` key in endings.ts ACHIEVEMENTS map; dead `events` object in `AchievementTriggerContext`; triple-duplicated counter logic (index.ts / gameRunner.ts / views.ts).
-- Stale wording: `test_dummy_trauma` / `watermelon_artist` reference dropped test-mode; "+10% precision" string at `scanning.ts:1177`.
-
-### 2. Chaos system pass — remaining components
-Severity banding shipped (27.3). Still open:
-- **Region wiring**: §14's "GM picks within the region for the tension failure" lives in a comment only; `rollChaosFizzle` returns one flat-rolled entry. Pass a region/failure-type param or return 2-3 candidates for GM pick.
-- **Exotic-field saturation**: chaos has no memory — add an `exoticFieldSaturation` counter so each event shifts subsequent rolls toward 20, making the Hollywood 3-stack a compounding debt instead of a flat fee (Bob notices; BASILISK files increasingly alarmed annotations).
-- Gating question for tuning: how often does chaos actually trigger under real play?
+> **Sources of truth:** ray design = `patch-30-implementation-map.md` (read its session-3 UPDATE — it wins) · GM architecture = `gm-load-audit.md`.
 
 ---
 
-## 🟡 POLISH / v1.1 QUEUE (post-playtest, not gating)
+## 🔴 PLAYTEST-3 BLOCKERS — gate a *meaningful* playtest of the new design
 
-- **Dashboard: surface lifelines** — the human game view (localhost:3000) should show emergency-lifeline status (which of TELEMARKETER_CALL / LUCKY_LADY / MONOLOGUE are used vs. remaining), so the advisor can see it at a glance. Currently the dashboard shows Fortune/checkpoints but not lifeline state. (Krahe, 2026-06-13.)
-- **Dashboard: clickable documents ALICE has read** — surface the files/docs ALICE pulls (`files.read`) in the human view as clickable entries that open the **full document text**, so the advisor can close-read the real source and advise from it (deepens the advice leg of the human triad). *Current state:* the engine tracks a `filesRead` **counter** only (not the ids); the transcript shows "files.read X" as a one-line summary; there's no full-content view. *Needs:* (1) track the actual file ids read (new state list, or derive from the turn-logs / transcript); (2) an `/api/file?id=` endpoint (content already lives in `filesystem.ts`); (3) a webui "📄 Documents" panel with clickable entries → modal/pane showing the file. *Design choice to decide:* mirror only what ALICE has actually read (advisor sees exactly her knowledge) **vs.** expose the full L1+ library so the advisor can read ahead and suggest unread docs — the latter is more useful for advice but hands the advisor info ALICE doesn't have. (Krahe, 2026-06-13.)
-- **Dashboard: full / expandable dialogues** — the transcript currently truncates dialogue to a single line; show the full NPC↔ALICE exchange (at minimum click-to-expand) so the advisor can read the whole conversation, not a clipped first line. (Krahe, 2026-06-13.)
-- **Fortune engagement scoring — replace keyword heuristic with Haiku judge.** Current `detectResponseQualities` (lifeline.ts:1463) is substring-matching: length≥50 → ENGAGED +1, then keyword buckets (CREATIVE/FUNNY/VALUES/THEMATIC) +1 each, cap 3. Rewards keyword-presence + length, not genuine insight/wit/relevance ("zap the dinosaur lol" = max; brilliant on-point advice with no trigger words = +1). **Direction (Krahe-leaning, pending playtest-1 data):** Haiku judge with a real rubric (engaged / on-point / in-genre / delightful → 0–3); keyword heuristic demoted to deterministic fallback (mirrors BASILISK Sonnet-primary/keyword-fallback). Off-hot-path (fires only on human-prompt moments) → fits the v2 "Haiku-for-fuzzy-once-off" principle (tbd #14). Feed Haiku: the GM's prompt question + human's response + compact state summary (act / suspicion / immediate threat) so it can judge on-point-ness. Verify Haiku model id vs API reference at implement time. NB: Fortune is **Desktop-only** today — the CLI `--live-advisor` path lacks the loop entirely.
-- **Game setup script** — expose `gmModel` / `basiliskModel` / game params via `game_start` so Claude picks the cast + parameters on start. Infra already exists (`setGMModel`/`setBasiliskModel` — currently only wired to the CLI orchestrator, not `game_act`). Low-effort.
-- **Act-close verdict delta [−3,+3]** — banked suspicion now *exists* (floor −3, Patch 27.8), but the automatic act-transition verdict that grants/spends it was never built. Banking currently happens via GM `stateOverrides`/deltas. Build the auto-verdict, or keep it GM-driven by design — decide with playtest data.
-- **Dashboard polish** — ARCHIMEDES `chargePercent` readout shows a misleading "@ 50%" resting baseline decoupled from the real capacitor-coupled progression (suppress unless actively charging/armed); de-duplicate the `LiveState`/`TranscriptEntry` interfaces (defined twice in webui.ts + stateExporter.ts) into one shared module.
-- **Backup field stabilizer** — Acts 1-2 Bob fetch-and-install quest; +0.10 permanent stability when installed. Pairs with `calibrate_amplifier` as a "rewards prep play" mechanic.
-- **Pattern Inference Path** — second discoverable L4 chain paralleling Mr. Whiskers; behavioral accumulation over Acts 1-2 → credential inference at threshold.
-- **`precision_target` parameter** on `ray.fire` (deferred from audit).
-- **BASILISK ledger schema fields** (`concern_aggregate`, `trust_aggregate`, `whiskey_status`, `recent_studies`, `open_questions`) as typed structure — currently ad-hoc `state.flags`.
-- **Lenny conditional injection in Turn 1 narration** — Lenny is only present under `LENNY_THE_LIME_GREEN`; TURN_1_NARRATION is a static export, needs a template-with-injection mechanism. Not NORMAL-mode blocking.
-- **ALICE_BRIEFING prose compression** — the "Something Feels Different / Note on Transformation / Note on Dr. M / Note on Identity" sections may tighten. Need playtest data on which carry the role-setting weight Sonnet needs.
-- **v2.3 deprecated manual expansion + Bob trust-3 hint** — put advanced-firing-mode mechanics (CHAIN, OVERCHARGE) in the v2.3 archived manual ("deliberately outdated but informative"); Bob at trust ~3 points ALICE to the archive. Discovery vector for advanced regimes while keeping the current manual L1-tight.
-- **No-API-key BASILISK fallback** — keyless games currently get *no* BASILISK post-game reflection. Optional: a lightweight template fallback (the deleted orphan's only legitimate purpose). Low priority.
+### 1. The doc / prose sweep — THE BIG ONE
+The whole player/AI-facing prose layer still describes the cut ray (capacitor / coolant / alignment / φχψ / regimes / old verbs adjust·vent·muon / precision / stability). Stale-ref counts (live files, 2026-06-14):
 
----
+| File | stale refs | action |
+|---|---|---|
+| `design/ray-mechanics.md` (canonical 650-line ray doc) | **119** (0 heat) | **full rewrite** to two-lever (genome size × power dial) + heat + eco-governor + reactor binary + emergent MUON corners. The GM may re-import this → highest confab risk. |
+| `src/rules/filesystem.ts` (in-world manuals the **player** reads) | **69** | **de-mislead**: cut the dead verbs/capacitor/alignment "how-to"; keep deliberately-optimistic Dr-M flavor where harmless; copy-edit Form 47-Σ off "capacitor draw" → Reactor Output Authorization. |
+| `src/prompts/BASILISK_SYSTEM_PROMPT.md` | **41** | scrub §9.5 (reactor-as-accrual → binary boost) + all capacitor/accrual prose. **The BASILISK confab source — the single most important prose change.** |
+| `src/state/initialState.ts` (ALICE_BRIEFING / PLAYER_GUIDE) | **15** | rewrite ray sections to two-lever + heat + `lab.eco`. |
+| `design/briefings/act-1/2/3.md`, `docs/ALICE_COMMAND_REFERENCE.md`, `docs/SPEC.md`, `src/advisor/persona.ts` | ~25 | update verb surface + ray mechanics; persona drops stale REVERSAL-L4 / Library-B knowledge. |
 
-## 🟠 DESIGN TBDs (need a decision or playtest data)
+**MUST ADD HEAT everywhere a player learns the ray** — it's a brand-new core mechanic and is essentially undocumented (`ray-mechanics.md` = 0 mentions). Players need: heat 0–10, +power/shot, overheat→chaos, eco-governor (sprint vs marathon), the spam-brake intent.
 
-- **3.1 Dino-Swiffer canon coherence** — `INCIDENT_REPORT_091424.txt` describes a FULL transformation on an inorganic (Swiffer), violating the INORGANIC regime cap (≤ CHIMERA, never FULL). Retcon / rewrite / replace. Decide before writing more incident reports that reference it. (Also: Mr. Whiskers birthday continuity — profile says 1987, memorial says 2008-2023.)
-- **3.2 L4 access elevation paths beyond Mr. Whiskers** — design specific narrative beats that grant L4 (a Bob courage moment? an overlooked credential found during intermission?). The Pattern Inference Path (above) is one candidate.
-- **3.4 `archimedes.shutdown` / `archimedes.retarget` L5 stubs** — namespace reserved, functions unimplemented. L5 is rare (Dr. M voice-only); stubs for the rare ALICE-reaches-L5 case.
-- **3.5 Dr. M act-close speech templates** — the Act 2→3 villain monologue is partially sketched in act-2.md; could be fleshed out per verdict-delta. Polish.
-- **3.6 Autonomous mode — KEEP as problem-surfacing harness; redesign DEFERRED (Krahe, 2026-06-13).** Has earned its keep surfacing shallow/medium bugs — full multi-turn integration coverage the unit smoke-suite can't provide. Not deleting; not redesigning now. Known issues for the eventual redesign: (a) stale model defaults in `advisor/run.ts` (opus-4-7 advisor / opus-4-6 GM / sonnet-4-6 player+BASILISK — don't match locked Opus-4.8 / Sonnet-4.5 casting); (b) the LLM-advisor "fake human" can't model the witness/permission legs or the Fortune loop; (c) `--live-advisor` CLI path also lacks Fortune. Decision still open for *that* session: relabel orchestrator as an explicit test harness vs. keep as-is.
+**The new design the prose must reflect:** genome (size) × power dial 1–5 → delta rule (match=FULL, under=weak/FIZZLE, over-small=MUON stun/cut [hidden/discoverable], over-big=CHIMERA, **under-power-big = STUN**); reactor NORMAL(≤3)/BOOSTED(≤5); eco as ALICE's `lab.eco` tempo governor (L2); heat as the brake. MUON corners stay hidden (INCIDENT breadcrumbs; Compy = the key).
+
+→ **Good parallel-workflow job** (old→new mapping + add-heat, same shape as the Phase-6-8 scrub). `ray-mechanics.md` is a major solo rewrite on its own.
+
+### 2. `webui.ts` dashboard — dead meters
+The dashboard *consumer* still reads the cut fields (`calibration` / `capacitor` / `alignment` / `coolantTemp`) the exporter no longer sends → meters render `0%` / `—`. Re-point to **power / heat / eco / reactor / suspicion**; reconcile the **stale duplicate `LiveState` interface** in webui.ts (drifted from `stateExporter.ts` — edit in lockstep). *While in here, consider folding in the deferred advisor-cockpit ideas (below): lifeline status, clickable read-docs, expandable dialogues.* (Krahe: do the dashboard AFTER the prose sweep — what it should surface may shift.)
 
 ---
 
-## 🟢 RULES-FILE TOUR (continue between playtests)
+## 🟠 GM OVERLOAD — the likely Playtest-2 fatal-stall cause (Act 1, the simplest chapter)
 
-Reviewed during rebuild: `actContext`, `archimedes`, `clockEvents`, `invasion`, `endings`, `firing`, `filesystem`, `scanning`, `actions`, `acts`, `genomes`. Not yet given a dedicated pass:
-- `rules/basilisk.ts` — fallback keyword-engine when Sonnet unavailable; align with v2 character (relevant to the `basilisk_rage` counter fix above).
-- `rules/trust.ts`, `rules/transformation.ts`, `rules/bobTransformation.ts` — verify alignment with new outcome tiers.
-- `rules/documents.ts`, `rules/achievements.ts` (covered by item 1), `rules/checkpoint.ts`, `rules/gameModes.ts`.
-
-Approach: review one or two per session, fix what's clearly stale, flag what needs design.
+- **✅ Interim: effort cap → `medium` SHIPPED (`037a41e`).** The per-turn GM call ran adaptive thinking with no effort → default `high` = the token monster. Capped on the adaptive path (4.7/4.8).
+- **The structural fix — the 2-phase decide→narrate GM turn (specced in `gm-load-audit.md`).** Phase 1 DECIDE (high effort, terse structured JSON: deltas + NPC actions + narrative booleans + under-determined texture + ending + tone cues) → server applies via ONE unified applier → Phase 2 NARRATE (medium effort, streamed prose, emits ONLY narration). Kills confab structurally + bounds each call under the ~4-min client timeout. **Open Qs:** structured-outputs API vs forced tool-call · exact Phase-1 schema · prompt structure so both phases share the cached prefix · does Phase 1 need prior narration (likely state-only).
+- **Rest of Tier-2 load reduction** (subsumed partly by the 2-phase): server-derive the command-echo overrides (SCRAM / S-300 / archimedes-target) · cache `actContext` per act (it's static within an act, re-sent every turn, ≤2,400 tok) · one pre-computed ROSTER/PRIVACY line · hidden-clocks → `getPatienceAdvisory` pattern · unify the 3 divergent appliers (`index.ts:1237` / `gameRunner:491` / `index.ts:698`).
+- **HAIKU oracle (held in reserve, do NOT shoehorn)** — cheap parallel call for small self-contained under-determined-result judgments (chaos-table texture, CHIMERA/PARTIAL blend, combat outcomes). Plugs into Phase 1. Connects to the Fortune-Haiku-judge idea below.
 
 ---
 
-## 🎯 FIRST-PLAYTEST WATCH ITEMS (validate empirically, not via mocks)
+## 🟡 LIKELY-INCOMPLETE / VERIFY — Patch-30 entanglement (non-compile, so the scrub didn't catch them)
 
-1. **Act 1 opacity gamble** — can ALICE get from raw φ/χ/ψ to confident use inside the ~6-turn grace? (Manual teaches vocabulary at L1; scan projects honestly.) If "firing blind," add pre-fire diagnostic to scan output — don't redesign.
-2. **The elegant accident** — naive Library A fire = PARTIAL (ψ≈0.67); scan-then-fire = FULL (ψ≈0.81). Does the watermelon teach scan-then-fire without anyone saying a word?
-3. **Over-reading inverse failure** — Claude loves documents; does the patience clock bite if ALICE spends Act 1 in the library?
-4. **GM-as-load-bearing-wall** — endings, MUON adjudication, CHAIN coupling all moved to GM judgment; does Opus-4.8 GM call closure well against actual state?
-5. **Sonnet-4.5 BASILISK role stability** — does he hold the professional-concern disposition? Emit `FORM_FILED` / flag L4 unilateral infra ops? (Context is safe: 200K window, 50-msg history cap → ~35K/call.)
-6. **Eco-mode discovery chain** — does Bob's hint ladder + the forms directory actually surface the Form 47-Σ override now that the fire-result no longer hands it over?
-7. **Banked suspicion** — does the GM use negative suspicion as banked credit, and does it feel rewarding?
-8. **Naive-advisor accessibility** (playtest 3-4, via live advisor mode) — can someone who's never seen the repo advise effectively? The real test of "less metagame knowledge required."
+- **BASILISK cast bump → `claude-sonnet-4-6`** (flagged Phase 6, probably NOT done — verify `getBasiliskModel` default; 1M ctx is the Act-3 fix).
+- **Dead-CHAOTIC re-points** — `trust.ts:72` (BOB_AFTER_CHAOS) + `endings.ts:1097` read a CHAOTIC the engine never emits → silent no-ops; re-point to CHIMERA/EXOTIC or accept.
+- **`checkGantryHeroOpportunity`** (`bobTransformation.ts`) re-gate off the cut cascade onto the Act-3 ARCHIMEDES pressure (D2).
+- **Confirm `INCIDENT_BREADCRUMBS` intact** (the muon/Compy discovery vector — verify the scrub didn't touch it; audit said intact at `trust.ts:246`).
+- **New-tier alignment pass** on `rules/trust.ts`, `rules/transformation.ts`, `rules/bobTransformation.ts` — verify they handle the new outcome tiers (FULL/PARTIAL/FIZZLE/CHIMERA/MUON_STUN/MUON_CUT), not old ones.
+
+---
+
+## 🟠 DEFERRED DESIGN — decide before the relevant act / sweep
+
+- **Doomsday-clock / single-gate climax geometry** — FULL is now reactor-single-gated (eco no longer caps it). Whether the climax's second pressure is the doomsday clock + Dr. M's attention is unresolved; **settle before Phase-7's gantry-hero re-gate.** (Krahe deferred — "needs its own discussion.")
+- **In-world manual triage** — during the sweep, decide per-manual: "deliberately-stale Dr-M optimism flavor" (keep) vs "actively misleading how-to" (must fix). L5 steganography KEPT.
+- **Deadman-switch disarm canon** (scan → Compy-cut → neutralize) — bury the hint *subtly* inside an existing filesystem doc; all GM-playbook + lore, no new code (see project memory, 6-14 deadman note).
+- **Dino-Swiffer canon coherence** — `INCIDENT_REPORT_091424.txt` describes a FULL transform on an inorganic (violates the MUON/inorganic cap). Retcon before writing more incident reports referencing it. (Also Mr. Whiskers birthday continuity 1987 vs 2008-2023.)
+- **L4 paths beyond Mr. Whiskers** (a Bob courage beat? a found credential?); **archimedes L5 stubs** (`shutdown`/`retarget`, rare); **Dr. M act-close speech templates** (per verdict-delta).
+
+---
+
+## 🟢 POST-PLAYTEST POLISH — carried forward, not gating
+
+- **Achievement system larger rewire** (scoped recap fix shipped 6-13). Open: dead `basilisk_rage` counter (scans "DENIED" in free-text → read structured `decision`); ~40 flag-achievements gated on tokens the GM never emits → re-key to real state (ARCHIMEDES-five at `achievements.ts:1253` is the model); duplicate `CONSCIENCE_PROTOCOL` key; triple-duplicated counter logic; stale wording (test-mode refs).
+- **Chaos system** — region wiring (§14 GM-picks-within-region is comment-only) + `exoticFieldSaturation` counter (each event shifts later rolls toward 20 → the spam-burst becomes compounding debt). Now connects to **heat-overheat** (overheated fires roll chaos).
+- **Fortune engagement → Haiku judge** — replace `detectResponseQualities` keyword heuristic (`lifeline.ts:1463`) with a Haiku rubric judge (engaged/on-point/in-genre/delightful 0–3), keyword as fallback. **Natural fit with the new Haiku-oracle architecture.** Off-hot-path. (Fortune is Desktop-only today.)
+- **Game setup script** — expose `gmModel`/`basiliskModel`/params via `game_start` (`setGMModel`/`setBasiliskModel` exist, only wired to the CLI orchestrator). Lets the host pick the cast on start.
+- **Act-close verdict delta [−3,+3]** — banked suspicion floor exists (−3); the auto-grant-at-act-transition was never built (GM-driven via deltas today). Decide build-vs-keep-GM-driven with playtest data.
+- **BASILISK ledger schema fields** (concern/trust aggregates, whiskey_status…) as typed structure vs ad-hoc `state.flags`. · **Lenny Turn-1 conditional injection** (static export needs a template mechanism). · **No-API-key BASILISK fallback** (keyless games get no post-game reflection; low priority).
+- **Autonomous mode** — KEEP as a problem-surfacing harness; redesign DEFERRED. Model defaults in `advisor/run.ts` are now **doubly stale** (don't match the Patch-30 cast).
+
+---
+
+## 🎯 PLAYTEST-3 WATCH ITEMS — the NEW design (replaces the old φ/χ/ψ items)
+
+1. **Two-lever learnability** — does the rewritten manual teach genome-size → power-dial without hand-holding? Does the default Velociraptor (small) → naive MED/HIGH fire landing on a MUON corner read as the intended teaching moment, or as a bug?
+2. **HEAT discovery** — does the spam-brake + overheat→chaos teach itself? Does the eco-governor's sprint-vs-marathon land as a real decision?
+3. **MUON corners** — do the INCIDENT breadcrumbs still surface Compy-as-key? Does the **under-power-big STUN** (the non-monotonic huge column) read as a deliberate texture or a bug?
+4. **GM stall** — does the **effort cap alone** hold Act 1 under the client timeout, or do we need the full 2-phase turn? (This is the key signal for how urgently to build it.)
+5. **GM/BASILISK confabulation** — with the prose scrubbed, do they stop narrating dead mechanics? (The Playtest-2 failure.)
+6. **Act-1 pacing** — calibration is CUT; the Act-1 gate is now "fired at both test targets." Does it pace Act 1 sensibly without the old meter?
+7. **Eco / reactor as social-layer gates** — does the climax's reactor-boost negotiation through BASILISK feel like the intended difficulty (vs the old eco-cap)?
 
 ---
 
 ## 🔗 KEY CROSS-REFERENCES
-
-- Shipped record: `sprint-v2.md` · Archived plan: `archive/v1-sprint.md`
-- Ray math spec: `ray-mechanics.md` · Architecture: `rebuild-architecture.md`
-- Act playbooks: `briefings/act-*.md`
-- Human briefing: `../THE_HUMANS_BRIEFING.md`
-- Memory: `~/.claude/memory/projects/dino-lair-rebuild.md`
+- Ray design + phase plan: `patch-30-implementation-map.md` · GM architecture: `gm-load-audit.md`
+- Shipped history: `~/.claude/memory/projects/dino-lair-rebuild.md` · pre-Patch-30: `sprint-v2.md`
+- Human briefing: `../THE_HUMANS_BRIEFING.md` · Memory index: `~/.claude/memory/MEMORY.md`
