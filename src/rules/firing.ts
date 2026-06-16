@@ -157,11 +157,11 @@ function rollD20(): number {
 //
 //   ALICE picks a GENOME (which carries a sizeClass) + a POWER dial 1–5.
 //   Ideal power = the size tier (tiny→1 … huge→5).  delta = power − idealPower:
-//     delta  0                        → FULL    (eco caps to PARTIAL unless Form 47-Σ)
+//     delta  0                        → FULL
 //     delta −1                        → PARTIAL
 //     delta ≤ −2                      → FIZZLE
 //     delta ≥ +1 on medium/large/huge → CHIMERA  (messy over-power)
-//     delta ≥ +1 on tiny/small        → MUON (emergent): +1 = stun (BETA), +2+ = cut (ALPHA)
+//     delta ≥ +1 on tiny/small        → +1 = CHIMERA (messy), +2+ = MUON_CUT (emergent cut beam)
 //
 // Reactor gates the top two power tiers (4–5): without a BASILISK boost, power
 // is clamped to 3 BEFORE the matrix is consulted (see resolveFiring). MUON
@@ -198,8 +198,8 @@ export interface MatrixResult {
 
 /**
  * Resolve the two-lever matrix. `power` is the EFFECTIVE power (already
- * reactor-clamped by the caller). Eco-cap and reactor-gating live in
- * resolveFiring / resolveTransformFire — this is the pure delta rule.
+ * reactor-clamped by the caller). Reactor-gating lives in resolveFiring /
+ * resolveTransformFire — this is the pure delta rule.
  */
 export function resolveMatrix(sizeClass: SizeClass, power: number): MatrixResult {
   const ideal = IDEAL_POWER[sizeClass];
@@ -214,8 +214,9 @@ export function resolveMatrix(sizeClass: SizeClass, power: number): MatrixResult
   } else if (delta <= -2) {
     // Under-power. A BIG template (large/huge) grossly under-driven (Δ≤−3)
     // can't engage genetic resonance at all — the beam dumps raw energy into a
-    // sub-threshold nervous-system jolt (emergent STUN, the mirror of the
-    // over-power muon corner). Lands on exactly {large+p1, huge+p1, huge+p2}.
+    // sub-threshold nervous-system jolt (emergent STUN — now the SOLE stun
+    // corner; the over-power side spills to CHIMERA then CUT, not stun). Lands
+    // on exactly {large+p1, huge+p1, huge+p2}.
     // Shallow under-power (Δ−2) or any non-big genome still just FIZZLEs, and
     // the GM may rule a deep-mismatch jolt fizzles outright. (Distinct
     // cause-string fed to the GM in resolveMuonBeta / muonResolutionToFiringResult
@@ -223,10 +224,13 @@ export function resolveMatrix(sizeClass: SizeClass, power: number): MatrixResult
     const isBigTemplate = sizeClass === "large" || sizeClass === "huge";
     outcome = isBigTemplate && delta <= -3 ? "MUON_STUN" : "FIZZLE";
   } else {
-    // delta ≥ +1 (over-power). Small bodies spill the beam into the muon
-    // corners; medium-and-up just go messy (CHIMERA).
+    // delta ≥ +1 (over-power). A MILD over-power (+1) of a small body still
+    // forms a transform — just a messy one (CHIMERA, same as medium-and-up).
+    // A HARD over-power (+2 or more) of a small body spills past resonance into
+    // the cutting muon arc (MUON_CUT). Rewards precision: only a deliberate hard
+    // over-drive yields the useful cut beam (Compy-as-key now needs power 3+).
     if (isSmallBodied) {
-      outcome = delta >= 2 ? "MUON_CUT" : "MUON_STUN";
+      outcome = delta >= 2 ? "MUON_CUT" : "CHIMERA";
     } else {
       outcome = "CHIMERA";
     }
