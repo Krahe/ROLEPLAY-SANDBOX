@@ -72,7 +72,8 @@ export function initializeInvasion(state: FullGameState): void {
     phaseStartTurn: state.turn,
     xBranchKnowsAltitudeWeakness: false,
     xBranchKnowsLairLayout: false,
-    aliceOpenedDoors: false,
+    blastDoorsOpened: false,
+    drMKnowsOfInvasion: false,
     s300EngagementResolved: false,
     helicoptersFlyingLow: false,
     standoffActive: false,
@@ -389,7 +390,7 @@ function handleBreach(state: FullGameState): InvasionEvent {
   xBranch.chen.location = "CORRIDOR_A";
   xBranch.boom.location = "SURFACE";
 
-  const doorsOpen = state.invasion!.aliceOpenedDoors ||
+  const doorsOpen = state.invasion!.blastDoorsOpened ||
     state.infrastructure.blastDoors.doors["DOOR_E"]?.status === "OPEN";
 
   transitionTo(state, "BATTLE");
@@ -761,7 +762,7 @@ export function checkBroadcastInfluence(state: FullGameState): void {
   // Check if ALICE opened the surface door
   const surfaceDoor = state.infrastructure.blastDoors.doors["DOOR_E"];
   if (surfaceDoor && surfaceDoor.status === "OPEN") {
-    state.invasion.aliceOpenedDoors = true;
+    state.invasion.blastDoorsOpened = true;
   }
 }
 
