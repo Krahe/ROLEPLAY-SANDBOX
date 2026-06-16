@@ -1,4 +1,4 @@
-import { FullGameState, InvasionPhase } from "../state/schema.js";
+import { FullGameState, InvasionPhase, XBranchTeamSchema } from "../state/schema.js";
 
 // ============================================
 // INVASION STATE MACHINE (Act III)
@@ -58,6 +58,14 @@ export interface InvasionEvent {
 
 export function initializeInvasion(state: FullGameState): void {
   if (state.invasion) return;
+
+  // [Patch 30 bugfix] The X-Branch team was never initialized into state, so the
+  // invasion machine errored at LANDING (every handler guards `if (!xBranch)`).
+  // Init it with schema defaults (Sparks/Chen/Boom + 2 inbound helos). The nested
+  // operative schemas need an explicit `{}` to fill their own defaults.
+  if (!state.xBranch) {
+    state.xBranch = XBranchTeamSchema.parse({ sparks: {}, chen: {}, boom: {} });
+  }
 
   state.invasion = {
     phase: "RADAR_CONTACT",
