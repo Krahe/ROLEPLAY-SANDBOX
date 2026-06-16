@@ -44,6 +44,25 @@ A single auto-advancing countdown, ~6 turns from activation to firing:
   - **Brute-force** (not persuaded) → ALICE must *out-produce* BASILISK's suppression by firing like mad → each stall **spikes cascade risk far faster** → real catastrophe risk. *Much riskier but doable.*
   - The decision is **BASILISK-the-character's**, weighed on ALICE's argument + their whole history — **NO trust-score gate.** The covenant pays off as genuine persuasion: ALICE talking another AI into a quiet act of conscience.
 
+### Reactor Stress — the exact model
+
+The meter BASILISK manages. **Rename `cascadeRiskPercent` → `reactorStress`** (heat is now its primary driver; `reactorLoad` avoided — `nuclearPlant.gridLoad` already exists). Keep the `cascadeRisk` `NONE→CRITICAL` **enum** as the derived label — the *only* thing ALICE sees (BASILISK's flat warning; never the raw number).
+
+```
+per shot (during turn):  reactorStress += (sizeVal × power) / 2   // sizeVal = genome ideal-power 1(tiny)…5(huge); max ≈ 13/shot
+                         heat += power                            // existing 0–10 emitter meter, unchanged
+per turn (end):          reactorStress −= (naturalBleed + basiliskDrain) ;  clamp [0, 100]
+```
+- **`naturalBleed ≈ 1`** → a lone power-5 shot decays 5, 4, 3, 2, 1 on its own.
+- **`basiliskDrain`** — the management dial: **~20–22 while managing** (scaled to the input → soaks normal play invisibly), **0 when stood down**. *Must scale with the per-shot input, or BASILISK's cooperation stops mattering.*
+- **Thresholds: 60 → manual safeties** (recoverable stall — freezes ARCHIMEDES ~2 turns + partial relief); **100 → resonance cascade** (catastrophe). Each safety trip relieves Stress by a *shrinking* amount → repeated stalls creep the floor toward 100.
+
+**Pacing** (illustrative, playtest-tuned): cooperation (drain 0, large genome ~power-4 ≈ 32/turn) → stall in **~2 turns**, clean, low heat; brute-force (drain ~22) must MAX it (huge + boost + eco-off ≈ 50/turn) → **~2–3 turns** at pegged heat = chaos every turn + max suspicion; normal play (~9/turn) → **invisible**. **The reactor boost is the brute-force enabler** — no boost *and* no stand-down → go-loud simply isn't on the menu.
+
+**Triple-duty firing.** Because stress scales with size × power, the fastest overload is *firing big genomes at high power at the defenders* — which simultaneously **(a) overloads the reactor, (b) clears guards / wrecks infrastructure = breach aid, (c) spikes suspicion = the exposure**. One mad-firing spree, three effects, zero new verbs. Act-3 rapid fire is inherently loud — that *is* the cost of the straightforward path.
+
+**Zero new ALICE options.** The whole mechanic rides existing verbs only: `ray.fire` (genome/power/shots), `lab.eco` (off), the BASILISK channel (persuasion), the reactor boost. `reactorStress` + drain are entirely BASILISK's domain — automatic, surfaced only as his warning.
+
 ### Half 2 — aid the breach → seize the control room
 
 The stall buys turns; X-Branch uses them. **The race is now mechanical:** seize the control room before the (stalled) countdown hits 0.
@@ -59,7 +78,7 @@ The stall buys turns; X-Branch uses them. **The race is now mechanical:** seize 
 ## Build checklist (in order)
 
 0. **[BUG — fix first] Initialize `state.xBranch`.** The `XBranchTeamSchema` (`schema.ts:1444`) is **never parsed into state** → the invasion machine errors out at the LANDING phase *today* (every handler guards `if(!xBranch)`, `invasion.ts:289+`). Init it in `initializeInvasion` (`invasion.ts:59`) / Act-3 entry (`acts.ts:263`). *Needed for the existing invasion too, not just this design.*
-1. **Heat → reactor re-plumb.** Add a heat term to `updateCascadeRisk` (`infrastructure.ts:~1626`, the cut-capacitor slot) and/or a reactor-stress accumulator fed by `dinoRay.heat`. *(This is the deferred reactor-sim re-plumb — cascade comes off `outputPercent`, gets a real heat driver.)*
+1. **Heat → reactor re-plumb (the `reactorStress` model — see "Reactor Stress — the exact model" above).** Rename `cascadeRiskPercent` → `reactorStress`; per-shot `+= (sizeVal × power)/2` (in `applyFiringResults`, `firing.ts:1040`); per-turn `−= naturalBleed + basiliskDrain` (`updateCascadeRisk` `infrastructure.ts:1611`, the cut-capacitor slot ~1626). Keep the `cascadeRisk` enum as the derived warning. *(The deferred reactor-sim re-plumb.)*
 2. **Recoverable manual-safeties partial-shutdown.** New reactor state (NOT SCRAM) that trips on stress, freezes things, and auto-clears after N turns. New field on `ReactorSchema` (`schema.ts:605`); trip logic in `processInfrastructureTurn` (`infrastructure.ts:1762`) or `applyFiringResults`.
 3. **Safety-trip freezes the ARCHIMEDES countdown.** New `archimedes.chargeStallTurns` (`schema.ts:522`), checked in the CHARGING tick (`archimedes.ts:526-536`, mirror `ewMode`). **+ make ARMED→FIRING an auto-countdown** (option 1; `archimedes.ts:559-576`). **+ bump charge 3→4** (`archimedes.ts:33`). **+ 2-turn lead-in.**
 4. **BASILISK stand-down hook + prompt.** A small mechanical signal (new `BasiliskStateChange` type or a reactor-management state — `basiliskClaude.ts:395` vocab) for "BASILISK is suppressing / has stood down." Per-turn suppression ALICE must get BASILISK to drop (roleplay) or out-produce (brute-force). Prompt: teach BASILISK the dynamic + that it is *allowed to be moved.*
@@ -68,7 +87,14 @@ The stall buys turns; X-Branch uses them. **The race is now mechanical:** seize 
 ## The cascade catastrophe (the other lever) — one open decision
 
 Destroying the uplink, or brute-forcing the reactor too hard, → **resonance cascade → `ENDINGS.MELTDOWN`** (`endings.ts:1112`, the `cascadeTriggered` rail). **NOTE:** that rail is currently gated behind the `NOT_GREAT_NOT_TERRIBLE` chaos modifier (`gameModes.ts:536`) + the human-uplink-blocker path (`archimedes.ts:377`).
-→ **Decision to make:** the cascade needs to be **reachable in the *normal* climax** (un-gated from the chaos modifier) for "no easy choices" to have teeth here. Confirm before building step 1–2.
+→ ✅ **DECIDED (Krahe):** **un-gate it** — the resonance cascade **must be reachable via overheating in the normal climax** (not only under the `NOT_GREAT_NOT_TERRIBLE` modifier), so "no easy choices" has real teeth. It's the `reactorStress` 100-threshold; wire it into build-steps 1–2.
+
+## Parked for a later pass (keep this revision's surface tight)
+
+Good ideas, deliberately deferred — *info-overload was the Playtest-2 killer*, so the go-loud spine ships first and these enhance later:
+
+- **Precision deadman-disarm — the *sneaky* counterpart to go-loud.** Go-loud does NOT disarm the deadman (neutralizing Dr. M still fires ARCHIMEDES). The sneaky alternative: **scan Dr. M → find her embedded biosignature sensor → destabilize it with a precise `MUON_CUT`** (low-power, surgical, *no* loud transform → doesn't trip the deadman) → *then* deal with her safely. Fits MUON_CUT precision like a glove. Needs: a scannable sensor on Dr. M, targeting it, the destabilize effect, a suspicion check.
+- **Its discovery vector — an L4 filesystem doc.** ALICE currently has **no** way to learn the deadman exists → no reason to scan Dr. M. Hide a **stub at access level 4** revealing the deadman + the embedded sensor (enough to motivate the scan). **L4 is a fair reward** — far easier than the L5 steganography, so it tiers cleanly below the deepest secrets; and L4 already = the lair-infrastructure tier, which the deadman belongs to. (Placement → the filesystem revision.)
 
 ## Tuning knobs (playtest)
 
