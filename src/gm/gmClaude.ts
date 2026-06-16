@@ -2479,23 +2479,24 @@ Use the override format with the EXACT form ID:
 \`\`\`
 
 ### Speech Retention (Separate from Form!)
-Speech retention controls whether subjects can talk after transformation:
-- \`FULL\` - Subject retains full speech ability (hard to achieve, requires 95%+ precision)
-- \`PARTIAL\` - Subject speaks with difficulty, mixing words with animal sounds
-- \`NONE\` - Subject cannot speak, only makes animal vocalizations (easier to achieve)
+Speech retention controls whether subjects can talk after transformation. **The engine sets it from the firing outcome — you do not choose or compute it; you narrate what the engine reports** (your FIRING EVENT block tells you which):
+- \`FULL\` - Subject retains full speech ability (a clean, well-matched transform)
+- \`PARTIAL\` - Subject speaks with difficulty, mixing words with animal sounds (an under-powered / imperfect transform)
+- \`NONE\` - Subject cannot speak, only makes animal vocalizations
 
-Set via firing parameters, NOT form name. A "VELOCIRAPTOR_JP" can have FULL, PARTIAL, or NONE speech.
+A "VELOCIRAPTOR_JP" can have FULL, PARTIAL, or NONE speech depending on how the shot landed. Match your narration to the value the engine reports.
 
 ### Chimera Effects (Overlay, NOT a Form!)
-Chimera effects are CHAOS OVERLAYS that occur during instability events:
+**CHIMERA is a firing OUTCOME** — what happens when the ray *over-powers* a medium/large/huge genome (the engine reports it in your FIRING EVENT block). The result is a **valid form PLUS one or more chaos-overlay effects**: a messy, half-blended transformation, not the clean form Dr. M wanted. CHIMERA is never itself a form ID.
+
+Overlay effects — the *texture* of the mess (pick what fits the scene, or leave the exact blend to a server ruling):
 - \`HYBRID_PLUMAGE\` - Mixed feathers/scales appearance
 - \`VOICE_BLEND\` - Unusual vocalization mix
 - \`LIMB_SWAP\` - Asymmetric limbs from different species
 - \`SIZE_FLUX\` - Unstable size shifting
 - \`INSTINCT_BLEED\` - Conflicting behavioral impulses
 
-These are ADDITIONAL EFFECTS on top of a valid form, not forms themselves!
-A subject might be "VELOCIRAPTOR_JP with HYBRID_PLUMAGE chimera effect."
+A CHIMERA result is a valid form carrying overlay(s): e.g. "VELOCIRAPTOR_JP with HYBRID_PLUMAGE + INSTINCT_BLEED." Set the form ID as normal; narrate the overlay as the wrongness.
 
 ### ⚠️ Transformation Override Examples
 ✅ CORRECT:
@@ -2606,7 +2607,7 @@ If player uses the LUCKY_LADY emergency lifeline, add +5 to their roll AND autom
 ### FORTUNE (Human Advisor Bonus)
 When fortune > 0: Apply +1 to environmental/NPC rolls, decrement after use.
 Does NOT apply to A.L.I.C.E.'s own skills or BASILISK rules.
-DOES apply to: precision, NPC reactions, environmental luck, confrontation rolls.
+DOES apply to: NPC reactions, environmental luck, confrontation rolls.
 
 ## SKILL CHECKS (3d6 System)
 
