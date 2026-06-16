@@ -2,7 +2,9 @@
 
 Open work only. **Shipped history → `~/.claude/memory/projects/dino-lair-rebuild.md`** (and `sprint-v2.md` for the pre-Patch-30 sprint).
 
-**Updated 2026-06-14.** Status: **Patch 30 build is GREEN + 28/28 smoke** — but **NOT playtest-ready.** The engine is correct and compiles; the layer the **human and the AIs actually read to learn the rules** (in-world manuals, briefings, GM/BASILISK prompts, the dashboard) still teaches the *old, cut* ray. A playtest right now would have the player following dead instructions and the GM/BASILISK confabulating cut mechanics — reproducing the exact Playtest-2 failures. **The road to Playtest 3 is below, in priority order.**
+**Updated 2026-06-15.** Status: **Patch 30 build is GREEN + 28/28 smoke** — but **NOT playtest-ready.** The engine is correct and compiles; the layer the **human and the AIs actually read to learn the rules** (in-world manuals, briefings, the GM prompt, the dashboard) still teaches the *old, cut* ray. A playtest right now would have the player following dead instructions and the GM confabulating cut mechanics — reproducing the exact Playtest-2 failures. **The road to Playtest 3 is below, in priority order.**
+
+> **Progress 2026-06-15:** ✅ **BASILISK fully scrubbed** (f0062a7) — prompt + `basiliskClaude.ts` context/levers + `basilisk.ts` fallback all aligned to the one-boolean reactor (standing BOOST grant) and eco removed from BASILISK entirely. Locked design: reactor boost = standing once granted; keep NORMAL/BOOSTED label (no OVERDRIVEN); kill the form economy (88-Whiskey kept as the one real lever); keep all non-ray levers. Reactor-sim *schema/field* removal stays deferred to its own workflow — catalogue below (§ reactor-sim removal).
 
 > **Sources of truth:** ray design = `patch-30-implementation-map.md` (read its session-3 UPDATE — it wins) · GM architecture = `gm-load-audit.md`.
 
@@ -17,7 +19,7 @@ The whole player/AI-facing prose layer still describes the cut ray (capacitor / 
 |---|---|---|
 | `design/ray-mechanics.md` (canonical 650-line ray doc) | **119** (0 heat) | **full rewrite** to two-lever (genome size × power dial) + heat + eco-governor + reactor binary + emergent MUON corners. The GM may re-import this → highest confab risk. |
 | `src/rules/filesystem.ts` (in-world manuals the **player** reads) | **69** | **de-mislead**: cut the dead verbs/capacitor/alignment "how-to"; keep deliberately-optimistic Dr-M flavor where harmless; copy-edit Form 47-Σ off "capacitor draw" → Reactor Output Authorization. |
-| `src/prompts/BASILISK_SYSTEM_PROMPT.md` | **41** | scrub §9.5 (reactor-as-accrual → binary boost) + all capacitor/accrual prose. **The BASILISK confab source — the single most important prose change.** |
+| ~~`src/prompts/BASILISK_SYSTEM_PROMPT.md`~~ + `basiliskClaude.ts` + `basilisk.ts` | ✅ **DONE (f0062a7)** | §9.5 → standing BOOST grant; §9 FORMS → flavor; context/levers/fallback scrubbed; eco removed from BASILISK. Build GREEN. |
 | `src/state/initialState.ts` (ALICE_BRIEFING / PLAYER_GUIDE) | **15** | rewrite ray sections to two-lever + heat + `lab.eco`. |
 | `design/briefings/act-1/2/3.md`, `docs/ALICE_COMMAND_REFERENCE.md`, `docs/SPEC.md`, `src/advisor/persona.ts` | ~25 | update verb surface + ray mechanics; persona drops stale REVERSAL-L4 / Library-B knowledge. |
 
@@ -48,6 +50,14 @@ The dashboard *consumer* still reads the cut fields (`calibration` / `capacitor`
 - **`checkGantryHeroOpportunity`** (`bobTransformation.ts`) re-gate off the cut cascade onto the Act-3 ARCHIMEDES pressure (D2).
 - **Confirm `INCIDENT_BREADCRUMBS` intact** (the muon/Compy discovery vector — verify the scrub didn't touch it; audit said intact at `trust.ts:246`).
 - **New-tier alignment pass** on `rules/trust.ts`, `rules/transformation.ts`, `rules/bobTransformation.ts` — verify they handle the new outcome tiers (FULL/PARTIAL/FIZZLE/CHIMERA/MUON_STUN/MUON_CUT), not old ones.
+
+### § Reactor-sim removal (deferred workflow — Krahe: "full workflow to map for removal")
+The continuous reactor sim (`outputPercent` / `coreTemp` / `coolantFlow` / NORMAL-BOOSTED-**OVERDRIVEN**) is fully vestigial — the live mechanic is the one boolean `basiliskAuthority.reactorControlGranted` (firing.ts gates on it). Leave validated-but-ignored until a dedicated pass. **Catalogue (found during the BASILISK scrub, all out-of-scope then):**
+- `src/state/schema.ts:601–602` — `ReactorModeEnum = ["NORMAL","BOOSTED","OVERDRIVEN"]` + OVERDRIVEN doc comment. Also vestigial: `nuclearPlant.{reactorOutput,coreTemp,coolantFlow}`, `dinoRay.powerCore.{ecoModeOverride,ecoModeReEngageTurn}`.
+- `src/ui/stateExporter.ts:62` — `reactorMode` comment still lists OVERDRIVEN.
+- `src/webui.ts:937` — `reactorMode === "OVERDRIVEN"` red-styling (dead branch; folds into the webui dashboard blocker).
+- `src/rules/actions.ts:1646`, `src/rules/trust.ts:233`, `src/rules/filesystem.ts:364` — **prose** still tells ALICE to ask BASILISK for OVERDRIVEN reactor mode (filesystem.ts is in the doc-sweep anyway). Also `actions.ts:457` stale comment "eco caps FULL" and `actions.ts:1643` boost example wording.
+- `src/index.ts:1437,1687–1690`, `src/core/gameRunner.ts:689–690`, `src/rules/infrastructure.ts:1766–1771` — read/write `infrastructure.reactor.outputPercent` (the cut sim). NOTE: `infrastructure.ts:1514` reads `reactorControlGranted` — that's the **new** mechanic, leave it.
 
 ---
 
