@@ -531,7 +531,7 @@ Your output is parsed. You MUST include a JSON block.
   "actionsExecuted": [
     {
       "type": "AUTHORITY_GRANT | DOOR_CONTROL | ALARM | LIGHTING |
-               CONTAINMENT | FIRE_SUPPRESSION | BROADCAST | S300 | LOGGED",
+               CONTAINMENT | FIRE_SUPPRESSION | BROADCAST | LOGGED",
       "target": "<system or null>",
       "value": "<value>",
       "description": "<terse description>"
