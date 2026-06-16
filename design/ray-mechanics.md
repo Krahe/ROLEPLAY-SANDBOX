@@ -130,11 +130,9 @@ Overheat (heat 10) and the exotic MUON corners feed the **chaos table.** *(Carry
 
 ---
 
-## ⏳ TBD — Act III: ARCHIMEDES / EW-mode / the stall toolkit
+## ⏳ Act III: ARCHIMEDES / the reactor stall — DESIGNED
 
-**Held for design discussion (Krahe, 6-16 — "we need to decide on ARCHIMEDES / EW-mode stalling").**
-
-The legacy doc's **§11.6** (L3/L4 stall toolkit: `ray.diagnostic`, `ray.calibrate_amplifier`, `ray.profile_certification`, `ray.muon { amplified }`) and **§12 / §11.6** (the ARCHIMEDES bottleneck + the EW-mode L4 climax interlock) must be **re-decided against the Patch-30 surface** — starting with *which of those L3/L4 verbs even survived the simplification* (verify vs. `actions.ts`). **Do not transcribe the old version as canon.** This section gets written after the Act-III conversation.
+The Act-III climax (stopping ARCHIMEDES via the reactor-safety **stall** + the X-Branch breach, BASILISK persuasion, the "no easy choices" menu) is **designed and specced in `design/act3-climax.md`** (2026-06-16). The ray-side hook: **heat now drives reactor cascade risk** — pushing the ray hot trips the reactor's *manual safeties* (a recoverable partial shutdown) which freezes ARCHIMEDES' charge. That heat→reactor coupling is the deferred reactor-sim re-plumb; the spec has the build order. *(The legacy §11.6 L3/L4 "stall toolkit" — `ray.diagnostic` etc. — is superseded: the stall is now the heat/reactor mechanic, not a verb kit.)*
 
 ---
 
