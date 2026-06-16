@@ -2,13 +2,36 @@
 
 Open work only. **Shipped history → `~/.claude/memory/projects/dino-lair-rebuild.md`** (and `sprint-v2.md` for the pre-Patch-30 sprint).
 
-**Updated 2026-06-15.** Status: **Patch 30 build is GREEN + 28/28 smoke** — but **NOT playtest-ready.** The engine is correct and compiles; the layer the **human and the AIs actually read to learn the rules** (in-world manuals, briefings, the GM prompt, the dashboard) still teaches the *old, cut* ray. A playtest right now would have the player following dead instructions and the GM confabulating cut mechanics — reproducing the exact Playtest-2 failures. **The road to Playtest 3 is below, in priority order.**
+**Updated 2026-06-16.** Status: **build GREEN + 28/28 smoke**; the ray surface + **BASILISK** + the **GM prompt** + `ray-mechanics.md` are all migrated to the two-lever ray; **Act-III climax designed + specced** (`act3-climax.md`). Still **NOT playtest-ready** — the **Act-III mechanical build** and the **filesystem / briefings doc sweep** remain. **Full sequence in the 🗺️ BUILD ROADMAP just below.**
 
 > **Progress 2026-06-15:** ✅ **BASILISK fully scrubbed** (f0062a7) — prompt + `basiliskClaude.ts` context/levers + `basilisk.ts` fallback all aligned to the one-boolean reactor (standing BOOST grant) and eco removed from BASILISK entirely. Locked design: reactor boost = standing once granted; keep NORMAL/BOOSTED label (no OVERDRIVEN); kill the form economy (88-Whiskey kept as the one real lever); keep all non-ray levers. Reactor-sim *schema/field* removal stays deferred to its own workflow — catalogue below (§ reactor-sim removal).
 >
 > ✅ **GM prompt ray-mechanics done** (`1628204`) — Tier-1 had already cut the GM's dead ray overrides + fixed the per-turn payload/reaction-guidance; this pass finished the 3 residual static spots (speech-retention "95% precision"→engine-derived-from-outcome; CHIMERA "chaos overlay"↔over-power-OUTCOME reconciled, exact blend = a server ruling / future Haiku call; FORTUNE "precision" dropped). REVERSAL coupling row kept (reversal→HUMAN is correct). **GM reactor-meltdown overrides DEFERRED** — that's a *live* ending subsystem (see § reactor-sim removal), not ray mechanics.
 
-> **Sources of truth:** ray design = `patch-30-implementation-map.md` (read its session-3 UPDATE — it wins) · GM architecture = `gm-load-audit.md`.
+> **Sources of truth:** ray design = `patch-30-implementation-map.md` (read its session-3 UPDATE — it wins) · GM architecture = `gm-load-audit.md` · **Act-III climax = `act3-climax.md`**.
+
+---
+
+## 🗺️ BUILD ROADMAP → functional prototype (2026-06-16)
+
+The big picture, in build order. **Mechanical layer first** — the filesystem / BASILISK / GM docs all *describe* it, so build the real thing before narrating it.
+
+**✅ DONE:** engine green + two-lever/heat/eco/reactor-boost ray · `ray-mechanics.md` rewritten + matrix refined (over-power-small +1 → CHIMERA) · **BASILISK** scrubbed to one-boolean reactor · **GM prompt** ray-mechanics done · **Act-III climax designed + specced** (`act3-climax.md`).
+
+**Phase 1 — MECHANICAL LAYER (code)**
+- **1a. Act-III climax build** (`act3-climax.md`, 6 steps): `xBranch` init bug → heat→`reactorStress` re-plumb → safety-trip stall → BASILISK stand-down hook → control-room landing → clock (auto-fire / 4-turn charge / 2-turn lead-in). **+ the invasion rewire → BASILISK-mediated:** blast doors are persuaded-not-direct; radar / early-warning routes *through* BASILISK (who may stay silent); the machine stops printing his dialogue. *(Both go-loud halves now hinge on persuading BASILISK to commit quiet omissions — heat, alarm, doors.)*
+- **1b. Patch-30 entanglement verify-fixes:** BASILISK cast → `claude-sonnet-4-6`; dead-CHAOTIC re-points; gantry-hero re-gate; new-tier alignment (`trust`/`transformation`/`bobTransformation`); confirm `INCIDENT_BREADCRUMBS` intact.
+
+**Phase 2 — DOC/PROSE LAYER** (describe the now-real mechanics)
+- **2a.** `filesystem.ts` manuals (69 refs) + the reactor/heat reality (+ the parked L4 deadman stub if built).
+- **2b. BASILISK prompt — 2nd pass:** the Act-III reactor-management + invasion-mediation (drain / stand-down / persuasion / early-warning duty).
+- **2c. GM prompt:** Act-III climax narration + `reactorStress` awareness.
+- **2d.** Briefings / `initialState` (ALICE_BRIEFING, PLAYER_GUIDE) / command-ref / persona / SPEC — player-facing two-lever + heat.
+
+**Phase 3 — DASHBOARD:** `webui.ts` dead meters → power / heat / eco / reactor / `reactorStress`.
+**Phase 4 — PLAYTEST 3.** 🦖
+
+**Deferred / parallel (NOT prototype blockers):** GM Tier-2 2-phase turn *(only if the interim effort cap fails in playtest)* · reactor-sim removal (dead `nuclearPlant` fields; partly done by the 1a re-plumb) · the parked **deadman precision path + L4 doc** (`act3-climax.md`) · chaos-region / Haiku-oracle / achievement rewire.
 
 ---
 
