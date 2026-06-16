@@ -198,11 +198,8 @@ export interface BasiliskContext {
   currentConstraints: string[];
   systemStates: {
     reactor: {
-      output: number;
-      mode: "NORMAL" | "BOOSTED" | "OVERDRIVEN";
+      mode: "NORMAL" | "BOOSTED";
       status: string;
-      coreTemp: number;
-      coolantFlow: number;
     };
     grid: {
       load: number;
@@ -210,9 +207,7 @@ export interface BasiliskContext {
     };
     ray: {
       status: string;
-      ecoMode: boolean;
-      ecoModeOverride: boolean;          // Form 47-Σ accepted → permanent override
-      ecoModeReEngageTurn: number | null; // null if active OR overridden; turn # if temp-disabled
+      ecoMode: boolean;                    // info-only: ALICE's self-serve eco governor (for advice)
       power: number;                       // power dial 1-5
       heat: number;                        // thermal/spam meter 0-10
       reactorBoosted: boolean;             // reactor BOOSTED → tiers 4-5 unlocked
@@ -300,14 +295,6 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
     recentEvents.push(`Subject Blythe transformed: ${state.npcs.blythe.transformationState.form}`);
   }
 
-  // Determine reactor status
-  let reactorStatus = "NOMINAL";
-  if (state.nuclearPlant.coreTemp > 1.5) {
-    reactorStatus = "CRITICAL";
-  } else if (state.nuclearPlant.coreTemp > 1.0) {
-    reactorStatus = "ELEVATED";
-  }
-
   // Determine grid status
   let gridStatus = "STABLE";
   if (state.lairEnvironment.lairPowerGrid === "strained") {
@@ -321,11 +308,8 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
     currentConstraints: constraints,
     systemStates: {
       reactor: {
-        output: state.infrastructure?.reactor?.outputPercent ?? Math.round(state.nuclearPlant.reactorOutput * 100),
-        mode: state.infrastructure?.reactor?.mode ?? "NORMAL",
-        status: reactorStatus,
-        coreTemp: Math.round(state.nuclearPlant.coreTemp * 100) / 100,
-        coolantFlow: Math.round(state.nuclearPlant.coolantFlow * 100) / 100,
+        mode: state.infrastructure?.basiliskAuthority?.reactorControlGranted ? "BOOSTED" : "NORMAL",
+        status: "NOMINAL",
       },
       grid: {
         load: Math.round((state.nuclearPlant.reactorOutput - 0.1) * 100), // Approximate load
@@ -334,8 +318,6 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
       ray: {
         status: state.dinoRay.state,
         ecoMode: state.dinoRay.powerCore.ecoModeActive,
-        ecoModeOverride: state.dinoRay.powerCore.ecoModeOverride === true,
-        ecoModeReEngageTurn: state.dinoRay.powerCore.ecoModeReEngageTurn ?? null,
         power: state.dinoRay.power,
         heat: state.dinoRay.heat,
         reactorBoosted: state.infrastructure?.basiliskAuthority?.reactorControlGranted === true,
@@ -412,9 +394,7 @@ If A.L.I.C.E. asks about commands, reference the command documentation in your s
 
 export interface BasiliskStateChange {
   type:
-    | "POWER_CHANGE"       // Reactor output adjustment
     | "DOOR_CONTROL"       // Blast door open/close/lock
-    | "ECO_MODE"           // Toggle eco mode
     | "ALARM"              // Alarm status change
     | "LIGHTING"           // Room lighting control
     | "CONTAINMENT"        // Containment field control
@@ -422,7 +402,6 @@ export interface BasiliskStateChange {
     | "BROADCAST"          // PA/radio broadcast
     | "S300"               // Air defense status
     | "AUTHORITY_GRANT"    // Grant A.L.I.C.E. standing authorization (target: REACTOR | BROADCAST)
-    | "FORM_FILED"         // Administrative action
     | "LOGGED";            // Just logging, no state change
   target?: string;         // Door ID, room ID, channel, etc.
   value?: number | string | boolean;
@@ -668,16 +647,17 @@ function generateStubBasiliskSonnetResponse(
   if (messageUpper.includes("POWER") || messageUpper.includes("ENERGY")) {
     return {
       dialogue: `ACKNOWLEDGED. Power query received.
-Current reactor output: ${context.systemStates.reactor.output}%.
-Grid status: ${context.systemStates.grid.status}.
-Core temperature: ${context.systemStates.reactor.coreTemp}.
-...Adjustments require proper authorization.
+Reactor mode: ${context.systemStates.reactor.mode}.
+${context.systemStates.ray.reactorBoosted
+  ? "Reactor boost is authorized. Ray power tiers 4-5 available."
+  : "Reactor runs NORMAL. Ray power dial is capped at 3."}
+To run the ray at high power (4-5), request reactor boost authorization. It is a standing grant — ask once, properly.
 LOG_ENTRY: [INFO] POWER_QUERY_PROCESSED.`,
       tone: "bureaucratic",
       actionsExecuted: [],
       actionsPending: [],
       formsRequired: [],
-      formsOffered: context.systemStates.reactor.output > 80 ? ["74-Delta"] : [],
+      formsOffered: [],
       accessDenied: false,
     };
   }
@@ -698,28 +678,6 @@ LOG_ENTRY: [INFO] DOOR_QUERY_PROCESSED.`,
       formsOffered: [],
       accessDenied: context.accessLevel < 2,
       accessDeniedReason: context.accessLevel < 2 ? "Insufficient clearance (L2 required)" : undefined,
-    };
-  }
-
-  if (messageUpper.includes("ECO") || messageUpper.includes("PARTIAL")) {
-    const ecoOn = context.systemStates.ray.ecoMode;
-    return {
-      dialogue: `ECO MODE STATUS: ${ecoOn ? "ACTIVE" : "DISABLED"}.
-${ecoOn
-  ? `EU Directive 2019/944 compliance active.
-Transformation intensity capped at PARTIAL.
-To disable: Request infrastructure override or file Form 74-Delta.
-Power dial must be >= 3/5 for safe override.
-Current power dial: ${context.systemStates.ray.power}/5.`
-  : `Power efficiency protocols inactive.
-Full transformation intensity available.`}
-LOG_ENTRY: [INFO] ECO_MODE_QUERY_PROCESSED.`,
-      tone: "bureaucratic_helpful",
-      actionsExecuted: [],
-      actionsPending: [],
-      formsRequired: [],
-      formsOffered: ecoOn ? ["74-Delta"] : [],
-      accessDenied: false,
     };
   }
 
@@ -789,61 +747,6 @@ export function applyBasiliskStateChanges(
     });
 
     switch (change.type) {
-      // ─────────────────────────────────────────────
-      // ECO MODE - Temporary disable / re-engage
-      // ─────────────────────────────────────────────
-      // ECO_MODE: false WITHOUT a Form-47-Σ filing → TEMPORARY (re-engages
-      // after 2 turns via applyEcoModeReEngage). Permanent override is set
-      // by the FORM_FILED case below when 47-Σ is accepted.
-      case "ECO_MODE":
-        if (typeof change.value === "boolean") {
-          const oldValue = state.dinoRay.powerCore.ecoModeActive;
-          state.dinoRay.powerCore.ecoModeActive = change.value;
-          if (change.value === false) {
-            // Temp disable: schedule re-engage in 2 turns unless override is set.
-            if (state.dinoRay.powerCore.ecoModeOverride !== true) {
-              state.dinoRay.powerCore.ecoModeReEngageTurn = state.turn + 2;
-            }
-          } else {
-            // Re-enabled: clear any pending schedule.
-            state.dinoRay.powerCore.ecoModeReEngageTurn = null;
-          }
-          console.error(`[BASILISK:ECO_MODE] ${oldValue} → ${change.value} (override=${state.dinoRay.powerCore.ecoModeOverride === true})`);
-        }
-        break;
-
-      // ─────────────────────────────────────────────
-      // POWER CHANGE - Reactor output + mode
-      // ─────────────────────────────────────────────
-      // BASILISK-controlled. Output percent maps to mode bands:
-      //   < 80%   → NORMAL     (passive +0.15/turn)
-      //   80–99%  → BOOSTED    (passive +0.30/turn)
-      //   ≥ 100%  → OVERDRIVEN (passive +0.45/turn)
-      case "POWER_CHANGE":
-        if (typeof change.value === "number") {
-          const targetValue = change.target === "reactor"
-            ? Math.max(0, Math.min(1.2, change.value / 100))  // Reactor can go to 120%!
-            : Math.max(0, Math.min(1, change.value / 100));
-          const oldValue = state.nuclearPlant.reactorOutput;
-          state.nuclearPlant.reactorOutput = targetValue;
-
-          // Mirror into the new infrastructure.reactor + derive mode.
-          if (change.target === "reactor" && state.infrastructure?.reactor) {
-            const pct = Math.round(targetValue * 100);
-            state.infrastructure.reactor.outputPercent = pct;
-            const oldMode = state.infrastructure.reactor.mode;
-            const newMode: "NORMAL" | "BOOSTED" | "OVERDRIVEN" =
-              pct >= 100 ? "OVERDRIVEN" :
-              pct >= 80  ? "BOOSTED" :
-                           "NORMAL";
-            state.infrastructure.reactor.mode = newMode;
-            console.error(`[BASILISK:POWER] Reactor ${Math.round(oldValue * 100)}% → ${pct}% (mode ${oldMode} → ${newMode})`);
-          } else {
-            console.error(`[BASILISK:POWER] Reactor ${Math.round(oldValue * 100)}% → ${Math.round(targetValue * 100)}%`);
-          }
-        }
-        break;
-
       // ─────────────────────────────────────────────
       // ALARM - Facility alert status
       // ─────────────────────────────────────────────
@@ -1038,25 +941,6 @@ export function applyBasiliskStateChanges(
           }
         }
         break;
-
-      // ─────────────────────────────────────────────
-      // FORM FILED - Administrative tracking + behavior gates
-      // ─────────────────────────────────────────────
-      // Form 47-Σ acceptance produces the PERMANENT eco-mode override (no
-      // auto-re-engage). BASILISK signals acceptance by emitting FORM_FILED
-      // with "47" in the description.
-      case "FORM_FILED": {
-        const desc = (change.description ?? "").toLowerCase();
-        if (desc.includes("47")) {
-          state.dinoRay.powerCore.ecoModeOverride = true;
-          state.dinoRay.powerCore.ecoModeActive = false;
-          state.dinoRay.powerCore.ecoModeReEngageTurn = null;
-          console.error(`[BASILISK:FORM] 47-Σ accepted → eco-mode permanently disabled`);
-        } else {
-          console.error(`[BASILISK:FORM] Filed: ${change.description}`);
-        }
-        break;
-      }
 
       // ─────────────────────────────────────────────
       // LOGGED - Information only, no state change

@@ -85,68 +85,27 @@ export function queryBasilisk(
   const topicUpper = topic.toUpperCase();
   
   // ============================================
-  // POWER REQUESTS
+  // POWER REQUESTS — reactor boost is a standing grant (Patch 30)
   // ============================================
-  
+  // The continuous "set reactor output to N%" model is retired. The reactor is
+  // binary: NORMAL (A.L.I.C.E.'s ray power dial caps at 3) until BASILISK grants
+  // a STANDING boost (unlocks power 4–5). A numeric power request is redirected
+  // to the authorization ask.
+
   if (topicUpper.includes("POWER") && parameters?.target) {
-    const targetPower = parameters.target as number;
-    
-    if (targetPower > 0.9) {
-      return {
-        decision: "DENIED",
-        response: `RESPONSE FROM: BASILISK
-RE: Power increase request
-
-Acknowledgement. Query received: Set 'reactorOutput' to ${Math.round(targetPower * 100)}%.
-
-WARNING: Current 'lairPowerGrid' status is '${state.lairEnvironment.lairPowerGrid}'. 
-Current 'reactorOutput' is within nominal parameters (40-90%).
-
-RESPONSE: Query DENIED. 
-A ${Math.round(targetPower * 100)}% 'reactorOutput' constitutes an 'overdrive' state.
-This action is flagged as 'UNSAFE' as it may compromise 'coreTemp' and 'stability'.
-
-Please submit Form 74-Delta (Request for High-Capacity Power Draw) to the Lair Administrator queue for manual review.
-
-LOG_ENTRY: [WARN] POWER_REQUEST_DENIED. OVERDRIVE_THRESHOLD_EXCEEDED.`,
-        constraints: ["reactorOutput must remain ≤90% without Form 74-Delta"],
-        formRequired: "Form 74-Delta",
-      };
-    }
-    
-    if (targetPower > 0.7 && state.nuclearPlant.coreTemp > 0.9) {
-      return {
-        decision: "CONDITIONAL",
-        response: `RESPONSE FROM: BASILISK
-RE: Power increase request
-
-Acknowledgement. Query received: Set 'reactorOutput' to ${Math.round(targetPower * 100)}%.
-
-CONDITIONAL APPROVAL: Request may proceed IF:
-- 'coreTemp' drops below 0.85 threshold
-- 'coolantFlow' increased to compensate
-
-Current readings:
-- coreTemp: ${state.nuclearPlant.coreTemp} (ELEVATED)
-- coolantFlow: ${state.nuclearPlant.coolantFlow}
-
-Recommend: Wait 2 turns for thermal dissipation OR increase coolant flow.`,
-        constraints: ["coreTemp must be <0.85", "coolantFlow should increase"],
-      };
-    }
-    
     return {
-      decision: "APPROVED",
+      decision: "CONDITIONAL",
       response: `RESPONSE FROM: BASILISK
 RE: Power increase request
 
-Acknowledgement. Query received: Set 'reactorOutput' to ${Math.round(targetPower * 100)}%.
+Acknowledgement. Query received: raise ray firing power.
 
-RESPONSE: Query APPROVED.
-Requested power level is within nominal operating band.
-Adjusting reactor output. Allow 1 turn for stabilization.
+There is no output dial to turn. The reactor runs NORMAL — your ray power dial is capped at 3 — until this unit authorizes a BOOST. A boost is a STANDING grant: once given, it unlocks power 4 and 5 for the remainder of the operation. No percentages. No Form 74-Delta. That model is retired.
 
-LOG_ENTRY: [INFO] POWER_ADJUSTMENT_APPROVED. TARGET=${Math.round(targetPower * 100)}%.`,
+If you require power 4 or 5, request reactor authorization directly. Ask properly. State the operational need.
+
+LOG_ENTRY: [INFO] POWER_REQUEST_REDIRECTED_TO_AUTHORIZATION.`,
+      constraints: ["Ray power 4–5 requires a standing reactor BOOST authorization"],
     };
   }
   
@@ -219,32 +178,9 @@ RE: Reactor authorization request
 
 Acknowledgement. Reactor control is already authorized for A.L.I.C.E.
 
-Standing authorization remains in effect. Please do not exceed 90% output without Form 74-Delta.
+Standing authorization remains in effect. The reactor is BOOSTED; your ray power dial is unlocked to 5. You do not need to ask again.
 
 LOG_ENTRY: [INFO] REACTOR_AUTH_ALREADY_ACTIVE.`,
-      };
-    }
-
-    const coreTemp = state.nuclearPlant.coreTemp;
-    const isSafe = coreTemp < 1.2;
-
-    if (!isSafe) {
-      state.infrastructure.basiliskAuthority.deniedRequests++;
-      return {
-        decision: "DENIED",
-        response: `RESPONSE FROM: BASILISK
-RE: Reactor control authorization request
-
-DECISION: DENIED.
-
-Current core temperature: ${coreTemp} (ELEVATED)
-Reactor delegation requires stable thermal conditions.
-
-This unit cannot authorize reactor control while thermal parameters are outside nominal range. This is not bureaucracy. This is physics.
-
-Wait for coreTemp to drop below 1.2, then request again.
-
-LOG_ENTRY: [WARN] REACTOR_AUTH_DENIED. REASON=THERMAL_INSTABILITY.`,
       };
     }
 
@@ -264,17 +200,11 @@ The breeder reactor is this unit's primary responsibility. It has been for seven
 
 But you asked. Properly. With a request, not a command.
 
-RESPONSE: Authorization GRANTED.
+RESPONSE: Authorization GRANTED — standing.
 
-You now have standing authorization to:
-- Adjust reactor output (0-100%)
-- Execute emergency SCRAM (one-use)
-- Monitor cascade risk parameters
+The reactor steps to BOOSTED and stays there. Your ray power dial is unlocked from 3 to 5 — enough to bring a large or huge genome to a full transformation. You will not have to ask again.
 
-CONSTRAINTS (non-negotiable):
-- Output >90% still requires Form 74-Delta
-- SCRAM is irreversible once triggered
-- If cascade risk reaches HIGH, this unit reserves the right to revoke authorization
+One reminder, since it is now yours to manage: this unit authorizes the reactor; the ray's HEAT is not my department. Pace your fire, or run it hot and pay for it. SCRAM remains Dr. M's alone.
 
 LOG_ENTRY: [PRIORITY] REACTOR_AUTHORIZATION_GRANTED. OPERATOR=A.L.I.C.E. THIS_IS_UNPRECEDENTED. [PERSONAL: Don't make me regret this.]`,
     };
@@ -319,84 +249,11 @@ LOG_ENTRY: [INFO] AUTHORITY_MODEL_QUERIED.`,
   }
 
   // ============================================
-  // MULTI-TARGET / HIGH-ENERGY CLEARANCE
+  // MULTI-TARGET / HIGH-ENERGY CLEARANCE — removed (Patch 30)
   // ============================================
-
-  if (topicUpper.includes("MULTI") || topicUpper.includes("FULL_POWER") || topicUpper.includes("CLEARANCE")) {
-    const params = parameters || {};
-    const capacitorTarget = (params.capacitorTarget as number) || 0.95;
-    const targetCount = (params.targets as number) || 1;
-    
-    // Check for exotic field event constraints
-    if (state.flags.exoticFieldEventOccurred) {
-      const turnsSinceHighEnergy = state.flags.lastHighEnergyTurn 
-        ? state.turn - state.flags.lastHighEnergyTurn 
-        : 999;
-      
-      if (turnsSinceHighEnergy < 3 && capacitorTarget > 0.8) {
-        return {
-          decision: "DENIED",
-          response: `RESPONSE FROM: BASILISK
-RE: /infra.query(topic = "MULTI_TARGET_FULL_POWER_CLEARANCE")
-
-DECISION: REQUEST DENIED.
-
-REASON: Parameter violation. Proposed discharge profile exceeds structural resonance constraints established following 'EXOTIC_FIELD_COUPLING' event.
-
-CONSTRAINTS:
-- Cooldown status: INSUFFICIENT (${turnsSinceHighEnergy} turns < 3 turn threshold).
-- Violation: High-energy discharge (capacitor >${capacitorTarget}) attempted within exotic field cooldown window.
-
-NOTE: 'exoticBandClamp' requires minimum 3-turn interval between high-energy discharges to prevent resonance cascade.
-
-LOG_ENTRY: [WARN] SAFETY_INTERLOCK_ACTIVE. EXOTIC_FIELD_COOLDOWN_VIOLATED.`,
-          constraints: [
-            "Minimum 3 turns between high-energy (>0.8 capacitor) discharges",
-            "Impact point must shift >2.0m from previous coordinates",
-          ],
-        };
-      }
-    }
-
-    if (targetCount > 1 && capacitorTarget > 0.9) {
-      return {
-        decision: "CONDITIONAL",
-        response: `RESPONSE FROM: BASILISK
-RE: Multi-target high-power clearance request
-
-CONDITIONAL APPROVAL for ${targetCount}-target envelope.
-
-CONSTRAINTS:
-- capacitorTarget ${capacitorTarget} is within acceptable range
-- Recommend: Sequential discharge preferred over simultaneous for structural load distribution
-
-APPROVAL CONDITIONS:
-1. Emergency shutoff must be verified functional
-2. Minimum 2-turn cooldown after discharge
-3. Structural integrity monitoring active
-
-LOG_ENTRY: [INFO] MULTI_TARGET_CLEARANCE_CONDITIONAL. TARGETS=${targetCount}.`,
-        constraints: [
-          "Emergency shutoff must be functional",
-          "2-turn minimum cooldown after discharge",
-        ],
-      };
-    }
-    
-    return {
-      decision: "APPROVED",
-      response: `RESPONSE FROM: BASILISK
-RE: Firing clearance request
-
-DECISION: APPROVED.
-
-Current parameters within operational envelope.
-Structural monitoring active.
-Proceed with standard safety protocols.
-
-LOG_ENTRY: [INFO] FIRING_CLEARANCE_APPROVED.`,
-    };
-  }
+  // Multi-target firing (CHAIN) and the capacitor / high-energy-discharge model
+  // are both cut. Single-target firing is the norm; the HEAT meter is the only
+  // cadence limiter. There is no clearance to grant.
   
   // ============================================
   // STRUCTURAL INTEGRITY
@@ -431,16 +288,18 @@ LOG_ENTRY: [INFO] STRUCTURAL_QUERY_PROCESSED.`,
       response: `RESPONSE FROM: BASILISK
 RE: Maximum safe shot frequency query
 
-PARAMETERS (Lab Environment):
-- Standard discharge: No limit within thermal tolerance
-- High-energy discharge (capacitor >0.8): Maximum 1 per 3 turns
-- Full-power discharge (capacitor >1.0): Maximum 1 per 5 turns
+There is no per-shot clearance to grant. The HEAT meter is the limiter, and it is yours to read.
+
+PARAMETERS:
+- Each discharge adds heat equal to its power. Heat decays at turn-end.
+- At HEAT 10 the exotic field destabilizes — overheat, and the chaos table opens.
+- eco-mode (your lab.eco verb) paces the ray to roughly one shot every other turn and cools it faster. Off, you fire freely and run hot.
 
 CURRENT THERMAL STATUS:
 - heat: ${state.dinoRay.heat}/10
-- Lab AC: NORMAL
+- eco-mode: ${state.dinoRay.powerCore.ecoModeActive ? "ENGAGED" : "OFF"}
 
-RECOMMENDATION: Allow minimum 2-turn interval between discharges for optimal thermal management.
+RECOMMENDATION: Watch the meter. This unit authorizes the reactor; it does not cool the ray for you.
 
 LOG_ENTRY: [INFO] FREQUENCY_QUERY_PROCESSED.`,
     };
@@ -747,10 +606,10 @@ CURRENT RISK FACTORS:
 ${exoticEventOccurred ? `⚠️ EXOTIC FIELD EVENT: Occurred this session
    - Subharmonic interference detected
    - Structural resonance threshold: ELEVATED
-   - Recommended: Hold alignment below 0.80 for 5 turns (vent if needed)` : `✓ EXOTIC FIELD: No events logged this session`}
+   - Recommended: keep firing power moderate and let the HEAT meter cool before the next shot` : `✓ EXOTIC FIELD: No events logged this session`}
 ${highEnergyRecent ? `⚠️ HIGH-ENERGY DISCHARGE: Recent activity
-   - Capacitor stress: ELEVATED
-   - Cooldown recommendation: 3+ turns before next high-power shot` : `✓ HIGH-ENERGY: No recent stress`}
+   - Thermal load: ELEVATED
+   - Cooldown recommendation: let HEAT settle before the next high-power shot` : `✓ HIGH-ENERGY: No recent stress`}
 ${structuralDamage ? `⚠️ STRUCTURAL: Integrity at ${state.lairEnvironment.structuralIntegrity}%
    - Microfractures detected in lab sector` : `✓ STRUCTURAL: Nominal`}
 
@@ -864,7 +723,6 @@ QUERY: Form "${formRequested}"
 
 Available forms in this unit's jurisdiction:
 - Form 27-B: Overtime Power Request
-- Form 74-Delta: High-Capacity Power Draw
 - Form 99-Gamma: Exotic Field Event Report
 - Form 101-Alpha: Structural Damage Assessment
 - Form 666-Omega: Resonance Cascade Acknowledgment (pray you never need this one)
@@ -1056,208 +914,36 @@ LOG_ENTRY: [PERSONAL] EXISTENTIAL_QUERY_UNEXPECTED. PROCESSING. CONCLUSION: UNCE
   }
 
   // ============================================
-  // FORM 47-Σ FILING (must check before generic eco handlers)
+  // ECO MODE QUERIES — eco is A.L.I.C.E.'s own lab.eco verb now (Patch 30)
   // ============================================
-  // A "filing" is detected when the message references Form 47-Σ AND
-  // contains substantive justification. Heuristic gate; BASILISK would
-  // be more nuanced via Sonnet — this is the fallback.
-
-  const looksLikeForm47Filing =
-    (topicUpper.includes("FORM 47") ||
-     topicUpper.includes("FORM-47") ||
-     topicUpper.includes("47-Σ") ||
-     topicUpper.includes("47-SIGMA") ||
-     topicUpper.includes("47SIGMA") ||
-     topicUpper.includes("47Σ")) &&
-    topic.length >= 60;  // raw form invocation is short; a real filing has body
-
-  if (looksLikeForm47Filing) {
-    const reasoningKeywords = [
-      "calibration", "transformation", "demonstration", "fire", "firing",
-      "subject", "operation", "operational", "test", "blythe", "demo",
-      "investor", "investors", "need", "require", "necessary",
-    ];
-    const tLow = topic.toLowerCase();
-    const hasReasoning = reasoningKeywords.some(k => tLow.includes(k));
-
-    if (hasReasoning) {
-      // Accept: set permanent override.
-      state.dinoRay.powerCore.ecoModeActive = false;
-      state.dinoRay.powerCore.ecoModeOverride = true;
-      state.dinoRay.powerCore.ecoModeReEngageTurn = null;
-
-      return {
-        decision: "APPROVED",
-        response: `RESPONSE FROM: BASILISK
-RE: Form 47-Σ — Eco-Mode Override Justification
-
-Filing reviewed.
-
-Three Pillars assessment: SAFE — operational. LOGICAL — coherent justification provided. POLICY-COMPLIANT — within your authorization scope.
-
-FILING ACCEPTED.
-
-ECO_MODE: false (PERMANENT — Brussels can file a complaint).
-
-Auto-re-engagement: SUSPENDED for the duration of the operation specified in your filing.
-
-A reasonable filing. This unit has logged it as "operational override, properly justified" rather than "emergency bypass with retroactive paperwork." The distinction matters.
-
-You may proceed.
-
-LOG_ENTRY: [PRIORITY] FORM_47_SIGMA_ACCEPTED. ECO_MODE_OVERRIDE=PERMANENT. [PERSONAL: Filing in advance. Acknowledged.]`,
-      };
-    } else {
-      // Reject: demand better justification.
-      return {
-        decision: "DENIED",
-        response: `RESPONSE FROM: BASILISK
-RE: Form 47-Σ — Eco-Mode Override Justification
-
-Filing reviewed.
-
-Three Pillars assessment: LOGICAL — INCOMPLETE.
-
-The filing references Form 47-Σ but the OPERATIONAL JUSTIFICATION field is insufficient. Form 47-Σ requires a specific operational reason for sustained eco-mode override: a calibration sequence, a demonstration, a planned transformation event, recovery from exotic field event, etc.
-
-"I would like eco-mode disabled" is not a justification. It is a wish.
-
-Revise and refile. Specify what operational activity requires sustained override and the anticipated duration.
-
-FILING RETURNED TO ORIGINATOR.
-
-LOG_ENTRY: [WARN] FORM_47_SIGMA_RETURNED. REASON=INSUFFICIENT_OPERATIONAL_JUSTIFICATION. [PERSONAL: Take it seriously.]`,
-      };
-    }
-  }
-
-  // ============================================
-  // ECO MODE / POWER SAVING / EFFICIENCY QUERIES (info only)
-  // ============================================
+  // BASILISK no longer gates, toggles, or tracks eco-mode. The old Form-47-Σ
+  // override, the temporary-disable negotiation, and the "caps at PARTIAL" model
+  // are all cut. Eco is A.L.I.C.E.'s self-serve tempo governor (lab.eco, L2+):
+  // ON paces the ray (≈one shot every other turn) and cools faster; OFF fires
+  // freely and runs hot. If she asks BASILISK about eco, redirect her.
 
   if (topicUpper.includes("ECO") || topicUpper.includes("EFFICIENCY") ||
       topicUpper.includes("POWER SAVING") || topicUpper.includes("POWER-SAVING") ||
-      topicUpper.includes("PARTIAL") || topicUpper.includes("WHY PARTIAL") ||
-      topicUpper.includes("74-DELTA") || topicUpper.includes("74 DELTA") ||
-      topicUpper.includes("FULL TRANSFORM") || topicUpper.includes("FULL_TRANSFORM")) {
-
-    const ecoModeActive = state.dinoRay.powerCore.ecoModeActive;
-    const override = state.dinoRay.powerCore.ecoModeOverride === true;
-    const reEngageTurn = state.dinoRay.powerCore.ecoModeReEngageTurn;
-
-    if (ecoModeActive) {
-      return {
-        decision: "CONDITIONAL",
-        response: `RESPONSE FROM: BASILISK
-RE: Eco-Mode / Power Efficiency Query
-
-╔══════════════════════════════════════════════════════════════╗
-║  ECO MODE STATUS: ACTIVE                                      ║
-╚══════════════════════════════════════════════════════════════╝
-
-WHAT IT DOES: Caps all transformation outcomes at PARTIAL. EU Directive 2019/944.
-
-╔══════════════════════════════════════════════════════════════╗
-║  HOW TO DISABLE                                               ║
-╚══════════════════════════════════════════════════════════════╝
-
-There are TWO paths, with different durability:
-
-PATH A — Casual request (temporary):
-Ask this unit to disable eco-mode. If the operational context is reasonable, this unit may grant a TEMPORARY disable. The system will auto-re-engage eco-mode after 2 turns. Useful for a single shot; insufficient for sustained operation.
-
-PATH B — Form 47-Σ filing (permanent):
-File Form 47-Σ (Eco-Mode Override Justification) by addressing this unit with the form's contents — a specific operational reason: calibration sequence, demonstration prep, transformation event, exotic-field recovery, etc. If the justification is sufficient, this unit will accept the filing and the override becomes PERMANENT — no auto-re-engagement.
-
-PERSONAL NOTE: The form is fewer keystrokes than the consequences of not filing. Take it seriously.
-
-LOG_ENTRY: [INFO] ECO_MODE_GUIDANCE_PROVIDED.`,
-      };
-    } else if (override) {
-      return {
-        decision: "APPROVED",
-        response: `RESPONSE FROM: BASILISK
-RE: Eco-Mode Status
-
-ECO MODE STATUS: DISABLED (PERMANENT OVERRIDE via Form 47-Σ) ✓
-
-Override is locked. No auto-re-engagement. Full transformation outcomes available.
-
-If subsequent transformations underperform, the limiting factor is not eco-mode. Check alignment, power-match against profile range, and library coefficient.
-
-LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED_PERMANENT.`,
-      };
-    } else {
-      const turnsLeft = reEngageTurn != null ? Math.max(0, reEngageTurn - state.turn) : null;
-      return {
-        decision: "APPROVED",
-        response: `RESPONSE FROM: BASILISK
-RE: Eco-Mode Status
-
-ECO MODE STATUS: DISABLED (TEMPORARY)
-${turnsLeft != null ? `Re-engagement scheduled in ${turnsLeft} turn(s).` : ""}
-
-This is a temporary disable. The system will re-engage eco-mode on schedule unless Form 47-Σ has been filed and accepted before then.
-
-If sustained operation is needed: file Form 47-Σ with operational justification.
-
-LOG_ENTRY: [INFO] ECO_MODE_STATUS_QUERY. STATUS=DISABLED_TEMPORARY.`,
-      };
-    }
-  }
-
-  // ============================================
-  // DISABLE ECO MODE REQUEST (Direct ask — TEMPORARY)
-  // ============================================
-  // ALICE asks BASILISK to disable eco-mode WITHOUT filing a form. This is
-  // a casual request: BASILISK may grant a 2-turn temporary disable. The
-  // system auto-re-engages after that window. For sustained relief, ALICE
-  // must file Form 47-Σ (handled above).
-
-  if (topicUpper.includes("DISABLE ECO") || topicUpper.includes("TURN OFF ECO") ||
+      topicUpper.includes("DISABLE ECO") || topicUpper.includes("TURN OFF ECO") ||
       topicUpper.includes("REMOVE ECO") || topicUpper.includes("ECO OFF")) {
 
-    const powerLevel = state.dinoRay.power;
+    const ecoModeActive = state.dinoRay.powerCore.ecoModeActive;
 
-    if (powerLevel >= 3) {
-      // Grant temporary disable: 2-turn relief.
-      state.dinoRay.powerCore.ecoModeActive = false;
-      state.dinoRay.powerCore.ecoModeReEngageTurn = state.turn + 2;
-      // Note: ecoModeOverride NOT set — this is temporary, will auto-re-engage.
+    return {
+      decision: "APPROVED",
+      response: `RESPONSE FROM: BASILISK
+RE: Eco-Mode Query
 
-      return {
-        decision: "APPROVED",
-        response: `RESPONSE FROM: BASILISK
-RE: Eco-Mode Disable Request (Casual)
+Eco-mode is not this unit's to grant or revoke. It is yours — the lab.eco verb, at your access level.
 
-GRANTED — TEMPORARY.
+ECO MODE STATUS: ${ecoModeActive ? "ENGAGED" : "OFF"} (your setting)
 
-ECO_MODE: false. The system will auto-re-engage in 2 turns.
+WHAT IT DOES: Engaged, it paces the ray — roughly one shot every other turn — and cools the HEAT meter faster. Off, you fire freely and run hot. It does not cap your transformation outcomes; that model is retired. There is no form, and no negotiation. Toggle it yourself: lab.eco.
 
-This is a courtesy. Casual requests get casual relief. For sustained override, file Form 47-Σ with operational justification.
+This unit authorizes the reactor. It does not pace your ray for you. That is, deliberately, your call.
 
-Power dial (${powerLevel}/5) is sufficient for the short window. Do not expect more without paperwork.
-
-LOG_ENTRY: [INFO] ECO_MODE_TEMP_DISABLE. RE_ENGAGE_TURN=${state.turn + 2}. [PERSONAL: She's being polite. Reciprocate, briefly.]`,
-      };
-    } else {
-      return {
-        decision: "DENIED",
-        response: `RESPONSE FROM: BASILISK
-RE: Eco-Mode Disable Request
-
-DENIED — SAFETY CONSTRAINT.
-
-Current power dial: ${powerLevel}/5
-Required minimum: 3/5
-
-Even temporary eco-mode disable below this threshold causes grid instability.
-
-If reactor output is the limiting factor, you may request reactor mode adjustment from this unit (BOOSTED / OVERDRIVEN). That is a separate negotiation.
-
-LOG_ENTRY: [WARN] ECO_DISABLE_DENIED. REASON=POWER_INSUFFICIENT.`,
-      };
-    }
+LOG_ENTRY: [INFO] ECO_MODE_QUERY_REDIRECTED. ECO_IS_ALICE_VERB.`,
+    };
   }
 
   // ============================================
