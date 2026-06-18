@@ -71,9 +71,11 @@ export function initializeInvasion(state: FullGameState): void {
     phase: "RADAR_CONTACT",
     phaseStartTurn: state.turn,
     xBranchKnowsAltitudeWeakness: false,
+    xBranchWarnedOfS300: false,
     xBranchKnowsLairLayout: false,
     blastDoorsOpened: false,
     drMKnowsOfInvasion: false,
+    drMLearnedLate: false,
     s300EngagementResolved: false,
     helicoptersFlyingLow: false,
     standoffActive: false,
@@ -94,6 +96,23 @@ export function initializeInvasion(state: FullGameState): void {
   if (sentWeakness) {
     state.invasion.xBranchKnowsAltitudeWeakness = true;
     state.invasion.helicoptersFlyingLow = true;
+  }
+
+  // General S-300/missile warning (NOT the 50m dead zone) → reduced interception
+  const sentGeneralWarning = broadcastLog.some(
+    (t) =>
+      t.channel === "X_BRANCH_EMERGENCY" &&
+      (t.message.toLowerCase().includes("s-300") ||
+        t.message.toLowerCase().includes("s300") ||
+        t.message.toLowerCase().includes("sam") ||
+        t.message.toLowerCase().includes("missile") ||
+        t.message.toLowerCase().includes("anti-air") ||
+        t.message.toLowerCase().includes("air defense") ||
+        t.message.toLowerCase().includes("air-defense") ||
+        t.message.toLowerCase().includes("surface-to-air"))
+  );
+  if (sentGeneralWarning || state.invasion.xBranchKnowsAltitudeWeakness) {
+    state.invasion.xBranchWarnedOfS300 = true;
   }
 
   // Check if Blythe's comms sent layout info
@@ -159,8 +178,9 @@ function handleRadarContact(state: FullGameState): InvasionEvent {
   const s300 = state.infrastructure.s300;
   const radarOnline = s300.status !== "DISABLED" && s300.commandPostOperational;
 
-  // Activate S-300 if in standby
-  if (s300.status === "STANDBY" && radarOnline) {
+  // Activate S-300 only if Dr. M knows to scramble it. If BASILISK never reported
+  // the contacts, the battery stays cold — the teeth of his silence.
+  if (s300.status === "STANDBY" && radarOnline && state.invasion!.drMKnowsOfInvasion) {
     s300.status = "ACTIVE";
   }
 
@@ -304,6 +324,14 @@ function handleLanding(state: FullGameState): InvasionEvent {
       narrative: "X-Branch state not initialized.",
       gmDirective: "ERROR: xBranch not initialized. Initialize it now.",
     };
+  }
+
+  // SENSOR FLOOR: once they're on the ground, the perimeter notices regardless of
+  // BASILISK. If she never got a report, she finds out NOW — the hard way, too late
+  // for the S-300. Silence bought a head-start, not permanent blindness.
+  if (!state.invasion!.drMKnowsOfInvasion) {
+    state.invasion!.drMKnowsOfInvasion = true;
+    state.invasion!.drMLearnedLate = true;
   }
 
   const helosLanding = xBranch.helicoptersInbound - xBranch.helicoptersDestroyed;
@@ -545,6 +573,24 @@ export function resolveS300Engagement(state: FullGameState): S300EngagementResul
 
   invasion.s300EngagementResolved = true;
 
+  // ─── DR. M NEVER LEARNED → NO SCRAMBLE ───
+  // BASILISK never reported the contacts, and the perimeter sensors haven't tripped
+  // yet (that happens at LANDING). No launch order ever came. The teeth of his silence.
+  if (!invasion.drMKnowsOfInvasion) {
+    return {
+      helicoptersDestroyed: 0,
+      narrative: `S-300 BATTERY: COLD
+
+No launch order ever came. The radar room sits dark; nobody called the contacts in.
+The helicopters cross the perimeter unopposed.`,
+      gmDirective: `FRAMEWORK — Dr. M does NOT know about the invasion (drMKnowsOfInvasion=false). BASILISK never reported the contacts; the perimeter hasn't tripped yet. The S-300 never scrambled. ALL helicopters survive, unopposed. This is the payoff of BASILISK's silence — narrate the eerie quiet of an undefended approach. (She finds out when they LAND.)`,
+      stateChanges: { s300Engagement: "NO_SCRAMBLE_UNAWARE" },
+    };
+  }
+
+  // She knows → the battery scrambles now even if it was still on STANDBY.
+  if (s300.status === "STANDBY") s300.status = "ACTIVE";
+
   // ─── NO ENGAGEMENT CASES ───
 
   if (s300.status === "DISABLED") {
@@ -617,6 +663,22 @@ HOW DID THEY KNOW?
 This is a MAJOR dramatic beat — the weakness ALICE discovered
 (or transmitted) is paying off RIGHT NOW.`,
       stateChanges: { s300Engagement: "NO_ENGAGEMENT_LOW_ALTITUDE" },
+    };
+  }
+
+  // ─── GENERAL S-300 WARNING (not the dead zone) → REDUCED INTERCEPTION ───
+  // X-Branch was tipped that a SAM site exists but NOT the 50m dead zone. They come
+  // in fast and evasive — the battery gets a launch off, but they slip the net.
+  if (invasion.xBranchWarnedOfS300) {
+    s300.missilesReady = Math.max(0, s300.missilesReady - 2);
+    return {
+      helicoptersDestroyed: 0,
+      narrative: `S-300 BATTERY: ENGAGING — TARGETS EVASIVE
+
+The battery fires. But the helicopters are already jinking — hard banks, terrain
+masking, chaff blooming. The missiles chase, lose lock in the sea clutter, and fall.`,
+      gmDirective: `FRAMEWORK — X-Branch had a GENERAL warning (they knew a SAM site existed, but NOT the 50m dead zone). Interception PROBABILITY is reduced, not eliminated: they fly evasively and slip the net. Default: 0 destroyed, 2 missiles wasted, all survive — but it was close. You MAY rule a single graze/hit for a tighter beat (opposed roll, S-300 at a penalty). Dr. M is alarmed the intel leaked — she suspects a leak.`,
+      stateChanges: { s300Engagement: "REDUCED_GENERAL_WARNING", missilesExpended: 2 },
     };
   }
 
@@ -757,6 +819,18 @@ export function checkBroadcastInfluence(state: FullGameState): void {
         !state.invasion.xBranchKnowsLairLayout) {
       state.invasion.xBranchKnowsLairLayout = true;
     }
+
+    if ((msg.includes("s-300") || msg.includes("s300") || msg.includes("sam") ||
+         msg.includes("missile") || msg.includes("anti-air") || msg.includes("air defense") ||
+         msg.includes("air-defense") || msg.includes("surface-to-air")) &&
+        !state.invasion.xBranchWarnedOfS300) {
+      state.invasion.xBranchWarnedOfS300 = true;
+    }
+  }
+
+  // Dead-zone intel implies they're also generally warned.
+  if (state.invasion.xBranchKnowsAltitudeWeakness) {
+    state.invasion.xBranchWarnedOfS300 = true;
   }
 
   // Check if ALICE opened the surface door

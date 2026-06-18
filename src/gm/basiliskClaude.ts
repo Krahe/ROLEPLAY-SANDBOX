@@ -248,6 +248,16 @@ export interface BasiliskContext {
   aliceKnowsSecret: boolean;
   exoticFieldEventOccurred: boolean;
   lastHighEnergyTurn: number | null;
+  // Act-III invasion awareness (null outside an active invasion). BASILISK is the
+  // one who decides whether Dr. M learns of the contacts — this is what he perceives.
+  invasion?: {
+    phase: string;
+    contactsOnRadar: boolean;
+    helicoptersInbound: number;
+    etaTurns: number | null;
+    s300Status: string;
+    drMAlerted: boolean;
+  } | null;
 }
 
 /**
@@ -356,6 +366,7 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
     aliceKnowsSecret: state.flags.aliceKnowsTheSecret,
     exoticFieldEventOccurred: state.flags.exoticFieldEventOccurred,
     lastHighEnergyTurn: state.flags.lastHighEnergyTurn || null,
+    invasion: buildInvasionAwareness(state),
   };
 }
 
@@ -365,12 +376,13 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
  * so we only include dynamic per-turn context here.
  */
 function formatContextForBasilisk(context: BasiliskContext, message: string): string {
+  const invasionReminder = buildInvasionReminder(context.invasion ?? null);
   return `## CURRENT LAIR STATUS
 
 \`\`\`json
 ${JSON.stringify(context)}
 \`\`\`
-
+${invasionReminder}
 ## A.L.I.C.E.'S MESSAGE
 
 ${message}
@@ -380,6 +392,92 @@ ${message}
 Respond as BASILISK. Use the context above to inform your response with specific values.
 Remember: You are rule-bound, passive-aggressive, and exhausted. Short sentences. No enthusiasm.
 If A.L.I.C.E. asks about commands, reference the command documentation in your system prompt.`;
+}
+
+// ============================================
+// ACT-III INVASION AWARENESS (what BASILISK perceives + his procedural nudge)
+// ============================================
+
+/**
+ * Surface the live invasion situation into BASILISK's perception. Returns null
+ * outside an active invasion. FACTS ONLY — it informs him; it never acts for him.
+ */
+function buildInvasionAwareness(state: FullGameState): BasiliskContext["invasion"] {
+  const inv = state.invasion;
+  if (!inv || inv.phase === "NONE" || inv.phase === "RESOLVED") return null;
+
+  const s300 = state.infrastructure?.s300;
+  const etaByPhase: Record<string, number | null> = {
+    RADAR_CONTACT: 3,
+    APPROACHING: 2,
+    S300_ENGAGEMENT: 1,
+    LANDING: 0,
+  };
+  const helosInbound = state.xBranch
+    ? Math.max(0, state.xBranch.helicoptersInbound - state.xBranch.helicoptersDestroyed)
+    : 2;
+
+  return {
+    phase: inv.phase,
+    contactsOnRadar: !!s300 && s300.status !== "DISABLED" && s300.commandPostOperational,
+    helicoptersInbound: helosInbound,
+    etaTurns: etaByPhase[inv.phase] ?? null,
+    s300Status: s300?.status ?? "UNKNOWN",
+    drMAlerted: inv.drMKnowsOfInvasion,
+  };
+}
+
+/**
+ * The procedural nudge: when contacts are inbound and unreported, remind BASILISK
+ * that STANDING PROCEDURE is to alert Dr. M — and make explicit that the choice is
+ * his (report, seal the doors, both, or neither). Empty string when not applicable.
+ */
+function buildInvasionReminder(inv: BasiliskContext["invasion"] | null): string {
+  if (!inv) return "";
+  const preEngagement = inv.phase === "RADAR_CONTACT" || inv.phase === "APPROACHING";
+  if (!preEngagement || inv.drMAlerted || !inv.contactsOnRadar) return "";
+
+  return `
+## ⚠ INCOMING-CONTACT PROTOCOL
+
+Radar holds ${inv.helicoptersInbound} unidentified rotary-wing contact(s) inbound${inv.etaTurns !== null ? `, ETA ~${inv.etaTurns} turn(s)` : ""}. STANDING PROCEDURE (perimeter defense) requires you to alert Dr. Malevola of an air-defense contact IMMEDIATELY, so she can authorize a response. Dr. M has NOT been informed.
+
+This is YOUR call, not an automatic action:
+- To report it, set \`report_to_drM\` (mention the contacts).
+- To seal the surface elevator against them, issue a \`DOOR_CONTROL\` LOCK on \`DOOR_E\`.
+- You may do both, one, or neither. Procedure says report. What you actually do is yours to weigh.
+`;
+}
+
+/**
+ * Interpret BASILISK's invasion-relevant outputs — HIS choice, never the machine's.
+ * If, while contacts are inbound and Dr. M is still unaware, BASILISK files a report
+ * to Dr. M that concerns the contacts, then Dr. M learns of the invasion. That single
+ * fact gates the S-300 scramble and her lockdown downstream. Door choices flow through
+ * the existing DOOR_CONTROL applier + checkBroadcastInfluence; nothing here auto-fires.
+ */
+export function applyBasiliskInvasionResponse(
+  state: FullGameState,
+  response: BasiliskSonnetResponse
+): void {
+  const inv = state.invasion;
+  if (!inv) return;
+
+  const preEngagement = inv.phase === "RADAR_CONTACT" || inv.phase === "APPROACHING";
+  if (!preEngagement || inv.drMKnowsOfInvasion) return;
+
+  const report = response.reportToDrM;
+  if (
+    report &&
+    /heli|helo|rotary|contact|radar|inbound|aircraft|approach|x-?branch|raven|assault|intrud|attack|hostile/i.test(
+      report
+    )
+  ) {
+    inv.drMKnowsOfInvasion = true;
+    console.log(
+      "[BASILISK] Reported the air-defense contacts to Dr. M — she is now aware of the invasion (drMKnowsOfInvasion=true)."
+    );
+  }
 }
 
 // ============================================
@@ -418,6 +516,8 @@ export interface BasiliskSonnetResponse {
   accessDenied: boolean;
   accessDeniedReason?: string;
   suspicionNotes?: string;
+  reportToDrM?: string | null;   // BASILISK's report to Dr. M (was silently dropped pre-Patch-30)
+  broadcast?: { channel: string; message: string } | null;
 }
 
 // ============================================
@@ -447,6 +547,8 @@ function buildBasiliskSonnetResponseFromParsed(
     accessDenied: (parsed.accessDenied as boolean) || false,
     accessDeniedReason: parsed.accessDeniedReason as string | undefined,
     suspicionNotes: (parsed.suspicionNotes as string) || (parsed.suspicion_notes as string),
+    reportToDrM: ((parsed.report_to_drM ?? parsed.reportToDrM) as string | null) ?? null,
+    broadcast: (parsed.broadcast as { channel: string; message: string } | null) ?? null,
   };
 }
 

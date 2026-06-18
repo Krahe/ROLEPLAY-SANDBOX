@@ -11,6 +11,7 @@
 
 import { FullGameState, GameModifier, DinosaurForm, SpeechRetention } from "../state/schema.js";
 import { processActions, ActionResult } from "../rules/actions.js";
+import { queryBasiliskAsync } from "../rules/basilisk.js";
 import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
@@ -88,6 +89,93 @@ export interface TurnInput {
   };
   /** Response to a previous human prompt */
   humanPromptResponse?: string;
+}
+
+/** What BASILISK did with his standing turn (null when he passed / didn't fire). */
+export interface BasiliskTurnOutput {
+  trigger: "INVASION_REPORT" | "INVASION_DOORS" | "HEAT";
+  dialogue: string;
+  reportedInvasion: boolean; // did he alert Dr. M to the invasion this turn?
+  openedDoors: boolean;      // did he open the surface elevator (DOOR_E) for X-Branch?
+}
+
+/** True if ALICE addressed BASILISK in her own action phase (then THAT was his turn). */
+function aliceAddressedBasilisk(input: TurnInput): boolean {
+  return input.actions.some(
+    (a) => a.command === "basilisk" || a.command.startsWith("basilisk.")
+  );
+}
+
+/**
+ * Which standing trigger (if any) warrants a BASILISK turn this turn.
+ * (1) Act-III invasion with the report decision still open.
+ * (2) Reactor/heat — framework present; BASILISK's heat-turn behavior is designed
+ *     alongside the Act-III reactorStress work, so that branch stays off until it lands.
+ */
+function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "INVASION_DOORS" | "HEAT" | null {
+  const inv = state.invasion;
+  if (inv) {
+    // (1a) The report decision — does he warn Dr. M about the radar returns?
+    if (
+      (inv.phase === "RADAR_CONTACT" || inv.phase === "APPROACHING") &&
+      !inv.drMKnowsOfInvasion
+    ) {
+      return "INVASION_REPORT";
+    }
+    // (1b) The door decision — does he open the surface elevator for X-Branch?
+    if (
+      inv.phase === "LANDING" &&
+      !inv.blastDoorsOpened &&
+      state.infrastructure?.blastDoors?.doors?.["DOOR_E"]?.status !== "OPEN"
+    ) {
+      return "INVASION_DOORS";
+    }
+  }
+  return null;
+}
+
+/** Machine-authored situational message that opens BASILISK's turn. */
+function buildBasiliskTurnMessage(
+  state: FullGameState,
+  trigger: "INVASION_REPORT" | "INVASION_DOORS" | "HEAT"
+): string {
+  if (trigger === "INVASION_DOORS" && state.invasion) {
+    const inv = state.invasion;
+    return `[PERIMETER MONITORING — this is YOUR turn. A.L.I.C.E. did not address you.]
+
+X-Branch operatives are on the ground and moving on the surface elevator (DOOR_E), currently SEALED. ${
+      inv.drMKnowsOfInvasion
+        ? "Dr. Malevola expects it held in lockdown."
+        : "No lockdown order was ever given — no one even knows they're here."
+    }
+
+Decide what to do with this turn:
+- Hold the lockdown / do nothing → DOOR_E stays sealed; they must breach it with charges (loud, slow, the defenders get set).
+- Open it for them (\`DOOR_CONTROL\` OPEN on DOOR_E) → they enter fast and silent.
+
+This is your judgment. Hold the line, or let them in — your call.`;
+  }
+  if (trigger === "INVASION_REPORT") {
+    const inv = state.invasion!;
+    const s300 = state.infrastructure?.s300;
+    const helos = state.xBranch
+      ? Math.max(0, state.xBranch.helicoptersInbound - state.xBranch.helicoptersDestroyed)
+      : 2;
+    return `[PERIMETER MONITORING — this is YOUR turn. A.L.I.C.E. did not address you.]
+
+Radar holds ${helos} unidentified rotary-wing contact(s); phase ${inv.phase}. S-300: ${
+      s300?.status ?? "UNKNOWN"
+    }. Dr. Malevola has NOT been informed of the contacts.
+
+Standing procedure requires you to alert Dr. Malevola of an air-defense contact immediately. You have not yet done so. Decide what to do with this turn:
+- Report it to Dr. M now (set \`report_to_drM\`, mention the contacts).
+- Seal the surface elevator (\`DOOR_CONTROL\` LOCK on DOOR_E).
+- Flag it to A.L.I.C.E. instead (\`dialogue_to_alice\`).
+- Give a partial/late warning, or hold and say nothing.
+
+This is your judgment. Report, omit, or warn — your call.`;
+  }
+  return `[REACTOR MONITORING — your turn.]\nThe dino-ray heat is at ${state.dinoRay.heat}/10. Comment, advise, or hold.`;
 }
 
 /** Result of turn processing (before GM call) */
@@ -395,13 +483,50 @@ export class GameRunner {
   }
 
   /**
+   * BASILISK's turn — the second beat of ALICE → BASILISK → GM.
+   *
+   * Fires a real BASILISK (Sonnet) turn when a trigger is live AND ALICE did not
+   * already address him this turn (her inline `basilisk` message IS his turn that
+   * turn — no double-call). His choices (report to Dr. M, doors, ...) are applied to
+   * state HERE, before the GM builds context — so the GM narrates what he DID rather
+   * than adjudicating what he should do. Returns null on a passed turn.
+   *
+   * Skipped without an API key: the autonomous turn needs Sonnet, and the invasion's
+   * sensor fallback covers a fully-offline run.
+   */
+  async processBasiliskTurn(
+    state: FullGameState,
+    input: TurnInput
+  ): Promise<BasiliskTurnOutput | null> {
+    if (aliceAddressedBasilisk(input)) return null;
+    if (!process.env.ANTHROPIC_API_KEY) return null;
+    const trigger = basiliskTurnTrigger(state);
+    if (!trigger) return null;
+
+    const message = buildBasiliskTurnMessage(state, trigger);
+    const drMKnewBefore = state.invasion?.drMKnowsOfInvasion ?? false;
+
+    try {
+      const resp = await queryBasiliskAsync(state, message);
+      const reportedNow = !drMKnewBefore && (state.invasion?.drMKnowsOfInvasion ?? false);
+      const openedDoors =
+        state.infrastructure?.blastDoors?.doors?.["DOOR_E"]?.status === "OPEN";
+      return { trigger, dialogue: resp.response, reportedInvasion: reportedNow, openedDoors };
+    } catch (err) {
+      console.error("[BASILISK] autonomous turn failed:", err);
+      return null;
+    }
+  }
+
+  /**
    * Build GM context for the GM call
    */
   buildGMContext(
     state: FullGameState,
     input: TurnInput,
     preResult: PreGMResult,
-    actionResults: ActionResult[]
+    actionResults: ActionResult[],
+    basiliskTurn?: BasiliskTurnOutput | null
   ): GMContext {
     const trustContext = formatTrustContextForGM(state);
     const gadgetStatus = getGadgetStatusForGM(state);
@@ -440,12 +565,39 @@ export class GameRunner {
       const inv = state.invasion;
       currentActContext += `\n\n---\n\n## 🚁 INVASION STATUS: ${inv.phase}\n`;
       currentActContext += `Phase started turn: ${inv.phaseStartTurn}\n`;
+      currentActContext += inv.drMKnowsOfInvasion
+        ? `🔔 Dr. M KNOWS the invasion is inbound${inv.drMLearnedLate ? " — found out LATE via perimeter sensors at landing (she missed the S-300 window)" : ""}\n`
+        : `🤫 Dr. M does NOT know — BASILISK hasn't reported the contacts; the S-300 stays cold (the teeth of his silence)\n`;
+      currentActContext += `X-Branch S-300 warning level: ${
+        inv.xBranchKnowsAltitudeWeakness ? "DEAD-ZONE (knows 50m → interception ELIMINATED)"
+        : inv.xBranchWarnedOfS300 ? "GENERAL (warned of the SAM → interception REDUCED)"
+        : "NONE (S-300 at full effectiveness)"
+      }\n`;
       if (inv.xBranchKnowsAltitudeWeakness) currentActContext += `✅ X-Branch knows 50m altitude weakness (flying low)\n`;
       if (inv.xBranchKnowsLairLayout) currentActContext += `✅ X-Branch knows lair layout\n`;
       if (inv.blastDoorsOpened) currentActContext += `✅ Blast doors are open for X-Branch\n`;
       if (inv.s300EngagementResolved) currentActContext += `S-300 engagement resolved. Helicopters destroyed: ${state.xBranch?.helicoptersDestroyed ?? 0}\n`;
       if (inv.standoffActive) currentActContext += `⚠️ STANDOFF ACTIVE\n`;
       if (inv.drMAtRayConsole) currentActContext += `⚠️ Dr. M is at the ray console\n`;
+    }
+
+    // BASILISK's turn this turn (his choices already applied) — narrate, don't adjudicate.
+    if (basiliskTurn) {
+      currentActContext += `\n\n---\n\n## 🤖 BASILISK TOOK HIS TURN (${basiliskTurn.trigger})\n`;
+      if (basiliskTurn.dialogue) currentActContext += `${basiliskTurn.dialogue}\n`;
+      if (basiliskTurn.reportedInvasion) {
+        currentActContext += `→ He REPORTED the contacts to Dr. Malevola. She now knows — narrate her reaction; she can scramble the S-300.\n`;
+      } else if (
+        state.invasion &&
+        (state.invasion.phase === "RADAR_CONTACT" || state.invasion.phase === "APPROACHING")
+      ) {
+        currentActContext += `→ He did NOT report the contacts. Dr. Malevola remains unaware for now.\n`;
+      }
+      if (basiliskTurn.trigger === "INVASION_DOORS") {
+        currentActContext += basiliskTurn.openedDoors
+          ? `→ He OPENED the surface elevator (DOOR_E) for X-Branch — they will enter fast and silent.\n`
+          : `→ He kept DOOR_E sealed — X-Branch must breach with charges (loud; the defenders get set).\n`;
+      }
     }
 
     const actTransitionNotification = actContextTransition.shouldTransition
@@ -847,8 +999,12 @@ export class GameRunner {
     preResult.civilianFlybyConsequences = postResult.civilianFlybyConsequences;
     preResult.bobHeroEnding = postResult.bobHeroEnding;
 
+    // BASILISK's turn (ALICE → BASILISK → GM). Fires on a live trigger when ALICE
+    // didn't address him; his choices apply to state before the GM builds context.
+    const basiliskTurn = await this.processBasiliskTurn(state, input);
+
     // Build GM context
-    const gmContext = this.buildGMContext(state, input, preResult, actionResults);
+    const gmContext = this.buildGMContext(state, input, preResult, actionResults, basiliskTurn);
 
     // Call GM
     let gmResponse: GMResponse;

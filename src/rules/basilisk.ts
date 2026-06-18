@@ -2,6 +2,7 @@ import { FullGameState } from "../state/schema.js";
 import {
   callBasilisk,
   applyBasiliskStateChanges,
+  applyBasiliskInvasionResponse,
   BasiliskSonnetResponse,
 } from "../gm/basiliskClaude.js";
 
@@ -34,6 +35,10 @@ export async function queryBasiliskAsync(
     if (sonnetResponse.actionsExecuted.length > 0) {
       applyBasiliskStateChanges(state, sonnetResponse.actionsExecuted);
     }
+
+    // Interpret his invasion choice (did he report the contacts to Dr. M?) —
+    // his call, never auto-fired. Sets drMKnowsOfInvasion if he blew the whistle.
+    applyBasiliskInvasionResponse(state, sonnetResponse);
 
     // Map Sonnet response to legacy format
     return mapSonnetToLegacyResponse(sonnetResponse);

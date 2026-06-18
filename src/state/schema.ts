@@ -1484,13 +1484,15 @@ export const InvasionStateSchema = z.object({
   phaseStartTurn: z.number().int().default(0),
 
   // Intel flags — did ALICE help X-Branch before they arrived?
-  xBranchKnowsAltitudeWeakness: z.boolean().default(false),
+  xBranchKnowsAltitudeWeakness: z.boolean().default(false),  // dead-zone intel (below 50m) → interception ELIMINATED
+  xBranchWarnedOfS300: z.boolean().default(false),           // general warning (SAM/missiles, NOT the dead zone) → interception REDUCED
   xBranchKnowsLairLayout: z.boolean().default(false),
 
   // BASILISK-mediated (Act-III rewire) — the two omissions that dial the invasion's
   // strength. Both default to the loyal/procedural choice; ALICE must persuade
   // BASILISK to deviate.
   drMKnowsOfInvasion: z.boolean().default(false),  // false = BASILISK hasn't reported the contacts → Dr. M can't scramble the S-300 / lockdown
+  drMLearnedLate: z.boolean().default(false),      // true = she found out via perimeter sensors at LANDING, not from BASILISK (missed the S-300 window)
   blastDoorsOpened: z.boolean().default(false),    // true = BASILISK left the blast doors open for X-Branch (was `aliceOpenedDoors`)
 
   // S-300 engagement resolution
