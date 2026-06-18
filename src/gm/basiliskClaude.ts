@@ -532,7 +532,8 @@ export interface BasiliskStateChange {
     | "LIGHTING"           // Room lighting control
     | "CONTAINMENT"        // Containment field control
     | "FIRE_SUPPRESSION"   // Trigger fire suppression
-    | "BROADCAST"          // PA/radio broadcast
+    | "BROADCAST"          // External / channel radio transmission (broadcastArray)
+    | "PA"                 // Lair-wide PA announcement — his voice (paSystem); free, GM-visible
     | "AUTHORITY_GRANT"    // Grant A.L.I.C.E. standing authorization (target: REACTOR | BROADCAST)
     | "REACTOR_COOLING"    // Suppress reactor heat (default) or STAND DOWN (value: STAND_DOWN | RESUME)
     | "LOGGED";            // Just logging, no state change
@@ -1095,6 +1096,16 @@ export function applyBasiliskStateChanges(
             state.infrastructure.broadcastArray.lastTransmission = transmission;
             console.error(`[BASILISK:BROADCAST] ${change.target}: "${change.value.slice(0, 50)}..."`);
           }
+        }
+        break;
+
+      // ─────────────────────────────────────────────
+      // PA - Lair-wide public-address announcement (his voice; paSystem)
+      // ─────────────────────────────────────────────
+      case "PA":
+        if (state.infrastructure?.paSystem && typeof change.value === "string") {
+          state.infrastructure.paSystem.lastAnnouncement = change.value;
+          console.error(`[BASILISK:PA] "${change.value.slice(0, 60)}"`);
         }
         break;
 
