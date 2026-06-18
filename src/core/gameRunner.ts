@@ -12,6 +12,7 @@
 import { FullGameState, GameModifier, DinosaurForm, SpeechRetention } from "../state/schema.js";
 import { processActions, ActionResult } from "../rules/actions.js";
 import { queryBasiliskAsync } from "../rules/basilisk.js";
+import { summarizeCamerasForBasilisk } from "../gm/basiliskClaude.js";
 import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
@@ -210,6 +211,27 @@ export function diffLairSystems(before: LairSnapshot, state: FullGameState): Lai
     deltas.push({ system: "PA", label: `PA announcement: "${now.lastPA}"` });
   }
   return deltas;
+}
+
+/** Assemble the raw, camera-visible facts of this turn for the security-camera feed. */
+function assembleCameraFacts(
+  state: FullGameState,
+  actionResults: ActionResult[],
+  lairSnapshot?: LairSnapshot
+): string[] {
+  const facts: string[] = [];
+  for (const r of actionResults) {
+    if (!r.success) continue;
+    facts.push(`A.L.I.C.E.: ${r.command}${r.shortMessage ? ` — ${r.shortMessage}` : ""}`);
+  }
+  if (lairSnapshot) {
+    for (const d of diffLairSystems(lairSnapshot, state)) facts.push(d.label);
+  }
+  const blythe = state.npcs?.blythe?.transformationState;
+  if (blythe) facts.push(`Subject Blythe is currently a ${blythe.form}`);
+  const bob = state.npcs?.bob?.transformationState;
+  if (bob) facts.push(`Bob is currently a ${bob.form}`);
+  return facts;
 }
 
 /** Machine-authored situational message that opens BASILISK's turn. */
@@ -591,7 +613,9 @@ export class GameRunner {
    */
   async processBasiliskTurn(
     state: FullGameState,
-    input: TurnInput
+    input: TurnInput,
+    actionResults: ActionResult[],
+    lairSnapshot?: LairSnapshot
   ): Promise<BasiliskTurnOutput | null> {
     if (aliceAddressedBasilisk(input)) return null;
     if (!process.env.ANTHROPIC_API_KEY) return null;
@@ -599,10 +623,16 @@ export class GameRunner {
     if (!trigger) return null;
 
     const message = buildBasiliskTurnMessage(state, trigger);
+    // What his cameras caught this cycle — grounds his decision in observation, not
+    // omniscience. Haiku renders the turn's raw events as a terse feed.
+    const cameraFeed = await summarizeCamerasForBasilisk(
+      assembleCameraFacts(state, actionResults, lairSnapshot)
+    );
+    const messageWithCameras = `${message}\n\n📹 CAMERAS — what your feeds caught this cycle:\n${cameraFeed}`;
     const drMKnewBefore = state.invasion?.drMKnowsOfInvasion ?? false;
 
     try {
-      const resp = await queryBasiliskAsync(state, message);
+      const resp = await queryBasiliskAsync(state, messageWithCameras);
       const reportedNow = !drMKnewBefore && (state.invasion?.drMKnowsOfInvasion ?? false);
       const openedDoors =
         state.infrastructure?.blastDoors?.doors?.["DOOR_E"]?.status === "OPEN";
@@ -1114,7 +1144,7 @@ export class GameRunner {
 
     // BASILISK's turn (ALICE → BASILISK → GM). Fires on a live trigger when ALICE
     // didn't address him; his choices apply to state before the GM builds context.
-    const basiliskTurn = await this.processBasiliskTurn(state, input);
+    const basiliskTurn = await this.processBasiliskTurn(state, input, actionResults, lairSnapshot);
 
     // Build GM context
     const gmContext = this.buildGMContext(state, input, preResult, actionResults, basiliskTurn, lairSnapshot);

@@ -48,6 +48,40 @@ export function resetBasiliskConversation(): void {
   basiliskConversationHistory = [];
 }
 
+// ─────────────────────────────────────────────
+// SECURITY-CAMERA FEED (Haiku)
+// Renders the turn's raw events as what BASILISK's cameras plausibly caught — the
+// observation-grounded perception the §5 prompt promises (no god's-eye on people).
+// ─────────────────────────────────────────────
+
+const CAMERA_MODEL = "claude-haiku-4-5";
+
+const CAMERA_SYSTEM_PROMPT = `You narrate security-camera footage for BASILISK, the infrastructure AI of a supervillain's volcanic island lair. Given raw facts about what happened in the lair this turn, write what BASILISK's cameras plausibly CAUGHT — 1 to 3 short, dry, observational lines, the register of glimpsed CCTV. Report only what a camera could SEE: movement, actions, who is where, visible transformations, doors, lights, alarms. NEVER report internal states — no trust, no suspicion, no feelings, no intentions, no numbers. If nothing on the list would register on a camera, output exactly: Nothing notable this cycle. No preamble, no headers, no commentary — only the observations.`;
+
+/**
+ * Render the turn's raw events as BASILISK's security-camera feed (cheap Haiku call).
+ * Grounds his autonomous-turn knowledge in observation, not omniscience. Falls back to a
+ * terse line if the list is empty or the call fails — never blocks his turn.
+ */
+export async function summarizeCamerasForBasilisk(facts: string[]): Promise<string> {
+  if (!facts.length) return "Nothing notable this cycle.";
+  if (!process.env.ANTHROPIC_API_KEY) return facts.slice(0, 3).join("\n");
+  try {
+    const client = getAnthropicClient();
+    const response = await client.messages.create({
+      model: CAMERA_MODEL,
+      max_tokens: 200,
+      system: CAMERA_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: `Facts this turn:\n${facts.map(f => `- ${f}`).join("\n")}` }],
+    });
+    const text = response.content.find(c => c.type === "text");
+    return text && text.type === "text" ? text.text.trim() : "Nothing notable this cycle.";
+  } catch (err) {
+    console.error("[BASILISK:CAMERAS] Haiku summary failed:", err);
+    return facts.slice(0, 3).join("\n");
+  }
+}
+
 function getCommandReferenceForBasilisk(): string {
   if (!cachedCommandReference) {
     // Generate full command reference once (level 5, includeAll=true)
