@@ -1136,6 +1136,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
       basiliskAuthority: {
         reactorControlGranted: false,
         reactorStoodDown: false,
+        whiskeyStatus: "UNFILED",
         broadcastControlGranted: false,
         lastAuthorizationTurn: null,
         deniedRequests: 0,

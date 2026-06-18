@@ -632,6 +632,10 @@ export const BasiliskAuthoritySchema = z.object({
   // default, drain ON); true = ALICE persuaded him to stand down (drain 0 → her hot
   // firing reaches the safety-trip). His 3rd quiet omission.
   reactorStoodDown: z.boolean().default(false),
+  // 88-Whiskey — BASILISK's Suspected-AI-Anomaly report on A.L.I.C.E.; his second
+  // standing lever (§9). Persisted across turns (also carried verbatim in his thread);
+  // FILED is the mechanical hook → Dr. M is alerted to investigate (a suspicion bump).
+  whiskeyStatus: z.enum(["UNFILED", "DRAFTING", "SHELVED", "FILED", "DISPOSED"]).default("UNFILED"),
 });
 export type BasiliskAuthority = z.infer<typeof BasiliskAuthoritySchema>;
 

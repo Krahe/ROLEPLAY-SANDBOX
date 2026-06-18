@@ -303,6 +303,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       basiliskAuthority: {
         reactorControlGranted: false,
         reactorStoodDown: false,
+        whiskeyStatus: "UNFILED",
         broadcastControlGranted: false,
         lastAuthorizationTurn: null,
         deniedRequests: 0,

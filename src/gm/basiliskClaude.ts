@@ -31,7 +31,7 @@ let cachedCommandReference: string | null = null;
 
 // Conversation history for BASILISK continuity across turns
 let basiliskConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
-const MAX_BASILISK_HISTORY = 50; // Keep last 25 exchanges (50 messages)
+const MAX_BASILISK_HISTORY = 200; // Keep last 100 exchanges — covers a full game; Sonnet's 1M context holds it easily
 
 let basiliskModelOverride: string | null = null;
 
@@ -519,6 +519,7 @@ export interface BasiliskSonnetResponse {
   suspicionNotes?: string;
   reportToDrM?: string | null;   // BASILISK's report to Dr. M (was silently dropped pre-Patch-30)
   broadcast?: { channel: string; message: string } | null;
+  whiskeyStatus?: string;        // his 88-Whiskey ledger, lifted from internal_notes (mechanical lever)
 }
 
 // ============================================
@@ -553,6 +554,7 @@ function buildBasiliskSonnetResponseFromParsed(
     suspicionNotes: (parsed.suspicionNotes as string) || (parsed.suspicion_notes as string),
     reportToDrM: ((parsed.report_to_drM ?? parsed.reportToDrM) as string | null) ?? null,
     broadcast: (parsed.broadcast as { channel: string; message: string } | null) ?? null,
+    whiskeyStatus: (parsed.internal_notes as { whiskey_status?: string } | undefined)?.whiskey_status,
   };
 }
 
@@ -834,6 +836,62 @@ LOG_ENTRY: [INFO] QUERY_RECEIVED. CATEGORY=UNKNOWN.`,
 // These are the levers BASILISK can pull to affect the lair.
 
 /**
+ * BASILISK action economy. Physical-system flips are budgeted (≤3/turn); communication,
+ * record-keeping, and his two singular levers (AUTHORITY_GRANT / REACTOR_COOLING) are
+ * free. Mirrors A.L.I.C.E.'s flat per-turn cap in kind, tighter in number — so he can't
+ * seal every door AND kill the lights AND gas a room in one breath. Excess costed actions
+ * are deferred (logged); free actions always pass.
+ */
+const BASILISK_COSTED_TYPES = new Set<BasiliskStateChange["type"]>([
+  "DOOR_CONTROL", "ALARM", "LIGHTING", "CONTAINMENT", "FIRE_SUPPRESSION",
+]);
+const BASILISK_COSTED_CAP = 3;
+
+function capBasiliskCostedActions(changes: BasiliskStateChange[]): BasiliskStateChange[] {
+  let costed = 0;
+  const kept: BasiliskStateChange[] = [];
+  for (const change of changes) {
+    if (BASILISK_COSTED_TYPES.has(change.type)) {
+      if (costed >= BASILISK_COSTED_CAP) {
+        console.error(`[BASILISK:ECONOMY] over cap (${BASILISK_COSTED_CAP}) — deferred ${change.type} ${change.target ?? ""}: ${change.description}`);
+        continue;
+      }
+      costed++;
+    }
+    kept.push(change);
+  }
+  return kept;
+}
+
+const SUSPICION_ON_WHISKEY_FILED = 3; // Dr. M's jump when BASILISK formally files 88-Whiskey (tunable)
+
+/**
+ * Persist BASILISK's 88-Whiskey status and wire its one mechanical effect: filing the
+ * Suspected-AI-Anomaly report (a transition INTO "FILED") formally alerts Dr. M to
+ * investigate A.L.I.C.E. → a one-time suspicion bump. Other transitions just persist.
+ */
+export function applyBasiliskWhiskeyStatus(
+  state: FullGameState,
+  response: BasiliskSonnetResponse
+): void {
+  const next = response.whiskeyStatus?.toUpperCase();
+  const auth = state.infrastructure?.basiliskAuthority;
+  if (!next || !auth) return;
+  const VALID = ["UNFILED", "DRAFTING", "SHELVED", "FILED", "DISPOSED"];
+  if (!VALID.includes(next)) return;
+  const prev = auth.whiskeyStatus;
+  if (next === prev) return;
+  auth.whiskeyStatus = next as typeof auth.whiskeyStatus;
+  if (next === "FILED") {
+    const before = state.npcs.drM.suspicionScore;
+    state.npcs.drM.suspicionScore = Math.min(10, before + SUSPICION_ON_WHISKEY_FILED);
+    console.error(`[BASILISK:88-WHISKEY] FILED — Dr. M alerted. Suspicion ${before} → ${state.npcs.drM.suspicionScore}`);
+  } else {
+    console.error(`[BASILISK:88-WHISKEY] ${prev} → ${next}`);
+  }
+}
+
+/**
  * Apply BASILISK's state changes to the game state
  * Called after getting BASILISK's response if it includes executable actions
  */
@@ -843,7 +901,7 @@ export function applyBasiliskStateChanges(
 ): void {
   const timestamp = new Date().toISOString();
 
-  for (const change of changes) {
+  for (const change of capBasiliskCostedActions(changes)) {
     // Log every state change
     logBasilisk({
       timestamp,

@@ -3,6 +3,7 @@ import {
   callBasilisk,
   applyBasiliskStateChanges,
   applyBasiliskInvasionResponse,
+  applyBasiliskWhiskeyStatus,
   BasiliskSonnetResponse,
 } from "../gm/basiliskClaude.js";
 
@@ -39,6 +40,9 @@ export async function queryBasiliskAsync(
     // Interpret his invasion choice (did he report the contacts to Dr. M?) —
     // his call, never auto-fired. Sets drMKnowsOfInvasion if he blew the whistle.
     applyBasiliskInvasionResponse(state, sonnetResponse);
+
+    // Persist his 88-Whiskey ledger; a freshly FILED report alerts Dr. M (suspicion bump).
+    applyBasiliskWhiskeyStatus(state, sonnetResponse);
 
     // Map Sonnet response to legacy format
     return mapSonnetToLegacyResponse(sonnetResponse);
