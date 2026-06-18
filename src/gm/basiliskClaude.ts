@@ -218,7 +218,6 @@ export interface BasiliskContext {
     };
     defenses: {
       s300Status: string;
-      krakenStatus: string;
     };
     archimedes: {
       status: string;
@@ -337,8 +336,10 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
         alarmStatus: state.lairEnvironment.alarmStatus.toUpperCase(),
       },
       defenses: {
-        s300Status: state.accessLevel >= 3 ? "STANDBY" : "ACCESS_RESTRICTED",
-        krakenStatus: state.accessLevel >= 3 ? "ON_PATROL" : "ACCESS_RESTRICTED",
+        // Real S-300 status (consistent with the invasion block). BASILISK is the lair's
+        // safety-AI; his perception isn't gated by A.L.I.C.E.'s clearance. (Kraken is a
+        // security-chief octopus, not an air-defense system — dropped from `defenses`.)
+        s300Status: state.infrastructure?.s300?.status ?? "STANDBY",
       },
       archimedes: {
         status: state.infrastructure?.archimedes?.status || "STANDBY",
@@ -498,7 +499,6 @@ export interface BasiliskStateChange {
     | "CONTAINMENT"        // Containment field control
     | "FIRE_SUPPRESSION"   // Trigger fire suppression
     | "BROADCAST"          // PA/radio broadcast
-    | "S300"               // Air defense status
     | "AUTHORITY_GRANT"    // Grant A.L.I.C.E. standing authorization (target: REACTOR | BROADCAST)
     | "REACTOR_COOLING"    // Suppress reactor heat (default) or STAND DOWN (value: STAND_DOWN | RESUME)
     | "LOGGED";            // Just logging, no state change
@@ -534,7 +534,10 @@ function buildBasiliskSonnetResponseFromParsed(
   rawResponse: string
 ): BasiliskSonnetResponse {
   return {
-    dialogue: (parsed.dialogue as string) || rawResponse,
+    // Read the field BASILISK actually emits (dialogue_to_alice). Never fall back to
+    // rawResponse — that leaks internal_notes (his private ledger) to A.L.I.C.E. A null
+    // value is a valid PASS turn → empty string (no message), not a JSON dump.
+    dialogue: ((parsed.dialogue_to_alice ?? parsed.dialogue) as string) || "",
     tone: (parsed.tone as BasiliskSonnetResponse["tone"]) || "bureaucratic",
     actionsExecuted: (parsed.actionsExecuted as BasiliskStateChange[]) ||
       (parsed.actions_taken as Array<{ action: string; details: string }>)?.map(a => ({
@@ -899,9 +902,11 @@ export function applyBasiliskStateChanges(
               if (newStatus) {
                 door.status = newStatus;
 
-                // Handle lock level
-                if (change.value.toUpperCase() === "LOCK" && typeof change.value === "number") {
-                  door.lockLevel = Math.min(3, Math.max(0, change.value));
+                // Handle lock level. `change.value` is the action string here (never a
+                // numeric tier), so LOCK secures the door at max tier so it actually gates
+                // A.L.I.C.E. (the lockLevel > accessLevel check); UNLOCK releases it.
+                if (change.value.toUpperCase() === "LOCK") {
+                  door.lockLevel = 3;
                 } else if (change.value.toUpperCase() === "UNLOCK") {
                   door.lockLevel = 0;
                 }
@@ -1001,29 +1006,10 @@ export function applyBasiliskStateChanges(
         }
         break;
 
-      // ─────────────────────────────────────────────
-      // S300 - Air defense status
-      // ─────────────────────────────────────────────
-      case "S300":
-        if (state.infrastructure?.s300) {
-          if (typeof change.value === "string") {
-            const statusMap: Record<string, "STANDBY" | "ACTIVE" | "ENGAGING" | "DISABLED"> = {
-              "STANDBY": "STANDBY",
-              "ACTIVE": "ACTIVE",
-              "ENGAGING": "ENGAGING",
-              "DISABLED": "DISABLED",
-              "ARM": "ACTIVE",
-              "DISARM": "STANDBY"
-            };
-            const newStatus = statusMap[change.value.toUpperCase()];
-            if (newStatus) {
-              const oldStatus = state.infrastructure.s300.status;
-              state.infrastructure.s300.status = newStatus;
-              console.error(`[BASILISK:S300] ${oldStatus} → ${newStatus}`);
-            }
-          }
-        }
-        break;
+      // S300 — observe-only for BASILISK. Air-defense engagement is driven by the
+      // invasion machine (gated on his report omission), never a verb he fires
+      // directly. The applier was removed so a stray/legacy S300 action can't bypass
+      // that gate; a type:"S300" change now no-ops.
 
       // ─────────────────────────────────────────────
       // AUTHORITY GRANT - Standing authorization for A.L.I.C.E.
