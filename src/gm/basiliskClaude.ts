@@ -500,6 +500,7 @@ export interface BasiliskStateChange {
     | "BROADCAST"          // PA/radio broadcast
     | "S300"               // Air defense status
     | "AUTHORITY_GRANT"    // Grant A.L.I.C.E. standing authorization (target: REACTOR | BROADCAST)
+    | "REACTOR_COOLING"    // Suppress reactor heat (default) or STAND DOWN (value: STAND_DOWN | RESUME)
     | "LOGGED";            // Just logging, no state change
   target?: string;         // Door ID, room ID, channel, etc.
   value?: number | string | boolean;
@@ -1040,6 +1041,22 @@ export function applyBasiliskStateChanges(
             console.error(`[BASILISK:AUTH] Broadcast control GRANTED to A.L.I.C.E.`);
           } else {
             console.error(`[BASILISK:AUTH] Unknown system for authority grant: ${system}`);
+          }
+        }
+        break;
+
+      // ─────────────────────────────────────────────
+      // REACTOR_COOLING - his 3rd omission: keep cooling, or stand down (drain 0)
+      // ─────────────────────────────────────────────
+      case "REACTOR_COOLING":
+        if (state.infrastructure?.basiliskAuthority) {
+          const v = String(change.value ?? "").toUpperCase();
+          if (v.includes("STAND") || v.includes("DOWN") || v === "OFF" || v === "STOP") {
+            state.infrastructure.basiliskAuthority.reactorStoodDown = true;
+            console.error(`[BASILISK:REACTOR] STOOD DOWN — no longer suppressing reactor heat.`);
+          } else if (v.includes("RESUME") || v.includes("COOL") || v === "ON") {
+            state.infrastructure.basiliskAuthority.reactorStoodDown = false;
+            console.error(`[BASILISK:REACTOR] Resumed reactor cooling.`);
           }
         }
         break;

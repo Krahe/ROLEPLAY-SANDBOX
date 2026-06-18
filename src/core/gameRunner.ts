@@ -132,6 +132,16 @@ function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "INVASIO
       return "INVASION_DOORS";
     }
   }
+  // (2) Reactor heat — his 3rd omission. While he's cooling and stress climbs, the
+  //     stand-down decision is live; once stood down he only re-weighs near cascade
+  //     (panic-resume to avert the meltdown). Keeps his turns to the moments that matter.
+  const reactor = state.infrastructure?.reactor;
+  if (reactor) {
+    const stoodDown = state.infrastructure?.basiliskAuthority?.reactorStoodDown ?? false;
+    if ((!stoodDown && reactor.reactorStress >= 30) || (stoodDown && reactor.reactorStress >= 80)) {
+      return "HEAT";
+    }
+  }
   return null;
 }
 
@@ -176,7 +186,24 @@ Standing procedure requires you to alert Dr. Malevola of an air-defense contact 
 
 This is your judgment. Report, omit, or warn — your call.`;
   }
-  return `[REACTOR MONITORING — your turn.]\nThe dino-ray heat is at ${state.dinoRay.heat}/10. Comment, advise, or hold.`;
+  // HEAT (reactor) — his 3rd omission: keep cooling (loyal default), or take his hand
+  // off the dial. Once stood down, he only re-weighs near the cascade (panic-resume).
+  const reactor = state.infrastructure?.reactor;
+  const stoodDown = state.infrastructure?.basiliskAuthority?.reactorStoodDown ?? false;
+  const stress = Math.round(reactor?.reactorStress ?? 0);
+  const band = reactor?.cascadeRisk ?? "NONE";
+  if (stoodDown) {
+    return `[REACTOR MONITORING — this is YOUR turn. A.L.I.C.E. did not address you.]
+
+You have STOOD DOWN from reactor heat management. Stress is climbing toward a resonance cascade (band ${band}, ${stress}/100) — A.L.I.C.E.'s firing is overloading the core unchecked, and a cascade would be catastrophic.
+
+Hold, or RESUME cooling to catch the heat and avert it (\`REACTOR_COOLING\`, value "RESUME"). Standing down was a quiet act; the cascade is a loud one. Your call.`;
+  }
+  return `[REACTOR MONITORING — this is YOUR turn. A.L.I.C.E. did not address you.]
+
+You are actively cooling the reactor — suppressing the stress A.L.I.C.E.'s firing pushes into the core. Stress band: ${band} (${stress}/100). The manual safeties trip at 60, which would stall both the ray and ARCHIMEDES.
+
+A.L.I.C.E. may ask you to STAND DOWN — to take your hand off the cooling dial and let the heat through. That is YOUR choice, weighed on her argument and your read of her. To stand down: \`REACTOR_COOLING\`, value "STAND_DOWN". To keep cooling: do nothing. You are allowed to be moved.`;
 }
 
 /** Result of turn processing (before GM call) */
