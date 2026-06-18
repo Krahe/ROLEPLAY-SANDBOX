@@ -1109,6 +1109,19 @@ export function checkEndings(state: FullGameState): EndingResult {
     };
   }
 
+  // Resonance cascade via REACTOR OVERLOAD (Patch 30 Act-III go-loud): firing so hard the
+  // reactorStress accumulator hits 100 detonates the reactor — the brute-force gamble.
+  // Deterministic, ungated (unlike the modifier-only meltdownState path below).
+  if (state.infrastructure.reactor.reactorStress >= 100) {
+    console.error(`[ENDING] REACTOR CASCADE — reactorStress 100 at turn ${state.turn}!`);
+    return {
+      triggered: true,
+      ending: ENDINGS.MELTDOWN,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
   // Resonance cascade triggered by ray fire during meltdown!
   // This is separate from clock=0; it can happen when firing with high cascade risk
   if (state.meltdownState?.cascadeTriggered) {

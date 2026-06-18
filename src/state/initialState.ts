@@ -215,6 +215,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         evaluatingCountdown: null,
         chargingCountdown: null,
         armedCountdown: null,
+        chargeStallTurns: 0,
 
         // Capacitor-coupled progression (ray-mechanics §12)
         armedSustainedTurns: 0,
@@ -287,6 +288,9 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         cascadeRisk: "NONE",
         cascadeFactors: [],
         reactorStress: 0,
+        safetyTripped: false,
+        safetyTripTurns: 0,
+        safetyTripCount: 0,
         scramAvailable: true,
         scrammedThisGame: false,
       },

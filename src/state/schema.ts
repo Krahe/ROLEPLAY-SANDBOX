@@ -539,8 +539,9 @@ export const ArchimedesSchema = z.object({
   // longer gate state transitions.
   alertCountdown: z.number().nullable().default(null),     // 1 turn for ALERT
   evaluatingCountdown: z.number().nullable().default(null), // 2 turns for EVALUATING
-  chargingCountdown: z.number().nullable().default(null),   // legacy; capacitor-driven now
+  chargingCountdown: z.number().nullable().default(null),   // turns CHARGING → ARMED (D2 turn clock)
   armedCountdown: z.number().nullable().default(null),      // legacy; capacitor-driven now
+  chargeStallTurns: z.number().int().min(0).default(0),     // reactor safety-trip freezes the charge (Patch 30 Act-III)
 
   // Capacitor-coupled progression (ray-mechanics §12)
   armedSustainedTurns: z.number().int().min(0).default(0), // turns capacitor sustained ≥ ARMED_THRESHOLD
@@ -608,8 +609,11 @@ export const ReactorSchema = z.object({
   stable: z.boolean(),
   cascadeRisk: CascadeRiskEnum,
   cascadeFactors: z.array(z.string()), // What's contributing to risk
-  reactorStress: z.number().min(0).max(100).default(0), // Cumulative risk
-  scramAvailable: z.boolean(), // Emergency shutdown
+  reactorStress: z.number().min(0).max(100).default(0), // heat-driven accumulator (Patch 30 Act-III)
+  safetyTripped: z.boolean().default(false),           // recoverable manual-safety stall: ray + ARCHIMEDES frozen
+  safetyTripTurns: z.number().int().min(0).default(0), // turns left on the current trip
+  safetyTripCount: z.number().int().min(0).default(0), // trips so far (relief shrinks each time → floor creeps to 100)
+  scramAvailable: z.boolean(), // the permanent one-use SCRAM (distinct from the safety-trip)
   scrammedThisGame: z.boolean().default(false),
 });
 export type ReactorState = z.infer<typeof ReactorSchema>;

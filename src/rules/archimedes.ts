@@ -535,6 +535,17 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
         };
       }
 
+      // Reactor safety-trip freezes the charge (Patch 30 Act-III go-loud). Mirrors the
+      // ewMode skip-decrement: while chargeStallTurns > 0 the countdown is untouched.
+      if (archimedes.chargeStallTurns > 0) {
+        archimedes.chargeStallTurns -= 1;
+        return {
+          type: "COUNTDOWN_TICK",
+          message: `🛰️❄️ ARCHIMEDES CHARGING stalled — lair reactor safeties tripped. Genesis-wave progression frozen (${archimedes.chargeStallTurns} more turn(s)).`,
+          turnsRemaining: archimedes.chargingCountdown ?? undefined,
+        };
+      }
+
       if (archimedes.chargingCountdown === null) {
         archimedes.chargingCountdown = ARCHIMEDES_CHARGE_TURNS;
       }

@@ -1085,6 +1085,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         armedSustainedTurns: 0,
         ewMode: false,
         armedTimerExtension: 0,
+        chargeStallTurns: 0,
         target: {
           city: "LONDON",
           country: "UNITED KINGDOM",
@@ -1126,6 +1127,9 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         cascadeRisk: "NONE",
         cascadeFactors: [],
         reactorStress: 0,
+        safetyTripped: false,
+        safetyTripTurns: 0,
+        safetyTripCount: 0,
         scramAvailable: true,
         scrammedThisGame: false,
       },

@@ -459,6 +459,17 @@ coerced action against them (consumed when used).`,
   // (REVERSAL deferred — D1).
 
   if (cmd === "ray.fire") {
+    // ── REACTOR SAFETY-TRIP gate (Patch 30 Act-III): when the manual safeties have
+    //    tripped (reactorStress hit 60) the ray loses power until they auto-clear.
+    //    Most lair systems stay up — but firing is frozen for the stall window. ──
+    if (state.infrastructure.reactor.safetyTripped) {
+      return {
+        command: action.command,
+        success: false,
+        message: `⚡🛑 REACTOR SAFETIES TRIPPED — the ray is offline. The manual safeties cut power after the last overload; they reset in ${state.infrastructure.reactor.safetyTripTurns} turn(s). (ARCHIMEDES is frozen too — the stall is buying X-Branch time.) Other lair systems are unaffected.`,
+      };
+    }
+
     // ── ECO GOVERNOR gate (Patch 30): eco-ON paces the ray to ≈one shot every
     //    other turn (and blocks a 2nd shot this turn). Flip eco OFF
     //    (lab.eco { on: false }) to bypass and fire now — paid in heat. Eco-OFF

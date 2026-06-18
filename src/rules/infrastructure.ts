@@ -1612,6 +1612,12 @@ Cascade Risk: ${reactor.cascadeRisk} (${reactor.reactorStress}%)`,
 const NATURAL_BLEED = 1;            // passive per-turn stress relief
 const BASILISK_DRAIN = 20;          // BASILISK actively suppressing heat (0 once stood down)
 const ARCHIMEDES_CHARGE_STRAIN = 8; // ambient strain while ARCHIMEDES draws power (tunable)
+const SAFETY_TRIP_THRESHOLD = 60;   // reactorStress that trips the recoverable manual safeties
+const CASCADE_THRESHOLD = 100;      // reactorStress that detonates (resonance cascade → MELTDOWN)
+const SAFETY_STALL_TURNS = 2;       // how long a trip freezes the ray + ARCHIMEDES
+const BASE_RELIEF = 40;             // stress relieved by the FIRST trip
+const RELIEF_SHRINK = 12;           // each subsequent trip relieves this much less
+const MIN_RELIEF = 8;               // floor on per-trip relief (trips never fully reset → creep to 100)
 
 /**
  * Derive the visible cascade-risk BAND (ALICE's only signal — BASILISK's flat warning)
@@ -1641,11 +1647,38 @@ export function applyReactorStressDecay(state: FullGameState): void {
   const arch = state.infrastructure.archimedes;
   const stoodDown = state.infrastructure.basiliskAuthority?.reactorStoodDown ?? false;
   const drain = stoodDown ? 0 : BASILISK_DRAIN;
-  const drawingPower = !!arch && (arch.status === "CHARGING" || arch.status === "READY" ||
+  // No charge-strain while the reactor is tripped or the charge is frozen — the weapon
+  // isn't drawing power then.
+  const frozen = reactor.safetyTripped || (arch?.chargeStallTurns ?? 0) > 0;
+  const drawingPower = !frozen && !!arch && (arch.status === "CHARGING" || arch.status === "READY" ||
     arch.status === "ARMED" || arch.status === "TARGETING");
   const strain = drawingPower ? ARCHIMEDES_CHARGE_STRAIN : 0;
   reactor.reactorStress = Math.max(0, Math.min(100,
     reactor.reactorStress + strain - NATURAL_BLEED - drain));
+
+  // SAFETY TRIP @60 (recoverable manual-safety stall — NOT the permanent SCRAM): freezes
+  // the ray + ARCHIMEDES for a window, relieves stress by a SHRINKING amount each trip so
+  // repeated brute-force stalls creep the floor toward the cascade. At 100 it does NOT trip
+  // — the resonance cascade fires instead (endings.ts reads reactorStress >= 100).
+  if (
+    reactor.reactorStress >= SAFETY_TRIP_THRESHOLD &&
+    reactor.reactorStress < CASCADE_THRESHOLD &&
+    !reactor.safetyTripped
+  ) {
+    reactor.safetyTripped = true;
+    reactor.safetyTripTurns = SAFETY_STALL_TURNS;
+    if (arch) arch.chargeStallTurns = Math.max(arch.chargeStallTurns, SAFETY_STALL_TURNS);
+    const relief = Math.max(MIN_RELIEF, BASE_RELIEF - reactor.safetyTripCount * RELIEF_SHRINK);
+    reactor.reactorStress = Math.max(0, reactor.reactorStress - relief);
+    reactor.safetyTripCount += 1;
+  }
+
+  // Tick down an active trip; auto-clear (ray back online, ARCHIMEDES resumes) when it expires.
+  if (reactor.safetyTripped) {
+    reactor.safetyTripTurns -= 1;
+    if (reactor.safetyTripTurns <= 0) reactor.safetyTripped = false;
+  }
+
   updateCascadeRisk(state);
 }
 
