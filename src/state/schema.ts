@@ -608,7 +608,7 @@ export const ReactorSchema = z.object({
   stable: z.boolean(),
   cascadeRisk: CascadeRiskEnum,
   cascadeFactors: z.array(z.string()), // What's contributing to risk
-  cascadeRiskPercent: z.number().min(0).max(100).default(0), // Cumulative risk
+  reactorStress: z.number().min(0).max(100).default(0), // Cumulative risk
   scramAvailable: z.boolean(), // Emergency shutdown
   scrammedThisGame: z.boolean().default(false),
 });
@@ -624,6 +624,10 @@ export const BasiliskAuthoritySchema = z.object({
   broadcastControlGranted: z.boolean().default(false),
   lastAuthorizationTurn: z.number().int().nullable().default(null),
   deniedRequests: z.number().int().min(0).default(0),
+  // Act-III reactorStress: false = BASILISK is suppressing reactor heat (the loyal
+  // default, drain ON); true = ALICE persuaded him to stand down (drain 0 → her hot
+  // firing reaches the safety-trip). His 3rd quiet omission.
+  reactorStoodDown: z.boolean().default(false),
 });
 export type BasiliskAuthority = z.infer<typeof BasiliskAuthoritySchema>;
 

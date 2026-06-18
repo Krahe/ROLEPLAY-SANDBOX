@@ -539,7 +539,7 @@ export function applyModifiersToInitialState(state: FullGameState): void {
         // Set reactor to elevated cascade risk
         state.infrastructure.reactor.stable = false;
         state.infrastructure.reactor.cascadeRisk = "ELEVATED";
-        state.infrastructure.reactor.cascadeRiskPercent = 35;
+        state.infrastructure.reactor.reactorStress = 35;
         state.infrastructure.reactor.cascadeFactors = [
           "Dr. M's 'improvements'",
           "Exotic field resonance buildup",

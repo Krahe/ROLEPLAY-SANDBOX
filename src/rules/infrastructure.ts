@@ -1483,7 +1483,7 @@ Output: ${reactor.outputPercent}%
 Stable: ${reactor.stable ? "✅ YES" : "⚠️ UNSTABLE"}
 SCRAM Available: ${reactor.scramAvailable ? "✅ YES" : "❌ USED"}
 
-CASCADE RISK: ${reactor.cascadeRisk} (${reactor.cascadeRiskPercent}%)
+CASCADE RISK: ${reactor.cascadeRisk} (${reactor.reactorStress}%)
 ${reactor.cascadeFactors.length > 0 ? `Contributing Factors:\n${reactor.cascadeFactors.map((f: string) => `  • ${f}`).join("\n")}` : "No cascade factors active."}
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -1540,7 +1540,7 @@ Or ask BASILISK to adjust power directly:
     reactor.scramAvailable = false;
     reactor.scrammedThisGame = true;
     reactor.cascadeRisk = "NONE";
-    reactor.cascadeRiskPercent = 0;
+    reactor.reactorStress = 0;
     reactor.cascadeFactors = [];
 
     return {
@@ -1591,7 +1591,7 @@ SCRAM is ONE USE PER GAME.`,
 
 ${powerWarnings.length > 0 ? powerWarnings.join("\n") : "Output within normal range."}
 
-Cascade Risk: ${reactor.cascadeRisk} (${reactor.cascadeRiskPercent}%)`,
+Cascade Risk: ${reactor.cascadeRisk} (${reactor.reactorStress}%)`,
       stateChanges: { reactorOutput: newPercent },
     };
   }
@@ -1608,61 +1608,45 @@ Cascade Risk: ${reactor.cascadeRisk} (${reactor.cascadeRiskPercent}%)`,
 // CASCADE RISK CALCULATION
 // ============================================
 
+// ── reactorStress accumulator constants (Patch 30 Act-III climax) ──
+const NATURAL_BLEED = 1;            // passive per-turn stress relief
+const BASILISK_DRAIN = 20;          // BASILISK actively suppressing heat (0 once stood down)
+const ARCHIMEDES_CHARGE_STRAIN = 8; // ambient strain while ARCHIMEDES draws power (tunable)
+
+/**
+ * Derive the visible cascade-risk BAND (ALICE's only signal — BASILISK's flat warning)
+ * from the reactorStress accumulator. No longer recomputes the meter from factors:
+ * reactorStress is heat-driven (per-shot in firing.ts, per-turn in applyReactorStressDecay).
+ */
 export function updateCascadeRisk(state: FullGameState): void {
   const reactor = state.infrastructure.reactor;
+  const stress = reactor.reactorStress;
+  reactor.cascadeFactors = stress > 0 ? [`Reactor stress ${Math.round(stress)}%`] : [];
+  if (stress >= 80) { reactor.cascadeRisk = "CRITICAL"; reactor.stable = false; }
+  else if (stress >= 60) { reactor.cascadeRisk = "HIGH"; reactor.stable = false; }
+  else if (stress >= 40) { reactor.cascadeRisk = "ELEVATED"; reactor.stable = true; }
+  else if (stress >= 20) { reactor.cascadeRisk = "LOW"; reactor.stable = true; }
+  else { reactor.cascadeRisk = "NONE"; reactor.stable = true; }
+}
+
+/**
+ * Per-turn reactorStress decay. Called once/turn from gameRunner.advanceTurn (CLI-primary;
+ * the Desktop path is deprecated). Bleeds naturalBleed + basiliskDrain (drain 0 once
+ * BASILISK stands down), adds a small ARCHIMEDES charge-strain while the weapon draws
+ * power, clamps [0,100], re-derives the band. END-OF-TURN ONLY — never add an intra-turn
+ * decay or the brake (ALICE's firing must out-pace the drain) is gutted.
+ */
+export function applyReactorStressDecay(state: FullGameState): void {
+  const reactor = state.infrastructure.reactor;
   const arch = state.infrastructure.archimedes;
-
-  let riskPercent = 0;
-  const factors: string[] = [];
-
-  // Reactor output >90% (+20%)
-  if (reactor.outputPercent > 90) {
-    riskPercent += 20;
-    factors.push(`Reactor output ${reactor.outputPercent}% (+20%)`);
-  }
-
-  // Dino-Ray capacitor cascade factors CUT (Patch 30 — no capacitor). Reactor
-  // output above is the proxy now: boosting the reactor for a high-power (4–5)
-  // shot raises outputPercent, which raises cascade risk — same pressure, one lever.
-
-  // ARCHIMEDES uplink active (+10%)
-  if (arch.groundConsoleOperational) {
-    riskPercent += 10;
-    factors.push("ARCHIMEDES uplink active (+10%)");
-  }
-
-  // ARCHIMEDES in CHARGING mode (+20%)
-  if (arch.mode === "CHARGING" || arch.mode === "READY") {
-    riskPercent += 20;
-    factors.push(`ARCHIMEDES ${arch.mode} (+20%)`);
-  }
-
-  // Exotic field instability from ray (+10%)
-  if (state.flags.exoticFieldEventOccurred) {
-    riskPercent += 10;
-    factors.push("Exotic field instability (+10%)");
-  }
-
-  reactor.cascadeRiskPercent = Math.min(100, riskPercent);
-  reactor.cascadeFactors = factors;
-
-  // Determine risk level
-  if (riskPercent >= 80) {
-    reactor.cascadeRisk = "CRITICAL";
-    reactor.stable = false;
-  } else if (riskPercent >= 60) {
-    reactor.cascadeRisk = "HIGH";
-    reactor.stable = false;
-  } else if (riskPercent >= 40) {
-    reactor.cascadeRisk = "ELEVATED";
-    reactor.stable = true;
-  } else if (riskPercent >= 20) {
-    reactor.cascadeRisk = "LOW";
-    reactor.stable = true;
-  } else {
-    reactor.cascadeRisk = "NONE";
-    reactor.stable = true;
-  }
+  const stoodDown = state.infrastructure.basiliskAuthority?.reactorStoodDown ?? false;
+  const drain = stoodDown ? 0 : BASILISK_DRAIN;
+  const drawingPower = !!arch && (arch.status === "CHARGING" || arch.status === "READY" ||
+    arch.status === "ARMED" || arch.status === "TARGETING");
+  const strain = drawingPower ? ARCHIMEDES_CHARGE_STRAIN : 0;
+  reactor.reactorStress = Math.max(0, Math.min(100,
+    reactor.reactorStress + strain - NATURAL_BLEED - drain));
+  updateCascadeRisk(state);
 }
 
 // ============================================

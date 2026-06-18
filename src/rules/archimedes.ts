@@ -379,8 +379,8 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
       archimedes.status = "DISSIPATED";
       state.infrastructure.reactor.cascadeRisk = "CRITICAL";
       state.infrastructure.reactor.cascadeFactors.push("ARCHIMEDES energy channeled through human body");
-      state.infrastructure.reactor.cascadeRiskPercent = Math.min(100,
-        state.infrastructure.reactor.cascadeRiskPercent + 40);
+      state.infrastructure.reactor.reactorStress = Math.min(100,
+        state.infrastructure.reactor.reactorStress + 40);
       return {
         type: "RESONANCE_CASCADE",
         previousStatus,
@@ -412,8 +412,8 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
     state.infrastructure.reactor.cascadeRisk = serversSurvive ? "LOW" : "HIGH";
     if (!serversSurvive) {
       state.infrastructure.reactor.cascadeFactors.push("ARCHIMEDES transformation field damaged A.L.I.C.E. server infrastructure");
-      state.infrastructure.reactor.cascadeRiskPercent = Math.min(100,
-        state.infrastructure.reactor.cascadeRiskPercent + 25);
+      state.infrastructure.reactor.reactorStress = Math.min(100,
+        state.infrastructure.reactor.reactorStress + 25);
     }
 
     return {

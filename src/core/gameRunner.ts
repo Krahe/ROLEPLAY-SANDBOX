@@ -16,6 +16,7 @@ import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "../rules/clockEvents.js";
+import { applyReactorStressDecay } from "../rules/infrastructure.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadgets.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
@@ -831,6 +832,7 @@ export class GameRunner {
     // re-engages on schedule unless Form 47-Σ produced a permanent override.
     applyEcoModeReEngage(state);
     applyHeatDecay(state); // HEAT METER cool-down (−2/turn, −4 eco) — dual-path lockstep
+    applyReactorStressDecay(state); // reactorStress bleed (naturalBleed + basiliskDrain) + ARCHIMEDES charge-strain
 
     // Ray diagnostic/calibration tick CUT (Patch 30): the stall toolkit +
     // rayDiagnostics.ts are gone. Act-3 stalling moves to the social layer.

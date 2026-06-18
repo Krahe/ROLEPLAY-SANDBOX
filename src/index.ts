@@ -1442,9 +1442,9 @@ The consequences of that reckless high-power firing are now manifesting.
       if (overrides.reactor_cascadeRisk !== undefined) {
         gameState.infrastructure.reactor.cascadeRisk = overrides.reactor_cascadeRisk as typeof gameState.infrastructure.reactor.cascadeRisk;
       }
-      if (overrides.reactor_cascadeRiskPercent !== undefined) {
-        gameState.infrastructure.reactor.cascadeRiskPercent = Math.max(0, Math.min(100, overrides.reactor_cascadeRiskPercent));
-      }
+      // reactor_cascadeRiskPercent override REMOVED (Patch 30 reactorStress): stress is
+      // now heat-driven + BASILISK-managed; a GM that can set the number would gut the
+      // persuade-BASILISK spine. reactor_cascadeRisk (the enum) remains as a GM lever.
       if (overrides.reactor_scramAvailable !== undefined) {
         gameState.infrastructure.reactor.scramAvailable = overrides.reactor_scramAvailable;
       }

@@ -611,6 +611,11 @@ function resolveTransformFire(state: FullGameState, params: TransformFireParams)
   stateChanges.lastFireOutcome = outcome;
   stateChanges.lastFireNotes = `power=${effectivePower}/ideal=${matrix.ideal} Δ${matrix.delta} ${matrix.sizeClass} → ${outcome}`;
 
+  // Per-shot REACTOR STRESS (Patch 30 Act-III): firing big genomes at high power
+  // overloads the reactor toward the safety-trip (60) / cascade (100). Applied in
+  // applyFiringResults; soaked per-turn by BASILISK's drain unless he's stood down.
+  stateChanges.reactorStressDelta = Math.round((matrix.ideal * effectivePower) / 2);
+
   // -- Resonance cascade check (Act-3 climax — KEEP) -------------------------
   let cascadeTriggered = false;
   const archimedesLinked =
@@ -1038,6 +1043,16 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
   // value BEFORE this add to decide overheat-chaos, so the meter-filling shot
   // itself stays clean; the next shot while pinned at 10 throws chaos.
   state.dinoRay.heat = Math.min(10, state.dinoRay.heat + state.dinoRay.power);
+
+  // REACTOR STRESS (Patch 30 Act-III): apply the per-shot overload computed in
+  // resolveFiring. Bled back per-turn (naturalBleed + basiliskDrain) in advanceTurn.
+  const reactorStressDelta = (changes.reactorStressDelta as number) ?? 0;
+  if (reactorStressDelta > 0) {
+    state.infrastructure.reactor.reactorStress = Math.min(
+      100,
+      state.infrastructure.reactor.reactorStress + reactorStressDelta
+    );
+  }
 
   // ECO GOVERNOR (Patch 30 ray-surface lock): firing under eco-mode paces the
   // ray — lock it until the turn AFTER next (every-other-turn; this also blocks

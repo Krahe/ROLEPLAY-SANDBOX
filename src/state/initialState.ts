@@ -286,7 +286,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         stable: true,
         cascadeRisk: "NONE",
         cascadeFactors: [],
-        cascadeRiskPercent: 0,
+        reactorStress: 0,
         scramAvailable: true,
         scrammedThisGame: false,
       },
@@ -298,6 +298,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
       // ─────────────────────────────────────────────
       basiliskAuthority: {
         reactorControlGranted: false,
+        reactorStoodDown: false,
         broadcastControlGranted: false,
         lastAuthorizationTurn: null,
         deniedRequests: 0,

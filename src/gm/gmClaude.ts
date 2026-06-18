@@ -1699,7 +1699,6 @@ export interface GMResponse {
     reactor_outputPercent?: number;   // 0-100
     reactor_stable?: boolean;
     reactor_cascadeRisk?: string;     // "NONE" | "LOW" | "ELEVATED" | "HIGH" | "CRITICAL"
-    reactor_cascadeRiskPercent?: number;  // 0-100
     reactor_scramAvailable?: boolean;
 
     // S-300 missile defense
