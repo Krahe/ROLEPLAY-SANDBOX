@@ -145,6 +145,73 @@ function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "INVASIO
   return null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LAIR-SYSTEM DELTAS — "what changed this turn"
+// Snapshot the player-touchable lair systems at turn start, diff at GM-context
+// time. Path-agnostic: catches BASILISK (reactive OR autonomous) and A.L.I.C.E.'s
+// infra ops alike. Surfaced to the GM as facts-for-reaction; also the structured
+// surface the Haiku security-camera feed will read to decide what the cameras saw.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LairSnapshot {
+  alarm: string;
+  doors: Record<string, string>;
+  lighting: Record<string, string>;
+  containmentActive: boolean;
+  lastTransmissionTurn: number | null;
+  lastPA: string | null;
+}
+
+export function snapshotLairSystems(state: FullGameState): LairSnapshot {
+  const doors: Record<string, string> = {};
+  for (const [id, d] of Object.entries(state.infrastructure?.blastDoors?.doors ?? {})) {
+    doors[id] = (d as { status: string }).status;
+  }
+  return {
+    alarm: state.lairEnvironment?.alarmStatus ?? "quiet",
+    doors,
+    lighting: { ...((state.infrastructure?.lighting?.rooms ?? {}) as Record<string, string>) },
+    containmentActive: state.infrastructure?.containmentField?.active ?? false,
+    lastTransmissionTurn: state.infrastructure?.broadcastArray?.lastTransmission?.timestamp ?? null,
+    lastPA: state.infrastructure?.paSystem?.lastAnnouncement ?? null,
+  };
+}
+
+export interface LairDelta {
+  system: "ALARM" | "DOOR" | "LIGHTING" | "CONTAINMENT" | "BROADCAST" | "PA";
+  label: string; // human-readable "X → Y" line
+}
+
+/** Diff a turn-start snapshot against current state → the systems that changed. */
+export function diffLairSystems(before: LairSnapshot, state: FullGameState): LairDelta[] {
+  const now = snapshotLairSystems(state);
+  const deltas: LairDelta[] = [];
+  if (now.alarm !== before.alarm) {
+    deltas.push({ system: "ALARM", label: `ALARM: ${before.alarm} → ${now.alarm}` });
+  }
+  for (const [id, status] of Object.entries(now.doors)) {
+    if (before.doors[id] !== status) {
+      deltas.push({ system: "DOOR", label: `${id}: ${before.doors[id] ?? "?"} → ${status}` });
+    }
+  }
+  for (const [room, mode] of Object.entries(now.lighting)) {
+    if (before.lighting[room] !== mode) {
+      deltas.push({ system: "LIGHTING", label: `Lighting ${room}: ${before.lighting[room] ?? "?"} → ${mode}` });
+    }
+  }
+  if (now.containmentActive !== before.containmentActive) {
+    deltas.push({ system: "CONTAINMENT", label: `Containment field: ${before.containmentActive ? "ACTIVE" : "off"} → ${now.containmentActive ? "ACTIVE" : "off"}` });
+  }
+  if (now.lastTransmissionTurn !== before.lastTransmissionTurn) {
+    const t = state.infrastructure?.broadcastArray?.lastTransmission;
+    if (t) deltas.push({ system: "BROADCAST", label: `Broadcast (${t.channel}): "${t.message}"` });
+  }
+  if (now.lastPA !== before.lastPA && now.lastPA) {
+    deltas.push({ system: "PA", label: `PA announcement: "${now.lastPA}"` });
+  }
+  return deltas;
+}
+
 /** Machine-authored situational message that opens BASILISK's turn. */
 function buildBasiliskTurnMessage(
   state: FullGameState,
@@ -554,7 +621,8 @@ export class GameRunner {
     input: TurnInput,
     preResult: PreGMResult,
     actionResults: ActionResult[],
-    basiliskTurn?: BasiliskTurnOutput | null
+    basiliskTurn?: BasiliskTurnOutput | null,
+    lairSnapshot?: LairSnapshot
   ): GMContext {
     const trustContext = formatTrustContextForGM(state);
     const gadgetStatus = getGadgetStatusForGM(state);
@@ -625,6 +693,18 @@ export class GameRunner {
         currentActContext += basiliskTurn.openedDoors
           ? `→ He OPENED the surface elevator (DOOR_E) for X-Branch — they will enter fast and silent.\n`
           : `→ He kept DOOR_E sealed — X-Branch must breach with charges (loud; the defenders get set).\n`;
+      }
+    }
+
+    // Lair-system deltas — what changed this turn, whoever changed it (BASILISK
+    // reactive/autonomous, or A.L.I.C.E.'s infra ops). Facts for the GM to narrate
+    // the world/NPC reaction to; it does NOT re-adjudicate the change itself.
+    if (lairSnapshot) {
+      const lairDeltas = diffLairSystems(lairSnapshot, state);
+      if (lairDeltas.length) {
+        currentActContext += `\n\n---\n\n## 🏭 LAIR SYSTEMS — changed this turn\n`;
+        currentActContext += `(Player-side changes to lair systems. Facts — narrate the world / NPC reaction; do not re-adjudicate the change itself.)\n`;
+        for (const d of lairDeltas) currentActContext += `- ${d.label}\n`;
       }
     }
 
@@ -1015,6 +1095,10 @@ export class GameRunner {
       };
     }
 
+    // Snapshot the lair's player-touchable systems before anything moves this turn,
+    // so the GM (and, next, the camera feed) can be shown exactly what changed.
+    const lairSnapshot = snapshotLairSystems(state);
+
     // Pre-turn processing
     const preResult = this.processPreTurn(state, input);
 
@@ -1033,7 +1117,7 @@ export class GameRunner {
     const basiliskTurn = await this.processBasiliskTurn(state, input);
 
     // Build GM context
-    const gmContext = this.buildGMContext(state, input, preResult, actionResults, basiliskTurn);
+    const gmContext = this.buildGMContext(state, input, preResult, actionResults, basiliskTurn, lairSnapshot);
 
     // Call GM
     let gmResponse: GMResponse;
