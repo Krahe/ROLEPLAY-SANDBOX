@@ -214,13 +214,15 @@ describe('BASILISK Integration', () => {
     assert.ok(context.systemStates.ray, 'Should have ray info');
   });
 
-  it('BASILISK context includes NPC info', () => {
+  it('BASILISK context is camera-observable, not omniscient', () => {
     const state = initialState();
     const context = basilisk.buildBasiliskContext(state);
 
-    assert.ok(context.drMLocation, 'Should have Dr. M location');
-    assert.strictEqual(typeof context.bobTrust, 'number', 'Should have Bob trust');
-    assert.strictEqual(typeof context.blytheTrust, 'number', 'Should have Blythe trust');
+    assert.ok(context.drMLocation, 'Should have Dr. M location (camera-observable)');
+    assert.strictEqual(typeof context.drMMood, 'string', 'Should have Dr. M demeanor');
+    assert.strictEqual(typeof context.blytheTransformed, 'boolean', 'Should have visible transformation state');
+    assert.strictEqual(context.bobTrust, undefined, 'Omniscient trust numbers stripped — cameras are his people-window');
+    assert.strictEqual(context.drMSuspicion, undefined, 'Omniscient suspicion stripped');
   });
 });
 

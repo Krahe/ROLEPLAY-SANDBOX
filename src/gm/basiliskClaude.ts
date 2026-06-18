@@ -269,11 +269,7 @@ export interface BasiliskContext {
   }>;
   recentEvents: string[];
   drMLocation: string;
-  drMSuspicion: number;
   drMMood: string;
-  bobTrust: number;
-  bobAnxiety: number;
-  blytheTrust: number;
   blytheTransformed: boolean;
   blytheForm: string | null;
   turn: number;
@@ -388,12 +384,11 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
     },
     pendingForms: [], // TODO: Track pending forms in game state
     recentEvents,
+    // BASILISK perceives PEOPLE only through his cameras (the camera feed) — not their
+    // internal metrics. Surface what a camera could see (location, demeanor, a visible
+    // transformation); drop the omniscient numbers (suspicion, trust, anxiety).
     drMLocation: state.npcs.drM.location,
-    drMSuspicion: state.npcs.drM.suspicionScore,
     drMMood: state.npcs.drM.mood,
-    bobTrust: state.npcs.bob.trustInALICE,
-    bobAnxiety: state.npcs.bob.anxietyLevel,
-    blytheTrust: state.npcs.blythe.trustInALICE,
     blytheTransformed: !!state.npcs.blythe.transformationState,
     blytheForm: state.npcs.blythe.transformationState?.form || null,
     turn: state.turn,
