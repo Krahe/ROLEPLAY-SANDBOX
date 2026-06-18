@@ -47,7 +47,10 @@ function nextPhase(current: InvasionPhase): InvasionPhase {
 
 export interface InvasionEvent {
   phase: InvasionPhase;
-  narrative: string;
+  // NOTE: the invasion machine no longer ventriloquizes prose. It emits a structured
+  // gmDirective (the framework) + mutates state; the GM authors all player-facing text
+  // from the live framework surfaced in buildGMContext. (The old `narrative` field was
+  // dead — built every turn, rendered nowhere. Stripped in the Patch-30 invasion rewire.)
   gmDirective: string;
   stateChanges?: Record<string, unknown>;
 }
@@ -189,29 +192,6 @@ function handleRadarContact(state: FullGameState): InvasionEvent {
   if (radarOnline) {
     return {
       phase: "RADAR_CONTACT",
-      narrative: `
-╔════════════════════════════════════════════════════════════════╗
-║  🚨 S-300 RADAR CONTACT                                       ║
-╠════════════════════════════════════════════════════════════════╣
-║                                                                ║
-║  CONTACTS: 2 rotary-wing aircraft, bearing 045°               ║
-║  CLASSIFICATION: Military transport helicopters                ║
-║  SPEED: 220 knots                                              ║
-║  ALTITUDE: ${state.invasion!.helicoptersFlyingLow ? "15 meters (NOE FLIGHT)" : "500 meters (standard approach)"}${" ".repeat(state.invasion!.helicoptersFlyingLow ? 9 : 4)}║
-║  ETA: 3 turns                                                 ║
-║                                                                ║
-║  S-300 STATUS: ACTIVE — TRACKING                               ║
-║  MODE: ${s300.mode.padEnd(10)}                                          ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
-
-BASILISK: "Radar contact. Two helicopters, military configuration.
-${state.invasion!.helicoptersFlyingLow
-  ? "They are flying extremely low. Below standard engagement parameters."
-  : "Standard approach altitude. Within engagement envelope."}
-Logging. Awaiting instructions."
-
-Dr. M looks up from her console. "Well, well. We have GUESTS."`,
       gmDirective: `INVASION PHASE 1: RADAR CONTACT.
 The helicopters have been detected. Dr. M knows they're coming.
 ALICE has ${3 - (state.invasion!.helicoptersFlyingLow ? 0 : 0)} turns before engagement.
@@ -230,10 +210,6 @@ Dr. M will order preparations: lockdown, arm S-300, prepare the ray.`,
   // S-300 offline — Dr. M doesn't know yet
   return {
     phase: "RADAR_CONTACT",
-    narrative: `BASILISK: "... Radar offline. Unable to provide early warning.
-If there is something approaching, this unit cannot detect it."
-
-The lair is quiet. Too quiet.`,
     gmDirective: `S-300 is offline — no radar warning. Dr. M doesn't know
 X-Branch is coming yet. They will arrive unannounced at LANDING phase.
 Skip S300_ENGAGEMENT. ALICE has bought time but Dr. M will be caught off-guard.`,
@@ -271,25 +247,6 @@ ${s300.radarEffectiveness < 50 ? `BASILISK: "Radar effectiveness degraded to ${s
 
   return {
     phase: "APPROACHING",
-    narrative: `
-╔════════════════════════════════════════════════════════════════╗
-║  🚁 HELICOPTERS APPROACHING                                   ║
-╠════════════════════════════════════════════════════════════════╣
-║                                                                ║
-║  RANGE: 40km and closing                                       ║
-║  ETA: 2 turns                                                  ║
-║  ALTITUDE: ${state.invasion!.helicoptersFlyingLow ? "15m — BELOW MINIMUM ENGAGEMENT" : "500m — WITHIN ENGAGEMENT ENVELOPE"}${" ".repeat(state.invasion!.helicoptersFlyingLow ? 3 : 0)}║
-║                                                                ║
-║  S-300 MODE: ${s300.mode.padEnd(10)}                                          ║
-║  RADAR: ${s300.radarEffectiveness}%${" ".repeat(48 - String(s300.radarEffectiveness).length)}║
-║  MISSILES READY: ${s300.missilesReady}                                            ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
-
-${drMDialogue}
-
-The lair shifts to combat footing. Guards take positions.
-Bob clutches his clipboard tighter.`,
     gmDirective: `INVASION PHASE 2: APPROACHING.
 Next turn the S-300 will fire (or not). This is ALICE's LAST CHANCE to:
 - Disable S-300 or switch to HOLD_FIRE
@@ -309,7 +266,6 @@ function handleS300Engagement(state: FullGameState): InvasionEvent {
 
   return {
     phase: "S300_ENGAGEMENT",
-    narrative: result.narrative,
     gmDirective: result.gmDirective,
     stateChanges: result.stateChanges,
   };
@@ -321,7 +277,6 @@ function handleLanding(state: FullGameState): InvasionEvent {
     transitionTo(state, "BREACH");
     return {
       phase: "LANDING",
-      narrative: "X-Branch state not initialized.",
       gmDirective: "ERROR: xBranch not initialized. Initialize it now.",
     };
   }
@@ -342,15 +297,6 @@ function handleLanding(state: FullGameState): InvasionEvent {
   if (helosLanding === 0) {
     return {
       phase: "LANDING",
-      narrative: `Both helicopters destroyed. Wreckage scattered across the water.
-
-BASILISK: "All contacts eliminated. Debris field at bearing 045.
-Radar clear."
-
-Dr. M: "That's what happens when you come to MY island uninvited."
-
-But in the water below... parachutes. Tiny figures in wetsuits,
-swimming toward shore. X-Branch doesn't give up that easily.`,
       gmDirective: `ALL HELICOPTERS DESTROYED. X-Branch operatives survived (parachutes)
 but arrive LATE and WITHOUT heavy equipment. They swim to shore.
 - Team strength reduced to 40%
@@ -364,15 +310,6 @@ but arrive LATE and WITHOUT heavy equipment. They swim to shore.
   if (helosLanding === 1) {
     return {
       phase: "LANDING",
-      narrative: `One helicopter touches down on the rocky beach.
-The other... its wreckage burns on the water a kilometer out.
-Three parachutes drift down toward the waves.
-
-The surviving helicopter disgorges its team immediately.
-They move fast — they've trained for exactly this.
-
-BASILISK: "One helicopter landed. Surface deployment detected.
-Armed personnel. Non-lethal loadout... interesting."`,
       gmDirective: `ONE HELICOPTER LANDED. Team arrives at reduced strength (70%).
 Some equipment lost with the second helo. Team still operational.
 Boom still has 1 C4 block and 2 breaching charges.
@@ -382,15 +319,6 @@ Crew from destroyed helo will swim to shore in 2 turns.`,
 
   return {
     phase: "LANDING",
-    narrative: `Both helicopters touch down on the volcanic beach.
-Rotors still spinning. Doors open. Figures in tactical gear
-pour out, moving with practiced precision.
-
-BASILISK: "Two helicopters landed. Full tactical deployment.
-Personnel count: six. Weapons: non-lethal. Interesting choice.
-They want prisoners, not casualties."
-
-Dr. M's eyes narrow. "Bold. Foolish. But bold."`,
     gmDirective: `FULL X-BRANCH DEPLOYMENT. Team at 100% strength.
 All equipment intact. They will breach on the next turn.
 This gives ALICE maximum leverage — full force vs lair defenses.
@@ -405,7 +333,6 @@ function handleBreach(state: FullGameState): InvasionEvent {
   if (!xBranch) {
     return {
       phase: "BREACH",
-      narrative: "X-Branch state not initialized.",
       gmDirective: "ERROR: xBranch not initialized.",
     };
   }
@@ -427,21 +354,6 @@ function handleBreach(state: FullGameState): InvasionEvent {
     xBranch.boom.location = "CORRIDOR_A";
     return {
       phase: "BREACH",
-      narrative: `The surface elevator door is OPEN.
-
-Chen signals. The team moves in — fast, professional, silent.
-No breaching charges needed. Someone left the door open for them.
-
-Within 90 seconds they're inside. Boom checks corners.
-Sparks has her scanner out, already mapping the network.
-Chen speaks into his comms: "Raven Team inside. Proceeding to primary."
-
-${state.invasion!.xBranchKnowsLairLayout
-  ? "They move with eerie confidence. They know the layout."
-  : "They move carefully, clearing each corridor."}
-
-BASILISK: "Unauthorized personnel detected. Corridors A and B.
-...I assume this was expected."`,
       gmDirective: `BREACH — DOORS WERE OPEN. X-Branch enters fast and organized.
 No equipment expended on entry. Boom has full charges remaining.
 All three operatives are inside.
@@ -456,22 +368,6 @@ If Blythe trust >= 3, he vouch for ALICE → Chen may HOLD.`,
 
   return {
     phase: "BREACH",
-    narrative: `Surface elevator: SEALED.
-
-BOOM: "Ach, locked tight. Stand back."
-
-A shaped charge detonates. The blast door buckles, then gives.
-Smoke. Alarms. The elevator shaft yawns open.
-
-BOOM: "Door's open."
-CHEN: "Raven Team, move. Standard breach."
-
-They descend into the lair. Stun weapons drawn.
-The battle for the volcano begins.
-
-BASILISK: "Surface access compromised. Blast damage to Door E.
-Unauthorized armed personnel entering via elevator shaft.
-...Filing incident report."`,
     gmDirective: `BREACH — DOORS SEALED. Boom used 1 breaching charge (2 remaining).
 Entry was loud — everyone in the lair heard the explosion.
 Dr. M is NOT surprised. Guards are in position.
@@ -524,13 +420,6 @@ This is where ALICE's choices culminate.`;
 
   return {
     phase: "BATTLE",
-    narrative: `
-╔════════════════════════════════════════════════════════════════╗
-║  ⚔️ BATTLE IN PROGRESS — Turn ${turnsSinceBreach + 1} of combat${" ".repeat(Math.max(0, 17 - String(turnsSinceBreach + 1).length))}║
-╠════════════════════════════════════════════════════════════════╣
-║  X-Branch: ${xBranch ? xBranch.teamStrength + "%" : "???"} strength | Posture: ${xBranch?.chen.teamPosture ?? "UNKNOWN"}${" ".repeat(Math.max(0, 14 - (xBranch?.chen.teamPosture?.length ?? 7)))}║
-║  Lair Defense: Active | Dr. M: ${state.npcs.drM.location}${" ".repeat(Math.max(0, 23 - state.npcs.drM.location.length))}║${archimedesWarning}
-╚════════════════════════════════════════════════════════════════╝`,
     gmDirective: `BATTLE PHASE — Combat turn ${turnsSinceBreach + 1}.
 ${battleTurnGuidance}
 
@@ -552,7 +441,6 @@ ALICE's options during battle:
 
 interface S300EngagementResult {
   helicoptersDestroyed: number;
-  narrative: string;
   gmDirective: string;
   stateChanges: Record<string, unknown>;
 }
@@ -565,7 +453,6 @@ export function resolveS300Engagement(state: FullGameState): S300EngagementResul
   if (!xBranch) {
     return {
       helicoptersDestroyed: 0,
-      narrative: "X-Branch state not initialized.",
       gmDirective: "ERROR: Initialize xBranch before S-300 engagement.",
       stateChanges: {},
     };
@@ -579,10 +466,6 @@ export function resolveS300Engagement(state: FullGameState): S300EngagementResul
   if (!invasion.drMKnowsOfInvasion) {
     return {
       helicoptersDestroyed: 0,
-      narrative: `S-300 BATTERY: COLD
-
-No launch order ever came. The radar room sits dark; nobody called the contacts in.
-The helicopters cross the perimeter unopposed.`,
       gmDirective: `FRAMEWORK — Dr. M does NOT know about the invasion (drMKnowsOfInvasion=false). BASILISK never reported the contacts; the perimeter hasn't tripped yet. The S-300 never scrambled. ALL helicopters survive, unopposed. This is the payoff of BASILISK's silence — narrate the eerie quiet of an undefended approach. (She finds out when they LAND.)`,
       stateChanges: { s300Engagement: "NO_SCRAMBLE_UNAWARE" },
     };
@@ -596,14 +479,6 @@ The helicopters cross the perimeter unopposed.`,
   if (s300.status === "DISABLED") {
     return {
       helicoptersDestroyed: 0,
-      narrative: `S-300 BATTERY: DISABLED
-
-The missiles sit cold and silent in their launchers.
-The helicopters pass overhead unmolested.
-
-Dr. M: "Why isn't the S-300 firing?! BASILISK!"
-BASILISK: "S-300 battery is offline. Unable to comply."
-Dr. M: "WHAT?! A.L.I.C.E., did you—"`,
       gmDirective: `S-300 disabled. No engagement. All helicopters survive.
 Dr. M is FURIOUS and suspicious. +2 suspicion if ALICE disabled it.
 This is a major advantage for X-Branch.`,
@@ -614,17 +489,6 @@ This is a major advantage for X-Branch.`,
   if (s300.mode === "HOLD_FIRE") {
     return {
       helicoptersDestroyed: 0,
-      narrative: `S-300 BATTERY: HOLD FIRE
-
-The radar tracks both helicopters. Lock tones sound.
-The system has a perfect firing solution.
-
-It does not fire.
-
-BASILISK: "S-300 in HOLD FIRE mode. Tracking targets. Awaiting
-authorization to engage."
-
-Dr. M: "Who put it on HOLD FIRE?!"`,
       gmDirective: `S-300 on HOLD_FIRE. No engagement. All helicopters survive.
 Dr. M will demand answers. +2 suspicion if ALICE changed the mode.`,
       stateChanges: { s300Engagement: "NO_ENGAGEMENT_HOLD_FIRE" },
@@ -636,22 +500,6 @@ Dr. M will demand answers. +2 suspicion if ALICE changed the mode.`,
   if (invasion.helicoptersFlyingLow) {
     return {
       helicoptersDestroyed: 0,
-      narrative: `S-300 BATTERY: ENGAGING... UNABLE
-
-The radar sweeps. Locks. Loses. Locks again. Loses again.
-
-BASILISK: "Targets at 15 meters altitude. Below minimum
-engagement threshold. Radar unable to maintain lock.
-Sea-skimmer rejection algorithms are filtering the contacts."
-
-The missiles never leave their tubes. The helicopters
-skim the waves, rotors churning spray, passing directly
-beneath the engagement envelope.
-
-Dr. M stares at the radar display. "Fifty meters.
-They know about the FIFTY METERS?!"
-
-She turns slowly toward A.L.I.C.E.'s camera.`,
       gmDirective: `X-Branch is flying below 50m — the S-300's critical weakness.
 No engagement possible. All helicopters survive.
 
@@ -673,10 +521,6 @@ This is a MAJOR dramatic beat — the weakness ALICE discovered
     s300.missilesReady = Math.max(0, s300.missilesReady - 2);
     return {
       helicoptersDestroyed: 0,
-      narrative: `S-300 BATTERY: ENGAGING — TARGETS EVASIVE
-
-The battery fires. But the helicopters are already jinking — hard banks, terrain
-masking, chaff blooming. The missiles chase, lose lock in the sea clutter, and fall.`,
       gmDirective: `FRAMEWORK — X-Branch had a GENERAL warning (they knew a SAM site existed, but NOT the 50m dead zone). Interception PROBABILITY is reduced, not eliminated: they fly evasively and slip the net. Default: 0 destroyed, 2 missiles wasted, all survive — but it was close. You MAY rule a single graze/hit for a tighter beat (opposed roll, S-300 at a penalty). Dr. M is alarmed the intel leaked — she suspects a leak.`,
       stateChanges: { s300Engagement: "REDUCED_GENERAL_WARNING", missilesExpended: 2 },
     };
@@ -687,18 +531,6 @@ masking, chaff blooming. The missiles chase, lose lock in the sea clutter, and f
   if (s300.radarEffectiveness < 30) {
     return {
       helicoptersDestroyed: 0,
-      narrative: `S-300 BATTERY: ENGAGING... RADAR FAILURE
-
-The system fires. Two missiles streak upward—
-and immediately lose lock, corkscrewing into the sea.
-
-BASILISK: "Missiles expended. No hits. Radar effectiveness
-at ${s300.radarEffectiveness}%. Unable to maintain target lock.
-${state.infrastructure.archimedes.s300JammingActive ? "ARCHIMEDES wide-field search is flooding the radar band." : "Cause of degradation: unknown."}"
-
-The helicopters fly on, untouched.
-
-Dr. M: "Those were EXPENSIVE!"`,
       gmDirective: `S-300 radar too degraded to engage effectively. Missiles wasted.
 All helicopters survive. Missiles expended: 2 (${s300.missilesReady - 2} remaining).
 ${state.infrastructure.archimedes.s300JammingActive
@@ -720,24 +552,6 @@ ${state.infrastructure.archimedes.s300JammingActive
 
     return {
       helicoptersDestroyed: 1,
-      narrative: `S-300 BATTERY: ENGAGING
-
-Four missiles launch in rapid succession. The sky lights up.
-
-The first helicopter banks hard — too late. A missile clips
-its tail rotor. The helicopter spins, smoke trailing, and
-hits the water hard. Parachutes bloom — the crew is alive,
-splashing into the Pacific.
-
-The second helicopter dives, popping flares. Two missiles
-chase — one detonates on a flare, the other loses lock
-in the radar noise. The helicopter survives.
-
-BASILISK: "One target destroyed. One target survived.
-Radar degradation prevented full engagement. Missiles
-expended: 4. Remaining: ${s300.missilesReady}."
-
-Dr. M: "One is better than none. A.L.I.C.E., arm the ray."`,
       gmDirective: `ONE HELICOPTER DESTROYED. Crew survived (parachutes into water).
 Second helicopter survives. X-Branch at 70% strength.
 Some equipment lost. Team still combat-effective.
@@ -760,26 +574,6 @@ Crew from destroyed helo will swim to shore in 2 turns
 
   return {
     helicoptersDestroyed: 1,
-    narrative: `S-300 BATTERY: ENGAGING — FULL RADAR LOCK
-
-The battery speaks. Four missiles erupt from their launchers,
-trailing white fire across the sky.
-
-The lead helicopter takes a direct hit. The explosion tears
-the tail section apart. It autorotates down, spinning,
-and crashes into the waves. Parachutes deploy — the crew
-is alive but swimming.
-
-The second helicopter drops to the deck — the pilot
-slamming into nap-of-earth flight at 20 meters. Below
-the radar. Below the engagement envelope. Smart pilot.
-
-BASILISK: "Splash one. Second target has gone below
-minimum engagement altitude. Unable to re-engage.
-...Clever."
-
-Dr. M pounds her console. "ONE?! I paid for SIXTEEN
-missiles and you got ONE?!"`,
     gmDirective: `ONE HELICOPTER DESTROYED. The second survived by dropping
 below 50m after seeing the first one hit — combat learning.
 X-Branch at 70% strength.
