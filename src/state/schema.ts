@@ -154,7 +154,7 @@ export const FiringMemorySchema = z.object({
   firstFiringMode: z.enum(["TEST", "LIVE"]).nullable().default(null),
 });
 
-// Scan bonus — precision investment from ray.scan toward a specific target.
+// Scan bonus — precision investment from lab.scan toward a specific target.
 // Adds +0.15 to effective alignment on the next fire that includes `target`.
 // Consumed by that fire. Replaced by a subsequent scan of a different target.
 // No turn-based expiration: the scan is an action-cost investment, it sticks

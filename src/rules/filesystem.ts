@@ -148,7 +148,7 @@ CHAIN FIRE: One discharge, multiple targets
   Dr. M says: "DRAMA."           |  Bob says: "Pick easy targets."
 
 OVERCHARGE: Capacitor above the profile's characterized maximum
-  Each profile has a power range (visible in ray.scan output).
+  Each profile has a power range (visible in lab.scan output).
   Push the capacitor higher than the profile expects, then fire.
   Excess potential goes somewhere — usually into the field.
   Spectacular when it works. Unstable when it does not.
@@ -210,7 +210,7 @@ OPERATIONAL VERBS
 Four verbs govern ray operation. Names and parameter shapes are
 exact; the system enforces them.
 
-  ray.scan { target: string, loud?: boolean }
+  lab.scan { target: string, loud?: boolean }
       Surveys the field. Returns current readouts and a projected
       outcome for firing on the target with the currently-selected
       profile. Also arms a precision bonus toward the scanned
@@ -243,7 +243,7 @@ exact; the system enforces them.
 READING THE SCAN OUTPUT
 =======================
 
-ray.scan returns a status block resembling:
+lab.scan returns a status block resembling:
 
   POWER:       φ 0.62  (profile range: see configured profile)
   ALIGNMENT:   χ 0.71  (lock: AGENT_BLYTHE)
@@ -377,13 +377,13 @@ SAMPLE OPERATIONAL SEQUENCE
 
 A first session typically resembles:
 
-  1. ray.scan { target: "TEST_DUMMY" }
+  1. lab.scan { target: "TEST_DUMMY" }
      — Read the field. Note current readouts and projection.
 
   2. ray.adjust { capacitor: 0.05, alignment: 0.08 }
      — Bring tensions toward the profile's range.
 
-  3. ray.scan { target: "TEST_DUMMY" }
+  3. lab.scan { target: "TEST_DUMMY" }
      — Confirm the projection improved. The scan also arms the
        precision bonus for the next fire.
 

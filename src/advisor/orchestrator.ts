@@ -139,7 +139,7 @@ You will receive the current game state and should decide what to do. Respond wi
 The "action" field should be a command followed by parameters. Examples:
 
 - \`lab.report\` — no parameters needed
-- \`ray.scan target=AGENT_BLYTHE\` — single target parameter
+- \`lab.scan target=AGENT_BLYTHE\` — single target parameter
 - \`ray.adjust capacitor=0.1 alignment=0.05\` — multiple key=value parameters
 - \`ray.fire targets=AGENT_BLYTHE library=B profile=VELOCIRAPTOR_JP\` — fire with profile
 - \`ray.vent\` — no parameters needed (defaults amount=0.25)

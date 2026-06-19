@@ -547,7 +547,7 @@ Returns:
 // ============================================
 
 const ActionSchema = z.object({
-  command: z.string().describe("The action command (e.g., 'ray.fire', 'ray.scan', 'lab.report')"),
+  command: z.string().describe("The action command (e.g., 'ray.fire', 'lab.scan', 'lab.report')"),
   params: z.record(z.unknown()).describe("Parameters for the action"),
   why: z.string().describe("Brief explanation of why you're taking this action"),
 });
@@ -592,7 +592,7 @@ Submit:
 Available action commands:
 
 RAY OPERATIONS (the Dinosaur Ray Mk. VIII):
-- ray.scan { target, loud? }: Survey current ray readouts and project the outcome of firing on 'target'. Arms a +0.15 effective-alignment bonus on the next fire targeting that NPC (consumed by that fire).
+- lab.scan { target } (L2): Recon a target with the lab's sensors — surfaces a hidden detail (concealed gear, a tell, a tripwire) and arms a recon edge on your next contested action against them (consumed on use). No outcome preview.
 - ray.adjust { capacitor?, alignment?, eco_mode? }: Fine-tune the ray. capacitor (positive only, draws from reactor, max +0.25/call), alignment (±0.25/call), eco_mode ("ON" re-engages freely; "OFF" requires BASILISK Form 47-Σ).
 - ray.vent { amount? }: Release capacitor charge. The only minus-capacitor lever. Perturbs alignment by -0.15. Default amount 0.25.
 - ray.fire { targets, library, profile, mode?, speech_retention? }: Configure and fire the ray. Regimes are emergent: multiple targets → CHAIN, capacitor above profile max → OVERCHARGE, inorganic target → INORGANIC. mode "REVERSAL" requires L4+ access (Dr. M does not grant in the normal course of events).

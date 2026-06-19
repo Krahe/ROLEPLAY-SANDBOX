@@ -369,7 +369,7 @@ export function getProfile(profileId: string): GenomeProfile | undefined {
   // single "_" and strip leading/trailing "_". The previous version normalized
   // only the input but compared against the raw displayName.toUpperCase(), so the
   // default selectedProfile ("Velociraptor (accurate)") never matched its id
-  // (VELOCIRAPTOR_ACCURATE) — and ray.scan reported "no profile selected."
+  // (VELOCIRAPTOR_ACCURATE) — and lab.scan reported "no profile selected."
   const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
   const aliasResolved = PROFILE_ALIASES[norm(profileId)] || norm(profileId);
   return ALL_PROFILES.find(p =>

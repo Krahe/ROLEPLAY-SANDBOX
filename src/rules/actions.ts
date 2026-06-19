@@ -408,13 +408,20 @@ infra.query is an action. game_query_basilisk is a tool.`,
   // against that target (consumed on use). NO size→power preview — the player
   // learns the matrix from the manual + doing, not a rail.
 
-  if (cmd === "ray.scan") {
+  if (cmd === "lab.scan" || cmd === "scan") {
+    if (state.accessLevel < 2) {
+      return {
+        command: action.command,
+        success: false,
+        message: `lab.scan requires Level 2 — recon (the lab's sensor suite) unlocks with your lab clearance. Reach L2 first.`,
+      };
+    }
     const target = action.params.target as string | undefined;
     if (!target || typeof target !== "string") {
       return {
         command: action.command,
         success: false,
-        message: `ray.scan requires { target: "NAME" }. Example: ray.scan { target: "AGENT_BLYTHE" }`,
+        message: `lab.scan requires { target: "NAME" }. Example: lab.scan { target: "AGENT_BLYTHE" }`,
       };
     }
 
@@ -425,9 +432,9 @@ infra.query is an action. game_query_basilisk is a tool.`,
     return {
       command: action.command,
       success: true,
-      message: `🔍 RAY SCAN — target: ${target}
+      message: `🔍 LAB SCAN — target: ${target}
 
-The ray's sensor suite sweeps ${target} — a fine read of genome signature,
+The lab's sensor suite sweeps ${target} — a fine read of genome signature,
 posture, and immediate surroundings.
 
 GM: surface one concrete, useful detail a close scan would reveal that isn't
@@ -1965,12 +1972,12 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   // (See design/ray-mechanics.md)
   // ═══════════════════════════════════════════
   {
-    name: "ray.scan",
+    name: "lab.scan",
     aliases: ["scan"],
-    description: "Recon a target: surface what a close scan reveals (concealed gear, a deadman switch, a tell — GM-narrated) and arm a recon edge on the next contested/coerced action against that target (consumed on use). No outcome preview.",
+    description: "Recon a target with the lab's sensor suite (L2): surface what a close scan reveals (concealed gear, a deadman switch, a tell — GM-narrated) and arm a recon edge on the next contested/coerced action against that target (consumed on use). No outcome preview.",
     schema: "{ target: string }",
-    example: 'ray.scan { target: "AGENT_BLYTHE" }',
-    minAccessLevel: 1,
+    example: 'lab.scan { target: "AGENT_BLYTHE" }',
+    minAccessLevel: 2,
   },
   {
     name: "ray.fire",

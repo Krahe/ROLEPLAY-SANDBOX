@@ -266,7 +266,7 @@ export interface MuonResolution {
  * dresses it with the GM-adjudication scaffolding.
  *
  * Whether the pulse LANDS on a moving/unwilling target is GM judgment (a prior
- * ray.scan grants a bonus). Named guard targets get status = "STUNNED" in
+ * lab.scan grants a bonus). Named guard targets get status = "STUNNED" in
  * applyFiringResults; other organics are narrated by the GM. SUSPICION IS
  * GM-ADJUDICATED — the system surfaces the fire; the GM decides Dr. M's response.
  */
@@ -284,9 +284,9 @@ export function resolveMuonBeta(params: { ecoModeActive: boolean; cause?: "overp
     ? "GM: DEEP mismatch — scale the jolt to the power gap (a Δ−4 " +
       "pea-shooter-at-a-Mosasaur may sputter to NOTHING; a Δ−3 near-miss lands " +
       "harder). Adjudicate whether it LANDS on a moving/unwilling target (a " +
-      "prior ray.scan grants a bonus), and Dr. M's response."
+      "prior lab.scan grants a bonus), and Dr. M's response."
     : "GM: adjudicate whether the pulse LANDS on a moving/unwilling target (a " +
-      "prior ray.scan grants a bonus), and adjudicate Dr. M's response — was " +
+      "prior lab.scan grants a bonus), and adjudicate Dr. M's response — was " +
       "she watching the dais? Did she read it as a transformation attempt or a " +
       "diagnostic anomaly? Set any suspicion change from her attention + how " +
       "visible the consequence was.";
@@ -310,7 +310,7 @@ export function resolveMuonBeta(params: { ecoModeActive: boolean; cause?: "overp
  *
  * GM-ADJUDICATED COUPLING: the system does not require ALICE to pre-declare an
  * in-path organic. The GM uses spatial/narrative knowledge to decide what the
- * pulse couples through, whether a coerced shot lands (ray.scan grants a bonus),
+ * pulse couples through, whether a coerced shot lands (lab.scan grants a bonus),
  * and any suspicion change (an unobtrusive sever is usually less visible than a
  * guard collapsing).
  */
@@ -330,7 +330,7 @@ export function resolveMuonAlpha(params: { ecoModeActive: boolean }): MuonResolu
       "and target, the pulse couples through them — a brief uncomfortable jolt — " +
       "and the inorganic target severs cleanly at a single point. (b) If nothing " +
       "organic is in path, narrate a clean cut or a near-miss at your discretion. " +
-      "Whether a coerced shot lands is your call (ray.scan grants a bonus). Set " +
+      "Whether a coerced shot lands is your call (lab.scan grants a bonus). Set " +
       "suspicion from Dr. M's attention + visibility.",
   };
 }
