@@ -49,8 +49,6 @@ const CONTEXTUAL_TERMS: RegExp[] = [
   /\bBlythe\b/i,
   /\bBASILISK\b/i,
   // Game elements
-  /capacitor/i,
-  /calibrat/i,
   /transformation/i,
   /ARCHIMEDES/i,
   /demonstration/i,

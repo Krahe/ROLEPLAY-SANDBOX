@@ -560,7 +560,7 @@ const DialogueSchema = z.object({
 const LifelineSchema = z.object({
   type: z.enum(["TELEMARKETER_CALL", "LUCKY_LADY", "MONOLOGUE"])
     .describe("Emergency lifeline type: TELEMARKETER_CALL (2-turn distraction), LUCKY_LADY (+5 bonus to a SPECIFIC action), MONOLOGUE (suspicion -3)"),
-  targetActionIndex: z.number().int().min(0).max(6).optional()
+  targetActionIndex: z.number().int().min(0).max(3).optional()
     .describe("For LUCKY_LADY: which action (0-indexed) gets the +5 bonus. REQUIRED for LUCKY_LADY. Example: 0 = first action, 1 = second."),
 });
 
@@ -569,8 +569,8 @@ const GameActInputSchema = z.object({
     .describe("A.L.I.C.E.'s internal reasoning (2-4 sentences)"),
   dialogue: z.array(DialogueSchema).max(3).optional()
     .describe("What A.L.I.C.E. says to NPCs"),
-  actions: z.array(ActionSchema).min(1).max(7)
-    .describe("Actions to take this turn (limit scales with access level: Level 1 = 3, Level 2 = 4, etc.)"),
+  actions: z.array(ActionSchema).min(1).max(4)
+    .describe("Actions to take this turn (flat limit of 4 at every access level — higher levels unlock new verbs, not more actions)."),
   lifeline: LifelineSchema.optional()
     .describe("Optional emergency lifeline (3 total per game): TELEMARKETER_CALL (2-turn distraction), LUCKY_LADY (+5 bonus to a specific action — set targetActionIndex!), or MONOLOGUE (suspicion -3)"),
   humanPromptResponse: z.string().optional()
@@ -586,7 +586,7 @@ server.registerTool(
 Submit:
 - thought: Your internal reasoning (2-4 sentences)
 - dialogue: Optional messages to Dr. M, Bob, or Blythe
-- actions: Game actions to perform (max scales with access level: L1=3, L2=4, L3=5, L4=6, L5=7)
+- actions: Game actions to perform (up to 4 per turn at every access level — levels unlock new verbs, not more actions)
 - lifeline: Optional single-use lifeline
 
 Available action commands:

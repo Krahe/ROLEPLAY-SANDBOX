@@ -2553,7 +2553,7 @@ function buildUnknownCommandResponse(attemptedCommand: string, state: FullGameSt
   }
 
   parts.push("---");
-  parts.push("💡 Tip: Use game_query_basilisk tool for BASILISK infrastructure queries.");
+  parts.push("💡 Tip: to ask BASILISK, use the in-game action — basilisk { message: \"...\" }.");
   parts.push("💡 Tip: Use fs.list { path: \"/\" } to explore the virtual filesystem.");
 
   return {
