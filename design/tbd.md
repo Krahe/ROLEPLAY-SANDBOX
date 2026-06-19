@@ -8,7 +8,7 @@ Open work only. **Shipped history → `~/.claude/memory/projects/dino-lair-rebui
 >
 > ✅ **GM prompt ray-mechanics done** (`1628204`) — Tier-1 had already cut the GM's dead ray overrides + fixed the per-turn payload/reaction-guidance; this pass finished the 3 residual static spots (speech-retention "95% precision"→engine-derived-from-outcome; CHIMERA "chaos overlay"↔over-power-OUTCOME reconciled, exact blend = a server ruling / future Haiku call; FORTUNE "precision" dropped). REVERSAL coupling row kept (reversal→HUMAN is correct). **GM reactor-meltdown overrides DEFERRED** — that's a *live* ending subsystem (see § reactor-sim removal), not ray mechanics.
 
-> **Sources of truth:** ray design = `patch-30-implementation-map.md` (read its session-3 UPDATE — it wins) · GM architecture = `gm-load-audit.md` · **Act-III climax = `act3-climax.md`**.
+> **Sources of truth:** ray design = `archive/patch-30-implementation-map.md` (read its session-3 UPDATE — it wins) · GM architecture = `gm-load-audit.md` · **Act-III climax = `act3-climax.md`**.
 
 ---
 
@@ -123,6 +123,6 @@ The continuous reactor sim (`outputPercent` / `coreTemp` / `coolantFlow` / NORMA
 ---
 
 ## 🔗 KEY CROSS-REFERENCES
-- Ray design + phase plan: `patch-30-implementation-map.md` · GM architecture: `gm-load-audit.md`
+- Ray design + phase plan: `archive/patch-30-implementation-map.md` · GM architecture: `gm-load-audit.md`
 - Shipped history: `~/.claude/memory/projects/dino-lair-rebuild.md` · pre-Patch-30: `sprint-v2.md`
 - Human briefing: `../THE_HUMANS_BRIEFING.md` · Memory index: `~/.claude/memory/MEMORY.md`

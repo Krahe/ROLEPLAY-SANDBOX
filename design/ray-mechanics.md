@@ -139,7 +139,7 @@ The Act-III climax (stopping ARCHIMEDES via the reactor-safety **stall** + the X
 ## Cross-references
 
 - **Implementation:** `src/rules/firing.ts` (`resolveMatrix` — the source of truth, + speech-retention) · `src/rules/actions.ts` (`ray.fire`, `lab.eco`) · reactor gate ≈ `firing.ts:698`
-- **Ray surface lock + phase plan:** `design/patch-30-implementation-map.md`
+- **Ray surface lock + phase plan:** `design/archive/patch-30-implementation-map.md`
 - **AI-facing teaching:** `src/prompts/BASILISK_SYSTEM_PROMPT.md §9.5` (reactor) · the GM prompt's per-turn payload + `getReactionGuidance`
 - **Legacy (pre-Patch-30) ray design:** the git history of this file.
 

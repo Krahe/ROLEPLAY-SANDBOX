@@ -150,7 +150,7 @@ function rollD20(): number {
 // `mapTierToFiringOutcome` went with it (the matrix emits FiringOutcome directly).
 
 // ============================================
-// TWO-LEVER MATRIX (Patch 30 — design/patch-30-implementation-map.md UPDATE #3)
+// TWO-LEVER MATRIX (Patch 30 — design/archive/patch-30-implementation-map.md UPDATE #3)
 // ============================================
 // The whole ray, in one rule. Two levers in → one outcome out. No capacitor,
 // no coolant, no alignment, no regimes — just a delta.
