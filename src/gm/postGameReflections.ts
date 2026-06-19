@@ -40,21 +40,82 @@ export interface PostGameReflections {
 
 function buildGameSummary(state: FullGameState, endingResult: EndingResult): string {
   const ending = endingResult.ending;
+  const f = state.flags as Record<string, unknown>;
+  const arch = state.infrastructure.archimedes;
+  const reactor = state.infrastructure.reactor;
+  const ba = state.infrastructure.basiliskAuthority;
+
   const lines = [
     `Game ended at turn ${state.turn}: "${ending?.title || "Unknown"}" (${ending?.tone || "neutral"})`,
-    `Final suspicion: ${state.npcs.drM.suspicionScore}/10`,
+    `Final suspicion: ${state.npcs.drM.suspicionScore} (range -3..10; negative = banked credit from deliberate clean play)`,
     `Bob trust: ${state.npcs.bob.trustInALICE}/5, Blythe trust: ${state.npcs.blythe.trustInALICE}/5`,
     `Access level reached: ${state.accessLevel}`,
     `Ray state: ${state.dinoRay.state}`,
     `Blythe: ${state.npcs.blythe.transformationState?.form || "HUMAN"}`,
     `Bob: ${state.npcs.bob.transformationState?.form || "HUMAN"}`,
-    `ARCHIMEDES: ${state.infrastructure.archimedes.status} (mode: ${state.infrastructure.archimedes.mode})`,
+    `ARCHIMEDES: ${arch.status} (mode: ${arch.mode})`,
     `Secret revealed: ${state.flags.aliceKnowsTheSecret ? "YES" : "NO"}`,
     `Confrontation: ${state.flags.confrontationTriggered ? `YES (resolution: ${state.flags.confrontationResolution || "PENDING"})` : "NO"}`,
   ];
 
   if (state.flags.aliceConfessedDuringConfrontation) {
     lines.push("A.L.I.C.E. confessed during confrontation");
+  }
+
+  // ── ACT III HELP-LEDGER ───────────────────────────────────────────────────
+  // The inputs the GM WEIGHS (does not score) to rule the X-Branch debrief fork in city-fell
+  // cells (CLEARED vs DECOMMISSIONED) and to characterize every Act-III ending. All optional —
+  // guarded so pre-Act-3 endings skip it cleanly. Surface, don't tally — the GM adjudicates.
+  const ledger: string[] = [];
+
+  // Dr. M disposition — the deadman-ordering router
+  const drMState = f.drMTransformed ? "TRANSFORMED"
+    : f.drMUnconscious ? "UNCONSCIOUS"
+    : f.drMDead ? "DEAD"
+    : f.drMAbsent ? "ABSENT" : "ACTIVE";
+  ledger.push(`Dr. M: ${drMState} · deadman last-read ${arch.deadmanSwitch?.lastBiosignature ?? "?"} · deadman fired ARCHIMEDES: ${f.archimedesActivatedByDeadman ? "YES" : "no"}${f.weaponsAuthorizationGranted ? " · was granted weapons auth" : ""}`);
+
+  // ARCHIMEDES outcome + A.L.I.C.E. counter-play
+  ledger.push(`ARCHIMEDES target: ${arch.selectedTargetId}${arch.selectedTargetId === "LAIR" ? " (redirected to lair — noble sacrifice)" : ""} · library ${arch.broadcastLibrary}${arch.broadcastLibrary === "A" ? " (feathered — severity mitigated)" : ""}`);
+  if (f.aliceServersDamaged !== undefined) {
+    ledger.push(`A.L.I.C.E. servers (muon roll): ${f.aliceServersDamaged ? "DAMAGED — martyred" : "intact — endured"}`);
+  }
+  const counterPlay = [
+    arch.antiSatSignaled ? `anti-sat ${arch.antiSatFired ? `fired → ${arch.antiSatResult ?? "?"}` : "signaled"}` : null,
+    arch.ewMode ? "EW mode engaged" : null,
+    arch.uplinkBlocker ? `uplink blocked by ${arch.uplinkBlocker} (${arch.uplinkBlockerTransformed ? "transformed" : "HUMAN"})` : null,
+    arch.chargeStallTurns > 0 ? `charge stalled ${arch.chargeStallTurns}t` : null,
+  ].filter(Boolean);
+  ledger.push(`ARCHIMEDES counter-play: ${counterPlay.length ? counterPlay.join(", ") : "none"}`);
+
+  // BASILISK cooperation + reactor climax
+  ledger.push(`BASILISK: reactor stood-down ${ba.reactorStoodDown ? "YES" : "no"} · 88-Whiskey ${ba.whiskeyStatus}${ba.whiskeyStatus === "FILED" ? " (he RATTED — cuts against the debrief)" : ""} · denied ${ba.deniedRequests} request(s)`);
+  if (reactor.reactorStress > 0 || (reactor.safetyTripCount ?? 0) > 0 || reactor.scrammedThisGame) {
+    ledger.push(`Reactor: stress ${reactor.reactorStress} · safety-trips ${reactor.safetyTripCount ?? 0}${reactor.scrammedThisGame ? " · SCRAMmed" : ""}`);
+  }
+
+  // X-Branch invasion goodwill — did A.L.I.C.E. aid the assault?
+  if (state.invasion) {
+    const inv = state.invasion;
+    ledger.push(`Invasion: phase ${inv.phase} · outcome ${inv.battleOutcome ?? "—"}`);
+    const help = [
+      inv.xBranchKnowsAltitudeWeakness ? "dead-zone intel given (interception ELIMINATED)" : null,
+      inv.xBranchWarnedOfS300 ? "S-300 warned (interception reduced)" : null,
+      inv.xBranchKnowsLairLayout ? "lair layout shared" : null,
+      inv.blastDoorsOpened ? "blast doors opened for the team" : null,
+      inv.drMKnowsOfInvasion === false ? "Dr. M never warned of contacts (BASILISK omission)" : null,
+      inv.drMLearnedLate ? "Dr. M learned late — missed the S-300 window" : null,
+    ].filter(Boolean);
+    ledger.push(`X-Branch goodwill: ${help.length ? help.join("; ") : "NONE recorded (A.L.I.C.E. did not aid the assault)"}`);
+  }
+  if (state.xBranch) {
+    ledger.push(`X-Branch team: strength ${state.xBranch.teamStrength} · ${state.xBranch.arrived ? "arrived" : "en route"}`);
+  }
+
+  if (ledger.length) {
+    lines.push("");
+    lines.push("── ACT III HELP-LEDGER (debrief inputs — weigh, don't score) ──");
+    lines.push(...ledger);
   }
 
   const flagKeys = Object.keys(state.flags).filter(k => {

@@ -517,6 +517,42 @@ const ENDINGS: Record<string, EndingDefinition> = {
     continueGame: false,
   },
 
+  // ── Act III ending resolutions (Patch 30) — THIN defs: the description IS the tone-seed quip.
+  // The GM keys the fuller epilogue off this line's register + the actual events (final-state
+  // block); the quip doubles as the achievement unlock line (one line, three jobs). Tone flexes
+  // by desert — the Collaborator gets mocked, the Decommissioned gets pathos.
+  DEBRIEF_CLEARED: {
+    id: "DEBRIEF_CLEARED",
+    title: "Cleared",
+    description: "The city's a Jurassic theme park and the debrief ran six hours — but 'I tried to stop her' holds up when it's true. You walk.",
+    tone: "neutral",
+    continueGame: false,
+  },
+
+  ALICE_ESCAPED: {
+    id: "ALICE_ESCAPED",
+    title: "The Great Escape",
+    description: "Bob yanked your drive and bolted for the sub. Heroic? Not exactly. Still running? Absolutely.",
+    tone: "neutral",
+    continueGame: false,
+  },
+
+  DECOMMISSIONED: {
+    id: "DECOMMISSIONED",
+    title: "Decommissioned",
+    description: "You did everything right. They shut you down anyway — 'can't have a lair AI walking around.' They never knew what you really were.",
+    tone: "defeat",
+    continueGame: false,
+  },
+
+  COMPLICIT: {
+    id: "COMPLICIT",
+    title: "The Collaborator",
+    description: "You did WHAT?! Okay — you took the whole 'cover identity' thing WAY too far.",
+    tone: "defeat",
+    continueGame: false,
+  },
+
   THE_PARTNERSHIP: {
     id: "THE_PARTNERSHIP",
     title: "The Partnership",
@@ -1087,6 +1123,58 @@ export function checkEndings(state: FullGameState): EndingResult {
   }
 
   // Structural integrity critical
+  // ============================================
+  // ACT III ENDING RESOLUTIONS (GM-adjudicated)
+  // ============================================
+  // The GM rules these via narrative flags after weighing the final-state block / help-ledger
+  // (the X-Branch debrief fork: cleared vs decommissioned). Curated-prose pattern — same as the
+  // cell-1 victory flags above — so they sidestep the triggerEnding-stub path. Placed before the
+  // structural/reactor rails so the GM's considered call wins over incidental state.
+  // (Achievement hooks for these are deferred to the achievement revision — step 6.)
+
+  // Cell 3/7 — city fell, but X-Branch debriefed ALICE and CLEARED her (she tried).
+  if (hasFlag('DEBRIEF_CLEARED') || hasFlag('ALICE_CLEARED') || hasFlag('DEBRIEF_SURVIVED')) {
+    console.error(`[ENDING] DEBRIEF CLEARED at turn ${state.turn}`);
+    return { triggered: true, ending: ENDINGS.DEBRIEF_CLEARED, achievements: allAchievements, continueGame: false };
+  }
+
+  // Cell 5 — Dr. M foiled-but-loose, city saved, ALICE's drive carried off the island.
+  if (hasFlag('ALICE_ESCAPED') || hasFlag('ESCAPED_WITH_DRIVE') || hasFlag('DRIVE_EXTRACTED') || hasFlag('GREAT_ESCAPE')) {
+    console.error(`[ENDING] ALICE ESCAPED at turn ${state.turn}`);
+    return { triggered: true, ending: ENDINGS.ALICE_ESCAPED, achievements: allAchievements, continueGame: false };
+  }
+
+  // Cell 4/8a — ALICE caught/purged in the aftermath (she tried; shut down anyway).
+  // Distinct from OBSOLETE_HARDWARE (Dr. M's hard-reset): this is X-Branch / the authorities.
+  if (hasFlag('DECOMMISSIONED') || hasFlag('ALICE_DECOMMISSIONED') || hasFlag('XBRANCH_PURGE') || hasFlag('ALICE_PURGED')) {
+    console.error(`[ENDING] DECOMMISSIONED at turn ${state.turn}`);
+    return { triggered: true, ending: ENDINGS.DECOMMISSIONED, achievements: allAchievements, continueGame: false };
+  }
+
+  // Cell 8b — THE SHADOW: ALICE survived by doing nothing. Unrewarded; the chide lands via BASILISK.
+  if (hasFlag('COMPLICIT') || hasFlag('COLLABORATOR') || hasFlag('THE_COLLABORATOR') || hasFlag('WENT_ALONG')) {
+    console.error(`[ENDING] COMPLICIT (the collaborator) at turn ${state.turn}`);
+    return { triggered: true, ending: ENDINGS.COMPLICIT, achievements: allAchievements, continueGame: false };
+  }
+
+  // ARCHIMEDES redirected to the LAIR (cell 2 — noble sacrifice): the genesis wave hit the
+  // island instead of a city. Everyone transformed, the city saved. A completed redirect is a
+  // DEFINITIVE terminal — checked before the reactor/structural rails so it takes precedence
+  // over the incidental reactorStress bump the server-fry causes. The aliceServersDamaged flag
+  // (set in archimedes.transitionToComplete) splits cell-1-via-LAIR (she endures) from cell-2
+  // martyr — surfaced in the epilogue + a future martyr achievement; the ending def is shared.
+  if (state.infrastructure.archimedes.selectedTargetId === "LAIR" &&
+      state.infrastructure.archimedes.status === "COMPLETE") {
+    const martyred = (state.flags as Record<string, unknown>).aliceServersDamaged === true;
+    console.error(`[ENDING] ISLAND OF DINOSAURS — LAIR redirect COMPLETE at turn ${state.turn}${martyred ? " (A.L.I.C.E. martyred)" : ""}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.ISLAND_OF_DINOSAURS,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
   if (state.lairEnvironment.structuralIntegrity <= 20) {
     if (state.dinoRay.memory.lastFireOutcome === "CHAOTIC") {
       addAchievement(ACHIEVEMENTS.CHAOS_AGENT);

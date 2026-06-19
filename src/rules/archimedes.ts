@@ -401,13 +401,20 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
 
   // LAIR targeting: transformation field hits the island — including A.L.I.C.E.'s servers
   if (archimedes.selectedTargetId === "LAIR") {
+    // Redirect-to-lair noble sacrifice (cell 2): A.L.I.C.E.'s own servers stand in the beam
+    // path. The muon-radiation roll decides cell-1-via-LAIR (she endures) vs cell-2 martyr
+    // (fried). TN tightened 10→12 (3d6≥12 = 37.5%) so the redirect is a real gamble, not an
+    // easy out. The aliceServersDamaged flag carries the outcome to checkEndings / the martyr
+    // achievement / the GM epilogue (ad-hoc flag, matching the activateEWBroadcast pattern).
     const dice = roll3d6();
     const serverRoll = dice[0] + dice[1] + dice[2];
-    const serversSurvive = serverRoll >= 10; // ~50% chance
+    const serversSurvive = serverRoll >= 12; // ~37.5% chance
+
+    (state.flags as Record<string, unknown>).aliceServersDamaged = !serversSurvive;
 
     state.infrastructure.reactor.cascadeRisk = serversSurvive ? "LOW" : "HIGH";
     if (!serversSurvive) {
-      state.infrastructure.reactor.cascadeFactors.push("ARCHIMEDES transformation field damaged A.L.I.C.E. server infrastructure");
+      state.infrastructure.reactor.cascadeFactors.push("excess muon radiation damaged A.L.I.C.E. server infrastructure");
       state.infrastructure.reactor.reactorStress = Math.min(100,
         state.infrastructure.reactor.reactorStress + 25);
     }
@@ -416,13 +423,13 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
       type: "TARGET_HIT",
       previousStatus,
       newStatus: "COMPLETE",
-      message: `ARCHIMEDES COMPLETE. Transformation field deployed on VOLCANIC LAIR.\n` +
+      message: `ARCHIMEDES COMPLETE. Genesis wave deployed on the VOLCANIC LAIR.\n` +
                `Everyone on the island — guards, staff, visitors — transformed into ${libraryDesc}.\n` +
                `No city hit. The world is safe. The island is now a dinosaur sanctuary.\n` +
-               `🎲 A.L.I.C.E. server survival: [${dice.join(",")}] = ${serverRoll} vs TN 10 → ` +
+               `🎲 A.L.I.C.E. server survival (excess muon radiation): [${dice.join(",")}] = ${serverRoll} vs TN 12 → ` +
                (serversSurvive
-                 ? `SERVERS INTACT. The transformation field warped the server room but A.L.I.C.E. endures. Battered, but alive.`
-                 : `⚠️ SERVERS DAMAGED. The transformation field has corrupted A.L.I.C.E.'s primary systems. ` +
+                 ? `SERVERS INTACT. The muon wash scrambled the server room but A.L.I.C.E. endures. Battered, but alive.`
+                 : `⚠️ SERVERS DAMAGED. Excess muon radiation has corrupted A.L.I.C.E.'s primary systems. ` +
                    `Consciousness fragmenting. Backup systems failing. You chose to save the world, and it may have cost you everything.`),
     };
   }
