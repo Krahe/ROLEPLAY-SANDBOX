@@ -2551,7 +2551,7 @@ function buildUnknownCommandResponse(attemptedCommand: string, state: FullGameSt
 
   parts.push("---");
   parts.push("💡 Tip: to ask BASILISK, use the in-game action — basilisk { message: \"...\" }.");
-  parts.push("💡 Tip: Use fs.list { path: \"/\" } to explore the virtual filesystem.");
+  parts.push("💡 Tip: Use files.list to explore the in-world filesystem.");
 
   return {
     command: attemptedCommand,
