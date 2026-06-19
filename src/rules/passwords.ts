@@ -402,17 +402,13 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
       "Full lab control (lighting, doors, fire suppression, containment)",
       "Genome library access",
       "Reactor telemetry (read-only via basilisk)",
-      "4 actions per turn (was 3)",
     ],
   },
   3: {
     level: 3,
     title: "Privileged Access",
     commands: [
-      "ray.diagnostic - Full-system stress test of exotic-field amplifier (2-turn lock, ~36% capacitor over run)",
-      "ray.calibrate_amplifier { duration?: 1|2 } - Tune amplifier harmonic signature (locks ray; +0.10 or +0.18 alignment payoff)",
-      "ray.profile_certification { profile? } - Library B safety verification (single turn, ~20% drain, pass/fail)",
-      "ray.muon { type, targets, amplified: true } - AMPLIFIED muon-class beam (capacitor 0.20-0.50, area effect, exotic risk)",
+      "ray.fire — Library B genome profiles now selectable (INDORAPTOR + Dr. M's 'corrected' Hollywood templates; same verb, new profiles)",
     ],
     files: [
       "GENOME_LIBRARY_B - 'Corrected' Hollywood templates",
@@ -423,18 +419,13 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
     ],
     capabilities: [
       "Genome Library B profile access (INDORAPTOR + special profiles)",
-      "5 actions per turn (was 4)",
-      "Diagnostic-class ray operations (Act 3 stall toolkit — drain capacitor with technical-operator cover stories)",
-      "Amplified muon-class beam (area effects with exotic field risk)",
       "Note: reactor and infra remain BASILISK's domain — work with him.",
-      "Note: REVERSAL authorization sits at L4 — Dr. M does not grant in normal flow.",
     ],
   },
   4: {
     level: 4,
     title: "Infrastructure / BASILISK Domain",
     commands: [
-      "ray.fire { mode: 'REVERSAL' } - Restore transformed subjects to baseline (§11 reversal math: library_match × profile_match × power_match × alignment_match × time_factor)",
       "basilisk.broadcast - Radio channels (X-Branch, investor line, etc.) — BASILISK-mediated",
       "basilisk.pa - Lair-wide PA / intercom — BASILISK-mediated",
       "basilisk.radar - S-300 radar feed (read)",
@@ -451,12 +442,10 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
       "/DR_M_PRIVATE/CLASSIFIED/ - Classified research",
     ],
     capabilities: [
-      "REVERSAL authorization (ray.fire { mode: 'REVERSAL' })",
       "Direct access to infrastructure outside the lab (BASILISK's normal domain)",
       "Saboteur tools against ARCHIMEDES (target / library / anti-sat signal)",
       "Radar + comms visibility",
       "Dr. M's classified research access",
-      "6 actions per turn (was 5)",
       "Note: S-300 *firing* and ARCHIMEDES *mode control* remain L5.",
     ],
   },
@@ -479,7 +468,6 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
       "ARCHIMEDES direct command",
       "Deadman switch abort (with codes)",
       "A.L.I.C.E. backup management",
-      "7 actions per turn (was 6)",
       "\"You ARE the lair now\"",
     ],
   },
