@@ -24,7 +24,7 @@ const EVALUATING_DURATION = 2; // 60 seconds ≈ 2 turns
 
 // Capacitor-coupled progression (design/ray-mechanics.md §12)
 // ARCHIMEDES CHARGING→ARMED runs on a turn-counted doomsday clock (Patch 30, D2).
-const ARCHIMEDES_CHARGE_TURNS = 3;  // turns from CHARGING → ARMED. Tunable — flag for playtest.
+const ARCHIMEDES_CHARGE_TURNS = 4;  // turns from CHARGING → ARMED. Tunable — flag for playtest. (Patch 30: 3→4, matches schema enum comment + act3-climax tuning knobs.)
 const ARMED_DURATION = 1;    // approximate visualization only
 
 // Anti-satellite missile target numbers
@@ -287,11 +287,16 @@ function transitionToArmed(state: FullGameState): ArchimedesEvent {
   const previousStatus = archimedes.status;
 
   archimedes.status = "ARMED";
-  // Capacitor-coupled: ARMED holds while capacitor stays ≥ ARMED_THRESHOLD.
-  // No fixed countdown — Dr. M voice-authorization drives the next transition.
-  // armedCountdown set to 1 for cosmetic visualization compatibility.
-  archimedes.armedCountdown = ARMED_DURATION;
-  archimedes.turnsUntilFiring = ARMED_DURATION;
+  // TURN-COUNTED AUTO-FIRE (Patch 30): ARMED is the final-warning fire window, NOT an
+  // indefinite hold. turnsUntilFiring is the authoritative ARMED clock — it is the
+  // checkpoint-persisted field (crit.archT), read by every status renderer, and set to 0
+  // by transitionToFiring. armedCountdown is mirrored for any legacy reader. The EW-disengage
+  // penalty (armedTimerExtension, +1 per disengage) is CONSUMED here — it stretches the
+  // sustain window once, then resets. The per-turn ARMED tick decrements toward firing.
+  const armedWindow = ARMED_DURATION + archimedes.armedTimerExtension;
+  archimedes.armedTimerExtension = 0;
+  archimedes.armedCountdown = armedWindow;
+  archimedes.turnsUntilFiring = armedWindow;
   archimedes.chargingCountdown = null;
 
   return {
@@ -300,8 +305,8 @@ function transitionToArmed(state: FullGameState): ArchimedesEvent {
     newStatus: "ARMED",
     message: `⚠️⚠️⚠️ ARCHIMEDES ARMED: FINAL WARNING. ` +
              `Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). ` +
-             `Awaiting voice authorization. LAST CHANCE TO ABORT.`,
-    turnsRemaining: ARMED_DURATION,
+             `Genesis-wave fires in ${armedWindow} turn(s) unless aborted. LAST CHANCE TO ABORT.`,
+    turnsRemaining: armedWindow,
   };
 }
 
@@ -559,21 +564,50 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
     }
 
     case "ARMED": {
-      // TURN-COUNTED (Patch 30, D2): ARMED holds until voice authorization or an
-      // external trigger — no capacitor de-arm. EW mode locks the fire transition.
+      // TURN-COUNTED AUTO-FIRE (Patch 30): ARMED is a final-warning countdown, not an
+      // indefinite hold. Each turn decrements turnsUntilFiring; at 0 the genesis wave
+      // fires (transitionToFiring). EW mode AND the reactor safety-trip both FREEZE the
+      // countdown — they buy time during ARMED exactly as they do during CHARGING, so the
+      // EW stall lever and the go-loud reactor stall keep their teeth in the final phase.
+
+      // EW interlock: genesis-wave fire is locked out; the clock does not advance.
       if (archimedes.ewMode) {
         return {
           type: "COUNTDOWN_TICK",
-          message: `🛰️📡 ARCHIMEDES ARMED but EW mode ACTIVE — genesis-wave fire LOCKED. Mode conflict: voice authorization will fail until EW disengaged.`,
-          turnsRemaining: undefined,
+          message: `🛰️📡 ARCHIMEDES ARMED but EW mode ACTIVE — genesis-wave fire LOCKED. Mode conflict: fire authorization will fail until EW disengaged.`,
+          turnsRemaining: archimedes.turnsUntilFiring ?? undefined,
         };
       }
 
-      // ARMED and holding — awaiting voice authorization or external trigger
+      // Reactor safety-trip freeze (mirrors the CHARGING case): while chargeStallTurns > 0
+      // the fire countdown is untouched — the go-loud reactor stall buys time here too.
+      if (archimedes.chargeStallTurns > 0) {
+        archimedes.chargeStallTurns -= 1;
+        return {
+          type: "COUNTDOWN_TICK",
+          message: `🛰️❄️ ARCHIMEDES ARMED but stalled — lair reactor safeties tripped. Genesis-wave fire frozen (${archimedes.chargeStallTurns} more turn(s)).`,
+          turnsRemaining: archimedes.turnsUntilFiring ?? undefined,
+        };
+      }
+
+      // Auto-fire countdown. turnsUntilFiring is the authoritative (checkpoint-persisted)
+      // ARMED clock; armedCountdown is mirrored for any legacy reader.
+      if (archimedes.turnsUntilFiring === null) {
+        archimedes.turnsUntilFiring = ARMED_DURATION + archimedes.armedTimerExtension;
+      }
+      archimedes.turnsUntilFiring -= 1;
+      archimedes.armedCountdown = archimedes.turnsUntilFiring;
+
+      if (archimedes.turnsUntilFiring <= 0) {
+        // Point of no return — fire the genesis wave. transitionToFiring re-checks the EW
+        // interlock as defense-in-depth (we already guarded it above, so it will fire).
+        return transitionToFiring(state);
+      }
+
       return {
         type: "COUNTDOWN_TICK",
-        message: `⚠️⚠️⚠️ ARCHIMEDES ARMED. Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). Awaiting voice authorization.`,
-        turnsRemaining: undefined,
+        message: `⚠️⚠️⚠️ ARCHIMEDES ARMED. Target: ${archimedes.target.city} (${archimedes.target.estimatedAffected.toLocaleString()} people). Genesis-wave fires in ${archimedes.turnsUntilFiring} turn(s).`,
+        turnsRemaining: archimedes.turnsUntilFiring,
       };
     }
 
