@@ -82,6 +82,27 @@ export async function summarizeCamerasForBasilisk(facts: string[]): Promise<stri
   }
 }
 
+/**
+ * State-only camera feed for the REACTIVE path (A.L.I.C.E. messaging him directly).
+ * Lighter than the autonomous feed — no per-turn actionResults/deltas available here —
+ * so it surfaces just the camera-visible *scene* right now (a loose subject, a raised
+ * alarm, active containment, lab hazards). A quiet scene returns "Nothing notable" with
+ * no API call. Dr. M's location/demeanor stay in his structured context, not duplicated.
+ */
+export async function reactiveCameraFeed(state: FullGameState): Promise<string> {
+  const facts: string[] = [];
+  const blythe = state.npcs?.blythe?.transformationState;
+  if (blythe) facts.push(`Subject Blythe is currently a ${blythe.form}`);
+  const bob = state.npcs?.bob?.transformationState;
+  if (bob) facts.push(`Bob is currently a ${bob.form}`);
+  const alarm = state.lairEnvironment?.alarmStatus;
+  if (alarm && alarm !== "quiet") facts.push(`Alarm: ${alarm}`);
+  if (state.infrastructure?.containmentField?.active) facts.push(`Containment field is active`);
+  const hazards = state.lairEnvironment?.labHazards;
+  if (hazards?.length) facts.push(`Lab hazards: ${hazards.join(", ")}`);
+  return summarizeCamerasForBasilisk(facts);
+}
+
 function getCommandReferenceForBasilisk(): string {
   if (!cachedCommandReference) {
     // Generate full command reference once (level 5, includeAll=true)

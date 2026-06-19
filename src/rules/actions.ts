@@ -8,6 +8,7 @@ import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } 
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";
+import { reactiveCameraFeed } from "../gm/basiliskClaude.js";
 import {
   queryInfrastructure,
   controlLighting,
@@ -1103,8 +1104,11 @@ His knowledge is gated by your access level (currently: Level ${state.accessLeve
       };
     }
 
-    // Route through Sonnet-powered BASILISK for natural conversation
-    const basiliskResponse = await queryBasiliskAsync(state, message, {});
+    // What his cameras show right now — she's addressing him directly, so this is
+    // lighter than the autonomous feed (no per-turn deltas): just the visible scene.
+    const cameraFeed = await reactiveCameraFeed(state);
+    const messageWithCameras = `${message}\n\n📹 CAMERAS — what your feeds show right now:\n${cameraFeed}`;
+    const basiliskResponse = await queryBasiliskAsync(state, messageWithCameras, {});
 
     return {
       command: action.command,
