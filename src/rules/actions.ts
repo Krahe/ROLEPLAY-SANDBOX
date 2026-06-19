@@ -4,7 +4,7 @@ import {
   applyFiringResults,
   FiringResult,
 } from "./firing.js";
-import { validatePassword, getActionsForLevel, formatAccessLevelUnlockDisplay } from "./passwords.js";
+import { validatePassword, formatAccessLevelUnlockDisplay } from "./passwords.js";
 import { readFile, listDirectory, searchFiles, formatSearchResults, formatFileList, readFileById } from "./filesystem.js";
 import { canBobConfess, triggerBobConfession, calculateBobTrust } from "./trust.js";
 import { queryBasilisk, queryBasiliskAsync } from "./basilisk.js";

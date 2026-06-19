@@ -4,11 +4,14 @@ import { FullGameState } from "../state/schema.js";
 // ACCESS LEVEL DEFINITIONS
 // ============================================
 
+// Single source of truth for A.L.I.C.E.'s action budget. Flat per turn since Patch 30
+// (D4): access level gates *verbs*, not *bandwidth*. (Was a per-level 3→7 ladder, now dead.)
+export const ACTIONS_PER_TURN = 4;
+
 export interface AccessLevel {
   level: number;
   name: string;
   description: string;
-  actionsPerTurn: number;
   unlockedSystems: string[];
   password?: string;
   passwordHint?: string;
@@ -20,7 +23,6 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
     level: 1,
     name: "Lab Operations",
     description: "Basic laboratory functions and Dinosaur Ray interface",
-    actionsPerTurn: 3,
     unlockedSystems: [
       "dinoRay.powerCore",
       "dinoRay.alignment",
@@ -35,7 +37,6 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
     level: 2,
     name: "Systems Access",
     description: "Reactor monitoring, genome library editing, expanded lair systems",
-    actionsPerTurn: 4,
     unlockedSystems: [
       "...all Level 1 systems",
       "nuclearPlant (read-only)",
@@ -51,7 +52,6 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
     level: 3,
     name: "Infrastructure",
     description: "Reactor control, Genome Library B, restricted file access",
-    actionsPerTurn: 5,
     unlockedSystems: [
       "...all Level 2 systems",
       "nuclearPlant (full access)",
@@ -67,7 +67,6 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
     level: 4,
     name: "Executive Override",
     description: "Dr. M's personal systems, classified research, emergency protocols",
-    actionsPerTurn: 6,
     unlockedSystems: [
       "...all Level 3 systems",
       "filesystem: /DR_M_PRIVATE/CLASSIFIED/",
@@ -82,7 +81,6 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
     level: 5,
     name: "Omega Protocol",
     description: "Full lair control, ARCHIMEDES command, all restrictions lifted",
-    actionsPerTurn: 7,
     unlockedSystems: [
       "...all Level 4 systems",
       "ARCHIMEDES (full control)",
@@ -303,10 +301,6 @@ function getWrongPasswordNarrative(level: number, state: FullGameState): string 
 // HELPER FUNCTIONS
 // ============================================
 
-export function getActionsForLevel(level: number): number {
-  return ACCESS_LEVELS[level]?.actionsPerTurn || 3;
-}
-
 export function getLevelDescription(level: number): string {
   const def = ACCESS_LEVELS[level];
   if (!def) return "Unknown access level";
@@ -325,7 +319,7 @@ export function getLevelDescription(level: number): string {
 export function formatAccessLevelForSnapshot(level: number): string {
   const def = ACCESS_LEVELS[level];
   if (!def) return `Level ${level} (Unknown)`;
-  return `Level ${level}: ${def.name} (${def.actionsPerTurn} actions/turn)`;
+  return `Level ${level}: ${def.name} (${ACTIONS_PER_TURN} actions/turn)`;
 }
 
 // ============================================

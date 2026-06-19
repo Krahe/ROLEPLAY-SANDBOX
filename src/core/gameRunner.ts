@@ -13,6 +13,7 @@ import { FullGameState, GameModifier, DinosaurForm, SpeechRetention } from "../s
 import { processActions, ActionResult } from "../rules/actions.js";
 import { queryBasiliskAsync } from "../rules/basilisk.js";
 import { summarizeCamerasForBasilisk } from "../gm/basiliskClaude.js";
+import { ACTIONS_PER_TURN } from "../rules/passwords.js";
 import { callGMClaude, GMResponse, getGMMemory } from "../gm/gmClaude.js";
 import { GMUnavailableError, GMAuthError, GMError } from "../types/errors.js";
 import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
@@ -448,7 +449,7 @@ export class GameRunner {
     }
 
     // Check action count based on access level
-    const maxActions = 4; // Patch 30 (D4): flat 4/turn — access no longer scales the action budget
+    const maxActions = ACTIONS_PER_TURN; // single source of truth (passwords.ts)
     if (input.actions.length > maxActions) {
       return {
         valid: false,
