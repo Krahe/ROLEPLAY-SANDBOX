@@ -19,12 +19,12 @@ export interface GMValidationResult {
 }
 
 /**
- * Known filler patterns that indicate fallback content.
- * These are phrases from generateStubResponse() that should never
- * appear in real GM output.
+ * Known filler patterns that indicate fallback / low-effort content.
+ * (Originally the canned phrases from the old generateStubResponse stub, removed
+ * Patch 18.5+ — the GM now throws rather than returning filler. Kept as generic
+ * filler guards.)
  */
 const FILLER_PATTERNS: RegExp[] = [
-  // From generateStubResponse in gmClaude.ts
   /The lab hums with activity as A\.L\.I\.C\.E\.'s commands take effect/i,
   /Status lights pulse in sequence/i,
   /The demonstration continues/i,

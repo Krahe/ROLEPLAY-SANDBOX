@@ -9,7 +9,7 @@
  * This module is the single source of truth for "what happens when a player takes a turn."
  */
 
-import { FullGameState, GameModifier, DinosaurForm, SpeechRetention } from "../state/schema.js";
+import { FullGameState, DinosaurForm, SpeechRetention } from "../state/schema.js";
 import { processActions, ActionResult } from "../rules/actions.js";
 import { queryBasiliskAsync } from "../rules/basilisk.js";
 import { summarizeCamerasForBasilisk } from "../gm/basiliskClaude.js";

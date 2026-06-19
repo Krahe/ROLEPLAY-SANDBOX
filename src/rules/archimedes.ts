@@ -23,17 +23,8 @@ const ALERT_DURATION = 1; // 30 seconds ≈ 1 turn
 const EVALUATING_DURATION = 2; // 60 seconds ≈ 2 turns
 
 // Capacitor-coupled progression (design/ray-mechanics.md §12)
-// ARCHIMEDES no longer has its own private timer for CHARGING/ARMED — both
-// phases are driven by the shared exotic-field-amplifier capacitor state
-// (state.dinoRay.powerCore.capacitorCharge). This makes ALICE's stall toolkit
-// mechanically real: every drop below 1.0 pauses the satellite's progression.
-const ARCHIMEDES_CHARGING_THRESHOLD = 1.0; // capacitor must reach this to enter CHARGING progress
-const ARCHIMEDES_ARMED_THRESHOLD = 1.3;    // capacitor must reach this to begin ARMED sustained-counter
-const ARCHIMEDES_ARMED_SUSTAIN_TURNS = 2;  // (legacy capacitor model — unused post-Patch-30)
-const ARCHIMEDES_CHARGE_TURNS = 3;  // Patch 30 (D2): turns from CHARGING → ARMED on the turn-counted doomsday clock. Tunable — flag for playtest.
-
-// Legacy constants kept for cosmetic visualization (no longer gate transitions).
-const CHARGING_DURATION = 4; // approximate visualization only
+// ARCHIMEDES CHARGING→ARMED runs on a turn-counted doomsday clock (Patch 30, D2).
+const ARCHIMEDES_CHARGE_TURNS = 3;  // turns from CHARGING → ARMED. Tunable — flag for playtest.
 const ARMED_DURATION = 1;    // approximate visualization only
 
 // Anti-satellite missile target numbers

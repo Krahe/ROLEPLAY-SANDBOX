@@ -1179,26 +1179,3 @@ export function applyBasiliskStateChanges(
   }
 }
 
-// ============================================
-// INTEGRATION HELPER
-// ============================================
-
-export async function queryBasiliskSonnet(
-  state: FullGameState,
-  message: string
-): Promise<{
-  response: BasiliskSonnetResponse;
-  stateChangesApplied: boolean;
-}> {
-  const response = await callBasilisk(state, message);
-
-  // Apply any state changes BASILISK executed
-  if (response.actionsExecuted.length > 0) {
-    applyBasiliskStateChanges(state, response.actionsExecuted);
-  }
-
-  return {
-    response,
-    stateChangesApplied: response.actionsExecuted.length > 0,
-  };
-}
