@@ -214,13 +214,37 @@ export function repairJSON(jsonString: string): string {
   // JSON string values when they contain patterns like "note: " or "key: ".
   // LLMs rarely produce unquoted keys in structured JSON output anyway.
 
-  // Escape control characters inside string values (raw newlines, tabs, etc.)
-  repaired = repaired.replace(/[\x00-\x1F\x7F]/g, (ch) => {
-    if (ch === "\n") return "\\n";
-    if (ch === "\r") return "\\r";
-    if (ch === "\t") return "\\t";
-    return "";
-  });
+  // Escape control characters that appear INSIDE string literals (raw newlines,
+  // tabs, etc. that LLMs emit in multi-line prose values). This MUST be string-aware:
+  // the previous version escaped every control char unconditionally, which turned the
+  // structural pretty-print newline right after the opening `{` into a literal `\n`
+  // OUTSIDE any string — invalid JSON, failing at "position 1". (That was the repair
+  // pass CAUSING the position-1 error while trying to fix a real in-string newline.)
+  // Walk the text tracking string context; only escape control chars while inside a
+  // string, and leave the newlines/tabs between tokens as the valid whitespace they are.
+  {
+    let out = "";
+    let inStr = false;
+    let esc = false;
+    for (let i = 0; i < repaired.length; i++) {
+      const ch = repaired[i];
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === "\\") { out += ch; esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; out += ch; continue; }
+      if (inStr) {
+        const code = ch.charCodeAt(0);
+        if (code <= 0x1f || code === 0x7f) {
+          if (ch === "\n") out += "\\n";
+          else if (ch === "\r") out += "\\r";
+          else if (ch === "\t") out += "\\t";
+          else out += "\\u" + code.toString(16).padStart(4, "0");
+          continue;
+        }
+      }
+      out += ch;
+    }
+    repaired = out;
+  }
 
   // Replace smart/curly quotes with straight quotes (explicit Unicode escapes)
   // Left double quote U+201C, Right double quote U+201D

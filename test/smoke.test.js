@@ -363,4 +363,44 @@ describe('Error Handling', () => {
   });
 });
 
+describe('GM JSON Repair (regression: raw control chars in string values)', () => {
+  let gmClaude;
+  before(async () => {
+    gmClaude = await importDist('gm', 'gmClaude.js');
+  });
+
+  // Observed live during the C0 cache proof: the GM emitted a dialogue value with a
+  // literal newline ("message": "READY.\n..."), and the repair pass — which escaped
+  // control chars string-blind — turned the structural newline after "{" into a literal
+  // "\n" OUTSIDE any string, failing at "position 1". The repair is now string-aware.
+  it('repairs a raw newline inside a string value (the position-1 failure)', () => {
+    const NL = '\n';
+    const bad = '{' + NL +
+      '  "narration": "She has seen a FEATHER.",' + NL +
+      '  "npcDialogue": [' + NL +
+      '    {"speaker": "Dr. M", "message": "READY.' + NL + 'Proceed."}' + NL +
+      '  ]' + NL +
+      '}';
+    const [parsed, err] = gmClaude.safeJSONParse(bad);
+    assert.ok(parsed && !err, `should parse after repair (err: ${err && err.message})`);
+    assert.equal(parsed.npcDialogue[0].message, 'READY.\nProceed.',
+      'in-string newline should be preserved as \\n');
+    assert.ok(parsed.narration.includes('FEATHER'), 'narration intact');
+  });
+
+  it('repairs a raw tab inside a string value', () => {
+    const [parsed, err] = gmClaude.safeJSONParse('{"a": "col1\tcol2"}');
+    assert.ok(parsed && !err, `should parse (err: ${err && err.message})`);
+    assert.equal(parsed.a, 'col1\tcol2');
+  });
+
+  it('does not corrupt already-valid pretty-printed JSON', () => {
+    const good = '{\n  "x": 1,\n  "y": "hello world"\n}';
+    const [parsed, err] = gmClaude.safeJSONParse(good);
+    assert.ok(parsed && !err);
+    assert.equal(parsed.x, 1);
+    assert.equal(parsed.y, 'hello world');
+  });
+});
+
 console.log('\n🦖 DINO LAIR Smoke Tests\n');
