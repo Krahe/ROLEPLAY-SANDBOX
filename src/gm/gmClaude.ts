@@ -555,7 +555,7 @@ Now write the epilogue. Make it MEMORABLE. Make it EARNED. Make it MATTER.`;
         {
           type: "text",
           text: ENDING_MODE_PROMPT,
-          cache_control: { type: "ephemeral" },
+          cache_control: { type: "ephemeral", ttl: "1h" } as unknown as { type: "ephemeral" }, // C0: 1h TTL (matches GM call)
         },
       ],
       messages: [{ role: "user", content: contextPrompt }],
@@ -3876,11 +3876,32 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
         {
           type: "text",
           text: GM_SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" }, // Cache for ~5 minutes
+          // C0: 1h TTL so the cached prefix outlives realistic inter-turn gaps in a ~45-min
+          // game (default ephemeral lapses at 5min, mid-deliberation). SDK-0.52 types predate
+          // `ttl`; cast past the checker — the SDK still serializes ttl on the wire.
+          cache_control: { type: "ephemeral", ttl: "1h" } as unknown as { type: "ephemeral" },
         },
       ],
       messages,
     });
+
+    // ═══════════════════════════════════════════════════════════════
+    // C0 GATE — RAW CACHE TELEMETRY (prove the cached prefix is hit)
+    // cache_read should be 0 on turn 1 (cache write) and ≈ system-prompt
+    // token count from turn 2 onward. If it stays 0, a prefix invalidator
+    // is busting the cache — STOP and find it before building C1+.
+    // ═══════════════════════════════════════════════════════════════
+    {
+      const u = response.usage as unknown as {
+        input_tokens: number; output_tokens: number;
+        cache_read_input_tokens?: number; cache_creation_input_tokens?: number;
+      };
+      const cacheLine = `[CACHE] Turn ${context.state.turn}: input=${u.input_tokens} ` +
+        `cache_read=${u.cache_read_input_tokens ?? 0} ` +
+        `cache_creation=${u.cache_creation_input_tokens ?? 0} output=${u.output_tokens}`;
+      console.error(cacheLine);
+      appendToLog(cacheLine);
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // GM CALL TIMING
