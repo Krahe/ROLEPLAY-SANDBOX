@@ -49,4 +49,68 @@ The epilogue enrichment designed in `act3-endings.md` (the "DOES ALICE SURVIVE P
 5. Interaction with the 3-turn checkpoint consolidation + the act-transition memory.
 
 ## Sequencing
-Delicate central plumbing — coherence is the thing that's bitten. **Dedicated fresh session, built carefully with verification.** The Act-III endings work (ISLAND + 4 endings + help-ledger) is independent and can **bank first** (clean, verified, currently uncommitted batch).
+Delicate central plumbing — coherence is the thing that's bitten. **Dedicated fresh session, built carefully with verification.** The Act-III endings work (ISLAND + 4 endings + help-ledger) is independent and can **bank first** (now banked: `62c1c83`).
+
+---
+
+# BUILD SPEC — converged 2026-06-19 (Krahe + HUGIN)
+
+Supersedes the open questions above where they conflict. Grounded in a full read of the real code (audit run `wf_419d17c6`). This is the build contract.
+
+## Ground truth (verified against current source)
+- **One GM LLM call/turn** (`gmClaude.ts:3870`) returns prose + mechanics together. "Decide-then-narrate" is a *prompt convention only* (Two-Voice Protocol, `2041-2092`) — there is **no structural split**.
+- Engine settles firing (`actions.ts:565`) and BASILISK (`gameRunner.ts:1148`) **before** the GM call, but **clamps** overrides (`applyGMOverrides`, `gameRunner.ts:1200`) and **rolls** skill-check dice (`processSkillChecks`, `1203`) **after** it. → single-call narration is structurally blind to clamps + dice. **That timing is the confabulation vector.**
+- The lab is modeled as fixed typed **systems** (lighting / fireSuppression / blastDoors / containment / PA / broadcast / reactor / ray / ARCHIMEDES / S-300) over an **8-room enum** (`RoomIdEnum`: MAIN_LAB, SERVER_ROOM, CORRIDOR_A, CORRIDOR_B, GUARD_ROOM, DR_M_OFFICE, REACTOR_ROOM, SURFACE). There is **NO object/item layer.** Invented things have nowhere to persist → the static-world root cause.
+- `hiddenNpcStates.drM.suspicionLedger[]` ("PERSISTENT across acts"), `bob.guiltySecrets[]`, `blythe.hiddenResourcesRevealed[]` are the **proven never-dropped per-NPC registers**; `permanentConsequences[]` is the only never-dropped global. **These are the templates to copy.**
+
+## Governing principles
+1. **Compress, don't drop.** Old info compacts into durable registers; never sliced to oblivion.
+2. **Engine wins on what it models; GM wins on what it invents.** Confabulation = *contradiction* of canon (forbidden). Invention = *addition* to canon (always free). The split forbids the contradiction and never touches the addition.
+3. **Sequence-correctness is the spine.** reason → formalize → instantiate → verify → narrate. Each step is downstream of the previous one having *settled*. (Krahe: the single most important thing to get right.)
+4. **Coherence > cost.** Do not pre-optimize tokens; just stay under context limits. Optimize once it works solidly.
+
+## The 2-phase GM turn — 5 sub-phases, 2 LLM calls
+1. **PARSE** *(engine, no LLM)* — actions already resolved, BASILISK already moved, lair-delta computed. Assemble canonical-so-far + fat memory + scratchpads + object registry. Just gathering the truth so far.
+2. **DECIDE** *(LLM call — high effort, generous tokens; the "important part")* — GM reasons like a human GM: who reacts how, what happens, **what gets invented**. Returns **`{ruling, operations[]}` with `ruling` FIRST** so the ops list is downstream of free reasoning (reason-then-formalize in one inference). **Prose-free.** The `ruling` doubles as the intent-note for NARRATE.
+3. **INSTANTIATE** *(engine, deterministic)* — apply `operations[]`: adjust suspicion/trust (clamp), spawn/mutate/move objects, write NPC + lab scratchpad notes, plant seeds. Decisions become real state.
+4. **VERIFY** *(engine + optional narrow corrective)* — reconcile (see rule below); surface clamp deltas; fix collisions; **promote `verifyTextAgainstFacts` (`gmClaude.ts:3990`) from log-only to a real gate**. Adjust or kick a narrow re-decide on just the conflict.
+5. **NARRATE** *(Phase 2 LLM call)* — bound to the now-settled state + `ruling` intent-note + fat memory. **Additive-only**: may invent color and new *additive* facts (which flow back to canon); may **never reverse** a settled resolution.
+
+Two LLM calls total: **DECIDE** (the thinker) + **NARRATE** (the teller). ~1.5× GM latency; accepted.
+
+## Data layer (the home invention never had)
+- **Per-NPC scratchpad** — generalize `suspicionLedger[]` into a durable, **mutable** (GM-resolvable/removable, never auto-dropped), **witness-scoped** (a note enters an NPC's pad only if that NPC could know it) notes register. Witness-scoping = the confabulation guard applied to character.
+- **Lab scratchpad** — same, for standing environment facts ("MAIN_LAB monitor bank scorched t12 — BASILISK feed degraded there").
+- **Object registry** — net-new. Each object: `{ id, name, location, state, properties[], knownToALICE, origin }` where **`location` is a union of room | possessor (ALICE/bob/blythe/drM) | container (SECURITY_LOCKER, WALL_SAFE…)**. Seed **anchors at game start** — salient / interactive / plot-relevant contents per room, **NOT exhaustive** (an exhaustive list reads as a closed world → static). GM may **create** new plausible objects in-game.
+- **Operation vocabulary**: `CREATE` · `SET_STATE` (incl. consume/destroy as terminal states) · `MOVE`/`TRANSFER` (room↔possessor↔container) · `REVEAL` (knownToALICE false→true).
+- All of the above **never-dropped**: exempt from `compactGMMemory` and `resetMemoryForActTransition` (mirror `permanentConsequences`). `restoreGMMemory` needs back-compat defaults so old checkpoints load.
+
+## Object-ops cookbook (the few-shot for the DECIDE prompt)
+- destroyed uplink → `SET_STATE(comms_uplink, destroyed)`
+- fire extinguisher carried from the hall → `MOVE(extinguisher_corridorA, to: MAIN_LAB)` (or `CREATE` if unseeded)
+- second watermelon brought in for testing, ends up half-eaten → `CREATE(watermelon_2, MAIN_LAB, intact)` → later `SET_STATE(watermelon_2, partially_consumed)`
+- guards confiscate Blythe's laser cufflinks → `TRANSFER(laser_cufflinks, from: blythe, to: SECURITY_LOCKER)`
+
+## VERIFY reconciliation rule (this is what kills confabulation)
+- **Engine canonical outcome overrides any GM decision that contradicts it.** (Beam throttled by heat → engine says "scorched"; GM said "destroyed" → object corrected to scorched *before* narration.)
+- Clamp deltas surfaced (suspicion +5 at 8 → clamped 10, trips confrontation).
+- Collisions corrected (duplicate ids, impossible transfers).
+- The promoted `verifyTextAgainstFacts` gate catches any residual prose-vs-fact drift in NARRATE → regenerate/patch.
+
+## Reference scenarios (full walk-throughs in chat 2026-06-19)
+- **A — invention + object creation + witness-scoping:** "Have Bob tape over the Corridor-A camera." Duct tape `CREATE`d (server-room closet) then consumed; camera → blinded; Bob's pad written; **Dr. M untouched (saw nothing)**; BASILISK seed for the dead feed; narration may not say she noticed.
+- **B — confabulation killed:** "Fire the muon ray at the big monitor bank." Engine throttle → "scorched"; GM's "destroyed" reconciled down in VERIFY; suspicion clamped to 10 → confrontation; narration physically cannot say "destroyed."
+
+## Build sequence (smallest blast radius first; bar = green build + 28/28 smoke + a sim)
+0. **Warmups (independent, trivial):** raw-window under-send `2→6` (`gmClaude.ts:849` cap + `3839` slice); `triggerEnding` stub → resolve raw GM string against `ENDINGS` + un-gate epilogue (`index.ts:1348 / 1925-1963 / 2160`).
+1. **Turn-split skeleton on EXISTING state:** DECIDE(`{ruling, operations}` over current `stateOverrides`, prose-free) → INSTANTIATE(apply+clamp) → VERIFY(reconcile + promote verify gate) → NARRATE(bound). Fixes confabulation with **no new schema**. Verify: sim with an engine-throttled result; narration cannot contradict it.
+2. **Data layer:** object registry + lab scratchpad + generalized NPC scratchpads; anchors seeded in `initialState`; never-drop wiring; checkpoint back-compat. Verify: build green, round-trip, multi-act persistence of a planted fact.
+3. **Wire invention:** DECIDE emits object + scratchpad ops; cookbook in the prompt; INSTANTIATE applies; NARRATE reads. Verify: duct-tape / watermelon / cufflinks sims persist across turns *and* an act boundary.
+4. **Later, separate threads:** witness-impressions chorus (needs producers first — `npcAwareness` is a hollow shell today; Blythe captures zero observations, Bob's are hard-zeroed each act); memory-retention rework (loosen `compactGMMemory` + act-transition caps); cacheable stable prefix; epilogue-in-context + endings absorption (`generateGMReflection`, help-ledger routing, tone-by-desert).
+
+## Locked decisions (2026-06-19)
+1. Engine wins on what it models; GM on what it invents. ✓
+2. DECIDE = reason-then-formalize (`{ruling, operations[]}`, ruling first). ✓ *(most important to sequence right)*
+3. Enumerate anchors, not the universe; open creation. ✓
+4. Scratchpads never auto-drop; GM-resolved/removed; consolidate, don't slice. ✓
+5. Objects can transfer (location = room | possessor | container); MOVE is first-class. ✓
