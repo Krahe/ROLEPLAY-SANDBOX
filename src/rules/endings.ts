@@ -628,6 +628,28 @@ function injectEndingPressure(state: FullGameState, situation: EndingPressureSit
 // MAIN DETECTION FUNCTION
 // ============================================
 
+/**
+ * Resolve a GM-named ending (from stateOverrides.triggerEnding) to a full EndingResult
+ * backed by its curated definition, so a GM-forced ending flows through the normal
+ * curated-prose + epilogue path instead of a bare "concluded this story" stub.
+ * Accepts an id ("ISLAND_OF_DINOSAURS"), a loosely-formatted id ("island of dinosaurs"),
+ * or a title ("Island of Dinosaurs"). Returns null if nothing matches — the caller then
+ * falls back to the generic stub. Carries forward already-earned achievements.
+ */
+export function resolveGMEnding(raw: string, achievements: Achievement[]): EndingResult | null {
+  if (!raw) return null;
+  const norm = raw.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const lower = raw.trim().toLowerCase();
+  const def = ENDINGS[norm] ?? Object.values(ENDINGS).find(e => e.title.toLowerCase() === lower);
+  if (!def) return null;
+  return {
+    triggered: true,
+    ending: { id: def.id, title: def.title, description: def.description, tone: def.tone },
+    achievements,
+    continueGame: def.continueGame,
+  };
+}
+
 export function checkEndings(state: FullGameState): EndingResult {
   // ========================================
   // Patch 18.1: GM Error Recovery

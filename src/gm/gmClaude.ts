@@ -846,7 +846,7 @@ let gmMemory: GMMemory = createFreshMemory();
 export function createFreshMemory(): GMMemory {
   return {
     recentExchanges: [],
-    maxRecentExchanges: 3,
+    maxRecentExchanges: 6,  // raw window the GM sees (was 3; send-slice now tracks this)
     turnSummaries: [],
     juicyMoments: [],
     narrativeMarkers: [],
@@ -3836,7 +3836,7 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     // Add recent exchanges as conversation history (compact format)
-    for (const exchange of gmMemory.recentExchanges.slice(-2)) {
+    for (const exchange of gmMemory.recentExchanges.slice(-gmMemory.maxRecentExchanges)) {
       // Instead of 2000 char prompt, just send action commands
       const actionsStr = exchange.actionCommands.length > 0
         ? `Actions: ${exchange.actionCommands.join(", ")}`

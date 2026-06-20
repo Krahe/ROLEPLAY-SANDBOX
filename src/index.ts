@@ -13,7 +13,7 @@ import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, 
 import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
-import { checkEndings, formatEndingMessage, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
+import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
@@ -1840,7 +1840,25 @@ The consequences of that reckless high-power firing are now manifesting.
     const actTransition = checkActTransition(gameState);
 
     // Check for game over conditions using comprehensive ending detection
-    const endingResult = checkEndings(gameState);
+    let endingResult = checkEndings(gameState);
+
+    // GM-forced ending (stateOverrides.triggerEnding): resolve the raw string against the
+    // curated ENDINGS so it flows through the normal ending path (curated prose + epilogue)
+    // instead of the bare "concluded this story" stub. Unknown strings fall through to the
+    // legacy stub block below. A natural ending from checkEndings takes precedence.
+    {
+      const gmOver = (gameState as Record<string, unknown>).gameOver as
+        { ending: string; triggeredByGM?: boolean } | undefined;
+      if (gmOver?.triggeredByGM && !endingResult.ending) {
+        const resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
+        if (resolved) {
+          endingResult = resolved;
+          // Hand ownership to the normal path; clear the GM marker so the legacy stub
+          // block does not also fire for this same ending.
+          (gameState as Record<string, unknown>).gameOver = undefined;
+        }
+      }
+    }
 
     let gameOver: { ending: string; achievements: string[]; endingMessage?: string; sessionTerminated?: boolean } | undefined;
 
