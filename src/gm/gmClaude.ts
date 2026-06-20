@@ -710,6 +710,16 @@ export interface GMMemory {
   }>;
   maxRecentExchanges: number;
 
+  // C1: APPEND-ONLY VERBATIM TRANSCRIPT — the cached GM thread. One {role:'user'} block
+  // (the player's actions, frozen as the GM saw them) + one {role:'assistant'} block
+  // (parsed.narration, verbatim) per completed turn. NEVER shifted/edited/cleared — the
+  // cache rides on byte-identity of this prefix. Not bounded by maxRecentExchanges.
+  transcript: Array<{ role: "user" | "assistant"; content: string }>;
+  // C1: guards the transcript append so the main path + crash-recovery retry (index.ts
+  // :1137 / :688) can't both append for one turn — only the first accepted GM call per
+  // turn number is recorded.
+  lastTranscriptTurn?: number;
+
   // WARM: Structured turn summaries (auto-generated from turns 4+)
   turnSummaries: TurnSummary[];
 
@@ -871,6 +881,7 @@ export function createFreshMemory(): GMMemory {
   return {
     recentExchanges: [],
     maxRecentExchanges: 6,  // raw window the GM sees (was 3; send-slice now tracks this)
+    transcript: [],  // C1: append-only verbatim cached thread (never shifted/cleared)
     turnSummaries: [],
     juicyMoments: [],
     narrativeMarkers: [],
@@ -1121,6 +1132,10 @@ export function resetMemoryForActTransition(
 
   gmMemory = {
     ...fresh,
+
+    // C1: the append-only transcript IS the cached GM thread — it MUST survive act
+    // transitions verbatim (do NOT reset to fresh's []). C2 retires this whole reset.
+    transcript: gmMemory.transcript,
 
     // Restored gold
     juicyMoments: preservedJuicyMoments,
@@ -3736,6 +3751,22 @@ export async function callGMClaude(
       const elapsed = Date.now() - attemptStart;
       console.error(`[GM] Attempt ${attempt} succeeded in ${elapsed}ms`);
 
+      // ═══════════════════════════════════════════════════════════════
+      // C1: APPEND this turn to the verbatim cached transcript — ONLY here, at the single
+      // ACCEPTANCE point (response passed content validation + filler check; no retry will
+      // fire). This guarantees exactly one user+assistant pair per truly-accepted turn —
+      // rejected attempts (missing narration, filler, parse fails) never reach here, so the
+      // transcript can't be polluted with half-turns. User block = the player's actions as
+      // the GM saw them (byte-stable); assistant block = response.narration verbatim (pure
+      // GM prose; engine appends like ARCHIMEDES are added later in gameRunner and stay out
+      // of the cached thread by design).
+      // ═══════════════════════════════════════════════════════════════
+      if (gmMemory.lastTranscriptTurn !== context.state.turn) {
+        gmMemory.transcript.push({ role: "user", content: renderFrozenPlayerTurn(context) });
+        gmMemory.transcript.push({ role: "assistant", content: response.narration });
+        gmMemory.lastTranscriptTurn = context.state.turn;
+      }
+
       return response;
 
     } catch (error) {
@@ -3856,21 +3887,50 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     //   ? `${memoryContext}\n---\n\n${currentTurnPrompt}`
     //   : currentTurnPrompt;
 
-    // Build messages array with recent exchanges for conversational context
-    const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+    // C1: APPEND-ONLY VERBATIM TRANSCRIPT as the cached GM thread — "cache the story,
+    // read the state." Send the WHOLE transcript byte-identical every turn (NO sliding
+    // window: that shifted the prefix and defeated caching). cache_control must sit on a
+    // content BLOCK, so the LAST already-completed transcript block (turn N-1's narration)
+    // becomes block-array form carrying breakpoint #2 (ttl:'1h'); every other block stays
+    // a plain string. The live current-turn prompt rides AFTER bp2, uncached.
+    type GMMessage = {
+      role: "user" | "assistant";
+      content: string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }>;
+    };
+    const messages: GMMessage[] = [];
+    const tailIdx = gmMemory.transcript.length - 1;
+    gmMemory.transcript.forEach((block, i) => {
+      if (i === tailIdx) {
+        // Breakpoint #2 — on the tail of the most-recently-COMPLETED turn. NEVER on the
+        // live message below (it differs every turn => 2x write / 0 read = TTL inversion).
+        messages.push({
+          role: block.role,
+          content: [{
+            type: "text",
+            text: block.content,
+            cache_control: { type: "ephemeral", ttl: "1h" } as unknown as { type: "ephemeral" },
+          }],
+        });
+      } else {
+        messages.push({ role: block.role, content: block.content });
+      }
+    });
 
-    // Add recent exchanges as conversation history (compact format)
-    for (const exchange of gmMemory.recentExchanges.slice(-gmMemory.maxRecentExchanges)) {
-      // Instead of 2000 char prompt, just send action commands
-      const actionsStr = exchange.actionCommands.length > 0
-        ? `Actions: ${exchange.actionCommands.join(", ")}`
-        : "Actions: (none)";
-      messages.push({ role: "user", content: `[Turn ${exchange.turn}]\n${actionsStr}` });
-      messages.push({ role: "assistant", content: exchange.response });
-    }
-
-    // Add current prompt
+    // Live current-turn prompt — LAST message, UNCACHED (pinned facts + fingerprint +
+    // memoryContext + currentTurnPrompt). Sits after bp2; never carries cache_control.
     messages.push({ role: "user", content: fullPrompt });
+
+    // C1 VERIFY: with DINO_CACHE_DEBUG set, dump the cacheable prefix (everything except
+    // the final live message) so two consecutive turns can be byte-diffed for a surviving
+    // silent invalidator (the design's #1 risk).
+    if (process.env.DINO_CACHE_DEBUG) {
+      try {
+        const dump = JSON.stringify(messages.slice(0, -1));
+        const dumpPath = path.join(LOG_DIR, `cache-prefix-turn-${context.state.turn}.json`);
+        fs.writeFileSync(dumpPath, dump);
+        appendToLog(`[CACHE-DEBUG] turn ${context.state.turn}: prefix ${messages.length - 1} blocks, ${dump.length} bytes -> ${dumpPath}`);
+      } catch (_e) { /* debug only */ }
+    }
 
     // PROMPT CACHING: The system prompt is cached, reducing costs on subsequent turns
     // (cache hits are 90% cheaper than re-processing).
@@ -4056,6 +4116,24 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     }
 
     return parsed;
+}
+
+/**
+ * C1: Render the player's turn for the IMMUTABLE transcript — the actions exactly as the
+ * GM saw them (dialogue + numbered actions with params + why), frozen once and never
+ * re-rendered. Mirrors the §Dialogue / §Actions Taken render in formatGMPrompt so the
+ * stored record == what the GM read. Excludes live state and the per-turn LUCKY-LADY
+ * decoration (a buff annotation, not a player action).
+ */
+function renderFrozenPlayerTurn(context: GMContext): string {
+  const { aliceDialogue, aliceActions } = context;
+  const dialogue = aliceDialogue.length > 0
+    ? aliceDialogue.map(d => `To ${d.to}: "${d.message}"`).join("\n")
+    : "(A.L.I.C.E. said nothing this turn)";
+  const actions = aliceActions.length > 0
+    ? aliceActions.map((a, i) => `${i + 1}. ${a.command}(${JSON.stringify(a.params)}) - "${a.why}"`).join("\n")
+    : "(no actions this turn)";
+  return `### Dialogue\n${dialogue}\n\n### Actions Taken\n${actions}`;
 }
 
 function formatGMPrompt(context: GMContext): string {
