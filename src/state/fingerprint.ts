@@ -13,6 +13,7 @@
  */
 
 import { FullGameState, DinosaurForm } from "./schema.js";
+import { gadgetCharges, GADGET_LASER, GADGET_CUFFLINKS } from "./properties.js";
 
 // ============================================
 // FINGERPRINT TYPES
@@ -194,8 +195,8 @@ export function extractCriticalState(state: FullGameState): CriticalState {
     reactorCascadeRisk: state.infrastructure.reactor?.cascadeRisk ?? "NONE",
 
     // BLYTHE GADGETS
-    blytheMagnetCharges: state.npcs.blytheGadgets?.superMagnetCufflinks?.charges ?? 0,
-    blytheLaserCharges: state.npcs.blytheGadgets?.watchLaser?.charges ?? 0,
+    blytheMagnetCharges: gadgetCharges(state.npcs.blythe, GADGET_CUFFLINKS),
+    blytheLaserCharges: gadgetCharges(state.npcs.blythe, GADGET_LASER),
 
     // ACT 3: X-BRANCH
     xBranchArrived: state.xBranch?.arrived ?? false,

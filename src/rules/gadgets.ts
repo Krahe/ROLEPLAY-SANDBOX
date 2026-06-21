@@ -1,6 +1,6 @@
 import { FullGameState } from "../state/schema.js";
 import { recordBlytheEscape } from "./actContext.js";
-import { isFullyRestrained, restraintsValue, restraintLabel, setRestraints, RESTRAINTS_MAX } from "../state/properties.js";
+import { isFullyRestrained, restraintsValue, restraintLabel, setRestraints, RESTRAINTS_MAX, gadgetCharges, gadgetFunctional, useGadgetCharge, GADGET_LASER, GADGET_COMMS, GADGET_CUFFLINKS } from "../state/properties.js";
 
 // ============================================
 // GADGET TYPES
@@ -34,13 +34,11 @@ const WATCH_LASER: GadgetDefinition = {
   description: "Precision cutting laser. 3 charges. Can cut through restraints or damage equipment.",
 
   canActivate: (state) => {
-    const gadgets = state.npcs.blytheGadgets;
-    return gadgets.watchLaser.functional && gadgets.watchLaser.charges > 0;
+    return gadgetCharges(state.npcs.blythe, GADGET_LASER) > 0;
   },
 
   activate: (state) => {
-    state.npcs.blytheGadgets.watchLaser.charges -= 1;
-    const chargesRemaining = state.npcs.blytheGadgets.watchLaser.charges;
+    const chargesRemaining = useGadgetCharge(state.npcs.blythe, GADGET_LASER);
 
     // Determine what Blythe targets
     const isRestrained = isFullyRestrained(state.npcs.blythe);
@@ -111,8 +109,7 @@ const WATCH_COMMS: GadgetDefinition = {
   description: "Encrypted comm link to X-Branch. Can call for extraction.",
 
   canActivate: (state) => {
-    const gadgets = state.npcs.blytheGadgets;
-    return gadgets.watchComms.functional;
+    return gadgetFunctional(state.npcs.blythe, GADGET_COMMS);
   },
 
   activate: (state) => {
@@ -174,13 +171,11 @@ const SUPER_MAGNET: GadgetDefinition = {
   description: "Miniaturized rare-earth magnets. 2 charges. Push/pull/repel metal objects. Can knock the ray beam off-course if timed right!",
 
   canActivate: (state) => {
-    const gadgets = state.npcs.blytheGadgets;
-    return gadgets.superMagnetCufflinks.functional && gadgets.superMagnetCufflinks.charges > 0;
+    return gadgetCharges(state.npcs.blythe, GADGET_CUFFLINKS) > 0;
   },
 
   activate: (state) => {
-    state.npcs.blytheGadgets.superMagnetCufflinks.charges -= 1;
-    const chargesRemaining = state.npcs.blytheGadgets.superMagnetCufflinks.charges;
+    const chargesRemaining = useGadgetCharge(state.npcs.blythe, GADGET_CUFFLINKS);
 
     // Context-sensitive activation
     const rayReady = state.dinoRay.state === "READY";
@@ -384,14 +379,16 @@ export function shouldBlytheActAutonomously(state: FullGameState): GadgetActivat
 // ============================================
 
 export function getGadgetStatusForGM(state: FullGameState): string {
-  const g = state.npcs.blytheGadgets;
+  const b = state.npcs.blythe;
+  const laser = gadgetCharges(b, GADGET_LASER);
+  const cuffs = gadgetCharges(b, GADGET_CUFFLINKS);
 
   const lines = [
     "## BLYTHE GADGET STATUS (GM Only)",
     "",
-    `- Watch Laser: ${g.watchLaser.charges > 0 ? "AVAILABLE" : "DEPLETED"} (${g.watchLaser.charges} charges)`,
-    `- Watch Comms: ${g.watchComms.functional ? "FUNCTIONAL" : "DISABLED"}`,
-    `- Super-Magnet Cufflinks: ${g.superMagnetCufflinks.charges > 0 ? "AVAILABLE" : "DEPLETED"} (${g.superMagnetCufflinks.charges} charges)`,
+    `- Watch Laser: ${laser > 0 ? "AVAILABLE" : "DEPLETED"} (${laser} charges)`,
+    `- Watch Comms: ${gadgetFunctional(b, GADGET_COMMS) ? "FUNCTIONAL" : "DISABLED"}`,
+    `- Super-Magnet Cufflinks: ${cuffs > 0 ? "AVAILABLE" : "DEPLETED"} (${cuffs} charges)`,
     "",
     `Restraint Status: ${restraintLabel(state.npcs.blythe)} (${restraintsValue(state.npcs.blythe)}/${RESTRAINTS_MAX})`,
     `Blythe Composure: ${state.npcs.blythe.composure}/5`,

@@ -1,4 +1,5 @@
 import { FullGameState } from "../state/schema.js";
+import { revealEntityProperties } from "../state/properties.js";
 import {
   resolveFiring,
   applyFiringResults,
@@ -429,6 +430,14 @@ infra.query is an action. game_query_basilisk is a tool.`,
     // consumed by the next contested action against this target).
     state.dinoRay.scanBonus = { target, fromTurn: state.turn };
 
+    // PROPERTY LAYER (S5): a close scan DISCOVERS the target's hidden properties (concealed
+    // gear, etc.) — flip them hidden→false so they're now known to A.L.I.C.E. and the GM
+    // narrates exactly what was found.
+    const revealed = revealEntityProperties(state, target);
+    const revealBlock = revealed.length > 0
+      ? `\n\nSCAN DISCOVERED (now known to A.L.I.C.E. — narrate these as found): ${revealed.join(", ")}.`
+      : "";
+
     return {
       command: action.command,
       success: true,
@@ -439,11 +448,11 @@ posture, and immediate surroundings.
 
 GM: surface one concrete, useful detail a close scan would reveal that isn't
 obvious from the room — concealed tools or escape gear, a medical/tech tell, a
-hidden tripwire (e.g. a deadman switch), an emotional read.
+hidden tripwire (e.g. a deadman switch), an emotional read.${revealBlock}
 
 A.L.I.C.E. now holds a recon edge on ${target}: a bonus to the next contested or
 coerced action against them (consumed when used).`,
-      shortMessage: `scan ${target}: recon edge armed`,
+      shortMessage: `scan ${target}: recon edge armed${revealed.length ? ` (+${revealed.length} revealed)` : ""}`,
       stateChanges: { scanBonusTarget: target },
     };
   }

@@ -13,7 +13,7 @@
 //
 // First inhabitant: Blythe.properties.restraints (graded 0..4).
 // ============================================
-import { FullGameState, Property, Properties } from "./schema.js";
+import { FullGameState, GameObject, Property, Properties } from "./schema.js";
 
 // ---------- generic ----------
 
@@ -65,6 +65,20 @@ export function renderPropertiesForPlayer(props: Properties | undefined): string
  */
 export function formatPropertiesForGM(state: FullGameState): string {
   const lines: string[] = [];
+
+  // Dr. M — the deadman switch is wired to HER. Canonical state lives on the ARCHIMEDES
+  // engine latch (lastBiosignature drives auto-fire); surfaced here read-only / engine-owned,
+  // hidden from A.L.I.C.E. until lab.scan reveals it. DERIVED, not stored — no dual state.
+  const dm = state.infrastructure?.archimedes?.deadmanSwitch;
+  if (dm) {
+    const drMProps: Properties = {
+      deadman: { value: dm.active ? "ARMED" : "DISARMED", hidden: true, owner: "engine" },
+      biosignature: { value: dm.lastBiosignature, hidden: true, owner: "engine" },
+    };
+    const drMRender = renderPropertiesForGM(drMProps);
+    if (drMRender) lines.push(`- Dr. Malevola: ${drMRender}`);
+  }
+
   const blythe = renderPropertiesForGM(state.npcs.blythe.properties);
   if (blythe) lines.push(`- Blythe: ${blythe}`);
 
@@ -143,4 +157,121 @@ export function restraintLabel(blythe: HasProps): string {
 /** GM-facing one-liner: "2/4 (one strap freed)". */
 export function restraintSummary(blythe: HasProps): string {
   return `${restraintsValue(blythe)}/${RESTRAINTS_MAX} (${restraintLabel(blythe)})`;
+}
+
+// ---------- satellite uplink (ceiling object; deploys when ARCHIMEDES charges) ----------
+// Out of reach in the ceiling until charging lowers it — so the only window to sever it is the
+// dangerous one (mid-charge → resonance cascade). The destruction routing (muon.cut → integrity)
+// is deferred; the engine reads these helpers to deploy + detect destruction.
+export const UPLINK_ID = "SATELLITE_UPLINK";
+export const UPLINK_MAX_INTEGRITY = 3;
+
+export function getUplink(state: FullGameState): GameObject | undefined {
+  return state.objects?.[UPLINK_ID];
+}
+
+export function isUplinkDeployed(state: FullGameState): boolean {
+  return getUplink(state)?.properties?.deployed?.value === true;
+}
+
+export function uplinkIntegrity(state: FullGameState): number {
+  const v = getUplink(state)?.properties?.integrity?.value;
+  return typeof v === "number" ? v : UPLINK_MAX_INTEGRITY;
+}
+
+/** Destroyed = deployed AND severed (integrity 0). A stowed dish can't be destroyed. */
+export function isUplinkDestroyed(state: FullGameState): boolean {
+  return isUplinkDeployed(state) && uplinkIntegrity(state) <= 0;
+}
+
+/** Lower the dish from the ceiling — now physically reachable + visible to A.L.I.C.E. */
+export function deployUplink(state: FullGameState): void {
+  const u = getUplink(state);
+  if (!u) return;
+  u.location = "lowered into the firing bay";
+  u.properties.deployed = { value: true };
+  if (u.properties.integrity) u.properties.integrity = { ...u.properties.integrity, hidden: false };
+}
+
+/** Damage the deployed dish (muon-cut, etc.), clamped to >= 0. No-op if stowed. */
+export function damageUplink(state: FullGameState, amount: number): void {
+  const u = getUplink(state);
+  if (!u || !isUplinkDeployed(state)) return;
+  u.properties.integrity = {
+    value: Math.max(0, uplinkIntegrity(state) - amount),
+    max: UPLINK_MAX_INTEGRITY,
+    hidden: false,
+  };
+}
+
+// ---------- Blythe's gadgets (item-properties on Blythe; hidden until scanned) ----------
+// watch-laser / cufflinks carry a charge count (value = charges); watch-comms is a functional
+// flag (value = boolean). Retires the old BlytheGadgetsSchema snowflake; they now render in the
+// unified entity block for free.
+export const GADGET_LASER = "watch-laser";
+export const GADGET_COMMS = "watch-comms";
+export const GADGET_CUFFLINKS = "cufflinks";
+
+export function gadgetCharges(blythe: HasProps, name: string): number {
+  const v = blythe.properties?.[name]?.value;
+  return typeof v === "number" ? v : 0;
+}
+
+export function gadgetFunctional(blythe: HasProps, name: string): boolean {
+  const p = blythe.properties?.[name];
+  if (!p) return false;
+  if (typeof p.value === "boolean") return p.value;   // comms: functional flag
+  if (typeof p.value === "number") return p.value > 0; // charged gadgets: usable while charges remain
+  return false;
+}
+
+/** Spend one charge of a charged gadget; returns the remaining count. */
+export function useGadgetCharge(blythe: HasProps, name: string): number {
+  const p = blythe.properties?.[name];
+  if (p && typeof p.value === "number") {
+    p.value = Math.max(0, p.value - 1);
+    return p.value;
+  }
+  return 0;
+}
+
+// ---------- lab.scan reveal ----------
+// A close scan DISCOVERS an entity's hidden properties — flips hidden→false so they become known
+// to A.L.I.C.E. (concealed gear, etc.). Returns "Label: prop" strings for the GM to narrate as
+// found. Matches the free-text scan target against Blythe / the named guards / lab objects.
+// (Dr. M's deadman is engine-derived, not a stored prop, so scanning her surfaces it via the GM
+//  instruction only — a stored-flip for it can come later.)
+export function revealEntityProperties(state: FullGameState, target: string): string[] {
+  const t = (target || "").toUpperCase();
+  const revealed: string[] = [];
+
+  const flip = (props: Properties | undefined, label: string): void => {
+    if (!props) return;
+    for (const name of Object.keys(props).sort()) {
+      if (props[name].hidden) {
+        props[name] = { ...props[name], hidden: false };
+        revealed.push(`${label}: ${name}`);
+      }
+    }
+  };
+
+  if (t.includes("BLYTHE")) flip(state.npcs.blythe.properties, "Blythe");
+
+  const ld = state.lairDefense;
+  if (ld) {
+    if (t.includes("FRED")) flip(ld.fred?.properties, "Fred");
+    if (t.includes("REGINALD")) flip(ld.reginald?.properties, "Reginald");
+  }
+
+  const objs = state.objects;
+  if (objs) {
+    for (const id of Object.keys(objs)) {
+      const obj = objs[id];
+      if (id.toUpperCase().includes(t) || obj.name.toUpperCase().includes(t)) {
+        flip(obj.properties, obj.name);
+      }
+    }
+  }
+
+  return revealed;
 }

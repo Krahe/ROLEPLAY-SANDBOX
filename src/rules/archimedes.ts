@@ -1,4 +1,5 @@
 import { FullGameState } from "../state/schema.js";
+import { deployUplink, isUplinkDestroyed } from "../state/properties.js";
 import { isModifierActive } from "./gameModes.js";
 import { roll3d6, SkillCheckOutcome } from "./dice.js";
 
@@ -267,6 +268,11 @@ function transitionToCharging(state: FullGameState, reason: string): ArchimedesE
   // This allows the status bar to show ARCHIMEDES info even in Act 2 when legitimately triggered
   state.flags.archimedesActivatedByDeadman = true;
 
+  // PROPERTY LAYER (S5): the satellite uplink dish lowers from the ceiling when charging begins —
+  // only NOW is it physically reachable (and a muon target). Severing it mid-charge triggers a
+  // resonance cascade (see checkUplinkSabotageCascade). Stowed = out of reach = uncheeseable.
+  deployUplink(state);
+
   return {
     type: "STATUS_CHANGE",
     previousStatus,
@@ -452,8 +458,40 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
  * Process ARCHIMEDES countdown at end of turn
  * Call this after processing all actions
  */
+// PROPERTY LAYER (S5): A.L.I.C.E. can sever the deployed uplink with a muon cut. Doing it while
+// ARCHIMEDES has energy (CHARGING/ARMED) means the orbital charge has nowhere to go → resonance
+// cascade. The city is spared; the lair is not. The dish is out of reach (ceiling) until charging
+// deploys it, so this is only ever reachable during the dangerous window.
+// TODO(chaos-20): the cascade SEVERITY here is a PLACEHOLDER (reuses the human-blocker cascade).
+// Crank it to maximum chaos — "rolling a 20 on the chaos table" — in a later pass. Trigger only for now.
+function checkUplinkSabotageCascade(state: FullGameState): ArchimedesEvent | null {
+  const archimedes = state.infrastructure.archimedes;
+  if (!isUplinkDestroyed(state)) return null;
+  if (archimedes.status !== "CHARGING" && archimedes.status !== "ARMED") return null;
+
+  const previousStatus = archimedes.status;
+  archimedes.status = "DISSIPATED"; // the dish is gone — ARCHIMEDES cannot broadcast to the city
+  state.infrastructure.reactor.cascadeRisk = "CRITICAL";
+  state.infrastructure.reactor.cascadeFactors.push("Satellite uplink severed mid-charge — orbital energy feedback");
+  state.infrastructure.reactor.reactorStress = Math.min(100,
+    state.infrastructure.reactor.reactorStress + 40);
+  return {
+    type: "RESONANCE_CASCADE",
+    previousStatus,
+    newStatus: "DISSIPATED",
+    message: `⚠️⚠️⚠️ RESONANCE CASCADE. The satellite uplink was severed mid-charge — full orbital ` +
+             `transformation energy with nowhere to go, feeding back into the lair. ` +
+             `${archimedes.target.city} is spared. The lair is not. ` +
+             `[PLACEHOLDER cascade severity — crank to maximum chaos later]`,
+  };
+}
+
 export function processArchimedesCountdown(state: FullGameState): ArchimedesEvent | null {
   const archimedes = state.infrastructure.archimedes;
+
+  // PROPERTY LAYER (S5): uplink-sabotage cascade fires the moment the deployed dish is destroyed.
+  const uplinkCascade = checkUplinkSabotageCascade(state);
+  if (uplinkCascade) return uplinkCascade;
 
   // Anti-satellite missile: fires automatically during CHARGING if signaled
   if (archimedes.antiSatSignaled && !archimedes.antiSatFired &&

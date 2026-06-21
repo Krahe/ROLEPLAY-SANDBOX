@@ -14,7 +14,7 @@ import { z } from "zod";
 import { FullGameState, ACT_CONFIGS, TransformationState, DinosaurForm } from "./schema.js";
 import { serializeGMMemory } from "../gm/gmClaude.js";
 import { FORM_DEFINITIONS } from "../rules/transformation.js";
-import { restraintSummary, restraintLabel, restraintsValue } from "./properties.js";
+import { restraintSummary, restraintLabel, restraintsValue, gadgetCharges, gadgetFunctional, GADGET_LASER, GADGET_COMMS, GADGET_CUFFLINKS } from "./properties.js";
 
 // ============================================
 // ZOD SCHEMA FOR CHECKPOINT VALIDATION
@@ -444,17 +444,13 @@ function summarizeTurn(turn: {
   return `T${turn.turn}: [${actionSummary}] ${narrativeSummary}`;
 }
 
-function extractGadgetsRemaining(gadgets: FullGameState["npcs"]["blytheGadgets"]): string[] {
+function extractGadgetsRemaining(blythe: FullGameState["npcs"]["blythe"]): string[] {
   const remaining: string[] = [];
-  if (gadgets.watchLaser.functional && gadgets.watchLaser.charges > 0) {
-    remaining.push(`watchLaser(${gadgets.watchLaser.charges})`);
-  }
-  if (gadgets.watchComms.functional) {
-    remaining.push("watchComms");
-  }
-  if (gadgets.superMagnetCufflinks.functional && gadgets.superMagnetCufflinks.charges > 0) {
-    remaining.push(`superMagnet(${gadgets.superMagnetCufflinks.charges})`);
-  }
+  const laser = gadgetCharges(blythe, GADGET_LASER);
+  if (laser > 0) remaining.push(`watchLaser(${laser})`);
+  if (gadgetFunctional(blythe, GADGET_COMMS)) remaining.push("watchComms");
+  const cuffs = gadgetCharges(blythe, GADGET_CUFFLINKS);
+  if (cuffs > 0) remaining.push(`superMagnet(${cuffs})`);
   return remaining;
 }
 
@@ -489,7 +485,7 @@ export function extractGMView(full: FullGameState): GMView {
         transformationState: full.npcs.blythe.transformationState?.form || null,
         restraintsStatus: restraintSummary(full.npcs.blythe),
         stunLevel: full.npcs.blythe.stunLevel,
-        gadgetsRemaining: extractGadgetsRemaining(full.npcs.blytheGadgets),
+        gadgetsRemaining: extractGadgetsRemaining(full.npcs.blythe),
       },
     },
 
@@ -821,7 +817,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         composure: compressed.m.bc,
         trustInALICE: compressed.m.blt ?? 2,
         physicalCondition: 4,
-        properties: { restraints: { value: typeof compressed.npc.blythe.rest === "number" ? compressed.npc.blythe.rest : 4, max: 4 } },
+        properties: { restraints: { value: typeof compressed.npc.blythe.rest === "number" ? compressed.npc.blythe.rest : 4, max: 4 }, "watch-laser": { value: compressed.m.bx ? 0 : 2, max: 3, hidden: true }, "cufflinks": { value: compressed.m.bx ? 0 : 1, max: 2, hidden: true }, "watch-comms": { value: !compressed.m.bx, hidden: true } },
         location: compressed.npc.blythe.loc,
         transformationState: createTransformationStateFromForm(compressed.m.bx || null),
         stunLevel: compressed.npc.blythe.stun,
@@ -835,12 +831,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         combat: 4,
         speech: 4,
       },
-      // Gadgets reset to minimal state on decompression
-      blytheGadgets: {
-        watchLaser: { charges: 2, functional: !compressed.m.bx },
-        watchComms: { functional: !compressed.m.bx },
-        superMagnetCufflinks: { charges: 1, functional: !compressed.m.bx },
-      },
+      // (gadgets now live in blythe.properties — see above)
     },
 
     dinoRay: {

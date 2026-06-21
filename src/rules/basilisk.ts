@@ -1,4 +1,5 @@
 import { FullGameState } from "../state/schema.js";
+import { gadgetFunctional, GADGET_COMMS } from "../state/properties.js";
 import {
   callBasilisk,
   applyBasiliskStateChanges,
@@ -851,7 +852,7 @@ LOG_ENTRY: [WARN] COMMS_ACCESS_DENIED. INSUFFICIENT_CLEARANCE.`,
       };
     }
 
-    const blytheCommsActive = state.npcs.blytheGadgets?.watchComms?.functional ?? true;
+    const blytheCommsActive = gadgetFunctional(state.npcs.blythe, GADGET_COMMS);
     const drMLocation = state.npcs.drM.location;
 
     return {

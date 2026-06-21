@@ -891,14 +891,8 @@ export const BlytheSchema = z.object({
   escapeMethod: BlytheEscapeMethodEnum.nullable().default(null),
 });
 
-// Hidden gadget state (server-side only)
-// WATCH = Laser + Comms (no EMP - too dangerous, that's for HMS Persistence's torpedo)
-// CUFFLINKS = Super-magnet (2 charges, push/pull/repel - can knock beam off-course!)
-export const BlytheGadgetsSchema = z.object({
-  watchLaser: z.object({ charges: z.number(), functional: z.boolean() }),
-  watchComms: z.object({ functional: z.boolean() }),
-  superMagnetCufflinks: z.object({ charges: z.number(), functional: z.boolean() }),
-});
+// BlytheGadgetsSchema RETIRED (S5): Blythe's spy gear is now item-properties on the Blythe
+// entity — blythe.properties["watch-laser" | "cufflinks" | "watch-comms"]. See state/properties.ts.
 
 // ============================================
 // GUILD INSPECTION SYSTEM (INSPECTOR_COMETH modifier)
@@ -1970,7 +1964,6 @@ export const FullGameStateSchema = z.object({
     drM: DrMalevolaSchema,
     bob: BobSchema,
     blythe: BlytheSchema,
-    blytheGadgets: BlytheGadgetsSchema, // Hidden from A.L.I.C.E.
   }),
 
   // PROPERTY LAYER (S5): standalone lab objects (dummy, watermelon, …), keyed by id.

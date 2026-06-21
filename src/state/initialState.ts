@@ -393,7 +393,12 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         composure: 4,
         trustInALICE: 1,
         physicalCondition: 5,
-        properties: { restraints: { value: 4, max: 4 } },
+        properties: {
+          restraints: { value: 4, max: 4 },
+          "watch-laser": { value: 3, max: 3, hidden: true },
+          "cufflinks": { value: 2, max: 2, hidden: true },
+          "watch-comms": { value: true, hidden: true },
+        },
         location: "test chair in ray firing line",
         toughness: 4,
         combat: 4,
@@ -448,11 +453,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         escapeTurn: null,
         escapeMethod: null,
       },
-      blytheGadgets: {
-        watchLaser: { charges: 3, functional: true },
-        watchComms: { functional: true },
-        superMagnetCufflinks: { charges: 2, functional: true },
-      },
+      // (Blythe's gadgets now live in blythe.properties — see above)
     },
     
     clocks: {
@@ -564,6 +565,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
     objects: {
       TEST_DUMMY: { name: "test dummy (STEVE)", location: "containment field", properties: { condition: { value: "INTACT" } } },
       WATERMELON: { name: "watermelon (MARGARET)", location: "ray test bench", properties: { condition: { value: "INTACT" } } },
+      SATELLITE_UPLINK: { name: "satellite uplink dish", location: "ceiling (stowed, out of reach)", properties: { deployed: { value: false, hidden: true }, integrity: { value: 3, max: 3, hidden: true } } },
     },
 
     history: [],
