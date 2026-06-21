@@ -12,7 +12,7 @@
  * Requires: npm run build (dist/ must exist)
  */
 
-import { describe, it, before } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -249,11 +249,19 @@ describe('Game Modes', () => {
   });
 });
 
-describe('Act Transition Memory Preservation', () => {
+describe('Act Transition Memory Preservation (legacy: DINO_LEGACY_ACT_CLEARING=true)', () => {
   let gmClaude;
 
   before(async () => {
     gmClaude = await importDist('gm', 'gmClaude.js');
+    // C2: these tests exercise the LEGACY slate-wipe path (preserve gold into
+    // previousActContext). It is OFF by default now (the C1 cached transcript is the GM's
+    // memory and act transitions are memory non-events), so enable it explicitly here.
+    process.env.DINO_LEGACY_ACT_CLEARING = 'true';
+  });
+
+  after(() => {
+    delete process.env.DINO_LEGACY_ACT_CLEARING;
   });
 
   it('preserves narrative markers across act transitions', () => {
@@ -353,6 +361,38 @@ describe('Act Transition Memory Preservation', () => {
     const newMemory = gmClaude.getGMMemory();
     assert.ok(newMemory.previousActContext.narrativeMarkers.length <= 30,
       'Should cap narrative markers at 30');
+  });
+});
+
+describe('Act Transition (C2 default: cached-thread, no wipe)', () => {
+  let gmClaude;
+
+  before(async () => {
+    gmClaude = await importDist('gm', 'gmClaude.js');
+    delete process.env.DINO_LEGACY_ACT_CLEARING; // default behavior: no slate-wipe
+  });
+
+  it('does NOT wipe memory at an act transition (transcript + hidden state persist)', () => {
+    gmClaude.resetGMMemory('test-c2-default');
+    const mem = gmClaude.getGMMemory();
+    mem.transcript.push({ role: 'user', content: 'turn 1 actions' });
+    mem.transcript.push({ role: 'assistant', content: 'turn 1 narration' });
+    mem.narrativeMarkers.push({ turn: 1, marker: 'Act 1 event' });
+    const tensionBefore = mem.tensionLevel;
+
+    const actSummary = gmClaude.resetMemoryForActTransition('ACT_1', 'ACT_2', 1, 5);
+
+    // The summary is still produced (used for state.actConfig.previousActSummary display)...
+    assert.ok(actSummary, 'should still return an act summary');
+    assert.strictEqual(actSummary.fromAct, 'ACT_1');
+
+    // ...but NOTHING was wiped: transcript, markers, hidden tension all intact.
+    const after = gmClaude.getGMMemory();
+    assert.strictEqual(after.transcript.length, 2, 'transcript must survive the act boundary verbatim');
+    assert.strictEqual(after.transcript[1].content, 'turn 1 narration', 'transcript content unchanged');
+    assert.ok(after.narrativeMarkers.some(m => m.marker === 'Act 1 event'),
+      'narrative markers must NOT be wiped into previousActContext');
+    assert.strictEqual(after.tensionLevel, tensionBefore, 'hidden tension state must persist across acts');
   });
 });
 

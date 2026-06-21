@@ -1055,6 +1055,16 @@ export function resetMemoryForActTransition(
     ),
   };
 
+  // C2: with the C1 append-only cached transcript as the GM's memory, an act transition is
+  // a memory NON-EVENT. Return the summary (still used for state.actConfig.previousActSummary
+  // display) but leave gmMemory FULLY intact — transcript, hidden NPC states, clocks, planted
+  // seeds, tension all now carry across acts (better continuity than the old wipe, which even
+  // reset Dr. M's hidden suspicion at every boundary). The legacy slate-wipe below runs only
+  // under DINO_LEGACY_ACT_CLEARING=true (default off; kept intact for rollback, not deleted).
+  if (process.env.DINO_LEGACY_ACT_CLEARING !== "true") {
+    return actSummary;
+  }
+
   // ============================================
   // 2. PRESERVE THE GOLD
   // ============================================
