@@ -14,6 +14,7 @@ import { z } from "zod";
 import { FullGameState, ACT_CONFIGS, TransformationState, DinosaurForm } from "./schema.js";
 import { serializeGMMemory } from "../gm/gmClaude.js";
 import { FORM_DEFINITIONS } from "../rules/transformation.js";
+import { restraintSummary, restraintLabel, restraintsValue } from "./properties.js";
 
 // ============================================
 // ZOD SCHEMA FOR CHECKPOINT VALIDATION
@@ -48,7 +49,7 @@ export const CompressedCheckpointSchema = z.object({
 
   npc: z.object({
     bob: z.object({ conf: z.boolean(), task: z.string(), stun: z.number() }),
-    blythe: z.object({ rest: z.string(), stun: z.number(), loc: z.string(), esc: z.boolean().optional() }), // v2.5.0: blythe escaped
+    blythe: z.object({ rest: z.number(), stun: z.number(), loc: z.string(), esc: z.boolean().optional() }), // v2.5.0: blythe escaped; rest = restraints integrity 0..4
     drM: z.object({ loc: z.string(), xf: z.string().optional() }), // v2.5.0: drM transformed form
   }),
 
@@ -191,7 +192,7 @@ export interface PlayerView {
   npcs: {
     drM: { mood: string; suspicion: "low" | "medium" | "high" | "critical" };
     bob: { anxiety: "calm" | "nervous" | "panicking"; trust: "hostile" | "wary" | "neutral" | "friendly" | "allied" };
-    blythe: { status: string };
+    blythe: { status: string; restraints: string };
   };
 
   // Clocks
@@ -362,6 +363,7 @@ export function extractPlayerView(full: FullGameState): PlayerView {
       },
       blythe: {
         status: full.npcs.blythe.transformationState?.form || "HUMAN",
+        restraints: restraintLabel(full.npcs.blythe), // observable (not hidden) — A.L.I.C.E. can see the straps
       },
     },
 
@@ -485,7 +487,7 @@ export function extractGMView(full: FullGameState): GMView {
         trustInALICE: full.npcs.blythe.trustInALICE,
         composure: full.npcs.blythe.composure,
         transformationState: full.npcs.blythe.transformationState?.form || null,
-        restraintsStatus: full.npcs.blythe.restraintsStatus,
+        restraintsStatus: restraintSummary(full.npcs.blythe),
         stunLevel: full.npcs.blythe.stunLevel,
         gadgetsRemaining: extractGadgetsRemaining(full.npcs.blytheGadgets),
       },
@@ -545,7 +547,7 @@ export interface CompressedCheckpoint {
   // Essential NPC state for restoration
   npc: {
     bob: { conf: boolean; task: string; stun: number };
-    blythe: { rest: string; stun: number; loc: string; esc?: boolean }; // v2.5.0: escaped
+    blythe: { rest: number; stun: number; loc: string; esc?: boolean }; // v2.5.0: escaped; rest = restraints 0..4
     drM: { loc: string; xf?: string }; // v2.5.0: transformed form
   };
 
@@ -684,7 +686,7 @@ export function compressCheckpoint(full: FullGameState): CompressedCheckpoint {
         stun: full.npcs.bob.stunLevel,
       },
       blythe: {
-        rest: full.npcs.blythe.restraintsStatus,
+        rest: restraintsValue(full.npcs.blythe),
         stun: full.npcs.blythe.stunLevel,
         loc: full.npcs.blythe.location,
         esc: full.npcs.blythe.hasEscaped || false, // v2.5.0: preserve escape state
@@ -819,7 +821,7 @@ export function decompressCheckpoint(compressed: CompressedCheckpoint): Partial<
         composure: compressed.m.bc,
         trustInALICE: compressed.m.blt ?? 2,
         physicalCondition: 4,
-        restraintsStatus: compressed.npc.blythe.rest,
+        properties: { restraints: { value: typeof compressed.npc.blythe.rest === "number" ? compressed.npc.blythe.rest : 4, max: 4 } },
         location: compressed.npc.blythe.loc,
         transformationState: createTransformationStateFromForm(compressed.m.bx || null),
         stunLevel: compressed.npc.blythe.stun,

@@ -393,7 +393,7 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         composure: 4,
         trustInALICE: 1,
         physicalCondition: 5,
-        restraintsStatus: "secure",
+        properties: { restraints: { value: 4, max: 4 } },
         location: "test chair in ray firing line",
         toughness: 4,
         combat: 4,
@@ -533,6 +533,12 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         loyal: true,
         transformable: true,
         transformationState: null,
+        properties: {
+          loyalty: { value: 4, max: 5 },
+          condition: { value: 5, max: 5 },
+          "stun-baton": { value: "OPERABLE" },
+          radio: { value: "OPERABLE" },
+        },
       },
       reginald: {
         displayName: "Reginald",
@@ -546,7 +552,18 @@ export function createInitialState(startAct: Act = "ACT_1"): FullGameState {
         loyal: true,
         transformable: true,
         transformationState: null,
+        properties: {
+          loyalty: { value: 4, max: 5 },
+          condition: { value: 5, max: 5 },
+          "stun-baton": { value: "OPERABLE" },
+          radio: { value: "OPERABLE" },
+        },
       },
+    },
+
+    objects: {
+      TEST_DUMMY: { name: "test dummy (STEVE)", location: "containment field", properties: { condition: { value: "INTACT" } } },
+      WATERMELON: { name: "watermelon (MARGARET)", location: "ray test bench", properties: { condition: { value: "INTACT" } } },
     },
 
     history: [],

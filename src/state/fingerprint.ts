@@ -148,7 +148,7 @@ export function extractCriticalState(state: FullGameState): CriticalState {
     // BLYTHE
     blytheForm: blytheTs?.form ?? "HUMAN",
     blytheSpeech: blytheTs?.speechRetention ?? "FULL",
-    blytheRestrained: state.npcs.blythe.restraintsStatus === "RESTRAINED",
+    blytheRestrained: ((state.npcs.blythe.properties?.restraints?.value as number) ?? 4) > 0,
     blytheEscaped: state.npcs.blythe.hasEscaped ?? false,
     blytheInContainment: state.infrastructure.containmentField?.subjects?.includes("BLYTHE") ?? false,
 

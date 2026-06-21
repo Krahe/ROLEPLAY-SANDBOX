@@ -7,6 +7,7 @@
  */
 
 import { FullGameState } from "../state/schema.js";
+import { isFullyRestrained, restraintLabel } from "../state/properties.js";
 
 /**
  * Format the status bar for human-readable display
@@ -232,9 +233,8 @@ export function formatGMStatusBar(state: FullGameState): string {
   }
 
   // Blythe restraints (critical for escape plots)
-  const restraints = state.npcs.blythe.restraintsStatus;
-  if (restraints !== "secure") {
-    parts2.push(`Blythe:${restraints}`);
+  if (!isFullyRestrained(state.npcs.blythe)) {
+    parts2.push(`Blythe:${restraintLabel(state.npcs.blythe)}`);
   }
 
   // ============================================

@@ -1,4 +1,5 @@
 import { FullGameState, HumanPromptState, LifelineState, EmergencyLifelineType } from "../state/schema.js";
+import { isFree } from "../state/properties.js";
 import { getGamePhase } from "./endings.js";
 
 // ============================================
@@ -77,7 +78,7 @@ function canUseTelemarketerCall(state: FullGameState): { allowed: boolean; reaso
     return { allowed: false, reason: "Dr. M is NOT picking up during a military assault!" };
   }
 
-  if (state.npcs.blythe.hasEscaped || state.npcs.blythe.restraintsStatus === "broken" || hasFlag("BLYTHE_ESCAPING")) {
+  if (state.npcs.blythe.hasEscaped || isFree(state.npcs.blythe) || hasFlag("BLYTHE_ESCAPING")) {
     return { allowed: false, reason: "Dr. M is chasing an escaped prisoner — she's not answering the phone!" };
   }
 

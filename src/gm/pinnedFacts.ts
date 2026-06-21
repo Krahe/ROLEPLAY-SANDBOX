@@ -7,6 +7,7 @@
  */
 
 import { FullGameState, DinosaurForm } from "../state/schema.js";
+import { isFree, restraintLabel, restraintsValue, RESTRAINTS_MAX } from "../state/properties.js";
 
 // ============================================
 // TYPES
@@ -247,18 +248,18 @@ export function generatePinnedFacts(state: FullGameState): PinnedFact[] {
     });
   }
 
-  // Blythe restraint status
-  if (state.npcs.blythe.restraintsStatus === "FREE") {
+  // Blythe restraint status (graded property: 0 = free .. 4 = fully secure)
+  if (isFree(state.npcs.blythe)) {
     facts.push({
       category: "LOCATION",
-      fact: `Blythe is FREE from restraints. He can move around the room.`,
-      verificationKey: "npcs.blythe.restraintsStatus",
+      fact: `Blythe is FREE from his restraints. He can move around the room.`,
+      verificationKey: "npcs.blythe.properties.restraints.value",
     });
-  } else if (state.npcs.blythe.restraintsStatus === "RESTRAINED") {
+  } else {
     facts.push({
       category: "LOCATION",
-      fact: `Blythe is RESTRAINED in the firing range. He cannot move freely.`,
-      verificationKey: "npcs.blythe.restraintsStatus",
+      fact: `Blythe is RESTRAINED in the firing range (${restraintsValue(state.npcs.blythe)}/${RESTRAINTS_MAX} — ${restraintLabel(state.npcs.blythe)}). He cannot move freely until the restraints are gone.`,
+      verificationKey: "npcs.blythe.properties.restraints.value",
     });
   }
 

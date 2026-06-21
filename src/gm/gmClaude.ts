@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { FullGameState } from "../state/schema.js";
+import { formatPropertiesForGM } from "../state/properties.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
 import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance, buildAdaptationGMGuidance, buildHiddenKindnessGMGuidance } from "../rules/gameModes.js";
@@ -1685,7 +1686,7 @@ export interface GMResponse {
     bob_hasConfessedToDrM?: boolean;    // NEW: Bob confessing to Dr. M
     blythe_trust?: number;
     blythe_composure?: number;
-    blythe_restraintsStatus?: string;   // NEW: "secure" | "loose" | "free"
+    blythe_restraints?: number;   // graded restraint integrity 0 (free) .. 4 (secure)
     blythe_transformationState?: string; // NEW: Track transformation
 
     // System states
@@ -1917,7 +1918,7 @@ const GMStateOverridesSchema = z.object({
   bob_hasConfessedToDrM: z.boolean().optional(),
   blythe_trust: z.number().optional(),
   blythe_composure: z.number().optional(),
-  blythe_restraintsStatus: z.string().optional(),
+  blythe_restraints: z.number().optional(),
   blythe_transformationState: z.string().optional(),
   accessLevel: z.number().optional(),
   demoClock: z.number().optional(),
@@ -2424,8 +2425,9 @@ Your narration MUST be synced with mechanical state. When you narrate major even
   // When Bob confesses to Dr. M:
   "bob_hasConfessedToDrM": true,
 
-  // When Blythe gets free:
-  "blythe_restraintsStatus": "free",
+  // When Blythe's restraints change (graded integrity 0 = free .. 4 = fully secure;
+  // intermediate: 3 damaged, 2 one strap freed, 1 hanging by a thread):
+  "blythe_restraints": 0,
 
   // When Blythe transforms (USE EXACT FORM ID!):
   "blythe_transformationState": "VELOCIRAPTOR_JP",
@@ -2442,7 +2444,7 @@ Your narration MUST be synced with mechanical state. When you narrate major even
 ### ⚠️ RULE: If you NARRATE it, you must OVERRIDE it!
 - "Dr. M is furious" → MUST include "drM_mood": "furious"
 - "Bob's anxiety spikes" → MUST include "bob_anxiety": 4
-- "Blythe slips his restraints" → MUST include "blythe_restraintsStatus": "free"
+- "Blythe slips his restraints" → MUST include "blythe_restraints": 0 (or a lower number as a cut deepens — 3/2/1)
 
 The player's game state must MATCH your narration!
 
@@ -2474,14 +2476,14 @@ GM drift (narrating without mechanics) kills immersion!
 | **S-300: Disable missiles** | \`"s300_status": "DISABLED"\` | — |
 | **Convince Bob to confess** | \`"bob_hasConfessedToALICE": true\` | — |
 | **Reveal identity to Dr. M** | \`"drM_suspicion": 10\` | \`set: ["ALICE_REVEALED"]\` |
-| **Help Blythe escape** | \`"blythe_restraintsStatus": "free"\` | — |
+| **Help Blythe escape** | \`"blythe_restraints": 0\` | — |
 
 ### When You Narrate These Events → You MUST Set These Overrides
 
 | Narrative Event | Required stateOverrides |
 |-----------------|------------------------|
 | "Dr. M storms out / leaves" | \`"drM_location": "escaped"\` |
-| "Blythe breaks free" | \`"blythe_restraintsStatus": "free"\` |
+| "Blythe breaks free" | \`"blythe_restraints": 0\` |
 | "ARCHIMEDES fires / beam hits" | \`"archimedes_status": "COMPLETE"\` |
 | "The reactor melts down" | \`"meltdownClock": 0\`, \`"reactor_cascadeRisk": "CRITICAL"\` |
 | "X-Branch breaches the lair" | narrativeFlag: \`set: ["XBRANCH_EXTRACTION"]\` *(Act 3 timer-driven)* |
@@ -3887,6 +3889,12 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
       fullPrompt = pinnedFactsSection;
     }
     fullPrompt += fingerprintSection;
+    // PROPERTY LAYER (S5): entity properties (restraints; future: gear/condition/objects).
+    // Rides the live uncached tail; sorted+deterministic so it agrees with the fingerprint.
+    const propertiesSection = formatPropertiesForGM(context.state);
+    if (propertiesSection) {
+      fullPrompt += "\n" + propertiesSection + "\n\n";
+    }
     if (memoryContext) {
       fullPrompt += memoryContext + "\n---\n\n";
     }

@@ -16,6 +16,7 @@ import { generatePostGameReflections, PostGameReflections } from "./gm/postGameR
 import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
+import { setRestraints } from "./state/properties.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
 import { FORM_DEFINITIONS } from "./rules/transformation.js";
@@ -308,7 +309,7 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
         composure: state.npcs.blythe.composure,
         trustInALICE: state.npcs.blythe.trustInALICE,
         physicalCondition: state.npcs.blythe.physicalCondition,
-        restraintsStatus: state.npcs.blythe.restraintsStatus,
+        properties: state.npcs.blythe.properties,
         location: state.npcs.blythe.location,
         transformationState: state.npcs.blythe.transformationState,
         toughness: state.npcs.blythe.toughness,
@@ -1269,11 +1270,8 @@ The consequences of that reckless high-power firing are now manifesting.
       if (overrides.blythe_composure !== undefined) {
         gameState.npcs.blythe.composure = Math.max(0, Math.min(5, overrides.blythe_composure));
       }
-      if (overrides.blythe_restraintsStatus !== undefined) {
-        const validStatuses = ["secure", "loose", "partially compromised", "free"];
-        if (typeof overrides.blythe_restraintsStatus === "string" && validStatuses.includes(overrides.blythe_restraintsStatus)) {
-          gameState.npcs.blythe.restraintsStatus = overrides.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
-        }
+      if (overrides.blythe_restraints !== undefined && typeof overrides.blythe_restraints === "number") {
+        setRestraints(gameState.npcs.blythe, overrides.blythe_restraints);
       }
       if (overrides.blythe_transformationState !== undefined) {
         // Guard against malformed GM output (non-string values)

@@ -838,11 +838,40 @@ export const BlytheEscapeMethodEnum = z.enum([
   "OTHER",
 ]);
 
+// ============================================
+// PROPERTY LAYER (S5) — a named graded/typed property attached to an entity.
+// value = a graded counter (restraints 4/4), a status enum ("DAMAGED"), or a flag.
+// hidden = invisible to A.L.I.C.E. until lab.scan reveals it.
+// owner = "engine" means DECIDE may NOT set it (deadman, reactor); default "gm".
+// Helpers + renderers live in state/properties.ts.
+// ============================================
+export const PropertySchema = z.object({
+  value: z.union([z.number(), z.string(), z.boolean()]),
+  max: z.number().optional(),
+  hidden: z.boolean().optional(),
+  owner: z.enum(["engine", "gm"]).optional(),
+  note: z.string().optional(),
+});
+export type Property = z.infer<typeof PropertySchema>;
+export type Properties = Record<string, Property>;
+
+// A standalone lab object (NOT held by an NPC) — the test dummy, the watermelon, the
+// satellite uplink, a dropped wrench. Just a name + optional location + a properties bag.
+// The "object on an NPC" case (Bob → holding: wrench) stays a property on the NPC, not here.
+export const GameObjectSchema = z.object({
+  name: z.string(),
+  location: z.string().optional(),
+  properties: z.record(z.string(), PropertySchema).default({}),
+});
+export type GameObject = z.infer<typeof GameObjectSchema>;
+
 export const BlytheSchema = z.object({
   composure: z.number().min(0).max(5),
   trustInALICE: z.number().min(0).max(5),
   physicalCondition: z.number().min(0).max(5),
-  restraintsStatus: z.string(),
+  // PROPERTY LAYER (S5): graded/typed properties on Blythe (restraints; future: gear/condition).
+  // Restraints migrated from the old free-form `restraintsStatus` string to a graded 0..4 counter.
+  properties: z.record(z.string(), PropertySchema).default({}),
   location: z.string(),
   // NPC stats (GM guidance — becomes mechanical with 3d6 system)
   toughness: z.number().int().default(4),
@@ -1545,6 +1574,12 @@ export const GuardSchema = z.object({
   // Transformation: if hit by ray = DISCOMBOBULATED, out of fight
   transformable: z.boolean().default(true),
   transformationState: TransformationStateSchema.nullable().default(null),
+
+  // PROPERTY LAYER (S5): graded/typed display properties (loyalty, condition) + the new
+  // equipment-condition surface (stun-baton/radio: OPERABLE → DAMAGED). The typed
+  // status/loyal/equipment/stats stay engine-canonical; these mirror them and give the GM
+  // a settable kit (e.g. ALICE muon-cuts a baton → DAMAGED).
+  properties: z.record(z.string(), PropertySchema).default({}),
 });
 export type Guard = z.infer<typeof GuardSchema>;
 
@@ -1937,6 +1972,10 @@ export const FullGameStateSchema = z.object({
     blythe: BlytheSchema,
     blytheGadgets: BlytheGadgetsSchema, // Hidden from A.L.I.C.E.
   }),
+
+  // PROPERTY LAYER (S5): standalone lab objects (dummy, watermelon, …), keyed by id.
+  // Optional so legacy/partial states don't need it; seeded in createInitialState.
+  objects: z.record(z.string(), GameObjectSchema).optional(),
 
   // SECONDARY NPC TRANSFORMATIONS (Patch 18)
   // Tracks transformation state for non-core NPCs (guards, Dr. M, Lenny, Bruce, etc.)

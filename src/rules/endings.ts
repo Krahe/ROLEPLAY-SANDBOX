@@ -1,4 +1,5 @@
 import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
+import { isFree } from "../state/properties.js";
 import { AchievementRarity, getAchievement as getBaseAchievement } from "./achievements.js";
 import { formatActiveModifiers } from "./gameModes.js";
 
@@ -978,7 +979,7 @@ export function checkEndings(state: FullGameState): EndingResult {
     // ========================================
     const bobIntervenes = state.npcs.bob.trustInALICE >= 4 && !hasFlag('BOB_DEAD') && !hasFlag('BOB_TRANSFORMED');
     const blytheIntervenes = state.npcs.blythe.trustInALICE >= 4 &&
-      state.npcs.blythe.restraintsStatus === "FREE" &&
+      isFree(state.npcs.blythe) &&
       !state.npcs.blythe.transformationState;
 
     // Check if intervention just happened

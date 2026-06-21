@@ -1,5 +1,6 @@
 import { FullGameState } from "../state/schema.js";
 import { recordBlytheEscape } from "./actContext.js";
+import { isFullyRestrained, restraintsValue, restraintLabel, setRestraints, RESTRAINTS_MAX } from "../state/properties.js";
 
 // ============================================
 // GADGET TYPES
@@ -42,10 +43,10 @@ const WATCH_LASER: GadgetDefinition = {
     const chargesRemaining = state.npcs.blytheGadgets.watchLaser.charges;
 
     // Determine what Blythe targets
-    const isRestrained = state.npcs.blythe.restraintsStatus === "secure";
+    const isRestrained = isFullyRestrained(state.npcs.blythe);
 
     if (isRestrained) {
-      state.npcs.blythe.restraintsStatus = "partially compromised";
+      setRestraints(state.npcs.blythe, 2);
 
       return {
         gadgetId: "WATCH_LASER",
@@ -77,7 +78,7 @@ He's cutting through his restraints. Not completely free yet, but the bindings a
       };
     } else {
       // Already partially free, continue cutting
-      state.npcs.blythe.restraintsStatus = "nearly free";
+      setRestraints(state.npcs.blythe, 1);
 
       return {
         gadgetId: "WATCH_LASER",
@@ -116,7 +117,7 @@ const WATCH_COMMS: GadgetDefinition = {
 
   activate: (state) => {
     // Comms only work if Blythe has some freedom
-    const canSendMessage = state.npcs.blythe.restraintsStatus !== "secure";
+    const canSendMessage = !isFullyRestrained(state.npcs.blythe);
 
     if (!canSendMessage) {
       return {
@@ -183,7 +184,7 @@ const SUPER_MAGNET: GadgetDefinition = {
 
     // Context-sensitive activation
     const rayReady = state.dinoRay.state === "READY";
-    const isRestrained = state.npcs.blythe.restraintsStatus === "secure";
+    const isRestrained = isFullyRestrained(state.npcs.blythe);
 
     if (rayReady) {
       // DRAMATIC: Trying to deflect the beam!
@@ -223,7 +224,7 @@ The ray's emitter assembly JERKS sideways. Warning lights flash.
       };
     } else if (isRestrained) {
       // Use magnet to loosen metal restraints
-      state.npcs.blythe.restraintsStatus = "loose";
+      setRestraints(state.npcs.blythe, 3);
 
       return {
         gadgetId: "SUPER_MAGNET",
@@ -340,7 +341,7 @@ export function activateBlytheGadget(state: FullGameState, gadgetId: string): Ga
 export function shouldBlytheActAutonomously(state: FullGameState): GadgetActivation | null {
   const composure = state.npcs.blythe.composure;
   const trust = state.npcs.blythe.trustInALICE;
-  const restraints = state.npcs.blythe.restraintsStatus;
+  const restraintsVal = restraintsValue(state.npcs.blythe);
 
   // Blythe acts based on his assessment of the situation
   // High composure = patient, waits for good opportunity
@@ -365,13 +366,13 @@ export function shouldBlytheActAutonomously(state: FullGameState): GadgetActivat
   const drMDistracted = state.turn >= 6 && state.turn <= 9;
   if (drMDistracted && trust < 3 && composure >= 3) {
     // Quietly work on restraints with laser
-    if (restraints === "secure" && canBlytheUseGadget(state, "WATCH_LASER")) {
+    if (restraintsVal >= RESTRAINTS_MAX && canBlytheUseGadget(state, "WATCH_LASER")) {
       return activateBlytheGadget(state, "WATCH_LASER");
     }
   }
 
   // If nearly free and has comms, call for extraction
-  if (restraints === "nearly free" && canBlytheUseGadget(state, "WATCH_COMMS")) {
+  if (restraintsVal === 1 && canBlytheUseGadget(state, "WATCH_COMMS")) {
     return activateBlytheGadget(state, "WATCH_COMMS");
   }
 
@@ -392,7 +393,7 @@ export function getGadgetStatusForGM(state: FullGameState): string {
     `- Watch Comms: ${g.watchComms.functional ? "FUNCTIONAL" : "DISABLED"}`,
     `- Super-Magnet Cufflinks: ${g.superMagnetCufflinks.charges > 0 ? "AVAILABLE" : "DEPLETED"} (${g.superMagnetCufflinks.charges} charges)`,
     "",
-    `Restraint Status: ${state.npcs.blythe.restraintsStatus}`,
+    `Restraint Status: ${restraintLabel(state.npcs.blythe)} (${restraintsValue(state.npcs.blythe)}/${RESTRAINTS_MAX})`,
     `Blythe Composure: ${state.npcs.blythe.composure}/5`,
     `Blythe Trust in A.L.I.C.E.: ${state.npcs.blythe.trustInALICE}/5`,
     `Blythe Escaped: ${state.npcs.blythe.hasEscaped ? "YES" : "No"}`,
@@ -419,19 +420,17 @@ export function checkAndRecordBlytheEscape(
   }
 
   // Check escape conditions
-  const restraints = state.npcs.blythe.restraintsStatus;
 
   // Full escape conditions:
   // 1. Restraints explicitly "free"
   // 2. Location changed to escape-indicating locations
   // 3. Transformed + restraints loose (dinosaur can break out)
-  const isFree = restraints === "free" ||
-                 restraints.toLowerCase().includes("escaped") ||
+  const isFree = restraintsValue(state.npcs.blythe) <= 0 ||
                  state.npcs.blythe.location.toLowerCase().includes("escaped") ||
                  state.npcs.blythe.location.toLowerCase().includes("fled");
 
   const isDinosaurBreakout = state.npcs.blythe.transformationState &&
-                              (restraints !== "secure" && restraints !== "reinforced");
+                              restraintsValue(state.npcs.blythe) < RESTRAINTS_MAX;
 
   if (isFree) {
     recordBlytheEscape(state, triggeredBy);
@@ -455,7 +454,7 @@ export function markBlytheEscaped(
 ): void {
   if (!state.npcs.blythe.hasEscaped) {
     recordBlytheEscape(state, method);
-    state.npcs.blythe.restraintsStatus = "free";
+    setRestraints(state.npcs.blythe, 0);
     state.npcs.blythe.location = "escaped - location unknown";
   }
 }

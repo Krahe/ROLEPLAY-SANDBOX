@@ -20,6 +20,7 @@ import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "../rules/clockEvents.js";
 import { applyReactorStressDecay } from "../rules/infrastructure.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadgets.js";
+import { setRestraints } from "../state/properties.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
 import { FORM_DEFINITIONS } from "../rules/transformation.js";
@@ -798,11 +799,8 @@ export class GameRunner {
     // NPC overrides - Blythe
     if (o.blythe_trust !== undefined) state.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, o.blythe_trust));
     if (o.blythe_composure !== undefined) state.npcs.blythe.composure = Math.max(0, Math.min(5, o.blythe_composure));
-    if (o.blythe_restraintsStatus !== undefined) {
-      const validStatuses = ["secure", "loose", "partially compromised", "free"];
-      if (typeof o.blythe_restraintsStatus === "string" && validStatuses.includes(o.blythe_restraintsStatus)) {
-        state.npcs.blythe.restraintsStatus = o.blythe_restraintsStatus as "secure" | "loose" | "partially compromised" | "free";
-      }
+    if (o.blythe_restraints !== undefined && typeof o.blythe_restraints === "number") {
+      setRestraints(state.npcs.blythe, o.blythe_restraints);
     }
     if (o.blythe_transformationState !== undefined && typeof o.blythe_transformationState === "string") {
       state.npcs.blythe.transformationState.form = profileToFormName(o.blythe_transformationState);
