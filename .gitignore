@@ -5,3 +5,5 @@ dist/
 run-mcp.sh
 *.log
 .DS_Store
+transcripts/
+
