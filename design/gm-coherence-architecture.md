@@ -251,3 +251,23 @@ SETTLE must run EXACTLY ONCE. Today's retry loop (`callGMClaude` 4×/300s, gmCla
 
 ## Scope discipline
 S4 = the split ONLY. DECIDE emits the EXISTING stateOverrides/skillCheckRequests vocabulary — NO new object/invention operations (that's S5/S6). Keeps S4 verifiable in isolation. (Marginalia lineage on the map: **Throttle**, after Vellum → Vellum-reader.)
+
+## DECIDE SCHEMA — pruned & locked (2026-06-21, design session with Krahe)
+Designed the `decide_turn` tool input_schema. **Medium-thick / full enumeration** (legibility > brevity — precise required outputs + tool-use). **Audit-driven prune** — traced every field to its consumer; a field only earns its place if the engine consumes it into a real effect.
+
+**CUT (5 — no mechanical effect):**
+- `complication`, `npcAssertion`, `denyEasyOut` — **log-only** (`appendToLog` at gmClaude.ts:3564/3569/3574, nothing else). Their intent now lives in `reasoning`, their execution in the narration. ★ **FUTURE (deferred, captured not built):** `complication` has a *real* mechanic worth building later — a **MODIFIER that demands resolution** (e.g. a DINO RAY motor jams and is unusable until ALICE gets Bob to free it). New surface; held back to keep S4 clean-minimal-proven-by-playtest, not the cathedral-in-our-heads.
+- `triggerEvent` — **dead** (declared gmClaude.ts:1765, ZERO consumers).
+- `stateUpdates` — **vestigial** (only validated/warned at gmValidation.ts:122-124 — that IS the "Missing stateUpdates object" warning seen in C0/C1 runs — never applied). Cut the field AND delete the spurious warning.
+
+**KEPT (~14, each consumed):** `reasoning`(NEW, required) · `stateOverrides`(NPC+system attrs; common keys enumerated + `additionalProperties:true` for archimedes_*/reactor_*/s300_* passthrough) · `skillCheckRequests` · `modifyActionResult` · `narrativeFlags`(heavily consumed: achievements/endings/lifelines/acts) · `narrativeMarker` · `gmNotes` · `juicyMoment`(epilogue) · `npcArcUpdate` · `designerFeedback` · and the FOUR real "teeth": `ratchetTension`(→hidden tension), `adjustHiddenClock`(→hiddenClocks), `plantSeed`(→plantedSeeds), `permanentConsequence`(→permanentConsequences + endings). NOT in DECIDE → NARRATE: narration, npcDialogue, npcActions, checkpointQuestion.
+
+**`reasoning` framing (disposition-forward — Krahe corrected away from interiority):** *"What happens this turn and why — carried through the characters' DISPOSITIONS and ACTIONS: how each NPC is posed (mood, stance, inclination — observable, not private interiority) and what they DO. Plus the beat's tone and any thread it advances. Director's blocking + character stances, not inner monologue. The narration renders this; a simple turn needs a sentence, a charged one earns up to ~500 words."*
+
+**`dead` CENSORED** (transformation-and-knockout comedy, no murder): don't enumerate `dead`. Engine ALREADY maps dead→ABSENT (gameRunner.ts:930-933, "this isn't that kind of game") — keep that backstop. Also: the Dr.M-state signal is doubly-redundant (narrativeFlags strings AND stateOverrides booleans, gameRunner.ts:919-926) → pick ONE channel; lean enumerated `stateOverrides.drM_transformed`/`drM_unconscious` booleans.
+
+**Strictness:** `additionalProperties:true` at top level + on `stateOverrides` ONLY (the two places the engine reads passthrough keys); structured sub-objects CLOSED (`additionalProperties:false`) to catch typos.
+
+**Entity-attribute model = S5, NOT S4 (decision A):** NPCs + lair-systems already have updatable attributes, spread across `gameState` (public) + `gmMemory` hidden registers (hiddenNpcStates/hiddenClocks/plantedSeeds/permanentConsequences/npcArcs). S4 stays a pure split against this PRUNED surface; **S5 formalizes the unified entity-attribute layer (object registry + per-NPC/lair scratchpads) AND enumerates the lab objects** (Krahe: "soon"). The prune makes that a clean seam, not a refactor.
+
+**NEXT (build, fresh session):** write `callGMDecide` with this pruned schema as the literal `input_schema`, read `tool_use.input` (no extractJSON/parse), Zod soft-gate; then SETTLE (move the laggard mutators up), then NARRATE. Plus the two engine cleanups: delete `stateUpdates` + its warning, and excise the `triggerEvent`/log-only-tool field declarations.
