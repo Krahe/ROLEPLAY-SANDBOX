@@ -180,3 +180,74 @@ The pre-`66293bb` under-send bug (GM only ever saw 2 turns regardless of cap) me
 - **Register bloat is a non-issue — "never-dropped" belongs to the TRANSCRIPT, not the registers.** The validation flagged the never-dropped registers (event register, NPC scratchpads, object registry), re-rendered in the tail every turn, as a bloat risk. The cached-thread design dissolves it: the **append-only cached transcript IS the complete, never-dropped record**; the **registers are the concentrated LIVE-SALIENT view** (open threads, current NPC impressions, live object states) riding in the cheap tail. So a register entry can be **pruned the moment it resolves** — a paid-off seed, a destroyed-and-irrelevant object, a closed thread — and *pruning ≠ forgetting*, because the transcript still holds it if ever needed. Registers stay small by **graduating resolved items out** into the transcript-only record; the transcript remembers everything. **This IS the consolidation mechanism** we kept gesturing at ("compress don't drop, consolidate don't slice"): consolidation = drop-from-the-live-view, never from the record. The old register-bloat fear was a holdover from the era when dropping = forgetting; under the cached thread, it isn't.
 - **BASILISK / multi-actor turns fold into the GM's narration.** His moves are already settled into state before the GM call, so the GM narrates them — the transcript stays clean **player ↔ GM**, with BASILISK riding inside the assistant turn. (Requirement: the GM narration must faithfully carry BASILISK's consequential acts so the cached transcript preserves them for future coherence.)
 - **Build-time loose ends (decide in-build, not now):** (1) the 20-block cache lookback on multi-action turns → place an intermediate breakpoint (2 of 4 used); (2) mid-turn failure consistency → if NARRATE fails *after* the engine settled, don't append a half-turn; retry NARRATE or append a minimal resolved-marker so the transcript and engine state never diverge.
+
+---
+
+# S4 BUILD CONTRACT — DECIDE → settle → NARRATE (mapped + validated 2026-06-20)
+
+**Status: MAPPED, build-ready, NOT YET BUILT.** Source: 4-agent mapping workflow + synthesis, cross-checked against the live code (ground-truth-validated). Cache track C0–C2 is SHIPPED (`7189fac`→`11a8afa`); this is the next slice. Build next session directly from this section.
+
+## The frame: MIND → WORLD → VOICE
+The split is NOT "mechanics vs prose." It is the GM's three beats made *sequential* so narration cannot precede resolution:
+- **DECIDE = the GM's mind.** The full cognitive work — what happens, *why*, what it means, tone, threads. Emits `operations[]` (the EXISTING `stateOverrides`/meta shape) + a `reasoning` chain (≤~500w, variable: intent/why/tone/threads). **No prose.**
+- **SETTLE = the world resolves.** Engine applies + clamps the operations and rolls skill dice → canonical settled facts.
+- **NARRATE = the GM's voice.** Renders the settled facts + the reasoning into player-facing prose. **Does not re-decide.** Settled facts are AUTHORITATIVE over reasoning (engine wins on any contradiction).
+
+The `reasoning` chain is the bridge carrying authorial intent across the engine-settle step — what a human GM holds in their head between "okay, it scorches and Dr. M gets suspicious" and describing the scene. It is **transient**: passed DECIDE→NARRATE within the turn, NEVER written to the cached transcript. Raw settled facts alone are insufficient — they're a skeleton; the reasoning is the why/tone/threads that make narration intentional, not generic.
+
+**Why two calls (not one with two sections):** the confab fix REQUIRES narrating *after* the engine clamps/rolls. Today the single call (`gameRunner.ts:1156`) writes narration, THEN `applyGMOverrides` (`:1200`) clamps and `processSkillChecks` (`:1203`) rolls — narration is structurally blind to both. That IS the bug.
+
+## Throttle's reframe: S4 is 90% a MOVE, not a build
+`applyGMOverrides`, `processSkillChecks`, `processArchimedes` already exist and already run — just on the wrong side of the GM call ("the narration was standing in front of the dice"). S4 = re-order those three above the narration + split the one call into DECIDE (tool-use) and NARRATE (prose) + handle the retry seam.
+
+## Restructured `executeTurn` (gameRunner.ts:1112-1289)
+Pre-GM band UNCHANGED through `buildGMContext` (`:1151`); BASILISK pre-settles at `:1148` (stays — split is downstream, NARRATE carries his acts). The single call at `:1156` becomes three steps inside the same try/catch:
+1. **DECIDE** — `const decision = await this.callGMDecide(gmContext)`. Keep the GMUnavailable/Auth/Unknown catch arms (`:1160-1196`) verbatim (still short-circuit a half-turn return).
+2. **SETTLE** (move up from `:1200-1206`, runs ONCE): `applyGMOverrides(state, decision)` → `const skillCheckResults = this.processSkillChecks(state, decision, preResult.luckyLadyInfo)` (**CAPTURE** the return — today discarded) → `const archimedesEvent = this.processArchimedes(state, decision)` (**DEFER** the `:1208` narration concat). Apply `modifyActionResult` to `actionResults`. Run `updateMemoryFromResponse`'s mutating effects (ratchetTension/plantSeed/permanentConsequence/adjustHiddenClock, gmClaude.ts:3401-3584) from `decision`. Build `settledFacts = {clampDeltas (requested≠applied), lastTurnSkillChecks (this turn), archimedesEvent}`.
+3. **NARRATE** — `const voice = await this.callGMNarrate(gmContext, decision.reasoning, settledFacts)`. Assemble `gmResponse = {...decision, narration: voice.narration, npcDialogue: voice.npcDialogue, checkpointQuestion: voice.checkpointQuestion ?? decision.checkpointQuestion}` so every downstream consumer (history `:1232`, composite `:1253`, npcActions `:1270`) reads one GMResponse-shaped object. NOW do the deferred ARCHIMEDES concat onto `gmResponse.narration` (player-facing ONLY — NARRATE already froze pure prose into the transcript).
+
+Post-NARRATE band UNCHANGED (`advanceTurn` `:1212` → lifeline → `history.push` `:1229` → achievements → act-transition → endings → composite → return).
+
+## DECIDE — `callGMDecide`/`callGMDecideInternal` (new in gmClaude.ts)
+- **Forced tool-use.** Reuse the C1 `messages[]` assembly (`:3910-3931`, transcript + bp2 on tail) + system bp1 (`:3969-3978`) verbatim. Add: `tools:[{name:'decide_turn', input_schema:<mirror of GMResponseSchema MINUS narration/npcDialogue, PLUS passthrough drM_*/reactor_*/s300_* keys the engine reads, PLUS required reasoning:string>}]` + `tool_choice:{type:'tool', name:'decide_turn', disable_parallel_tool_use:true}`.
+- **SDK 0.52 types tools NATIVELY — no casts** (verified: messages.d.ts input_schema/ToolChoiceTool/tool_choice).
+- **Read from the `tool_use` block's `.input`** — NOT extractJSON/safeJSONParse. **This permanently retires the GM-JSON parse/repair flake** (gmClaude.ts:4063-4078; closes task #11's class + the newer one). Keep Zod `validateGMResponse` as a soft post-gate.
+- **Schema stays NON-STRICT** (additionalProperties open): the engine reads UNDECLARED passthrough keys (`drM_transformed/_unconscious/_dead`, gameRunner.ts:923-925) — strict would silently drop them and break ARCHIMEDES. "Guaranteed-valid" = guaranteed-parseable JSON, not closed vocabulary.
+- No transcript append. No prose/filler gate. Effort medium-or-lower (adjudication needs no expansive CoT).
+
+## NARRATE — `callGMNarrate`/`callGMNarrateInternal` (new in gmClaude.ts)
+- **Raw prose.** Reuse the SAME transcript `messages[]` + system bp1 (byte-identical → cache_read on bp2). NO tools.
+- **Settled-facts injection geometry:** after the live user `fullPrompt` push (`:3931`), append ONE `{role:'system'}` message as the LAST element — satisfies all three hard placement rules (not messages[0], follows a user turn, last) AND sits after bp2 in the uncached tail (doesn't bust the cache; preserves the C0 telemetry). Two sections, settled facts FIRST + most-prominent:
+  - **`ENGINE RESOLUTION — CANONICAL (overrides any contradicting intent below)`** = clampDeltas (only requested≠applied lines) + this-turn skill-check render (template gmClaude.ts:4305-4319) + archimedesEvent text + accessLevel-refused if applicable. (Header mirrors the firing block at `:4180`.)
+  - **`GM INTENT (subordinate to the facts above)`** = `decision.reasoning` verbatim.
+- **Dedup:** keep pinnedFacts/fingerprint/firing-block in the live user tail (standing state); put ONLY freshly-settled deltas in the system message.
+- Returns thin `{narration, npcDialogue[], checkpointQuestion?}`. Run `validateGMResponseContent` (`:3735`) + `looksLikeFiller` (`:3753`) — the PROSE gate lives here.
+- **RELOCATE the C1 transcript append** (gmClaude.ts:3774-3778) to NARRATE's acceptance point: push `{user: renderFrozenPlayerTurn}` + `{assistant: voice.narration}` (NARRATE prose verbatim — never DECIDE output, never reasoning). Keep the `lastTranscriptTurn` guard.
+- **MOVE** `enforceNpcSpeechConstraints` (`:4098`) + auto-juicy-capture (`:3485`) onto the NARRATE path (dialogue is now NARRATE output).
+
+## Field routing
+- **DECIDE (mind):** stateOverrides (full ~50-key clamp incl. passthrough triggers), skillCheckRequests, narrativeFlags, modifyActionResult, triggerEvent, narrativeMarker, gmNotes, juicyMoment, npcArcUpdate, designerFeedback, ratchetTension, complication, permanentConsequence, npcAssertion, plantSeed, adjustHiddenClock, denyEasyOut, diceRolls, stateUpdates, triggerEnding + transient `reasoning`.
+- **NARRATE (voice):** narration, npcDialogue[], checkpointQuestion (references "what just happened" → needs post-settle knowledge).
+- **ENGINE (settle, no LLM):** applyGMOverrides clamps, processSkillChecks dice, processArchimedes.
+
+## ⚠️ THE RETRY SEAM — the one genuinely delicate part ("watch only the retry seam")
+SETTLE must run EXACTLY ONCE. Today's retry loop (`callGMClaude` 4×/300s, gmClaude.ts:3721-3731) re-enters from the top. Kept undivided, a NARRATE failure re-runs SETTLE → `processSkillChecks` re-rolls dice + **re-decrements fortune** (gameRunner.ts:857) + re-applies clamped deltas (`:869-884`) = silently corrupted state.
+- **FIX:** split into a **DECIDE retry scope** (top of turn, nothing settled) + a **NARRATE-only retry scope** (after settle). SETTLE sits between, runs once, never re-entered. This **moves retry ownership out of `callGMClaude` into `executeTurn`'s orchestration** — the single most careful edit in S4.
+- Half-turn safety: NARRATE's transcript append is at its acceptance point only → a failed NARRATE doesn't append; the `lastTranscriptTurn` guard makes a NARRATE-retry yield exactly one pair.
+
+## Corrections to prior assumptions
+- **Two warm SYSTEM caches, not one.** DECIDE (tools) and NARRATE (no tools) have different system-tier cache keys (tools render before system). They SHARE bp2 (transcript) but each warms its own system entry. Economically fine. Breakpoint budget: bp1=system, bp2=transcript spoken-for; bp3/bp4 free.
+- **`index.ts` is DEPRECATED / out of scope** (CLI-primary locked; live path = gameRunner.executeTurn via play.ts:186). Do NOT wire the split into index.ts.
+
+## Verification plan
+1. **THROTTLE-THE-BEAM (the core fix):** DECIDE intends "destroy", engine clamps to "scorch" (over/under-power) OR suspicion +5 at 8 → clamped to 10. Assert: SETTLE ran before NARRATE; the {role:system} message carries the clamped value; NARRATE's prose says scorch and NEVER "destroyed."
+2. **Cache on both calls:** DINO_CACHE_DEBUG byte-diff; cache_read>0 on BOTH DECIDE and NARRATE from turn 2 (shared bp2). Expect two warm system caches.
+3. **No half-turn on NARRATE failure:** force NARRATE to throw after SETTLE; assert transcript NOT appended + SETTLE not re-run (fortune decremented once, deltas once) + NARRATE-retry appends exactly one pair.
+4. **Fortune/dice exactly once** per turn.
+5. **Reasoning transient:** absent from transcript / recentExchanges / compact summary.
+6. **ARCHIMEDES player-facing only:** in the composite narrative, NOT the cached transcript block.
+7. **Passthrough triggers preserved:** DECIDE emitting drM_transformed/_unconscious/_dead still read by processArchimedes (non-strict schema).
+8. **Regression:** smoke suite green + an advisor autonomous playthrough (shares executeTurn) + a play.ts interactive turn.
+
+## Scope discipline
+S4 = the split ONLY. DECIDE emits the EXISTING stateOverrides/skillCheckRequests vocabulary — NO new object/invention operations (that's S5/S6). Keeps S4 verifiable in isolation. (Marginalia lineage on the map: **Throttle**, after Vellum → Vellum-reader.)
