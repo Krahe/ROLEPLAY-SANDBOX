@@ -2614,10 +2614,7 @@ Use this to see what the GM has been thinking and any feedback for designers!`,
     // Full memory dump if requested
     if (params.includeFullMemory) {
       output.fullMemory = {
-        recentExchangeCount: memory.recentExchanges.length,
-        turnSummaryCount: memory.turnSummaries.length,
         allJuicyMoments: memory.juicyMoments,
-        turnSummaries: memory.turnSummaries,
       };
     }
 

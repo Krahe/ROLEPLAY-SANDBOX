@@ -276,13 +276,6 @@ describe('Act Transition Memory Preservation (legacy: DINO_LEGACY_ACT_CLEARING=t
       { turn: 5, marker: 'Blythe attempted escape and was recaptured' }
     );
 
-    // Populate with some turn summaries
-    memory.turnSummaries.push(
-      { turn: 1, summary: 'Initial briefing', outcome: 'A.L.I.C.E. received mission parameters' },
-      { turn: 3, summary: 'Ray calibration', outcome: 'Dinosaur ray calibrated to 60%' },
-      { turn: 5, summary: 'Crisis management', outcome: 'Escape attempt thwarted' }
-    );
-
     // Trigger act transition
     const actSummary = gmClaude.resetMemoryForActTransition('ACT_1', 'ACT_2', 1, 5);
 
@@ -301,10 +294,6 @@ describe('Act Transition Memory Preservation (legacy: DINO_LEGACY_ACT_CLEARING=t
     assert.ok(newMemory.previousActContext.narrativeMarkers.some(m => m.act === 'ACT_1'),
       'Markers should be tagged with act name');
 
-    // Check turn summaries were preserved
-    assert.ok(newMemory.previousActContext.turnSummaries.length > 0,
-      'Should preserve turn summaries');
-
     // Check act summary was added
     assert.ok(newMemory.previousActContext.actSummaries.length > 0,
       'Should have act summaries');
@@ -319,7 +308,6 @@ describe('Act Transition Memory Preservation (legacy: DINO_LEGACY_ACT_CLEARING=t
     // ACT 1 content
     const mem1 = gmClaude.getGMMemory();
     mem1.narrativeMarkers.push({ turn: 1, marker: 'Act 1 event' });
-    mem1.turnSummaries.push({ turn: 1, summary: 'Act 1', outcome: 'Act 1 completed' });
 
     // Transition ACT_1 → ACT_2
     gmClaude.resetMemoryForActTransition('ACT_1', 'ACT_2', 1, 3);
@@ -327,7 +315,6 @@ describe('Act Transition Memory Preservation (legacy: DINO_LEGACY_ACT_CLEARING=t
     // ACT 2 content
     const mem2 = gmClaude.getGMMemory();
     mem2.narrativeMarkers.push({ turn: 4, marker: 'Act 2 event' });
-    mem2.turnSummaries.push({ turn: 4, summary: 'Act 2', outcome: 'Act 2 completed' });
 
     // Transition ACT_2 → ACT_3
     gmClaude.resetMemoryForActTransition('ACT_2', 'ACT_3', 4, 6);

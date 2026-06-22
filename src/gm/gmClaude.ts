@@ -678,15 +678,6 @@ The volcanic island continued its slow geological churn, indifferent to the smal
 // GM MEMORY SYSTEM
 // ============================================
 
-export interface TurnSummary {
-  turn: number;
-  aliceIntent: string;           // What was A.L.I.C.E. trying to do?
-  keyActions: string[];          // Most significant actions
-  keyDialogue: string[];         // Most impactful lines (verbatim quotes!)
-  stateDeltas: string[];         // What changed: "Bob trust: 2→3"
-  outcome: string;               // Brief result: "Fizzle, Dr. M frustrated"
-}
-
 export interface JuicyMoment {
   turn: number;
   type: "quote" | "event" | "revelation" | "callback_opportunity";
@@ -703,26 +694,15 @@ export interface NPCArc {
 }
 
 export interface GMMemory {
-  // HOT: Last 3 exchanges - COMPACT format to reduce memory bloat
-  recentExchanges: Array<{
-    turn: number;
-    actionCommands: string[];    // Just the command names (e.g., ["ray.fire", "talk"])
-    response: string;            // Compact response summary
-  }>;
-  maxRecentExchanges: number;
-
   // C1: APPEND-ONLY VERBATIM TRANSCRIPT — the cached GM thread. One {role:'user'} block
   // (the player's actions, frozen as the GM saw them) + one {role:'assistant'} block
   // (parsed.narration, verbatim) per completed turn. NEVER shifted/edited/cleared — the
-  // cache rides on byte-identity of this prefix. Not bounded by maxRecentExchanges.
+  // cache rides on byte-identity of this prefix. Unbounded — grows verbatim with the game.
   transcript: Array<{ role: "user" | "assistant"; content: string }>;
   // C1: guards the transcript append so the main path + crash-recovery retry (index.ts
   // :1137 / :688) can't both append for one turn — only the first accepted GM call per
   // turn number is recorded.
   lastTranscriptTurn?: number;
-
-  // WARM: Structured turn summaries (auto-generated from turns 4+)
-  turnSummaries: TurnSummary[];
 
   // JUICY: Key quotes and moments worth remembering
   juicyMoments: JuicyMoment[];
@@ -811,8 +791,6 @@ export interface GMMemory {
   previousActContext: {
     // All narrative markers from previous acts (not just last 5)
     narrativeMarkers: Array<{ turn: number; marker: string; act: string }>;
-    // Key turn summaries from previous acts
-    turnSummaries: Array<{ turn: number; summary: string; act: string }>;
     // Act transition summaries
     actSummaries: Array<{ act: string; summary: string }>;
   };
@@ -880,10 +858,7 @@ let gmMemory: GMMemory = createFreshMemory();
 
 export function createFreshMemory(): GMMemory {
   return {
-    recentExchanges: [],
-    maxRecentExchanges: 6,  // raw window the GM sees (was 3; send-slice now tracks this)
     transcript: [],  // C1: append-only verbatim cached thread (never shifted/cleared)
-    turnSummaries: [],
     juicyMoments: [],
     narrativeMarkers: [],
     npcArcs: {
@@ -940,7 +915,6 @@ export function createFreshMemory(): GMMemory {
     // Previous act context - starts empty, populated on act transitions
     previousActContext: {
       narrativeMarkers: [],
-      turnSummaries: [],
       actSummaries: [],
     },
 
@@ -1012,7 +986,7 @@ export interface ActSummary {
 
 /**
  * Reset GM memory for act transition
- * CLEARS: recentExchanges, turnSummaries, hiddenClocks, npcAwareness, actionHistory
+ * CLEARS: hiddenClocks, npcAwareness, actionHistory
  * PRESERVES: top 5 juicyMoments, permanentConsequences, callbacks, NPC arc states
  * GENERATES: Act summary for narrative handoff
  */
@@ -1104,13 +1078,6 @@ export function resetMemoryForActTransition(
     act: fromAct,
   }));
 
-  // Capture last 8 turn summaries from current act (compact but informative)
-  const currentActSummaries = gmMemory.turnSummaries.slice(-8).map(s => ({
-    turn: s.turn,
-    summary: s.outcome || "Turn completed",
-    act: fromAct,
-  }));
-
   // Build act summary for the log
   const actSummaryText = `${fromAct}: ${keyEvents.join("; ") || "Completed"}`;
 
@@ -1120,10 +1087,6 @@ export function resetMemoryForActTransition(
       ...gmMemory.previousActContext.narrativeMarkers,
       ...currentActMarkers,
     ].slice(-30), // Keep last 30 markers total across all acts
-    turnSummaries: [
-      ...gmMemory.previousActContext.turnSummaries,
-      ...currentActSummaries,
-    ].slice(-20), // Keep last 20 turn summaries total
     actSummaries: [
       ...gmMemory.previousActContext.actSummaries,
       { act: fromAct, summary: actSummaryText },
@@ -1219,7 +1182,7 @@ export function resetMemoryForActTransition(
   appendToLog(`\n${"=".repeat(60)}\nACT TRANSITION: ${fromAct} → ${toAct}\n${"=".repeat(60)}`);
   appendToLog(`Key events: ${keyEvents.join("; ")}`);
   appendToLog(`Preserved moments: ${preservedJuicyMoments.length}, Consequences: ${preservedConsequences.length}`);
-  appendToLog(`Narrative context preserved: ${preservedPreviousActContext.narrativeMarkers.length} markers, ${preservedPreviousActContext.turnSummaries.length} turn summaries`);
+  appendToLog(`Narrative context preserved: ${preservedPreviousActContext.narrativeMarkers.length} markers`);
   appendToLog(`Memory reset complete. Fresh context for ${toAct} with narrative continuity preserved.\n`);
 
   return actSummary;
@@ -1230,7 +1193,6 @@ export function resetMemoryForActTransition(
 // ============================================
 // Prevent unbounded growth of memory arrays
 const GM_MEMORY_LIMITS = {
-  turnSummaries: 15,          // Keep last 15 turn summaries
   juicyMoments: 20,           // Keep top 20 juicy moments (by emotionalWeight)
   narrativeMarkers: 20,       // Keep last 20 markers
   gmNotebook: 15,             // Keep last 15 notes
@@ -1247,11 +1209,6 @@ const GM_MEMORY_LIMITS = {
  * Called before serialization to prevent checkpoint bloat
  */
 function compactGMMemory(): void {
-  // Trim turn summaries
-  if (gmMemory.turnSummaries.length > GM_MEMORY_LIMITS.turnSummaries) {
-    gmMemory.turnSummaries = gmMemory.turnSummaries.slice(-GM_MEMORY_LIMITS.turnSummaries);
-  }
-
   // Keep top juicy moments by emotional weight
   if (gmMemory.juicyMoments.length > GM_MEMORY_LIMITS.juicyMoments) {
     gmMemory.juicyMoments.sort((a, b) => b.emotionalWeight - a.emotionalWeight);
@@ -1275,7 +1232,7 @@ function compactGMMemory(): void {
 
   // Remove triggered seeds that have already paid off, keep rest limited
   gmMemory.plantedSeeds = gmMemory.plantedSeeds
-    .filter(s => !s.triggered || (s.payoffTurn && s.payoffTurn > (gmMemory.turnSummaries[0]?.turn || 0) - 5))
+    .filter(s => !s.triggered)
     .slice(-GM_MEMORY_LIMITS.plantedSeeds);
 
   // Callbacks: remove used ones, limit total
@@ -1311,35 +1268,6 @@ export function serializeGMMemory(): string {
   // Compact memory before serialization to prevent bloat
   compactGMMemory();
   return JSON.stringify(gmMemory);
-}
-
-/**
- * Restore GM memory from a checkpoint
- * This preserves the "same DM" across checkpoint resumes
- */
-export function restoreGMMemory(serialized: string, sessionId?: string): boolean {
-  try {
-    const restored = JSON.parse(serialized) as GMMemory;
-
-    // Validate the restored memory has required fields
-    if (!restored.recentExchanges || !restored.npcArcs || !restored.hiddenNpcStates) {
-      console.error("[GM MEMORY] Invalid checkpoint memory structure, using fresh memory");
-      gmMemory = createFreshMemory();
-      return false;
-    }
-
-    gmMemory = restored;
-    console.error(`[GM MEMORY] Restored from checkpoint: ${restored.turnSummaries.length} summaries, ${restored.juicyMoments.length} juicy moments, tension=${restored.tensionLevel}`);
-
-    if (sessionId) {
-      writeSessionHeader(sessionId);
-    }
-    return true;
-  } catch (error) {
-    console.error("[GM MEMORY] Failed to restore from checkpoint:", error);
-    gmMemory = createFreshMemory();
-    return false;
-  }
 }
 
 export interface GMContext {
@@ -3108,16 +3036,6 @@ function buildMemoryContext(): string {
     parts.push("");
   }
 
-  // Add turn summaries (if we have them) - reduced to 3, compact format
-  if (gmMemory.turnSummaries.length > 0) {
-    parts.push("## 📜 Earlier Turns");
-    gmMemory.turnSummaries.slice(-3).forEach(s => {
-      // Compact: just turn, intent, outcome on one line
-      parts.push(`- T${s.turn}: ${s.aliceIntent} → ${s.outcome}`);
-    });
-    parts.push("");
-  }
-
   // Callbacks waiting for payoff
   const unusedCallbacks = gmMemory.callbacks.filter(c => !c.payoffUsed);
   if (unusedCallbacks.length > 0) {
@@ -3240,60 +3158,6 @@ function getClockUrgency(clock: string, value: number): string {
   if (value <= 2) return "🔴 URGENT";
   if (value <= 4) return "🟡 getting close";
   return "";
-}
-
-/**
- * Create a COMPACT summary of GM response for conversation context
- * This prevents the 54K+ character response bloat!
- */
-function createCompactResponseSummary(response: GMResponse, turn: number): string {
-  const parts: string[] = [`[Turn ${turn} Summary]`];
-
-  // Brief narration summary (first 200 chars only)
-  if (response.narration) {
-    const narrationSnippet = response.narration.slice(0, 200).replace(/\n/g, " ");
-    parts.push(`Scene: ${narrationSnippet}...`);
-  }
-
-  // NPC actions (compact)
-  if (response.npcActions && response.npcActions.length > 0) {
-    parts.push(`NPCs: ${response.npcActions.slice(0, 3).join("; ")}`);
-  }
-
-  // NPC dialogue (compact - just speakers)
-  if (response.npcDialogue && response.npcDialogue.length > 0) {
-    const speakers = [...new Set(response.npcDialogue.map(d => d.speaker))];
-    parts.push(`Spoke: ${speakers.join(", ")}`);
-  }
-
-  // Key state overrides
-  if (response.stateOverrides) {
-    const overrides: string[] = [];
-    const so = response.stateOverrides;
-    if (so.drM_suspicion !== undefined) overrides.push(`suspicion=${so.drM_suspicion}`);
-    if (so.drM_mood) overrides.push(`mood=${so.drM_mood}`);
-    if (so.demoClock !== undefined) overrides.push(`demo=${so.demoClock}`);
-    if (so.accessLevel !== undefined) overrides.push(`access=${so.accessLevel}`);
-    if (overrides.length > 0) {
-      parts.push(`State: ${overrides.join(", ")}`);
-    }
-  }
-
-  // Narrative marker if present
-  if (response.narrativeMarker) {
-    parts.push(`Marker: ${response.narrativeMarker}`);
-  }
-
-  // Adversarial directives if present
-  const directives: string[] = [];
-  if (response.ratchetTension) directives.push("↑tension");
-  if (response.complication) directives.push(`complication:${response.complication.severity}`);
-  if (response.permanentConsequence) directives.push("permanent!");
-  if (directives.length > 0) {
-    parts.push(`GM: ${directives.join(", ")}`);
-  }
-
-  return parts.join("\n");
 }
 
 /**
@@ -3429,24 +3293,6 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
 
   // Track player behavior FIRST (before we process GM response)
   trackPlayerBehavior(context);
-
-  // Store this exchange (keep last N) - COMPACT format to prevent bloat!
-  // Instead of storing 1500 chars of prompt, just store action commands
-  const compactResponse = createCompactResponseSummary(response, turn);
-  const actionCommands = context.aliceActions.map(a => a.command);
-  gmMemory.recentExchanges.push({
-    turn,
-    actionCommands,  // Just ["ray.fire", "talk"] instead of 1500 char prompt
-    response: compactResponse,
-  });
-  while (gmMemory.recentExchanges.length > gmMemory.maxRecentExchanges) {
-    // When an exchange ages out, create a summary
-    const aged = gmMemory.recentExchanges.shift()!;
-    const summary = createTurnSummary(aged, context);
-    if (summary) {
-      gmMemory.turnSummaries.push(summary);
-    }
-  }
 
   // Store narrative marker
   if (response.narrativeMarker) {
@@ -3609,78 +3455,6 @@ function updateMemoryFromResponse(response: GMResponse, context: GMContext, rawP
   }
 }
 
-/**
- * Create a summary of an aged-out exchange
- * Parses the compact text format from createCompactResponseSummary
- */
-function createTurnSummary(exchange: { turn: number; actionCommands: string[]; response: string }, _context: GMContext): TurnSummary | null {
-  try {
-    // Parse the plain text format from createCompactResponseSummary
-    // Format is like:
-    // [Turn N Summary]
-    // Scene: ...
-    // NPCs: ...
-    // Spoke: ...
-    // State: ...
-    // Marker: ...
-    const lines = exchange.response.split("\n");
-
-    let scene = "";
-    let npcActions: string[] = [];
-    let speakers: string[] = [];
-    let stateChanges: string[] = [];
-    let marker = "";
-
-    for (const line of lines) {
-      if (line.startsWith("Scene: ")) {
-        scene = line.slice(7);
-      } else if (line.startsWith("NPCs: ")) {
-        npcActions = line.slice(6).split("; ");
-      } else if (line.startsWith("Spoke: ")) {
-        speakers = line.slice(7).split(", ");
-      } else if (line.startsWith("State: ")) {
-        stateChanges = line.slice(7).split(", ");
-      } else if (line.startsWith("Marker: ")) {
-        marker = line.slice(8);
-      }
-    }
-
-    // Extract intent from action commands (compact - no 1500 char prompt needed!)
-    const commands = exchange.actionCommands.join(" ").toLowerCase();
-    let aliceIntent = "A.L.I.C.E. took actions";
-    if (commands.includes("fire") || commands.includes("shoot")) {
-      aliceIntent = "A.L.I.C.E. attempted to fire the ray";
-    } else if (commands.includes("talk") || commands.includes("speak")) {
-      aliceIntent = "A.L.I.C.E. engaged in dialogue";
-    } else if (commands.includes("scan") || commands.includes("status")) {
-      aliceIntent = "A.L.I.C.E. gathered information";
-    } else if (commands.includes("adjust") || commands.includes("calibrat")) {
-      aliceIntent = "A.L.I.C.E. adjusted ray parameters";
-    }
-
-    // Build dialogue from speakers if present
-    const keyDialogue = speakers.map(s => `${s} spoke`);
-
-    return {
-      turn: exchange.turn,
-      aliceIntent,
-      keyActions: npcActions.slice(0, 2),
-      keyDialogue: keyDialogue.slice(0, 2),
-      stateDeltas: stateChanges,
-      outcome: marker || scene.split(".")[0] || "Turn completed",
-    };
-  } catch {
-    // Fallback: create minimal summary
-    return {
-      turn: exchange.turn,
-      aliceIntent: "A.L.I.C.E. took actions",
-      keyActions: [],
-      keyDialogue: [],
-      stateDeltas: [],
-      outcome: `Turn ${exchange.turn} completed`,
-    };
-  }
-}
 
 // ============================================
 // GM CALL OPTIONS
