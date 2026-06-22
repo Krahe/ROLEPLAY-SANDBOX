@@ -4,6 +4,7 @@ import { recordFirstFiring } from "./actContext.js";
 import { FORM_DEFINITIONS, createHumanState } from "./transformation.js";
 import { checkResonanceCascade } from "./gameModes.js";
 import { getProfile, GenomeProfile } from "./genomes.js";
+import { triggerResonanceCascade } from "./cascade.js";
 
 // ============================================
 // TRANSFORMATION STATE LOOKUP (for REVERSAL)
@@ -749,6 +750,16 @@ export function resolveFiring(state: FullGameState): FiringResult {
       `🔥 OVERHEATED (heat ${ray.heat}/10): the ray throws a chaos field on top of the shot — "${chaos.name}" [${chaos.severity}]. Let it cool (idle, or eco-on) before firing again.`,
       ...result.narrativeHooks,
     ];
+
+    // A natural-20 "Resonance Cascade" (the lone catastrophic entry) is ENGINE-APPLIED, not left to
+    // GM discretion — PERILS OF THE WARP, and a meltdown if ARCHIMEDES is linked. See cascade.ts.
+    if (chaos.severity === "catastrophic") {
+      const arch = state.infrastructure.archimedes;
+      const linked = arch.status === "CHARGING" || arch.status === "ARMED" || arch.status === "FIRING";
+      const cascade = triggerResonanceCascade(state, linked);
+      result.environmentalEffects = [...result.environmentalEffects, cascade.message];
+      result.narrativeHooks = [cascade.message, ...result.narrativeHooks];
+    }
   }
 
   return result;
@@ -957,7 +968,7 @@ const CHAOS_TABLE: Record<number, ChaosFizzleResult> = {
       roll: 20,
       name: "Resonance Cascade Initiated",
       description: "The fire couples back into the ray's own core, or into ARCHIMEDES if it's linked. The exotic field doesn't dissipate — it amplifies. Alarms cascade across the facility. Dr. M emergency-stops everything. BASILISK is screaming. If ARCHIMEDES was charging, the cascade is now its problem too.",
-      mechanical: "If ARCHIMEDES linked (CHARGING/ARMED/FIRING): cascadeTriggered = true; existing cascade logic fires. Otherwise: ray enters FAULT state for 3+ turns. structuralIntegrity -= heavy. suspicionScore += 3. Lab partially evacuated. Catastrophic — game state shifts meaningfully.",
+      mechanical: "ENGINE-APPLIED via triggerResonanceCascade (cascade.ts) — PERILS OF THE WARP, always. If ARCHIMEDES is LINKED (CHARGING/ARMED/FIRING): the reactor MELTS DOWN and the lair is lost (evac window — narrate the scramble-out). Otherwise: reactorStress slammed to ~95 + cascadeRisk CRITICAL — a SCRAM-or-die crisis. Plus structural damage, +5 anomalies, +3 suspicion. The mechanics are already applied; just narrate the chaos.",
       severity: "catastrophic",
     },
 };

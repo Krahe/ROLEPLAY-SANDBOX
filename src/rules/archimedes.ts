@@ -1,5 +1,6 @@
 import { FullGameState } from "../state/schema.js";
 import { deployUplink, isUplinkDestroyed } from "../state/properties.js";
+import { triggerResonanceCascade } from "./cascade.js";
 import { isModifierActive } from "./gameModes.js";
 import { roll3d6, SkillCheckOutcome } from "./dice.js";
 
@@ -458,12 +459,10 @@ function transitionToComplete(state: FullGameState): ArchimedesEvent {
  * Process ARCHIMEDES countdown at end of turn
  * Call this after processing all actions
  */
-// PROPERTY LAYER (S5): A.L.I.C.E. can sever the deployed uplink with a muon cut. Doing it while
-// ARCHIMEDES has energy (CHARGING/ARMED) means the orbital charge has nowhere to go → resonance
-// cascade. The city is spared; the lair is not. The dish is out of reach (ceiling) until charging
-// deploys it, so this is only ever reachable during the dangerous window.
-// TODO(chaos-20): the cascade SEVERITY here is a PLACEHOLDER (reuses the human-blocker cascade).
-// Crank it to maximum chaos — "rolling a 20 on the chaos table" — in a later pass. Trigger only for now.
+// PROPERTY LAYER (S5/S6): A.L.I.C.E. can sever the deployed uplink with a muon cut. Doing it while
+// ARCHIMEDES has energy (CHARGING/ARMED) means the orbital charge has nowhere to go → the shared
+// RESONANCE CASCADE (cascade.ts) → meltdown (always the linked path here). The dish is out of reach
+// (ceiling) until charging deploys it, so this is only ever reachable during the dangerous window.
 function checkUplinkSabotageCascade(state: FullGameState): ArchimedesEvent | null {
   const archimedes = state.infrastructure.archimedes;
   if (!isUplinkDestroyed(state)) return null;
@@ -471,18 +470,13 @@ function checkUplinkSabotageCascade(state: FullGameState): ArchimedesEvent | nul
 
   const previousStatus = archimedes.status;
   archimedes.status = "DISSIPATED"; // the dish is gone — ARCHIMEDES cannot broadcast to the city
-  state.infrastructure.reactor.cascadeRisk = "CRITICAL";
-  state.infrastructure.reactor.cascadeFactors.push("Satellite uplink severed mid-charge — orbital energy feedback");
-  state.infrastructure.reactor.reactorStress = Math.min(100,
-    state.infrastructure.reactor.reactorStress + 40);
+  // The uplink only deploys WHILE ARCHIMEDES is charging, so this is always the linked (meltdown) path.
+  const cascade = triggerResonanceCascade(state, true);
   return {
     type: "RESONANCE_CASCADE",
     previousStatus,
     newStatus: "DISSIPATED",
-    message: `⚠️⚠️⚠️ RESONANCE CASCADE. The satellite uplink was severed mid-charge — full orbital ` +
-             `transformation energy with nowhere to go, feeding back into the lair. ` +
-             `${archimedes.target.city} is spared. The lair is not. ` +
-             `[PLACEHOLDER cascade severity — crank to maximum chaos later]`,
+    message: `${cascade.message} (${archimedes.target.city} is spared; the lair is not.)`,
   };
 }
 
