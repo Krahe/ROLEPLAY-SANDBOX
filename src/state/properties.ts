@@ -13,7 +13,7 @@
 //
 // First inhabitant: Blythe.properties.restraints (graded 0..4).
 // ============================================
-import { FullGameState, GameObject, Property, Properties } from "./schema.js";
+import { FullGameState, GameObject, Property, Properties, PropertyOp } from "./schema.js";
 
 // ---------- generic ----------
 
@@ -274,4 +274,63 @@ export function revealEntityProperties(state: FullGameState, target: string): st
   }
 
   return revealed;
+}
+
+// ---------- property ops (S6 — GM-driven mutation) ----------
+
+/** Resolve a GM entity-ref to its mutable properties bag (Blythe / the named guards / a lab object). */
+function resolveEntityBag(state: FullGameState, ref: string): Properties | null {
+  const t = (ref || "").toUpperCase();
+  if (t.includes("BLYTHE")) return state.npcs.blythe.properties;
+  const ld = state.lairDefense;
+  if (ld) {
+    if (t.includes("FRED")) return ld.fred?.properties ?? null;
+    if (t.includes("REGINALD")) return ld.reginald?.properties ?? null;
+  }
+  const objs = state.objects;
+  if (objs) {
+    for (const id of Object.keys(objs)) {
+      if (id.toUpperCase().includes(t) || objs[id].name.toUpperCase().includes(t)) {
+        return objs[id].properties;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Apply GM-emitted property ops (S6). The GM rules WHAT changes; the engine clamps + stores.
+ * A missing property is CREATED (invention). Engine-owned properties (owner:"engine", e.g. the
+ * deadman) are REJECTED. Returns a terse log of what landed (for narration / debugging).
+ * NB: a `{SATELLITE_UPLINK, integrity, delta:-n}` op feeds the uplink-sabotage cascade trigger.
+ */
+export function applyPropertyOps(state: FullGameState, ops?: PropertyOp[]): string[] {
+  const log: string[] = [];
+  for (const op of ops ?? []) {
+    const bag = resolveEntityBag(state, op.entity);
+    if (!bag) { log.push(`property-op skipped: no entity "${op.entity}"`); continue; }
+
+    const cur = bag[op.prop];
+    if (cur?.owner === "engine") {
+      log.push(`property-op rejected: ${op.entity}.${op.prop} is engine-owned`);
+      continue;
+    }
+
+    const next: Property = cur ? { ...cur } : { value: 0 };
+    if (op.set !== undefined) next.value = op.set;
+    if (op.delta !== undefined) {
+      const base = typeof next.value === "number" ? next.value : 0;
+      let v = base + op.delta;
+      if (next.max !== undefined) v = Math.min(next.max, v);
+      next.value = Math.max(0, v);
+    }
+    if (op.reveal) next.hidden = false;
+    if (op.note !== undefined) next.note = op.note;
+    bag[op.prop] = next;
+
+    const shown = typeof next.value === "number" && next.max !== undefined
+      ? `${next.value}/${next.max}` : String(next.value);
+    log.push(`${op.entity}.${op.prop} → ${shown}`);
+  }
+  return log;
 }

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { FullGameState } from "../state/schema.js";
+import { FullGameState, PropertyOp, PropertyOpSchema } from "../state/schema.js";
 import { formatPropertiesForGM } from "../state/properties.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
@@ -1895,6 +1895,11 @@ export interface GMResponse {
     applyOnFailure?: Record<string, unknown>;
   }>;
 
+  // PROPERTY OPS (S6) — mutate tracked entity properties: sever a restraint, damage a baton,
+  // reinforce the straps, transform a calibration target, sever the satellite uplink. The engine
+  // clamps + stores; a missing prop is created; engine-owned props (the deadman) are rejected.
+  propertyOps?: PropertyOp[];
+
   // ============================================
   // CHECKPOINT QUESTION - GM-generated!
   // ============================================
@@ -1950,6 +1955,7 @@ const GMResponseSchema = z.object({
   }).optional(),
   narrativeMarker: z.string().optional(),
   gmNotes: z.string().optional(),
+  propertyOps: z.array(PropertyOpSchema).optional(),
   checkpointQuestion: z.string().optional(),
 }).passthrough(); // Allow additional optional fields
 
@@ -2671,6 +2677,24 @@ Target numbers: 6 (trivial ~95%), 8 (easy ~84%), 10 (normal ~50%), 12 (hard ~26%
 NPC stats (toughness/combat/speech, 0-5) are added automatically from game state.
 Adaptation penalties (-1/-2 for transformed NPCs) are applied automatically.
 Fortune (+1 from human advisor) is applied automatically if available.
+
+## ENTITY PROPERTIES (tracked state you can change)
+
+The "ENTITY PROPERTIES" block in your context shows the lab's tracked properties — Blythe's
+restraints + concealed gear, the guards' kit, the lab objects, the satellite uplink. The ENGINE
+remembers these so you don't have to. When play CHANGES a property, emit a \`propertyOps\` entry;
+the engine clamps + stores it, and next turn's block reflects the result:
+
+\`"propertyOps": [{"entity": "blythe", "prop": "restraints", "delta": -1}]\`  — a muon cut severs one strap
+
+- **entity**: a ref the engine resolves — "blythe", "FRED"/"REGINALD", or a lab object ("SATELLITE_UPLINK", "TEST_DUMMY").
+- **prop**: the property name shown in the block (e.g. "restraints", "stun-baton", "integrity", "condition").
+- **set**: assign — \`{"entity":"FRED","prop":"stun-baton","set":"DAMAGED"}\` (ALICE cut his baton; he can't stun now).
+- **delta**: add to a number, clamped to [0,max] — \`{"entity":"blythe","prop":"restraints","delta":2}\` (Dr. M reinforces the straps), or \`{"entity":"SATELLITE_UPLINK","prop":"integrity","delta":-3}\` (sever the dish — triggers a resonance cascade if it's deployed).
+- **reveal**: \`true\` to unhide a hidden property (ALICE discovers it).
+- A property the entity doesn't have yet is CREATED — invent one if play calls for it. The deadman is engine-owned and cannot be set.
+
+Use this whenever you narrate a change to a thing the engine tracks, so the property and your prose never drift apart.
 LUCKY_LADY (+5 lifeline) is applied automatically if active.
 
 YOU set: target number, which stat, which NPC, any situational modifiers.

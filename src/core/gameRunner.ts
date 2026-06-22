@@ -20,7 +20,7 @@ import { checkEndings, EndingResult, getGamePhase } from "../rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "../rules/clockEvents.js";
 import { applyReactorStressDecay } from "../rules/infrastructure.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadgets.js";
-import { setRestraints } from "../state/properties.js";
+import { setRestraints, applyPropertyOps } from "../state/properties.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
 import { FORM_DEFINITIONS } from "../rules/transformation.js";
@@ -1196,6 +1196,10 @@ export class GameRunner {
 
     // Apply GM overrides
     this.applyGMOverrides(state, gmResponse);
+
+    // Apply GM property ops (S6) — mutate tracked entity properties (restraints/gear/objects/uplink).
+    // BEFORE processArchimedes so a severed-uplink op can cascade the same turn.
+    applyPropertyOps(state, gmResponse.propertyOps);
 
     // Process 3d6 skill checks requested by GM
     const skillCheckResults = this.processSkillChecks(state, gmResponse, preResult.luckyLadyInfo);

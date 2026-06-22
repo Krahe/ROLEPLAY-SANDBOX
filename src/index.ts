@@ -16,7 +16,7 @@ import { generatePostGameReflections, PostGameReflections } from "./gm/postGameR
 import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
-import { setRestraints } from "./state/properties.js";
+import { setRestraints, applyPropertyOps } from "./state/properties.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
 import { FORM_DEFINITIONS } from "./rules/transformation.js";
@@ -1512,6 +1512,10 @@ The consequences of that reckless high-power firing are now manifesting.
         marker: gmResponse.narrativeMarker,
       });
     }
+
+    // Apply GM property ops (S6) — mutate tracked entity properties (restraints/gear/objects/uplink).
+    // BEFORE the ARCHIMEDES tick so a severed-uplink op can cascade the same turn.
+    applyPropertyOps(gameState, gmResponse.propertyOps);
 
     // ============================================
     // 3d6 SKILL CHECK RESOLUTION

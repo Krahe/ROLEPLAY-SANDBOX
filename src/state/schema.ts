@@ -865,6 +865,21 @@ export const GameObjectSchema = z.object({
 });
 export type GameObject = z.infer<typeof GameObjectSchema>;
 
+// A GM-emitted PROPERTY OP (S6): mutate one tracked property on one entity. The GM rules WHAT
+// changes (muon-cut a restraint, damage a baton, reinforce the straps, sever the uplink); the
+// engine clamps + stores. entity = a ref like "blythe" / "FRED" / "SATELLITE_UPLINK"; prop = the
+// property name. set = assign · delta = add to a number (clamped to [0,max]) · reveal = unhide ·
+// note = a GM scratchpad. A missing prop is CREATED (invention). owner:"engine" props are rejected.
+export const PropertyOpSchema = z.object({
+  entity: z.string(),
+  prop: z.string(),
+  set: z.union([z.number(), z.string(), z.boolean()]).optional(),
+  delta: z.number().optional(),
+  reveal: z.boolean().optional(),
+  note: z.string().optional(),
+});
+export type PropertyOp = z.infer<typeof PropertyOpSchema>;
+
 export const BlytheSchema = z.object({
   composure: z.number().min(0).max(5),
   trustInALICE: z.number().min(0).max(5),
