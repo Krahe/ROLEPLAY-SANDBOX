@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
- * DINO LAIR — Interactive CLI
+ * DINO LAIR — Interactive CLI  ·  ⚠️ TEST HARNESS, NOT THE REAL GAME ⚠️
+ *
+ * Canonical play is the MCP server (src/index.ts, tool `game_act`) driven by a Claude Code
+ * session with a human granting permission each turn. This CLI runs the SEPARATE gameRunner
+ * engine for quick local testing — it does not exercise the canonical game_act path.
  *
  * Turn-by-turn play from the command line. State persists to disk.
  *

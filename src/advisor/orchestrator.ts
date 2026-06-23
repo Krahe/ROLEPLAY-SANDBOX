@@ -1,5 +1,10 @@
 /**
- * AUTONOMOUS PLAY ORCHESTRATOR
+ * AUTONOMOUS PLAY ORCHESTRATOR  ·  ⚠️ TEST HARNESS, NOT THE REAL GAME ⚠️
+ *
+ * This is autonomous LLM-vs-LLM auto-play for TESTING ONLY — it deliberately misses the
+ * human-witness core that makes the real game what it is. Canonical play is the MCP server
+ * (src/index.ts, tool `game_act`) driven by a Claude Code session with a human at the table.
+ * Runs the SEPARATE gameRunner engine, not the canonical game_act path.
  *
  * Runs DINO LAIR games with an LLM advisor instead of a human.
  * Produces markdown transcripts with turn-by-turn logs, final results,

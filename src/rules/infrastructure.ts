@@ -1636,8 +1636,9 @@ export function updateCascadeRisk(state: FullGameState): void {
 }
 
 /**
- * Per-turn reactorStress decay. Called once/turn from gameRunner.advanceTurn (CLI-primary;
- * the Desktop path is deprecated). Bleeds naturalBleed + basiliskDrain (drain 0 once
+ * Per-turn reactorStress decay. Called once/turn from the turn-advance of BOTH engines —
+ * src/index.ts game_act (the CANONICAL runtime) and gameRunner (the test harness). Bleeds
+ * naturalBleed + basiliskDrain (drain 0 once
  * BASILISK stands down), adds a small ARCHIMEDES charge-strain while the weapon draws
  * power, clamps [0,100], re-derives the band. END-OF-TURN ONLY — never add an intra-turn
  * decay or the brake (ALICE's firing must out-pace the drain) is gutted.

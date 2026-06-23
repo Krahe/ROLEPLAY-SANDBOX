@@ -185,7 +185,22 @@ The pre-`66293bb` under-send bug (GM only ever saw 2 turns regardless of cap) me
 
 # S4 BUILD CONTRACT — DECIDE → settle → NARRATE (mapped + validated 2026-06-20)
 
-**Status: MAPPED, build-ready, NOT YET BUILT.** Source: 4-agent mapping workflow + synthesis, cross-checked against the live code (ground-truth-validated). Cache track C0–C2 is SHIPPED (`7189fac`→`11a8afa`); this is the next slice. Build next session directly from this section.
+> ⚠️ **ENGINE CORRECTION (2026-06-23) — READ FIRST.** This contract was mapped against
+> `src/core/gameRunner.ts`, later confirmed to be a **TEST HARNESS**, not the runtime players
+> play. The **canonical** build target is **`src/index.ts`'s `game_act` handler** (the MCP
+> server). The MIND→WORLD→VOICE design, the locked DECIDE schema, and the retry-seam logic
+> all still hold — but every `gameRunner.ts` / `executeTurn` line-number below points at the
+> WRONG engine. The SHARED half (split `callGMClaude` → `callGMDecide` + `callGMNarrate` in
+> `gmClaude.ts`) ports as-is; the ORCHESTRATION half (SETTLE reorder, retry seam, transcript
+> append) must be re-derived against index.ts's ~400-line *inline* settle block (index.ts has
+> no `applyGMOverrides`/`processSkillChecks` functions — it settles inline at ~:1238-1654).
+> Also: `propertyOps` (S5/S6, shipped *after* this schema was locked) must be ADDED to the
+> DECIDE schema. The section is kept for its design reasoning; the wiring map gets rewritten
+> against index.ts when S4 is actually built.
+>
+> ➡️ **THE BUILD-READY SPEC IS NOW `design/s4-build-spec.md`** (reject-capable DECIDE→validate↺→commit→NARRATE, index.ts-targeted, empirically-grounded reject buckets, locked 2026-06-23). Build from THAT, not the section below.
+
+**Status: MAPPED, build-ready, NOT YET BUILT.** Source: 4-agent mapping workflow + synthesis, cross-checked against the live code (ground-truth-validated). Cache track C0–C2 is SHIPPED (`7189fac`→`11a8afa`); this is the next slice. ⚠️ Build from `design/s4-build-spec.md` (this section is SUPERSEDED — wrong engine + pre-reject design; see the banner above).
 
 ## The frame: MIND → WORLD → VOICE
 The split is NOT "mechanics vs prose." It is the GM's three beats made *sequential* so narration cannot precede resolution:
@@ -237,7 +252,7 @@ SETTLE must run EXACTLY ONCE. Today's retry loop (`callGMClaude` 4×/300s, gmCla
 
 ## Corrections to prior assumptions
 - **Two warm SYSTEM caches, not one.** DECIDE (tools) and NARRATE (no tools) have different system-tier cache keys (tools render before system). They SHARE bp2 (transcript) but each warms its own system entry. Economically fine. Breakpoint budget: bp1=system, bp2=transcript spoken-for; bp3/bp4 free.
-- **`index.ts` is DEPRECATED / out of scope** (CLI-primary locked; live path = gameRunner.executeTurn via play.ts:186). Do NOT wire the split into index.ts.
+- ~~**`index.ts` is DEPRECATED / out of scope** (CLI-primary locked; live path = gameRunner.executeTurn via play.ts:186). Do NOT wire the split into index.ts.~~ **⚠️ THIS IS BACKWARDS (struck 2026-06-23).** `src/index.ts` `game_act` is the CANONICAL runtime and is exactly where the split MUST be built; `gameRunner.executeTurn` is the test harness. This single wrong line is what sent a whole sprint into the wrong engine — see the ENGINE CORRECTION banner at the top of this section.
 
 ## Verification plan
 1. **THROTTLE-THE-BEAM (the core fix):** DECIDE intends "destroy", engine clamps to "scorch" (over/under-power) OR suspicion +5 at 8 → clamped to 10. Assert: SETTLE ran before NARRATE; the {role:system} message carries the clamped value; NARRATE's prose says scorch and NEVER "destroyed."
