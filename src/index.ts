@@ -14,9 +14,12 @@ import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
 import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
-import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay } from "./rules/clockEvents.js";
+import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { setRestraints, applyPropertyOps } from "./state/properties.js";
+import { applyReactorStressDecay } from "./rules/infrastructure.js";
+import { advanceInvasion, checkBroadcastInfluence } from "./rules/invasion.js";
+import { snapshotLairSystems, processBasiliskTurn, buildInvasionBasiliskContext } from "./gm/basiliskTurn.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
 import { FORM_DEFINITIONS } from "./rules/transformation.js";
@@ -916,6 +919,9 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
     // ============================================
     // MAIN: Process A.L.I.C.E.'s Actions
     // ============================================
+    // Snapshot the lair's player-touchable systems before actions move anything, so the GM
+    // (and BASILISK's camera feed) see exactly what changed this turn — PORTED w/ BASILISK.
+    const lairSnapshot = snapshotLairSystems(gameState);
     const actionResults = await processActions(gameState, params.actions);
 
     // CALIBRATION METER CUT (Patch 30, UPDATE #2): the 0→1 calibration spine was
@@ -1096,6 +1102,15 @@ The consequences of that reckless high-power firing are now manifesting.
     const actTransitionNotification = actContextTransition.shouldTransition
       ? actContextTransition.notification
       : undefined;
+
+    // BASILISK's turn (ALICE → BASILISK → GM): fires a real Sonnet turn on a live trigger
+    // when ALICE didn't address him; his choices apply to state BEFORE the GM builds context,
+    // so the GM narrates what he DID rather than adjudicating what he should do. Then inject
+    // the invasion-status / BASILISK-took-his-turn / lair-delta blocks the GM needs. PORTED
+    // from gameRunner via the shared ./gm/basiliskTurn module (was canonical-path-missing →
+    // BASILISK was mute and the GM was blind to the invasion). No-ops without an API key.
+    const basiliskTurn = await processBasiliskTurn(gameState, { actions: params.actions }, actionResults, lairSnapshot);
+    currentActContext += buildInvasionBasiliskContext(gameState, basiliskTurn, lairSnapshot);
 
     // Call GM Claude for NPC responses
     const gmContext = {
@@ -1667,6 +1682,10 @@ The consequences of that reckless high-power firing are now manifesting.
       gameState.clocks.demoClock = Math.max(0, gameState.clocks.demoClock - 1);
     }
 
+    // Intermission expiry (Act 1→2): Dr. M returns once the 2-turn window passes.
+    // PORTED from gameRunner.advanceTurn (was canonical-path-missing) — dual-path lockstep.
+    checkIntermissionEnd(gameState);
+
     // ============================================
     // PER-TURN RAY MECHANIC (Patch 30)
     // ============================================
@@ -1676,6 +1695,10 @@ The consequences of that reckless high-power firing are now manifesting.
     // and it runs on BOTH paths (here + gameRunner.advanceTurn).
     applyEcoModeReEngage(gameState);
     applyHeatDecay(gameState); // HEAT METER cool-down (−2/turn, −4 eco) — dual-path lockstep
+    // reactorStress bleed (naturalBleed + BASILISK-drain) + ARCHIMEDES charge-strain +
+    // the recoverable safety-trip@60 relief valve. PORTED from gameRunner.advanceTurn
+    // (was canonical-path-missing → the entire Act-3 reactor brinkmanship was inert here).
+    applyReactorStressDecay(gameState);
 
     // ============================================
     // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)
@@ -1709,6 +1732,23 @@ The consequences of that reckless high-power firing are now manifesting.
 
     // HUMAN PROMPT SYSTEM: Increment counter
     incrementPromptCounter(gameState);
+
+    // Advance the X-Branch invasion state machine during Act 3.
+    // PORTED from gameRunner.advanceTurn (was canonical-path-missing → the invasion was
+    // born at the Act-3 transition and then frozen, and the GM was never told about it).
+    // Pushes an [INVASION:] marker for the GM. The richer invasion/lair-delta GM-context
+    // block ports alongside the BASILISK full turn (task #2).
+    if (gameState.actConfig.currentAct === "ACT_3" && gameState.invasion) {
+      checkBroadcastInfluence(gameState);
+      const invasionEvent = advanceInvasion(gameState);
+      if (invasionEvent) {
+        if (!gameState.narrativeMarkers) gameState.narrativeMarkers = [];
+        gameState.narrativeMarkers.push({
+          turn: gameState.turn,
+          marker: `[INVASION:${invasionEvent.phase}] ${invasionEvent.gmDirective.slice(0, 200)}`,
+        });
+      }
+    }
 
     // Process emergency lifeline use
     // Note: LUCKY_LADY is pre-processed before actions (see above)
