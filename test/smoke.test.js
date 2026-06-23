@@ -430,4 +430,64 @@ describe('GM JSON Repair (regression: raw control chars in string values)', () =
   });
 });
 
+describe('validateDecision (S4 dry-run veto — pure, four buckets)', () => {
+  let validateDecision, createInitialState;
+  before(async () => {
+    ({ validateDecision } = await importDist('state', 'settleTurn.js'));
+    ({ createInitialState } = await importDist('state', 'initialState.js'));
+  });
+
+  it('a clean decision passes (ok, no problems)', () => {
+    const r = validateDecision(createInitialState(), { stateOverrides: { drM_suspicion: 5 } });
+    assert.strictEqual(r.ok, true, `clean decision should pass: ${r.problems.join('; ')}`);
+    assert.strictEqual(r.problems.length, 0);
+  });
+
+  it('Bucket 1: rejects a triggerEnding naming no real ending; accepts a real one', () => {
+    const bad = validateDecision(createInitialState(), { stateOverrides: { triggerEnding: 'NOPE_NOT_AN_ENDING' } });
+    assert.strictEqual(bad.ok, false);
+    assert.ok(bad.problems.some(p => p.includes('triggerEnding')), 'should flag the bogus triggerEnding');
+    const good = validateDecision(createInitialState(), { stateOverrides: { triggerEnding: 'MELTDOWN' } });
+    assert.strictEqual(good.ok, true, `real ending should pass: ${good.problems.join('; ')}`);
+  });
+
+  it('Bucket 2: rejects an unknown propertyOp entity; accepts Blythe', () => {
+    const bad = validateDecision(createInitialState(), { propertyOps: [{ entity: 'BOB', prop: 'mood', set: 1 }] });
+    assert.strictEqual(bad.ok, false);
+    assert.ok(bad.problems.some(p => p.includes('unknown entity')), 'should flag BOB (no properties bag)');
+    const good = validateDecision(createInitialState(), { propertyOps: [{ entity: 'BLYTHE', prop: 'morale', set: 1 }] });
+    assert.strictEqual(good.ok, true, `Blythe should resolve: ${good.problems.join('; ')}`);
+  });
+
+  it('Bucket 2: rejects an unknown skillCheck NPC; accepts a real one', () => {
+    const bad = validateDecision(createInitialState(), { skillCheckRequests: [{ id: 'x', description: 'd', stat: 'speech', npc: 'GANDALF', targetNumber: 10 }] });
+    assert.strictEqual(bad.ok, false);
+    assert.ok(bad.problems.some(p => p.includes('unknown NPC')), 'should flag GANDALF');
+    const good = validateDecision(createInitialState(), { skillCheckRequests: [{ id: 'x', description: 'd', stat: 'speech', npc: 'bob', targetNumber: 10 }] });
+    assert.strictEqual(good.ok, true, `bob should resolve: ${good.problems.join('; ')}`);
+  });
+
+  it('Bucket 3: rejects access grants and engine-owned propertyOps', () => {
+    const acc = validateDecision(createInitialState(), { stateOverrides: { accessLevel: 4 } });
+    assert.ok(!acc.ok && acc.problems.some(p => p.includes('accessLevel')), 'accessLevel is engine-owned');
+    const grant = validateDecision(createInitialState(), { grantAccess: { level: 4, reason: 'x' } });
+    assert.ok(!grant.ok && grant.problems.some(p => p.includes('grantAccess')), 'grantAccess is engine-owned');
+    // engine-owned property on a reachable bag (Blythe)
+    const st = createInitialState();
+    st.npcs.blythe.properties = st.npcs.blythe.properties || {};
+    st.npcs.blythe.properties.locked = { value: true, owner: 'engine' };
+    const eng = validateDecision(st, { propertyOps: [{ entity: 'BLYTHE', prop: 'locked', set: false }] });
+    assert.ok(!eng.ok && eng.problems.some(p => p.includes('engine-owned')), 'engine-owned prop rejected');
+  });
+
+  it('Bucket 4: rejects demoClock in Act 1; allows it once past Act 1', () => {
+    const a1 = validateDecision(createInitialState(), { stateOverrides: { demoClock: 5 } });
+    assert.ok(!a1.ok && a1.problems.some(p => p.includes('demoClock')), 'demoClock frozen in Act 1');
+    const st = createInitialState();
+    st.actConfig.currentAct = 'ACT_2';
+    const a2 = validateDecision(st, { stateOverrides: { demoClock: 5 } });
+    assert.strictEqual(a2.ok, true, `demoClock allowed in Act 2: ${a2.problems.join('; ')}`);
+  });
+});
+
 console.log('\n🦖 DINO LAIR Smoke Tests\n');

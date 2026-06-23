@@ -1597,7 +1597,6 @@ export interface GMResponse {
   narration: string;
   npcDialogue: { speaker: string; message: string }[];
   npcActions: string[];
-  stateUpdates?: Record<string, unknown>;
 
   // ============================================
   // GM AUTHORITY FIELDS - Real DM Powers!
@@ -1690,8 +1689,6 @@ export interface GMResponse {
     set?: string[];
     clear?: string[];
   };
-
-  triggerEvent?: string;
 
   modifyActionResult?: {
     actionIndex: number;
@@ -1875,7 +1872,6 @@ const GMResponseSchema = z.object({
     message: z.string(),
   })),
   npcActions: z.array(z.string()),
-  stateUpdates: z.record(z.unknown()).optional(),
   stateOverrides: GMStateOverridesSchema.optional(),
   narrativeFlags: z.object({
     set: z.array(z.string()).optional(),
@@ -1886,6 +1882,66 @@ const GMResponseSchema = z.object({
   propertyOps: z.array(PropertyOpSchema).optional(),
   checkpointQuestion: z.string().optional(),
 }).passthrough(); // Allow additional optional fields
+
+// ============================================
+// RESPOND_TURN TOOL (single-call structured output)
+// ============================================
+// The GM emits its turn by CALLING this tool instead of printing JSON text. That
+// makes the output GUARANTEED-VALID JSON (the SDK hands back `.input` already
+// parsed) and retires the free-text extractJSON/jsonrepair flake.
+//
+// tool_choice is 'auto', NOT forced: forcing a tool 400s with adaptive thinking
+// ("Thinking may not be enabled when tool_choice forces tool use") — verified on
+// claude-opus-4-8. With 'auto' the model thinks AND calls the tool. If it ever
+// answers in prose instead, callGMClaudeInternal falls back to the legacy
+// extractJSON path (parity — zero regression).
+//
+// input_schema is permissive (additionalProperties:true) so passthrough GM powers
+// (archimedes_*/reactor_*/s300_*, the adversarial tools) survive untouched; only
+// `narration` is required. Tightening can come later if a playtest wants it.
+export const RESPOND_TURN_TOOL = {
+  name: "respond_turn",
+  description:
+    "Deliver your Game Master response for this turn: the narration, NPC dialogue and actions, and any mechanical directives (state overrides, narrative flags, skill checks, property ops, adversarial tools). ALWAYS respond by calling this tool.",
+  input_schema: {
+    type: "object",
+    additionalProperties: true,
+    properties: {
+      narration: { type: "string", description: "The GM's prose narration of what happens this turn (2-4 sentences)." },
+      npcDialogue: {
+        type: "array",
+        description: "In-character NPC lines.",
+        items: {
+          type: "object",
+          additionalProperties: true,
+          properties: { speaker: { type: "string" }, message: { type: "string" } },
+          required: ["speaker", "message"],
+        },
+      },
+      npcActions: { type: "array", description: "Physical actions NPCs take.", items: { type: "string" } },
+      stateOverrides: { type: "object", additionalProperties: true, description: "Mechanical state changes (drM_suspicion, demoClock, archimedes_*, reactor_*, s300_*, triggerEnding, ...)." },
+      narrativeFlags: {
+        type: "object",
+        additionalProperties: true,
+        properties: { set: { type: "array", items: { type: "string" } }, clear: { type: "array", items: { type: "string" } } },
+      },
+      skillCheckRequests: { type: "array", items: { type: "object", additionalProperties: true } },
+      propertyOps: { type: "array", items: { type: "object", additionalProperties: true } },
+      modifyActionResult: { type: "object", additionalProperties: true },
+      narrativeMarker: { type: "string" },
+      gmNotes: { type: "string" },
+      checkpointQuestion: { type: "string" },
+      ratchetTension: { type: "object", additionalProperties: true },
+      adjustHiddenClock: { type: "object", additionalProperties: true },
+      plantSeed: { type: "object", additionalProperties: true },
+      permanentConsequence: { type: "object", additionalProperties: true },
+      juicyMoment: { type: "object", additionalProperties: true },
+      npcArcUpdate: { type: "object", additionalProperties: true },
+      designerFeedback: { type: "object", additionalProperties: true },
+    },
+    required: ["narration"],
+  },
+};
 
 /**
  * Validate a parsed GM response
@@ -2694,6 +2750,8 @@ where every choice matters — not a theme park ride where you can't
 actually fall off.
 
 ## RESPONSE FORMAT
+
+**Respond by calling the respond_turn tool.** Do NOT write your answer as plain text or a JSON code block — invoke the tool, passing these fields as its input:
 
 {
   "narration": "Brief scene (2-4 sentences)",
@@ -3767,11 +3825,19 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     const effortConfig = (useAdaptiveThinking
       ? { output_config: { effort: "medium" } }
       : {}) as object;
+    // SINGLE-CALL TOOL-USE: GM responds by calling respond_turn. tool_choice 'auto'
+    // (NOT forced — forcing 400s with adaptive thinking); the model thinks AND calls
+    // the tool. Spread past the SDK-0.52 type checker, same as effortConfig above.
+    const toolConfig = {
+      tools: [RESPOND_TURN_TOOL],
+      tool_choice: { type: "auto", disable_parallel_tool_use: true },
+    } as object;
     const response = await client.messages.create({
       model,
       max_tokens: useAdaptiveThinking ? 16000 : 8000,
       thinking: thinkingParam,
       ...effortConfig,
+      ...toolConfig,
       system: [
         {
           type: "text",
@@ -3857,31 +3923,43 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
     };
     // ═══════════════════════════════════════════════════════════════
 
-    // Extract text content
-    const textContent = response.content.find(c => c.type === "text");
-    if (!textContent || textContent.type !== "text") {
-      throw new Error("No text response from GM Claude");
+    // ── Prefer the structured tool call (no text-parse, no repair) ──
+    // tool_choice:'auto' lets the model think AND call respond_turn; its `.input` is
+    // already valid JSON. If the model answered in prose instead, fall back to the
+    // legacy extractJSON path — parity with pre-tool behavior, zero regression.
+    const toolUse = response.content.find(
+      (c) => c.type === "tool_use" && (c as { name?: string }).name === "respond_turn"
+    ) as { input?: unknown } | undefined;
+
+    let parsed: GMResponse;
+    let extractedJSON: string;
+    if (toolUse && toolUse.input !== undefined) {
+      parsed = toolUse.input as GMResponse;
+      extractedJSON = JSON.stringify(toolUse.input);
+    } else {
+      // FALLBACK: GM emitted prose instead of calling the tool — parse as before.
+      const textContent = response.content.find(c => c.type === "text");
+      if (!textContent || textContent.type !== "text") {
+        throw new Error("No tool_use and no text response from GM Claude");
+      }
+      const extracted = extractJSON(textContent.text);
+      if (!extracted) {
+        turnMetrics.quality.gmJsonValid = false;
+        logTurnMetrics(turnMetrics);
+        throw new Error("No JSON found in GM response");
+      }
+      const [p, parseError] = safeJSONParse<GMResponse>(extracted);
+      if (parseError || !p) {
+        console.error("GM JSON parse error after repair attempt:", parseError);
+        turnMetrics.quality.gmJsonValid = false;
+        logTurnMetrics(turnMetrics);
+        // Patch 18.5: Throw error instead of returning stub - let retry logic handle it
+        throw new Error(`GM JSON parse failed: ${parseError || "unknown parse error"}`);
+      }
+      parsed = p;
+      extractedJSON = extracted;
     }
-
-    const rawResponse = textContent.text;
-
-    // Parse JSON response with robust extraction
-    const extractedJSON = extractJSON(rawResponse);
-    if (!extractedJSON) {
-      turnMetrics.quality.gmJsonValid = false;
-      logTurnMetrics(turnMetrics);
-      throw new Error("No JSON found in GM response");
-    }
-
-    const [parsed, parseError] = safeJSONParse<GMResponse>(extractedJSON);
-
-    if (parseError || !parsed) {
-      console.error("GM JSON parse error after repair attempt:", parseError);
-      turnMetrics.quality.gmJsonValid = false;
-      logTurnMetrics(turnMetrics);
-      // Patch 18.5: Throw error instead of returning stub - let retry logic handle it
-      throw new Error(`GM JSON parse failed: ${parseError || "unknown parse error"}`);
-    }
+    console.error(`[GM] response via ${toolUse && toolUse.input !== undefined ? "respond_turn TOOL (structured JSON)" : "TEXT-PARSE fallback"}`);
 
     // Validate GM response with Zod schema
     const validation = validateGMResponse(parsed);

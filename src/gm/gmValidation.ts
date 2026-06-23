@@ -119,11 +119,6 @@ export function validateGMResponse(response: unknown): GMValidationResult {
     warnings.push("No NPC actions in response");
   }
 
-  // Check for stateUpdates (should usually exist)
-  if (!r.stateUpdates || typeof r.stateUpdates !== "object") {
-    warnings.push("Missing stateUpdates object");
-  }
-
   return {
     valid: errors.length === 0,
     errors,

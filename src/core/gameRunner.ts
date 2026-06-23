@@ -40,7 +40,7 @@ import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "../rules/gadg
 import { setRestraints, applyPropertyOps } from "../state/properties.js";
 import { formatTrustContextForGM } from "../rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "../rules/bobTransformation.js";
-import { FORM_DEFINITIONS } from "../rules/transformation.js";
+import { FORM_DEFINITIONS, profileToFormName } from "../rules/transformation.js";
 import {
   processArchimedesCountdown,
   onDrMStateChange,
@@ -224,21 +224,6 @@ export interface TurnResult {
 // HELPER FUNCTIONS
 // ============================================
 
-/** Convert profile name to valid DinosaurForm */
-function profileToFormName(profile: string): DinosaurForm {
-  const p = profile.toLowerCase();
-  if (p.includes("human")) return "HUMAN";
-  if (p.includes("compy") || p.includes("compsognathus")) return "COMPSOGNATHUS";
-  if (p.includes("blue")) return "VELOCIRAPTOR_BLUE";
-  if (p.includes("accurate") || p.includes("feather")) return "VELOCIRAPTOR_ACCURATE";
-  if (p.includes("jp") || (p.includes("velociraptor") && !p.includes("accurate"))) return "VELOCIRAPTOR_JP";
-  if (p.includes("t-rex") || p.includes("tyrannosaurus") || p.includes("rex")) return "TYRANNOSAURUS";
-  if (p.includes("dilo") || p.includes("dilophosaurus")) return "DILOPHOSAURUS";
-  if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
-  if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
-  if (p.includes("canary")) return "CANARY";
-  return "CANARY";
-}
 
 // ============================================
 // GAME RUNNER CLASS

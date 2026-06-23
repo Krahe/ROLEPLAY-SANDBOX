@@ -1,6 +1,32 @@
 # S4 BUILD SPEC — GM dual-track turn (DECIDE → validate↺ → commit → NARRATE)
 
-**Status:** DESIGN LOCKED 2026-06-23 (Krahe + Opus), build-ready, NOT YET BUILT.
+> ## ★ DECISION 2026-06-23 — SUPERSEDED BY SINGLE-CALL TOOL-USE (the two-phase split below was NOT built)
+>
+> After slices 1–2 landed (the `commitDecision` extraction → `src/state/settleTurn.ts`, and
+> `validateDecision`), an empirical probe on `claude-opus-4-8` settled the architecture before the
+> two-phase machinery was built:
+> - **Forced `tool_choice` 400s with thinking on:** *"Thinking may not be enabled when tool_choice forces tool use."*
+> - **But `tool_choice:'auto'` + adaptive thinking WORKS** — the model thinks AND calls the tool.
+>
+> So a **single** GM call with a `respond_turn` tool (`tool_choice:'auto'`, thinking on) gives **structured
+> output** (kills the free-text JSON parse/repair flake — the actual historical pain) **AND** thinking-rich
+> prose, in one call. The two-phase split's only extra value was the **confab fix**, which §11's own data shows
+> is rare and GM-self-compensated. **Krahe's call: single-call.** It avoids the second LLM call and the entire
+> retry-seam landmine.
+>
+> **Built** in `src/gm/gmClaude.ts` (`RESPOND_TURN_TOOL`, the `...toolConfig` spread on the GM `messages.create`,
+> and the tool-use-preferred parse with the legacy `extractJSON` path kept as a zero-regression fallback) +
+> the `triggerEvent`/`stateUpdates` schema cuts. **Verified live** (2-turn `opus-4-8` game: 2/2 structured tool
+> calls, 0 parse errors, prompt-cache intact, prose quality held). `commitDecision` + `validateDecision` are
+> kept (behavior-neutral). The DECIDE/NARRATE split + the retry seam are **not needed**.
+>
+> If a fuller playtest ever shows real confab (prose naming a number the engine clamped), the **first** fix is a
+> prompt nudge — *"describe outcomes qualitatively; the engine resolves exact mechanical values"* — not this
+> architecture. (The two-phase plan in `gm-coherence-architecture.md` is likewise superseded.)
+>
+> *Everything below is the original two-phase design, kept for the record.*
+
+**Status:** ~~DESIGN LOCKED 2026-06-23 (Krahe + Opus), build-ready, NOT YET BUILT.~~ SUPERSEDED — see decision note above.
 **Supersedes** the "S4 BUILD CONTRACT" section in `gm-coherence-architecture.md` (which was mapped against the WRONG engine — `gameRunner.ts` — and is banner-flagged there). This spec targets the **canonical** engine.
 **Canonical runtime:** `src/index.ts`, the MCP server, tool `game_act`. The human grants permission each turn (the witness-core). `gameRunner.ts` is the test harness — see its header banner. Shared logic between them lives in `gmClaude.ts`, `rules/*`, and the new `settleTurn.ts` this spec creates.
 

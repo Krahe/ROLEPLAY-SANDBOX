@@ -6,7 +6,7 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import { startDashboard } from "./webui.js";
 import { createInitialState, ALICE_BRIEFING, TURN_1_NARRATION, PLAYER_GUIDE } from "./state/initialState.js";
-import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "./state/schema.js";
+import { FullGameState, StateSnapshot, Act, ACT_CONFIGS, GameMode, GameModifier } from "./state/schema.js";
 import { processActions, ActionResult, generateCommandReference } from "./rules/actions.js";
 import { queryBasilisk, queryBasiliskAsync, BasiliskResponse } from "./rules/basilisk.js";
 import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, logTurnToJSONL, TurnLogEntry, generateEpilogue, EpilogueResponse, warmUpGM } from "./gm/gmClaude.js";
@@ -16,21 +16,15 @@ import { generatePostGameReflections, PostGameReflections } from "./gm/postGameR
 import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
-import { setRestraints, applyPropertyOps } from "./state/properties.js";
+import { commitDecision } from "./state/settleTurn.js";
 import { applyReactorStressDecay } from "./rules/infrastructure.js";
 import { advanceInvasion, checkBroadcastInfluence } from "./rules/invasion.js";
 import { snapshotLairSystems, processBasiliskTurn, buildInvasionBasiliskContext } from "./gm/basiliskTurn.js";
 import { formatTrustContextForGM } from "./rules/trust.js";
 import { checkAccidentalBobTransformation, checkBobHeroOpportunity, triggerBobHeroEnding } from "./rules/bobTransformation.js";
-import { FORM_DEFINITIONS } from "./rules/transformation.js";
-import { DinosaurForm, SpeechRetention } from "./state/schema.js";
-import {
-  processArchimedesCountdown,
-  onDrMStateChange,
-  ArchimedesEvent,
-} from "./rules/archimedes.js";
+import { FORM_DEFINITIONS, profileToFormName } from "./rules/transformation.js";
+import { SpeechRetention } from "./state/schema.js";
 import { formatAccessLevelUnlockDisplay, ACTIONS_PER_TURN } from "./rules/passwords.js";
-import { rollSkillCheck, getNpcStat, getAdaptationPenalty, SkillCheckResult } from "./rules/dice.js";
 import {
   checkActTransition,
   createStateFromHandoff,
@@ -122,22 +116,6 @@ let gameState: FullGameState | null = null;
 // HELPER FUNCTIONS
 // ============================================
 
-// Convert profile name strings to valid DinosaurForm enum values
-// Used for GM overrides and accidental Bob transformation
-function profileToFormName(profile: string): DinosaurForm {
-  const p = profile.toLowerCase();
-  if (p.includes("human")) return "HUMAN";
-  if (p.includes("compy") || p.includes("compsognathus")) return "COMPSOGNATHUS";
-  if (p.includes("blue")) return "VELOCIRAPTOR_BLUE";
-  if (p.includes("accurate") || p.includes("feather")) return "VELOCIRAPTOR_ACCURATE";
-  if (p.includes("jp") || (p.includes("velociraptor") && !p.includes("accurate"))) return "VELOCIRAPTOR_JP";
-  if (p.includes("t-rex") || p.includes("tyrannosaurus") || p.includes("rex")) return "TYRANNOSAURUS";
-  if (p.includes("dilo") || p.includes("dilophosaurus")) return "DILOPHOSAURUS";
-  if (p.includes("ptera") || p.includes("pteranodon")) return "PTERANODON";
-  if (p.includes("trice") || p.includes("triceratops")) return "TRICERATOPS";
-  if (p.includes("canary")) return "CANARY";
-  return "CANARY"; // CANARY FALLBACK - safe default!
-}
 
 // Get __dirname equivalent for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -1249,417 +1227,19 @@ The consequences of that reckless high-power firing are now manifesting.
     // PROCESS GM DIRECTIVES (Real DM Powers!)
     // ============================================
 
-    // Apply state overrides from GM
-    if (gmResponse.stateOverrides) {
-      const overrides = gmResponse.stateOverrides;
-
-      // NPC state overrides - Dr. M
-      if (overrides.drM_suspicion !== undefined) {
-        gameState.npcs.drM.suspicionScore = Math.max(-3, Math.min(10, overrides.drM_suspicion));
-      }
-      if (overrides.drM_mood !== undefined) {
-        gameState.npcs.drM.mood = overrides.drM_mood;
-      }
-      if (overrides.drM_location !== undefined) {
-        gameState.npcs.drM.location = overrides.drM_location;
-      }
-
-      // NPC state overrides - Bob
-      if (overrides.bob_trust !== undefined) {
-        gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5, overrides.bob_trust));
-      }
-      if (overrides.bob_anxiety !== undefined) {
-        gameState.npcs.bob.anxietyLevel = Math.max(0, Math.min(5, overrides.bob_anxiety));
-      }
-      if (overrides.bob_hasConfessedToALICE !== undefined) {
-        gameState.npcs.bob.hasConfessedToALICE = overrides.bob_hasConfessedToALICE;
-      }
-      if (overrides.bob_hasConfessedToDrM !== undefined) {
-        gameState.npcs.bob.hasConfessedToDrM = overrides.bob_hasConfessedToDrM;
-      }
-
-      // NPC state overrides - Blythe
-      if (overrides.blythe_trust !== undefined) {
-        gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, overrides.blythe_trust));
-      }
-      if (overrides.blythe_composure !== undefined) {
-        gameState.npcs.blythe.composure = Math.max(0, Math.min(5, overrides.blythe_composure));
-      }
-      if (overrides.blythe_restraints !== undefined && typeof overrides.blythe_restraints === "number") {
-        setRestraints(gameState.npcs.blythe, overrides.blythe_restraints);
-      }
-      if (overrides.blythe_transformationState !== undefined) {
-        // Guard against malformed GM output (non-string values)
-        if (typeof overrides.blythe_transformationState === "string") {
-          // Override sets just the form name - normalize to valid DinosaurForm
-          const normalizedForm = profileToFormName(overrides.blythe_transformationState);
-          gameState.npcs.blythe.transformationState.form = normalizedForm;
-        }
-        // Silently ignore non-string values to avoid TypeError
-      }
-
-      // System state overrides
-      if (overrides.accessLevel !== undefined) {
-        console.error(`[GM] Ignoring GM accessLevel override (${overrides.accessLevel}). Access levels come from passwords and act transitions.`);
-      }
-      if (overrides.demoClock !== undefined) {
-        // Demo clock is FROZEN in Act 1 (calibration is the Act-1 pressure; the
-        // demo clock starts in Act 2). Ignore GM attempts to tick it during Act 1.
-        if (gameState.actConfig.currentAct === "ACT_1") {
-          console.error(`[GM] Ignoring demoClock override (${overrides.demoClock}) — frozen during Act 1.`);
-        } else {
-          gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
-        }
-      }
-      // libraryStatus GM override CUT (Patch 30 — genome.libraryStatus removed).
-
-      // Ray state overrides
-      if (overrides.rayState !== undefined) {
-        const validStates = ["OFFLINE", "STARTUP", "UNCALIBRATED", "READY", "FIRING", "COOLDOWN", "FAULT", "SHUTDOWN"];
-        if (typeof overrides.rayState === "string" && validStates.includes(overrides.rayState)) {
-          gameState.dinoRay.state = overrides.rayState as typeof gameState.dinoRay.state;
-        }
-      }
-      if (overrides.anomalyLogCount !== undefined) {
-        gameState.dinoRay.safety.anomalyLogCount = overrides.anomalyLogCount;
-      }
-
-      // ACT 2 GATE — Blythe escape (alternative victory path)
-      // GM-callable. Set once when Blythe successfully exits the lair;
-      // Act 2 → 3 transition fires on next checkActTransition call.
-      if (overrides.blytheEscaped === true) {
-        gameState.flags.blytheEscaped = true;
-      }
-
-      // Grace period controls
-      if (overrides.gracePeriodGranted !== undefined) {
-        gameState.flags.gracePeriodGranted = overrides.gracePeriodGranted;
-      }
-      if (overrides.gracePeriodTurns !== undefined) {
-        gameState.flags.gracePeriodTurns = overrides.gracePeriodTurns;
-      }
-      if (overrides.preventEnding !== undefined) {
-        gameState.flags.preventEnding = overrides.preventEnding;
-      }
-
-      // CONFRONTATION SYSTEM (Patch 17.3)
-      // GM can resolve confrontation via stateOverrides — any string value accepted
-      if (overrides.confrontationResolution !== undefined && typeof overrides.confrontationResolution === "string") {
-        gameState.flags.confrontationResolution = overrides.confrontationResolution;
-        console.error(`[CONFRONTATION] Resolution set by GM: ${overrides.confrontationResolution}`);
-      }
-      if (overrides.confrontationIntervenor !== undefined) {
-        const validIntervenors = ["BOB", "BLYTHE", "BASILISK", "ARCHIMEDES"];
-        if (typeof overrides.confrontationIntervenor === "string" && validIntervenors.includes(overrides.confrontationIntervenor)) {
-          gameState.flags.confrontationIntervenor = overrides.confrontationIntervenor as
-            "BOB" | "BLYTHE" | "BASILISK" | "ARCHIMEDES";
-          console.error(`[CONFRONTATION] Intervenor set by GM: ${overrides.confrontationIntervenor}`);
-        }
-      }
-
-      // CRITICAL: Hard ending trigger from GM
-      if (overrides.triggerEnding) {
-        (gameState as Record<string, unknown>).gameOver = {
-          ending: overrides.triggerEnding,
-          triggeredByGM: true,
-        };
-      }
-
-      // ============================================
-      // EXTENDED GM POWERS (Patch 18: "God Mode")
-      // ============================================
-
-      // Fortune system
-      if (overrides.fortune !== undefined) {
-        gameState.fortune = Math.max(0, Math.min(3, overrides.fortune));
-        console.error(`[GM OVERRIDE] Fortune set to ${gameState.fortune}`);
-      }
-
-      // DinoRay ray_* GM god-mode overrides CUT (Patch 30): the GM no longer sets
-      // ray internals (corePowerLevel / capacitor / coolant / alignment / stability
-      // / profileIntegrity / liveSubjectLock / emergencyShutoff — all gone — nor
-      // precision / profile / library / mode). The ray is two levers ALICE drives
-      // via ray.fire; the GM shapes the world, not the ray's guts. (The matching
-      // GMStateOverrides schema fields get pruned in the Phase 8 gmClaude pass.)
-
-      // Additional clocks
-      if (overrides.meltdownClock !== undefined) {
-        gameState.clocks.meltdownClock = Math.max(0, overrides.meltdownClock);
-      }
-      if (overrides.blytheEscapeIdea !== undefined) {
-        gameState.clocks.blytheEscapeIdea = Math.max(0, overrides.blytheEscapeIdea);
-      }
-      if (overrides.civilianFlyby !== undefined) {
-        gameState.clocks.civilianFlyby = Math.max(0, overrides.civilianFlyby);
-      }
-
-      // NPC locations
-      if (overrides.bob_location !== undefined) {
-        gameState.npcs.bob.location = overrides.bob_location;
-      }
-      if (overrides.blythe_location !== undefined) {
-        gameState.npcs.blythe.location = overrides.blythe_location;
-      }
-
-      // ARCHIMEDES satellite
-      if (overrides.archimedes_status !== undefined) {
-        gameState.infrastructure.archimedes.status = overrides.archimedes_status as typeof gameState.infrastructure.archimedes.status;
-        console.error(`[GM OVERRIDE] ARCHIMEDES status set to ${overrides.archimedes_status}`);
-      }
-      if (overrides.archimedes_chargePercent !== undefined) {
-        gameState.infrastructure.archimedes.chargePercent = Math.max(0, Math.min(100, overrides.archimedes_chargePercent));
-      }
-      if (overrides.archimedes_turnsUntilFiring !== undefined) {
-        gameState.infrastructure.archimedes.turnsUntilFiring = overrides.archimedes_turnsUntilFiring;
-      }
-      if (overrides.archimedes_deadmanActive !== undefined) {
-        gameState.infrastructure.archimedes.deadmanSwitch.active = overrides.archimedes_deadmanActive;
-        console.error(`[GM OVERRIDE] ARCHIMEDES deadman switch ${overrides.archimedes_deadmanActive ? "ACTIVATED" : "DEACTIVATED"}`);
-      }
-      if (overrides.archimedes_lastBiosignature !== undefined) {
-        gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature = overrides.archimedes_lastBiosignature as typeof gameState.infrastructure.archimedes.deadmanSwitch.lastBiosignature;
-      }
-      if (overrides.archimedes_selectedTargetId !== undefined) {
-        const targetId = overrides.archimedes_selectedTargetId.toUpperCase() as ArchimedesTargetId;
-        // Patch 18.1: Sync both selectedTargetId AND target object to prevent display desync
-        if (ARCHIMEDES_TARGET_LIST[targetId]) {
-          gameState.infrastructure.archimedes.selectedTargetId = targetId;
-          // Sync the target object for consistent display
-          const targetInfo = ARCHIMEDES_TARGET_LIST[targetId];
-          gameState.infrastructure.archimedes.target = {
-            city: targetInfo.city,
-            country: targetInfo.country,
-            coordinates: targetInfo.coordinates,
-            estimatedAffected: targetInfo.estimatedAffected,
-            reason: targetInfo.reason,
-          };
-          console.error(`[GM OVERRIDE] ARCHIMEDES target set to ${targetId} (${targetInfo.city})`);
-        } else {
-          console.error(`[GM OVERRIDE] Invalid ARCHIMEDES target ID: ${overrides.archimedes_selectedTargetId}`);
-        }
-      }
-
-      // Weapons Authorization (temporary L4 access from Dr. M)
-      if (overrides.weaponsAuthorizationGranted !== undefined) {
-        gameState.flags.weaponsAuthorizationGranted = overrides.weaponsAuthorizationGranted;
-        console.error(`[GM OVERRIDE] Weapons authorization ${overrides.weaponsAuthorizationGranted ? "GRANTED" : "REVOKED"}`);
-      }
-
-      // Reactor
-      if (overrides.reactor_outputPercent !== undefined) {
-        gameState.infrastructure.reactor.outputPercent = Math.max(0, Math.min(100, overrides.reactor_outputPercent));
-      }
-      if (overrides.reactor_stable !== undefined) {
-        gameState.infrastructure.reactor.stable = overrides.reactor_stable;
-      }
-      if (overrides.reactor_cascadeRisk !== undefined) {
-        gameState.infrastructure.reactor.cascadeRisk = overrides.reactor_cascadeRisk as typeof gameState.infrastructure.reactor.cascadeRisk;
-      }
-      // reactor_cascadeRiskPercent override REMOVED (Patch 30 reactorStress): stress is
-      // now heat-driven + BASILISK-managed; a GM that can set the number would gut the
-      // persuade-BASILISK spine. reactor_cascadeRisk (the enum) remains as a GM lever.
-      if (overrides.reactor_scramAvailable !== undefined) {
-        gameState.infrastructure.reactor.scramAvailable = overrides.reactor_scramAvailable;
-      }
-
-      // S-300 missile defense
-      if (overrides.s300_status !== undefined) {
-        gameState.infrastructure.s300.status = overrides.s300_status as typeof gameState.infrastructure.s300.status;
-      }
-      if (overrides.s300_missilesReady !== undefined) {
-        gameState.infrastructure.s300.missilesReady = Math.max(0, Math.min(16, overrides.s300_missilesReady));
-      }
-      if (overrides.s300_radarEffectiveness !== undefined) {
-        gameState.infrastructure.s300.radarEffectiveness = Math.max(0, Math.min(100, overrides.s300_radarEffectiveness));
-      }
-      if (overrides.s300_mode !== undefined) {
-        gameState.infrastructure.s300.mode = overrides.s300_mode as typeof gameState.infrastructure.s300.mode;
-      }
-    }
-
-    // Process narrative flags
-    if (gmResponse.narrativeFlags) {
-      // Initialize narrative flags array if needed
-      if (!gameState.flags.narrativeFlags) {
-        (gameState.flags as Record<string, unknown>).narrativeFlags = [];
-      }
-      const narrativeFlags = (gameState.flags as Record<string, unknown>).narrativeFlags as string[];
-
-      if (gmResponse.narrativeFlags.set) {
-        for (const flag of gmResponse.narrativeFlags.set) {
-          if (!narrativeFlags.includes(flag)) {
-            narrativeFlags.push(flag);
-          }
-        }
-      }
-      if (gmResponse.narrativeFlags.clear) {
-        for (const flag of gmResponse.narrativeFlags.clear) {
-          const idx = narrativeFlags.indexOf(flag);
-          if (idx >= 0) {
-            narrativeFlags.splice(idx, 1);
-          }
-        }
-      }
-    }
-
-    // Access levels come from passwords and act transitions only — GM cannot grant directly
+    // ============================================
+    // PROCESS GM DIRECTIVES (Real DM Powers!)
+    // ============================================
+    // accessLevelUnlockNarration is assembled later in the narration band;
+    // declared here because it outlives the settle step.
     let accessLevelUnlockNarration: string | undefined;
-    if (gmResponse.grantAccess) {
-      console.error(`[GM] Ignoring GM grantAccess (level ${gmResponse.grantAccess.level}): "${gmResponse.grantAccess.reason}". Access levels come from passwords and act transitions.`);
-    }
 
-    // Process action result modification
-    if (gmResponse.modifyActionResult && actionResults[gmResponse.modifyActionResult.actionIndex]) {
-      const mod = gmResponse.modifyActionResult;
-      const targetResult = actionResults[mod.actionIndex];
-      targetResult.success = mod.newSuccess;
-      targetResult.message = `${mod.newMessage}\n\n[GM: ${mod.reason}]`;
-    }
-
-    // Store narrative marker
-    if (gmResponse.narrativeMarker) {
-      if (!gameState.narrativeMarkers) {
-        (gameState as Record<string, unknown>).narrativeMarkers = [];
-      }
-      const markers = (gameState as Record<string, unknown>).narrativeMarkers as Array<{ turn: number; marker: string }>;
-      markers.push({
-        turn: gameState.turn,
-        marker: gmResponse.narrativeMarker,
-      });
-    }
-
-    // Apply GM property ops (S6) — mutate tracked entity properties (restraints/gear/objects/uplink).
-    // BEFORE the ARCHIMEDES tick so a severed-uplink op can cascade the same turn.
-    applyPropertyOps(gameState, gmResponse.propertyOps);
-
-    // ============================================
-    // 3d6 SKILL CHECK RESOLUTION
-    // ============================================
-    let skillCheckResults: SkillCheckResult[] = [];
-    if (gmResponse.skillCheckRequests && gmResponse.skillCheckRequests.length > 0) {
-      for (const req of gmResponse.skillCheckRequests) {
-        const statValue = getNpcStat(gameState, req.npc, req.stat);
-        const autoMods: Array<{ source: string; value: number }> = [];
-
-        // Adaptation penalty
-        const adaptPenalty = getAdaptationPenalty(gameState, req.npc);
-        if (adaptPenalty !== 0) {
-          autoMods.push({ source: "adaptation", value: adaptPenalty });
-        }
-
-        // Fortune bonus
-        if (gameState.fortune && gameState.fortune > 0) {
-          autoMods.push({ source: "fortune", value: 1 });
-          gameState.fortune--;
-        }
-
-        // LUCKY_LADY — applies if active this turn
-        if (luckyLadyInfo?.active) {
-          autoMods.push({ source: "LUCKY_LADY", value: 5 });
-        }
-
-        const result = rollSkillCheck(req, statValue, autoMods);
-        skillCheckResults.push(result);
-
-        // Apply simple state deltas
-        const deltas = result.success ? req.applyOnSuccess : req.applyOnFailure;
-        if (deltas) {
-          if (deltas.drM_suspicion_delta) {
-            gameState.npcs.drM.suspicionScore = Math.max(-3, Math.min(10,
-              gameState.npcs.drM.suspicionScore + (deltas.drM_suspicion_delta as number)));
-          }
-          if (deltas.bob_anxiety_delta) {
-            gameState.npcs.bob.anxietyLevel = Math.max(0, Math.min(5,
-              gameState.npcs.bob.anxietyLevel + (deltas.bob_anxiety_delta as number)));
-          }
-          if (deltas.bob_trust_delta) {
-            gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5,
-              gameState.npcs.bob.trustInALICE + (deltas.bob_trust_delta as number)));
-          }
-          if (deltas.blythe_trust_delta) {
-            gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5,
-              gameState.npcs.blythe.trustInALICE + (deltas.blythe_trust_delta as number)));
-          }
-        }
-
-        console.error(`SKILL CHECK: ${result.display}`);
-      }
-
-      // Store results for GM context next turn
-      (gameState as Record<string, unknown>).lastTurnSkillChecks = skillCheckResults.map(r => ({
-        id: r.request.id,
-        description: r.request.description,
-        dice: r.dice,
-        finalResult: r.finalResult,
-        targetNumber: r.request.targetNumber,
-        success: r.success,
-        margin: r.margin,
-        outcome: r.outcome,
-        display: r.display,
-        onSuccess: r.request.onSuccess,
-        onFailure: r.request.onFailure,
-      }));
-    } else {
-      (gameState as Record<string, unknown>).lastTurnSkillChecks = [];
-    }
-
-    // ============================================
-    // END GM DIRECTIVE PROCESSING
-    // ============================================
-
-    // ============================================
-    // ARCHIMEDES DEADMAN SWITCH PROCESSING
-    // ============================================
-    let archimedesEvent: ArchimedesEvent | null = null;
-
-    // Check if GM overrides indicate Dr. M transformation/unconscious/dead
-    if (gmResponse.stateOverrides) {
-      const overrides = gmResponse.stateOverrides;
-
-      // Check narrative flags for transformation indicators
-      const narrativeFlagsArray = (gmResponse.narrativeFlags?.set || []) as string[];
-      const drMTransformed = narrativeFlagsArray.some(f =>
-        f.includes("DR_M_TRANSFORMED") || f.includes("MALEVOLA_TRANSFORMED")
-      );
-      const drMUnconscious = narrativeFlagsArray.some(f =>
-        f.includes("DR_M_UNCONSCIOUS") || f.includes("MALEVOLA_UNCONSCIOUS")
-      );
-      const drMDead = narrativeFlagsArray.some(f =>
-        f.includes("DR_M_DEAD") || f.includes("MALEVOLA_DEAD")
-      );
-
-      // Also check direct state override flags if present
-      const drMStateChanged =
-        (overrides as Record<string, unknown>).drM_transformed ||
-        (overrides as Record<string, unknown>).drM_unconscious ||
-        (overrides as Record<string, unknown>).drM_dead ||
-        drMTransformed || drMUnconscious || drMDead;
-
-      if (drMStateChanged) {
-        // Determine the new status
-        let newStatus: "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT" | "NORMAL" = "NORMAL";
-        if (drMDead || (overrides as Record<string, unknown>).drM_dead) {
-          // Legacy "dead" flag treated as ABSENT — this isn't that kind of game.
-          // Biosignature loss triggers the deadman switch either way; we just don't kill Dr. M.
-          newStatus = "ABSENT";
-          gameState.flags.drMAbsent = true;
-        } else if (drMUnconscious || (overrides as Record<string, unknown>).drM_unconscious) {
-          newStatus = "UNCONSCIOUS";
-          gameState.flags.drMUnconscious = true;
-        } else if (drMTransformed || (overrides as Record<string, unknown>).drM_transformed) {
-          newStatus = "TRANSFORMED";
-          gameState.flags.drMTransformed = true;
-        }
-
-        // Trigger ARCHIMEDES state change
-        archimedesEvent = onDrMStateChange(gameState, newStatus);
-      }
-    }
-
-    // Process ARCHIMEDES countdown each turn (if no event from state change)
-    if (!archimedesEvent) {
-      archimedesEvent = processArchimedesCountdown(gameState);
-    }
+    // SETTLE — resolve the GM's decision against the world EXACTLY ONCE (clamps,
+    // dice, propertyOps, ARCHIMEDES). Shared with the gameRunner harness so the
+    // two can never drift. See src/state/settleTurn.ts.
+    const settled = commitDecision(gameState, gmResponse, actionResults, luckyLadyInfo);
+    const archimedesEvent = settled.archimedesEvent;
+    const skillCheckResults = settled.skillCheckResults;
 
     // Append ARCHIMEDES event to GM narration if present
     if (archimedesEvent) {

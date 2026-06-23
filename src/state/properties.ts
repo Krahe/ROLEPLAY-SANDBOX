@@ -278,8 +278,9 @@ export function revealEntityProperties(state: FullGameState, target: string): st
 
 // ---------- property ops (S6 — GM-driven mutation) ----------
 
-/** Resolve a GM entity-ref to its mutable properties bag (Blythe / the named guards / a lab object). */
-function resolveEntityBag(state: FullGameState, ref: string): Properties | null {
+/** Resolve a GM entity-ref to its mutable properties bag (Blythe / the named guards / a lab object).
+ *  Exported so validateDecision can pre-flight propertyOp referents before commit. */
+export function resolveEntityBag(state: FullGameState, ref: string): Properties | null {
   const t = (ref || "").toUpperCase();
   if (t.includes("BLYTHE")) return state.npcs.blythe.properties;
   const ld = state.lairDefense;

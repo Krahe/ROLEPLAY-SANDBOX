@@ -464,6 +464,22 @@ export function getNpcStat(
   return 0;
 }
 
+/** The NPC tokens getNpcStat recognizes — kept in sync with the if-chain above.
+ *  Used to validate GM skillCheckRequests so a bogus npc can't silently roll vs stat 0. */
+const KNOWN_NPC_TOKENS = new Set([
+  "drm", "dr_m", "malevola",
+  "bob",
+  "blythe", "agent_blythe",
+  "fred", "guard_fred",
+  "reginald", "guard_reginald",
+  "bruce", "bruce_patagonia",
+]);
+
+/** True iff `npc` is a token getNpcStat resolves to a real NPC (else it returns stat 0). */
+export function isKnownNpc(npc: string): boolean {
+  return KNOWN_NPC_TOKENS.has((npc || "").toLowerCase());
+}
+
 // Get adaptation penalty from NPC transformation state
 export function getAdaptationPenalty(
   state: { npcs: Record<string, unknown>; lairDefense?: Record<string, unknown> },
