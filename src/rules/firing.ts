@@ -178,6 +178,15 @@ const IDEAL_POWER: Record<SizeClass, number> = {
   huge: 5,
 };
 
+// LIBRARY B INSTABILITY (Patch 30): the Hollywood/cinematic profiles run the
+// emitter hotter, re-activating each profile's stabilityCoefficient (1.0 = stable;
+// the lab-grown hybrids dip to 0.2 — Indominus is the spiciest). A Library B fire
+// adds round(K × (1 − coeff)) heat ON TOP of the base `power` heat, so a B-heavy
+// run reaches the overheat→chaos ceiling (heat 10) faster than a Library A one,
+// which adds nothing. This is the risk side of the showy-scales vs safe-feathers
+// choice — and the chaos table is the price. K is the single tuning dial.
+const LIBRARY_B_HEAT_SURCHARGE = 5;
+
 export function idealPowerForSize(sizeClass: SizeClass): number {
   return IDEAL_POWER[sizeClass];
 }
@@ -617,6 +626,14 @@ function resolveTransformFire(state: FullGameState, params: TransformFireParams)
   // applyFiringResults; soaked per-turn by BASILISK's drain unless he's stood down.
   stateChanges.reactorStressDelta = Math.round((matrix.ideal * effectivePower) / 2);
 
+  // Per-shot LIBRARY B INSTABILITY (Patch 30): the cinematic profiles run hot — a
+  // heat surcharge scaled by the per-profile stabilityCoefficient (the lab-grown
+  // hybrids are the spiciest). Stacks on the base `power` heat in applyFiringResults,
+  // pushing a Library B run toward the overheat→chaos ceiling sooner. Library A → 0.
+  stateChanges.heatSurcharge = profile.library === "B"
+    ? Math.round(LIBRARY_B_HEAT_SURCHARGE * (1 - profile.stabilityCoefficient))
+    : 0;
+
   // -- Resonance cascade check (Act-3 climax — KEEP) -------------------------
   let cascadeTriggered = false;
   const archimedesLinked =
@@ -1049,11 +1066,14 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     }
   }
 
-  // HEAT METER (Patch 30): every discharge adds `power` heat (ceiling 10). Cools
-  // −2/turn (−4 eco) via applyHeatDecay (clockEvents). resolveFiring read this
-  // value BEFORE this add to decide overheat-chaos, so the meter-filling shot
-  // itself stays clean; the next shot while pinned at 10 throws chaos.
-  state.dinoRay.heat = Math.min(10, state.dinoRay.heat + state.dinoRay.power);
+  // HEAT METER (Patch 30): every discharge adds `power` heat, plus a Library B
+  // instability surcharge (the cinematic profiles run hot — see LIBRARY_B_HEAT_SURCHARGE;
+  // Library A adds 0); ceiling 10. Cools −2/turn (−4 eco) via applyHeatDecay
+  // (clockEvents). resolveFiring read this value BEFORE this add to decide
+  // overheat-chaos, so the meter-filling shot itself stays clean; the next shot
+  // while pinned at 10 throws chaos.
+  const heatSurcharge = (changes.heatSurcharge as number) ?? 0;
+  state.dinoRay.heat = Math.min(10, state.dinoRay.heat + state.dinoRay.power + heatSurcharge);
 
   // REACTOR STRESS (Patch 30 Act-III): apply the per-shot overload computed in
   // resolveFiring. Bled back per-turn (naturalBleed + basiliskDrain) in advanceTurn.
