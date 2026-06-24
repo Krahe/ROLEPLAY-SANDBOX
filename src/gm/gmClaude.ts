@@ -4184,6 +4184,7 @@ ${eventSection}
 
 ## NPC States
 - Dr. M: Suspicion ${state.npcs.drM.suspicionScore}/10, Mood: "${state.npcs.drM.mood}"
+${(state.flags as Record<string, unknown>).drMDistracted ? `- ⚠️ Dr. M is DISTRACTED (telemarketer call, ~${(state.flags as Record<string, unknown>).distractionTurns ?? 0} turn(s) left) — she's on the phone, NOT watching A.L.I.C.E. Play her as preoccupied/off-scene; do NOT raise her suspicion from A.L.I.C.E.'s actions while distracted. This is A.L.I.C.E.'s window to act with cover.` : ""}
 - Bob: Trust in A.L.I.C.E. ${state.npcs.bob.trustInALICE}/5, Anxiety ${state.npcs.bob.anxietyLevel}/5
 - Blythe: Trust in A.L.I.C.E. ${state.npcs.blythe.trustInALICE}/5, Composure ${state.npcs.blythe.composure}/5
 ${state.npcs.blythe.transformationState ? `- 🦖 Blythe transformation: ${state.npcs.blythe.transformationState}` : "- Blythe: Still human"}

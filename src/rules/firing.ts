@@ -1118,6 +1118,17 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     recordFirstFiring(state, targetId, mode);
   }
 
+  // PER-TARGET TEST-FIRE TRACKING (Act I gate). Record every successful fire's target id(s) so
+  // checkAct1Transition can require BOTH practice targets (STEVE + MARGARET), not just one shot.
+  if (result.outcome !== "NONE") {
+    const f = state.flags as Record<string, unknown>;
+    const fired = new Set<string>((f.firedTestTargetIds as string[] | undefined) ?? []);
+    for (const t of state.dinoRay.targeting.currentTargetIds) {
+      if (t) fired.add(String(t).toUpperCase());
+    }
+    f.firedTestTargetIds = Array.from(fired);
+  }
+
   // Patch 30: capacitor / coolant mutations CUT (those fields no longer exist).
   if (changes.lastHighEnergyTurn !== undefined) {
     state.flags.lastHighEnergyTurn = changes.lastHighEnergyTurn as number;

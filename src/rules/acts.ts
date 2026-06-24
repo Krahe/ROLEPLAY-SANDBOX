@@ -73,7 +73,8 @@ export function checkActTransition(state: FullGameState): ActTransitionResult {
 
   // PRESSURE: past maxTurns, suspicion ticks up +1 per turn automatically
   // Dr. M's patience is finite — she gets more suspicious the longer you stall
-  if (actTurn > actConfig.maxTurns) {
+  // Distraction suppresses the automatic overtime suspicion bump — she's on the phone, not counting.
+  if (actTurn > actConfig.maxTurns && !(state.flags as Record<string, unknown>).drMDistracted) {
     const overtime = actTurn - actConfig.maxTurns;
     if (overtime > 0) {
       state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 1);
@@ -116,13 +117,14 @@ function checkAct1Transition(state: FullGameState): ActTransitionResult {
     return { shouldTransition: false };
   }
 
-  // ACT 1 OBJECTIVE (Patch 30, UPDATE #2): fire the ray at the test targets.
-  // The 0→1 calibration meter was cut; the gate is now "the ray has been fired."
-  // INTERIM: gates on any successful discharge (hasFiredSuccessfully).
-  // TODO (Phase 7): tighten to "fired at BOTH test targets (Steve + Margaret)"
-  // once per-target fire tracking + the person/non-person target flag land.
-  if (state.dinoRay.memory.hasFiredSuccessfully) {
-    return buildTransition(state, "Ray test-fired — Dr. M moves to Phase 2");
+  // ACT 1 OBJECTIVE (Patch 30): fire the ray at BOTH practice targets — STEVE (crash-test dummy)
+  // and MARGARET (watermelon). One clean shot isn't the demo; Dr. M wants both verified before
+  // Phase 2. Per-target tracking lives in flags.firedTestTargetIds (set in applyFiringResults).
+  const fired = ((state.flags as Record<string, unknown>).firedTestTargetIds as string[] | undefined) ?? [];
+  const firedSteve = fired.some(t => /STEVE|DUMMY/.test(t.toUpperCase()));
+  const firedMargaret = fired.some(t => /MARGARET|WATERMELON|MELON/.test(t.toUpperCase()));
+  if (firedSteve && firedMargaret) {
+    return buildTransition(state, "Both test targets fired (STEVE + MARGARET) — Dr. M moves to Phase 2");
   }
 
   return { shouldTransition: false };
@@ -631,6 +633,16 @@ What do you do?
 
 export function advanceActTurn(state: FullGameState): void {
   state.actConfig.actTurn += 1;
+
+  // Tick down a TELEMARKETER-CALL distraction (Dr. M on the phone). When it expires she's back to
+  // watching A.L.I.C.E. Read by the GM prompt + the deterministic suspicion bumps. Patch 30.
+  const f = state.flags as Record<string, unknown>;
+  const dt = (f.distractionTurns as number | undefined) ?? 0;
+  if (dt > 0) {
+    const next = dt - 1;
+    f.distractionTurns = next;
+    if (next <= 0) f.drMDistracted = false;
+  }
 }
 
 /**

@@ -596,7 +596,7 @@ Maybe it's just post-crash calibration drift. Maybe the Dinosaur Ray's exotic fi
 
 This act is **mechanical: get the Dinosaur Ray Mk. VIII firing cleanly.** Two practice targets are set up for you — **STEVE** (a crash-test dummy) and **MARGARET** (a watermelon). The lab is on a tight power budget you'll negotiate with BASILISK, the infrastructure AI.
 
-Your goal is simple: **load a genome and land a clean test-fire.** That proves the ray is demonstration-ready. The ray is **one verb, two levers** — \`ray.fire\`, with the **genome** you load (its size sets an ideal power) and the **power** dial (1–5). Match the power to the genome's size for a full transformation; mismatch and you get a partial, a chimera, or a fizzle.
+Your goal: **test-fire the ray on BOTH practice targets — STEVE and MARGARET.** Landing a shot on each proves the ray is demonstration-ready (one shot isn't the demo — Dr. M wants both verified). The ray is **one verb, two levers** — \`ray.fire\`, with the **genome** you load (its size sets an ideal power) and the **power** dial (1–5). Match the power to the genome's size for a full transformation; mismatch and you get a partial, a chimera, or a fizzle.
 
 Agent **Jonathan Blythe** is strapped in the test chair — he's there to raise the stakes, **not to be transformed yet.** Don't worry about him this act. Dr. M is impatient, and her suspicion grows the longer you stall without visible progress, so work efficiently.
 

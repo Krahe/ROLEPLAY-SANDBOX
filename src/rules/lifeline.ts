@@ -133,6 +133,14 @@ ${check.reason}
     effect: "2-turn distraction created",
   });
 
+  // APPLY the distraction to live state (Patch 30 fix). The returned stateChanges below are
+  // display-only — index.ts does NOT apply them, so the lifeline used to be narrative-only with
+  // ZERO mechanical effect. drMDistracted + distractionTurns are now read by the GM prompt (play
+  // her off A.L.I.C.E., no suspicion bump) and the deterministic suspicion bumps; ticked down each
+  // turn in advanceActTurn.
+  (state.flags as Record<string, unknown>).drMDistracted = true;
+  (state.flags as Record<string, unknown>).distractionTurns = 2;
+
   const callerVariants = [
     {
       caller: "a chirpy sales representative",

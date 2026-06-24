@@ -8,13 +8,18 @@ import { FullGameState } from "../state/schema.js";
 // the advisor meaningful input on every decision.
 // ============================================
 
-export const CHECKPOINT_INTERVAL = 1;
+export const CHECKPOINT_INTERVAL = 1; // retained for back-compat; isCheckpointTurn is disabled below
 
 /**
- * Check if we've hit a checkpoint turn
+ * CHECKPOINTS RETIRED (Patch 30). The every-turn "STOP AND TALK TO YOUR HUMAN" box was a carryover
+ * from the old 3-turn context/timeout limit — obsolete now: the cached-thread architecture handles
+ * context, and human-in-the-loop is served by the per-turn permission prompt (acceptEdits) + the
+ * player's own witness check-in discipline. Returns false everywhere → no giant box, no GM
+ * checkpoint-question. (generateCheckpointBlock/Question + the index.ts mandatory-checkpoint block
+ * are now dead; left in place for a clean follow-up removal.)
  */
-export function isCheckpointTurn(turn: number): boolean {
-  return turn > 0 && turn % CHECKPOINT_INTERVAL === 0;
+export function isCheckpointTurn(_turn: number): boolean {
+  return false;
 }
 
 // ============================================
