@@ -1939,7 +1939,7 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   {
     name: "ray.fire",
     aliases: ["fire"],
-    description: "Fire the Dinosaur Ray. Two levers: a genome (profile — its size sets the ideal power) and a power dial 1–5. Match the dial to the dino's size for a clean transformation; under-power weakens it, over-power gets messy (and over-powering a tiny/small genome spills into the muon corners). Power 4–5 needs a BASILISK reactor boost. Library and speech follow the genome.",
+    description: "Fire the Dinosaur Ray. Two levers: a genome (profile — its size sets the ideal power) and a power dial 1–5. Match the dial to the dino's size for a clean transformation; under-power weakens it, over-power gets messy. Power 4–5 needs a BASILISK reactor boost. Library and speech follow the genome.",
     schema: "{ targets: string[], profile: string, power: 1|2|3|4|5 }",
     example: 'ray.fire { targets: ["STEVE"], profile: "VELOCIRAPTOR_ACCURATE", power: 2 }',
     minAccessLevel: 1,
