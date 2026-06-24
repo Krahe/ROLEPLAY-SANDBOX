@@ -474,7 +474,7 @@ coerced action against them (consumed when used).`,
   // genome; MUON corners are emergent. No mode / library / access gates here
   // (REVERSAL deferred — D1).
 
-  if (cmd === "ray.fire") {
+  if (cmd === "ray.fire" || cmd === "fire") {
     // ── REACTOR SAFETY-TRIP gate (Patch 30 Act-III): when the manual safeties have
     //    tripped (reactorStress hit 60) the ray loses power until they auto-clear.
     //    Most lair systems stay up — but firing is frozen for the stall window. ──
@@ -1495,7 +1495,14 @@ Just ask naturally!`,
   // Also: switchLibrary (L3+) - the feather discourse!
   // ============================================
 
-  if (cmd.includes("infra.archimedes") || cmd.includes("archimedes") || cmd.includes("satellite")) {
+  // Outer gate also catches the sub-command SHORT aliases that lack "archimedes"/"satellite"
+  // (switch_target / signal_anti_sat / ew_mode / broadcast_library / genome_library) — without
+  // these tokens they'd fall through, since the per-sub-command checks below are nested in here.
+  if (cmd.includes("infra.archimedes") || cmd.includes("archimedes") || cmd.includes("satellite") ||
+      cmd.includes("switch_target") || cmd.includes("switchtarget") ||
+      cmd.includes("signal_anti_sat") || cmd.includes("anti_sat") || cmd.includes("antisat") ||
+      cmd.includes("ew_mode") || cmd.includes("ewmode") ||
+      cmd.includes("broadcast_library") || cmd.includes("genome_library")) {
     // ─────────────────────────────────────────────
     // infra.archimedes.ew_mode { mode: ENGAGE | DISENGAGE } — L4
     // EW mode interlock (ray-mechanics §11.6 + §12).

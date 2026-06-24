@@ -1229,9 +1229,11 @@ The consequences of that reckless high-power firing are now manifesting.
     // ============================================
     // PROCESS GM DIRECTIVES (Real DM Powers!)
     // ============================================
-    // accessLevelUnlockNarration is assembled later in the narration band;
-    // declared here because it outlives the settle step.
-    let accessLevelUnlockNarration: string | undefined;
+    // (Removed: the dead `accessLevelUnlockNarration` channel — declared + pushed but never
+    // assigned, so the unlock reveal never fired through here. New-command teaching now lives
+    // where the level is actually GRANTED: the act intros (acts.ts generateAct2Intro/Act3Intro →
+    // formatAccessLevelUnlockDisplay) for act-transition grants, and the password handler
+    // (actions.ts → formatAccessLevelUnlockDisplay in its result) for password unlocks. Patch 30 audit.)
 
     // SETTLE — resolve the GM's decision against the world EXACTLY ONCE (clamps,
     // dice, propertyOps, ARCHIMEDES). index.ts is the canonical (and currently ONLY)
@@ -1596,11 +1598,6 @@ The consequences of that reckless high-power firing are now manifesting.
 
     // Build combined narration with all events
     const combinedNarration: string[] = [];
-
-    // Add access level unlock FIRST (players should see this before anything else)
-    if (accessLevelUnlockNarration) {
-      combinedNarration.push(accessLevelUnlockNarration);
-    }
 
     // Add clock events
     if (clockEvents.length > 0) {

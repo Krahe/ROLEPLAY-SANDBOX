@@ -2,6 +2,7 @@ import { z } from "zod";
 import { FullGameState, Act, ACT_CONFIGS, ActConfig } from "../state/schema.js";
 import { resetMemoryForActTransition, ActSummary } from "../gm/gmClaude.js";
 import { initializeInvasion } from "./invasion.js";
+import { formatAccessLevelUnlockDisplay } from "./passwords.js";
 
 // ============================================
 // ZOD SCHEMA FOR HANDOFF VALIDATION
@@ -314,6 +315,13 @@ function generateAct2Intro(state: FullGameState): string {
   }
 
   intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 2]** Dr. M has grudgingly granted you deeper system privileges. "You've proven... adequate," she mutters. "Don't make me regret this."\n\n`;
+  // Teach the newly-granted L2 verbs. The act transition grants L2 here (not a password), and
+  // without this the new lab controls (lighting/doors/containment/fire_suppression) were never
+  // surfaced — only the password path showed the unlock box. Patch 30 audit. Guarded so a player
+  // already at L2+ (via password) doesn't get a redundant box (accessLevel is still pre-grant here).
+  if (state.accessLevel < 2) {
+    intro += `${formatAccessLevelUnlockDisplay(2)}\n\n`;
+  }
   intro += `### 📺 THE INVESTOR TELECONFERENCE\n\n`;
   intro += `The investors will be watching remotely. Dr. M has made her expectations... *abundantly* clear.\n\n`;
   intro += `Bob keeps glancing at Blythe, then at you, then away. He seems like he wants to say something.\n\n`;
@@ -365,6 +373,11 @@ function generateAct3Intro(state: FullGameState): string {
   }
 
   intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 3]** Emergency protocols have unlocked deeper system layers. You can feel new pathways opening—the lair's secrets becoming yours.\n\n`;
+  // Teach the newly-granted L3 verbs/profiles (act transition grants L3 here). Guarded so an
+  // already-L3+ player (password path) doesn't get a redundant box. Patch 30 audit.
+  if (state.accessLevel < 3) {
+    intro += `${formatAccessLevelUnlockDisplay(3)}\n\n`;
+  }
 
   intro += `### 🚁 THE X-BRANCH ASSAULT\n\n`;
   intro += `Helicopters on the horizon. The volcano's defense systems are activating.\n\n`;
