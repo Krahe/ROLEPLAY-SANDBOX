@@ -12,8 +12,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { FullGameState } from "../state/schema.js";
+import { FullGameState, ACT_CONFIGS } from "../state/schema.js";
 import { restraintsValue, restraintLabel } from "../state/properties.js";
+import { getAvailableToolNames } from "../rules/actions.js";
+import { ACCESS_LEVELS } from "../rules/passwords.js";
 
 // Allow explicit override for sandboxed environments
 const DINO_DIR = process.env.DINO_LAIR_STATE_DIR ||
@@ -39,6 +41,10 @@ export interface LiveState {
   turn: number;
   act: string;
   actTurn: number;
+  actGoal?: string;          // current chapter objective (ACT_CONFIGS description)
+  accessLevel?: number;      // ALICE's clearance, L1–L5
+  accessLevelName?: string;  // e.g. "Systems Access"
+  availableTools?: string[]; // verb names usable at this level (COMMAND_REGISTRY, zero-drift)
 
   // Meters
   suspicion: number;
@@ -167,6 +173,10 @@ export function exportLiveState(state: FullGameState): void {
     turn: state.turn,
     act: state.actConfig.currentAct,
     actTurn: state.actConfig.actTurn,
+    actGoal: (ACT_CONFIGS as Record<string, { description?: string }>)[state.actConfig.currentAct]?.description,
+    accessLevel: state.accessLevel,
+    accessLevelName: ACCESS_LEVELS[state.accessLevel]?.name,
+    availableTools: getAvailableToolNames(state.accessLevel),
 
     // Meters
     suspicion: state.npcs.drM.suspicionScore,

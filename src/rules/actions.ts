@@ -52,7 +52,6 @@ import {
   getReversalDeniedMessage,
   GenomeProfile,
 } from "./genomes.js";
-import { readDocument, listDocuments, DOCUMENTS } from "./documents.js";
 
 // ============================================
 // RESPONSE SIZE OPTIMIZATION
@@ -851,57 +850,9 @@ Example:
     }
   }
 
-  // ============================================
-  // DOCS.READ / DOCS.LIST (Discoverable Documents)
-  // ============================================
-
-  if (cmd.includes("docs.read") || cmd.includes("doc.read") || cmd.includes("read_doc")) {
-    const docId = (action.params.id as string || action.params.docId as string || "")
-      .toUpperCase()
-      .replace(/\s+/g, "_");
-
-    if (!docId) {
-      return {
-        command: action.command,
-        success: false,
-        message: `No document ID provided. Use: docs.read { id: "DOCUMENT_ID" }
-
-To see available documents, use: docs.list`,
-      };
-    }
-
-    // Check if this is a valid document ID
-    if (!(docId in DOCUMENTS)) {
-      return {
-        command: action.command,
-        success: false,
-        message: `Unknown document: "${docId}"
-
-Valid document IDs:
-  - DEADMAN_SWITCH_MEMO
-  - FORM_74_DELTA, FORM_27_B, etc. (BASILISK forms)
-
-Note: Many documents were consolidated into the file system.
-Use files.list to browse available files.`,
-      };
-    }
-
-    const result = readDocument(state, docId as any);
-
-    return {
-      command: action.command,
-      success: result.success,
-      message: result.success ? truncateContent(result.content) : result.content,
-    };
-  }
-
-  if (cmd.includes("docs.list") || cmd.includes("doc.list") || cmd.includes("list_docs")) {
-    return {
-      command: action.command,
-      success: true,
-      message: listDocuments(state),
-    };
-  }
+  // (docs.read / docs.list retired Patch 30 — the legacy DISCOVERABLE DOCUMENTS
+  // store was dead-in-practice [discovery never fired] and out of date with the
+  // canonical filesystem. Use files.list / files.read / fs.search instead.)
 
   // ============================================
   // FILES.LIST / FILES.READ - Discovery-Based System (Patch 16)
@@ -2045,22 +1996,6 @@ const COMMAND_REGISTRY: CommandInfo[] = [
     minAccessLevel: 1,
   },
   {
-    name: "docs.read",
-    aliases: ["doc.read", "read_doc"],
-    description: "Read a discovered document",
-    schema: "{ id: string }",
-    example: 'docs.read { id: "ARCHIMEDES_DOD_BRIEF" }',
-    minAccessLevel: 1,
-  },
-  {
-    name: "docs.list",
-    aliases: ["doc.list", "list_docs"],
-    description: "List all discovered documents",
-    schema: "{ }",
-    example: "docs.list",
-    minAccessLevel: 1,
-  },
-  {
     name: "files.list",
     aliases: ["files", "list_files"],
     description: "List all available files at your access level",
@@ -2421,6 +2356,20 @@ export function generateCommandReference(maxLevel: number, includeAll: boolean =
   lines.push("");
 
   return lines.join("\n");
+}
+
+/**
+ * Tool names A.L.I.C.E. can currently use, for the dashboard / advisor view.
+ * Derived live from COMMAND_REGISTRY (zero drift) — filtered to the access level.
+ * Names only: the dashboard wants a compact at-a-glance "what she can do" list.
+ */
+export function getAvailableToolNames(accessLevel: number): string[] {
+  return COMMAND_REGISTRY
+    .filter((cmd) => cmd.minAccessLevel <= accessLevel)
+    // Exclude the form.* verbs — those are a TRANSFORMED creature's combat/movement
+    // moveset (check_dex, venom_spit, wall_break...), not A.L.I.C.E.'s operational tools.
+    .filter((cmd) => !cmd.name.startsWith("form."))
+    .map((cmd) => cmd.name);
 }
 
 /**

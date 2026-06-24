@@ -38,6 +38,10 @@ interface LiveState {
   turn: number;
   act: string;
   actTurn: number;
+  actGoal?: string;          // current chapter objective
+  accessLevel?: number;      // ALICE's clearance, L1–L5
+  accessLevelName?: string;  // e.g. "Systems Access"
+  availableTools?: string[]; // verb names usable at this level
 
   // Meters
   suspicion: number;
@@ -717,6 +721,12 @@ app.get("/", (_req: Request, res: Response) => {
           <div style="font-size: 2rem; color: var(--accent-green);" id="turn-number">T0</div>
           <div style="color: var(--text-dim);" id="act-info">ACT 1</div>
         </div>
+        <div id="objective" style="margin-top: 0.6rem; font-size: 0.85rem; color: var(--accent-yellow);"></div>
+        <div id="access-info" style="margin-top: 0.6rem; font-size: 0.85rem;">
+          <span style="color: var(--text-dim);">🔓 Clearance:</span>
+          <span id="access-level" style="color: var(--accent-green); font-weight: bold;">—</span>
+        </div>
+        <div id="tools-list" title="Verbs A.L.I.C.E. can use at this clearance" style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-dim); line-height: 1.5;"></div>
       </div>
 
       <!-- Meters -->
@@ -896,6 +906,22 @@ app.get("/", (_req: Request, res: Response) => {
       // Turn & Act
       document.getElementById("turn-number").textContent = "T" + (state.turn || 0);
       document.getElementById("act-info").textContent = (state.act || "ACT_1") + " (Turn " + (state.actTurn || 0) + ")";
+
+      // Objective (current chapter goal) + clearance + the tools ALICE has at hand
+      const objEl = document.getElementById("objective");
+      if (objEl) objEl.textContent = state.actGoal ? "🎯 " + state.actGoal : "";
+      const accessEl = document.getElementById("access-level");
+      if (accessEl) {
+        accessEl.textContent = state.accessLevel
+          ? "L" + state.accessLevel + (state.accessLevelName ? " — " + state.accessLevelName : "")
+          : "—";
+      }
+      const toolsEl = document.getElementById("tools-list");
+      if (toolsEl) {
+        toolsEl.textContent = (state.availableTools && state.availableTools.length)
+          ? "🧰 " + state.availableTools.join(" · ")
+          : "";
+      }
 
       // Suspicion
       const sus = state.suspicion || 0;

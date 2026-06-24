@@ -29,7 +29,7 @@ export const ACT_CONFIGS = {
     name: "Calibration",
     minTurns: 4,
     maxTurns: 8,     // suspicion pressure starts after 8; no forced transition
-    description: "Calibrate and test-fire the ray. Core objective: fire the ray.",
+    description: "Test-fire the ray. Core objective: fire the ray.",
     endConditions: ["Ray fired (any outcome)"],
   },
   ACT_2: {
