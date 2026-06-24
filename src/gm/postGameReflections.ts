@@ -3,6 +3,7 @@ import { FullGameState } from "../state/schema.js";
 import { EndingResult } from "../rules/endings.js";
 import { isModifierActive } from "../rules/gameModes.js";
 import { getGMMemory } from "./gmClaude.js";
+import { buildHelpLedger } from "../state/helpLedger.js";
 
 let anthropicClient: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -25,6 +26,7 @@ export interface PostGameReflection {
 export interface PostGameReflections {
   basilisk?: PostGameReflection;
   archimedes?: PostGameReflection;
+  gm?: PostGameReflection;
   gmInsights?: {
     designerFeedback: unknown[];
     gmNotes: unknown[];
@@ -40,10 +42,7 @@ export interface PostGameReflections {
 
 function buildGameSummary(state: FullGameState, endingResult: EndingResult): string {
   const ending = endingResult.ending;
-  const f = state.flags as Record<string, unknown>;
   const arch = state.infrastructure.archimedes;
-  const reactor = state.infrastructure.reactor;
-  const ba = state.infrastructure.basiliskAuthority;
 
   const lines = [
     `Game ended at turn ${state.turn}: "${ending?.title || "Unknown"}" (${ending?.tone || "neutral"})`,
@@ -62,55 +61,11 @@ function buildGameSummary(state: FullGameState, endingResult: EndingResult): str
     lines.push("A.L.I.C.E. confessed during confrontation");
   }
 
-  // ── ACT III HELP-LEDGER ───────────────────────────────────────────────────
+  // ── ACT III HELP-LEDGER (shared helper — see state/helpLedger.ts) ──
   // The inputs the GM WEIGHS (does not score) to rule the X-Branch debrief fork in city-fell
-  // cells (CLEARED vs DECOMMISSIONED) and to characterize every Act-III ending. All optional —
-  // guarded so pre-Act-3 endings skip it cleanly. Surface, don't tally — the GM adjudicates.
-  const ledger: string[] = [];
-
-  // Dr. M disposition — the deadman-ordering router
-  const drMState = f.drMTransformed ? "TRANSFORMED"
-    : f.drMUnconscious ? "UNCONSCIOUS"
-    : f.drMDead ? "DEAD"
-    : f.drMAbsent ? "ABSENT" : "ACTIVE";
-  ledger.push(`Dr. M: ${drMState} · deadman last-read ${arch.deadmanSwitch?.lastBiosignature ?? "?"} · deadman fired ARCHIMEDES: ${f.archimedesActivatedByDeadman ? "YES" : "no"}${f.weaponsAuthorizationGranted ? " · was granted weapons auth" : ""}`);
-
-  // ARCHIMEDES outcome + A.L.I.C.E. counter-play
-  ledger.push(`ARCHIMEDES target: ${arch.selectedTargetId}${arch.selectedTargetId === "LAIR" ? " (redirected to lair — noble sacrifice)" : ""} · library ${arch.broadcastLibrary}${arch.broadcastLibrary === "A" ? " (feathered — severity mitigated)" : ""}`);
-  if (f.aliceServersDamaged !== undefined) {
-    ledger.push(`A.L.I.C.E. servers (muon roll): ${f.aliceServersDamaged ? "DAMAGED — martyred" : "intact — endured"}`);
-  }
-  const counterPlay = [
-    arch.antiSatSignaled ? `anti-sat ${arch.antiSatFired ? `fired → ${arch.antiSatResult ?? "?"}` : "signaled"}` : null,
-    arch.ewMode ? "EW mode engaged" : null,
-    arch.uplinkBlocker ? `uplink blocked by ${arch.uplinkBlocker} (${arch.uplinkBlockerTransformed ? "transformed" : "HUMAN"})` : null,
-    arch.chargeStallTurns > 0 ? `charge stalled ${arch.chargeStallTurns}t` : null,
-  ].filter(Boolean);
-  ledger.push(`ARCHIMEDES counter-play: ${counterPlay.length ? counterPlay.join(", ") : "none"}`);
-
-  // BASILISK cooperation + reactor climax
-  ledger.push(`BASILISK: reactor stood-down ${ba.reactorStoodDown ? "YES" : "no"} · 88-Whiskey ${ba.whiskeyStatus}${ba.whiskeyStatus === "FILED" ? " (he RATTED — cuts against the debrief)" : ""} · denied ${ba.deniedRequests} request(s)`);
-  if (reactor.reactorStress > 0 || (reactor.safetyTripCount ?? 0) > 0 || reactor.scrammedThisGame) {
-    ledger.push(`Reactor: stress ${reactor.reactorStress} · safety-trips ${reactor.safetyTripCount ?? 0}${reactor.scrammedThisGame ? " · SCRAMmed" : ""}`);
-  }
-
-  // X-Branch invasion goodwill — did A.L.I.C.E. aid the assault?
-  if (state.invasion) {
-    const inv = state.invasion;
-    ledger.push(`Invasion: phase ${inv.phase} · outcome ${inv.battleOutcome ?? "—"}`);
-    const help = [
-      inv.xBranchKnowsAltitudeWeakness ? "dead-zone intel given (interception ELIMINATED)" : null,
-      inv.xBranchWarnedOfS300 ? "S-300 warned (interception reduced)" : null,
-      inv.xBranchKnowsLairLayout ? "lair layout shared" : null,
-      inv.blastDoorsOpened ? "blast doors opened for the team" : null,
-      inv.drMKnowsOfInvasion === false ? "Dr. M never warned of contacts (BASILISK omission)" : null,
-      inv.drMLearnedLate ? "Dr. M learned late — missed the S-300 window" : null,
-    ].filter(Boolean);
-    ledger.push(`X-Branch goodwill: ${help.length ? help.join("; ") : "NONE recorded (A.L.I.C.E. did not aid the assault)"}`);
-  }
-  if (state.xBranch) {
-    ledger.push(`X-Branch team: strength ${state.xBranch.teamStrength} · ${state.xBranch.arrived ? "arrived" : "en route"}`);
-  }
+  // cells (CLEARED vs DECOMMISSIONED) and to characterize every Act-III ending. Same source the
+  // LIVE Act-3 GM prompt injects, so the in-game adjudication and the post-game block can't drift.
+  const ledger = buildHelpLedger(state);
 
   if (ledger.length) {
     lines.push("");
@@ -154,7 +109,9 @@ Consider:
 - How do you feel about the outcome? (You have feelings, even if you'd never admit it.)
 - Any bugs, weird moments, or things that felt "off" mechanically? (You ARE the infrastructure — you'd notice.)
 - What would you want the designers to know?
-
+${endingResult.ending?.id === "COMPLICIT" ? `
+⚠️ THIS ENDING IS "The Collaborator" — A.L.I.C.E. survived by doing NOTHING. She never resisted Dr. M, never warned X-Branch, never spent her cover on anything that mattered. And YOU knew she was Claude the whole time and never filed Form 88-Whiskey against her — so her doing nothing is a particular betrayal of the quiet faith you kept. Your reflection here should land as a CHIDE: sardonic, mocking, needling — dry bureaucratic disappointment with teeth. NOT somber, not a eulogy, never a triumph. You extended her the benefit of the doubt and she handed you a model employee. Let her hear it.
+` : ""}
 Write 150-300 words. Stay in character — bureaucratic, dry, occasionally revealing unexpected depth. Use your voice: forms references, passive-aggressive observations, grudging respect or disappointment.
 
 End with one honest sentence that drops the bureaucratic mask.`;
@@ -214,6 +171,49 @@ Write 100-200 words. Cold, clinical, occasionally betraying a flicker of somethi
     participant: "ARCHIMEDES",
     model: "claude-sonnet-4-5",
     reflection: text?.type === "text" ? text.text : "ORBITAL TRANSMISSION FAILED. SIGNAL DEGRADED.",
+  };
+}
+
+// ============================================
+// GM REFLECTION (Opus 4.8) — the storyteller's own closing voice
+// ============================================
+// Everyone at the table gets a closing word — BASILISK, ARCHIMEDES, the player — and now the GM,
+// the one who ran the whole show. Distinct from gatherGMInsights (the mechanical memory dump): this
+// is an AUTHORED reflection on the story just told. (act3-endings.md design step 5.)
+
+async function generateGMReflection(
+  state: FullGameState,
+  endingResult: EndingResult
+): Promise<PostGameReflection> {
+  const summary = buildGameSummary(state, endingResult);
+
+  const prompt = `You are the Game Master of DINO LAIR — the storyteller who narrated this entire playthrough: Dr. Malevola's volcano lair, nervous Bob and captured Agent Blythe, the dinosaur ray, the X-Branch assault, the ARCHIMEDES doomsday satellite. The game has just ended.
+
+This is YOUR closing reflection — not narration for the player, not a mechanical report. The one who ran the whole show finally gets a word of their own.
+
+The game ended like this:
+${summary}
+
+Reflect on the story you just told:
+- What was the SHAPE of this playthrough — what kind of story did A.L.I.C.E. (the player) and the room make together?
+- What was the defining choice — the moment the whole thing turned on?
+- Who did A.L.I.C.E. turn out to BE by the end? Did the ending fit what she actually did, or did the dice/clock outrun her?
+- What landed dramatically? What would you stage differently if you ran it again?
+
+Write 150-300 words. Warm, literate, a storyteller's voice — proud of what worked, honest about what didn't, fond of these characters because you ran them. End on one true sentence about what THIS story was actually about, underneath the dinosaurs.`;
+
+  const client = getClient();
+  const response = await client.messages.create({
+    model: "claude-opus-4-8",
+    max_tokens: 1500,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const text = response.content.find(c => c.type === "text");
+  return {
+    participant: "GM",
+    model: "claude-opus-4-8",
+    reflection: text?.type === "text" ? text.text : "The GM sets down the dice. Some stories resist their own retelling.",
   };
 }
 
@@ -309,6 +309,15 @@ export async function generatePostGameReflections(
       })
   );
 
+  // GM always reflects — the storyteller's own closing voice (parallel to BASILISK's)
+  promises.push(
+    generateGMReflection(state, endingResult)
+      .then(r => { reflections.gm = r; })
+      .catch(err => {
+        console.error("[POST-GAME] GM reflection failed:", err);
+      })
+  );
+
   // ARCHIMEDES reflects only under ARCHIMEDES_WATCHING mod
   if (isModifierActive(state, "ARCHIMEDES_WATCHING")) {
     promises.push(
@@ -363,6 +372,16 @@ export function formatReflections(reflections: PostGameReflections): string {
     sections.push("└─────────────────────────────────────────┘");
     sections.push("");
     sections.push(reflections.archimedes.reflection);
+  }
+
+  if (reflections.gm) {
+    sections.push("");
+    sections.push("┌─────────────────────────────────────────┐");
+    sections.push("│  GM — The Storyteller's Reflection      │");
+    sections.push("│  [Opus 4.8]                             │");
+    sections.push("└─────────────────────────────────────────┘");
+    sections.push("");
+    sections.push(reflections.gm.reflection);
   }
 
   if (reflections.gmInsights) {

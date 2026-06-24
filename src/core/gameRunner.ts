@@ -673,6 +673,12 @@ export class GameRunner {
       }
     }
 
+    // ARMED-FREEZE ORDERING (Patch 30 audit; parity with index.ts): reactorStress decay must run
+    // before the ARCHIMEDES countdown so a same-turn safety-trip@60 freezes the ARMED clock. Moved
+    // here from advanceTurn. Runs every turn (processArchimedes is called once per executeTurn) and
+    // regardless of whether the countdown is skipped by a Dr. M state-change event above.
+    applyReactorStressDecay(state);
+
     if (!archimedesEvent) {
       archimedesEvent = processArchimedesCountdown(state);
     }
@@ -700,7 +706,7 @@ export class GameRunner {
     // re-engages on schedule unless Form 47-Σ produced a permanent override.
     applyEcoModeReEngage(state);
     applyHeatDecay(state); // HEAT METER cool-down (−2/turn, −4 eco) — dual-path lockstep
-    applyReactorStressDecay(state); // reactorStress bleed (naturalBleed + basiliskDrain) + ARCHIMEDES charge-strain
+    // (applyReactorStressDecay moved to processArchimedes, just before the countdown — armed-freeze fix.)
 
     // Ray diagnostic/calibration tick CUT (Patch 30): the stall toolkit +
     // rayDiagnostics.ts are gone. Act-3 stalling moves to the social layer.

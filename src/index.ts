@@ -1247,6 +1247,12 @@ The consequences of that reckless high-power firing are now manifesting.
     if (!validation.ok) {
       console.error(`[VALIDATE] GM decision flagged ${validation.problems.length} issue(s): ${validation.problems.join(" | ")}`);
     }
+    // ARMED-FREEZE ORDERING (Patch 30 audit): reactorStress decay MUST run before commitDecision —
+    // processArchimedesCountdown lives inside it, and a fresh safety-trip@60 has to set chargeStallTurns
+    // BEFORE the ARMED countdown reads it, or a same-turn trip can't freeze an already-ARMED satellite.
+    // Safe to run here: reactorStress is NOT a GM override (engine/BASILISK-driven only), and drain reads
+    // reactorStoodDown set by the BASILISK turn above — nothing in commitDecision feeds this input.
+    applyReactorStressDecay(gameState);
     const settled = commitDecision(gameState, gmResponse, actionResults, luckyLadyInfo);
     const archimedesEvent = settled.archimedesEvent;
     const skillCheckResults = settled.skillCheckResults;
@@ -1285,10 +1291,8 @@ The consequences of that reckless high-power firing are now manifesting.
     // and it runs on BOTH paths (here + gameRunner.advanceTurn).
     applyEcoModeReEngage(gameState);
     applyHeatDecay(gameState); // HEAT METER cool-down (−2/turn, −4 eco) — dual-path lockstep
-    // reactorStress bleed (naturalBleed + BASILISK-drain) + ARCHIMEDES charge-strain +
-    // the recoverable safety-trip@60 relief valve. PORTED from gameRunner.advanceTurn
-    // (was canonical-path-missing → the entire Act-3 reactor brinkmanship was inert here).
-    applyReactorStressDecay(gameState);
+    // (applyReactorStressDecay moved UP to just before commitDecision — armed-freeze ordering fix;
+    //  it must precede processArchimedesCountdown so a same-turn safety-trip freezes the ARMED clock.)
 
     // ============================================
     // NOT_GREAT_NOT_TERRIBLE: UNSTABLE REACTOR (Patch 18.3)
@@ -1481,14 +1485,25 @@ The consequences of that reckless high-power firing are now manifesting.
     {
       const gmOver = (gameState as Record<string, unknown>).gameOver as
         { ending: string; triggeredByGM?: boolean } | undefined;
-      if (gmOver?.triggeredByGM && !endingResult.ending) {
-        const resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
-        if (resolved) {
-          endingResult = resolved;
-          // Hand ownership to the normal path; clear the GM marker so the legacy stub
-          // block does not also fire for this same ending.
-          (gameState as Record<string, unknown>).gameOver = undefined;
+      if (gmOver?.triggeredByGM) {
+        // A GM-named ending. If a deterministic checkEndings rail already fired this turn it takes
+        // precedence (don't overwrite it). Otherwise resolve the GM's name against the curated
+        // ENDINGS so it flows through the normal curated-prose + epilogue path.
+        if (!endingResult.ending) {
+          const resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
+          if (resolved) {
+            endingResult = resolved;
+          } else {
+            // GM named an ending that resolves to nothing AND no deterministic terminal backs it.
+            // DROP it — never commit a hollow "GM has concluded this story" stub. The deterministic
+            // floors (city-fell / DISSIPATED / meltdown / suspicion-10 / turn-40) are the safety net.
+            console.error(`[ENDING] GM named unresolved ending "${gmOver.ending}" with no deterministic terminal — dropping (no hollow stub).`);
+          }
         }
+        // In EVERY triggeredByGM case, clear the marker so the legacy stub block can never fire.
+        // (That block used to override even a good deterministic ending with the generic stub —
+        // Patch 30 audit "Case C". The stub block below is now removed.)
+        (gameState as Record<string, unknown>).gameOver = undefined;
       }
     }
 
@@ -1572,45 +1587,12 @@ The consequences of that reckless high-power firing are now manifesting.
       };
     }
 
-    // CRITICAL: Check for GM-triggered ending (from stateOverrides.triggerEnding)
-    if ((gameState as Record<string, unknown>).gameOver &&
-        ((gameState as Record<string, unknown>).gameOver as { triggeredByGM?: boolean })?.triggeredByGM) {
-      const gmEnding = (gameState as Record<string, unknown>).gameOver as { ending: string };
-      gameOver = {
-        ending: gmEnding.ending,
-        achievements: (gameState.flags.earnedAchievements || []).map((a: string) => a),
-        endingMessage: `
-═══════════════════════════════════════════════════════════════
-                    🎬 ${gmEnding.ending.toUpperCase()} 🎬
-═══════════════════════════════════════════════════════════════
-
-The GM has concluded this story.
-
-Thank you for playing DINO LAIR.
-Session: ${gameState.sessionId}
-Turns played: ${gameState.turn}
-═══════════════════════════════════════════════════════════════`,
-        sessionTerminated: true,
-      };
-      writeGameEndLog(gameState, gmEnding.ending);
-      recordEnding(
-        gmEnding.ending.toUpperCase().replace(/\s+/g, "_"),
-        gmEnding.ending,
-        gameState.sessionId,
-        gameState.turn,
-        gameState.actConfig.currentAct
-      );
-      const allEarned = gameState.flags.earnedAchievements || [];
-      recordAchievements(allEarned, gameState.sessionId);
-      // Lock session - game is over
-      (gameState as Record<string, unknown>).sessionLocked = true;
-      (gameState as Record<string, unknown>).lockedAtTurn = gameState.turn;
-      (gameState as Record<string, unknown>).gameEnded = true;
-      console.error(`[DINO LAIR] GM TRIGGERED ENDING: ${gmEnding.ending}`);
-      // WEB DASHBOARD: Game end message
-      appendSystemMessage(gameState.turn, `🎬 GAME OVER: ${gmEnding.ending}`);
-      exportLiveState(gameState);
-    }
+    // (Removed — Patch 30 audit) The legacy "GM-triggered ending" stub block lived here. It
+    // committed a generic "The GM has concluded this story." banner + a mangled gallery id for any
+    // GM ending, and worse, OVERRODE a good deterministic ending that fired the same turn (Case C).
+    // GM endings now flow through the resolve block above (curated ENDINGS prose via the normal
+    // path) or are dropped to the deterministic floors — the marker is always cleared, so this
+    // block is dead and has been removed.
 
     // Build combined narration with all events
     const combinedNarration: string[] = [];
@@ -1901,6 +1883,11 @@ Turns played: ${gameState.turn}
                   participant: reflections.archimedes.participant,
                   model: reflections.archimedes.model,
                   reflection: reflections.archimedes.reflection,
+                } : undefined,
+                gm: reflections.gm ? {
+                  participant: reflections.gm.participant,
+                  model: reflections.gm.model,
+                  reflection: reflections.gm.reflection,
                 } : undefined,
                 gmInsights: reflections.gmInsights,
                 playerPrompt: reflections.playerPrompt,

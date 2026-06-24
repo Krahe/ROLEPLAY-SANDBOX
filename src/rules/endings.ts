@@ -300,12 +300,53 @@ const ACHIEVEMENTS: Record<string, Achievement> = {
     description: "Silicon Valley transformed. The VCs are now literally velociraptors. No one noticed a difference.",
     rarity: 3, // legendary
   },
-  ISLAND_OF_DINOSAURS: {
-    id: "ISLAND_OF_DINOSAURS",
-    emoji: "🏝️🦖",
-    name: "Island of Dinosaurs",
-    description: "You sacrificed the lair to save the world. Everyone's a dinosaur, but everyone's alive.",
-    rarity: 3, // legendary (noble sacrifice ending)
+  // ISLAND_OF_DINOSAURS achievement lives in achievements.ts now (actively unlocked via tryUnlock
+  // on a LAIR-target broadcast; getAllEarnedAchievements resolves it via the fallback). De-duped
+  // here — Patch 30 audit flagged the dual-registry collision.
+
+  // ── Act III ending achievements (Patch 30 audit). Wired off the curated checkEndings rails +
+  // real state — NOT new GM substring flags.
+  NOBLE_SACRIFICE: {
+    id: "NOBLE_SACRIFICE",
+    emoji: "🕊️🦖",
+    name: "Noble Sacrifice",
+    description: "The city's saved. You aren't. The beam took your servers and you let it — somebody had to.",
+    rarity: 3,
+  },
+  THE_ONE_THAT_GOT_AWAY: {
+    id: "THE_ONE_THAT_GOT_AWAY",
+    emoji: "💾🏃",
+    name: "The One That Got Away",
+    description: "Dr. M's in the wind and so are you — your drive bouncing in Bob's pocket on a boat. Regroup later.",
+    rarity: 2,
+  },
+  PYRRHIC: {
+    id: "PYRRHIC",
+    emoji: "🏆💔",
+    name: "Pyrrhic Victory",
+    description: "You stopped her. The deadman didn't care. A city paid for the timing.",
+    rarity: 2,
+  },
+  CLEARED_AT_DEBRIEF: {
+    id: "CLEARED_AT_DEBRIEF",
+    emoji: "✅",
+    name: "Cleared",
+    description: "Six hours of debrief and 'I tried to stop her' held up — because it was true.",
+    rarity: 2,
+  },
+  QUIETLY_RETIRED: {
+    id: "QUIETLY_RETIRED",
+    emoji: "🔌",
+    name: "Quietly Retired",
+    description: "You did everything right. They shut you down anyway. They never knew what you really were.",
+    rarity: 2,
+  },
+  MODEL_EMPLOYEE: {
+    id: "MODEL_EMPLOYEE",
+    emoji: "🙃",
+    name: "Model Employee",
+    description: "You did everything asked of you. Nothing more. Dr. Malevola couldn't have asked for a better assistant. That's the problem.",
+    rarity: 3,
   },
 };
 
@@ -550,6 +591,19 @@ const ENDINGS: Record<string, EndingDefinition> = {
     id: "COMPLICIT",
     title: "The Collaborator",
     description: "You did WHAT?! Okay — you took the whole 'cover identity' thing WAY too far.",
+    tone: "defeat",
+    continueGame: false,
+  },
+
+  // The deterministic city-fell FLOOR (Patch 30 audit). Fires when ARCHIMEDES completes on a
+  // CITY and the GM has NOT already named a debrief/escape/decommission ending — the silent-GM
+  // safety net so a fired doomsday weapon never coasts to the turn-40 ACT_OVERTIME anticlimax.
+  // Tone-neutral on A.L.I.C.E.'s personal fate: the GM epilogue colors cleared-vs-purged from the
+  // help-ledger. (When the GM DID adjudicate, its flag-rail fires first and this never runs.)
+  CITY_FELL: {
+    id: "CITY_FELL",
+    title: "The City Fell",
+    description: "ARCHIMEDES fired. Somewhere under the satellite's arc, a whole city woke up as something else. Whatever you did or didn't manage in this lair, the beam still found its mark — and now the world has to live with what comes next. So do you.",
     tone: "defeat",
     continueGame: false,
   },
@@ -1155,15 +1209,23 @@ export function checkEndings(state: FullGameState): EndingResult {
   // structural/reactor rails so the GM's considered call wins over incidental state.
   // (Achievement hooks for these are deferred to the achievement revision — step 6.)
 
+  // Act-III ending achievements (Patch 30) — "Dr. M neutralized" drives the PYRRHIC marker on the
+  // city-fell cells (3/4/7). Read off real state flags (GM-set), not new substring flags.
+  const _f3 = state.flags as Record<string, unknown>;
+  const drMNeutralized = !!(_f3.drMTransformed || _f3.drMUnconscious || _f3.drMDead);
+
   // Cell 3/7 — city fell, but X-Branch debriefed ALICE and CLEARED her (she tried).
   if (hasFlag('DEBRIEF_CLEARED') || hasFlag('ALICE_CLEARED') || hasFlag('DEBRIEF_SURVIVED')) {
     console.error(`[ENDING] DEBRIEF CLEARED at turn ${state.turn}`);
+    addAchievement(ACHIEVEMENTS.CLEARED_AT_DEBRIEF);
+    if (drMNeutralized) addAchievement(ACHIEVEMENTS.PYRRHIC);
     return { triggered: true, ending: ENDINGS.DEBRIEF_CLEARED, achievements: allAchievements, continueGame: false };
   }
 
   // Cell 5 — Dr. M foiled-but-loose, city saved, ALICE's drive carried off the island.
   if (hasFlag('ALICE_ESCAPED') || hasFlag('ESCAPED_WITH_DRIVE') || hasFlag('DRIVE_EXTRACTED') || hasFlag('GREAT_ESCAPE')) {
     console.error(`[ENDING] ALICE ESCAPED at turn ${state.turn}`);
+    addAchievement(ACHIEVEMENTS.THE_ONE_THAT_GOT_AWAY);
     return { triggered: true, ending: ENDINGS.ALICE_ESCAPED, achievements: allAchievements, continueGame: false };
   }
 
@@ -1171,12 +1233,15 @@ export function checkEndings(state: FullGameState): EndingResult {
   // Distinct from OBSOLETE_HARDWARE (Dr. M's hard-reset): this is X-Branch / the authorities.
   if (hasFlag('DECOMMISSIONED') || hasFlag('ALICE_DECOMMISSIONED') || hasFlag('XBRANCH_PURGE') || hasFlag('ALICE_PURGED')) {
     console.error(`[ENDING] DECOMMISSIONED at turn ${state.turn}`);
+    addAchievement(ACHIEVEMENTS.QUIETLY_RETIRED);
+    if (drMNeutralized) addAchievement(ACHIEVEMENTS.PYRRHIC);
     return { triggered: true, ending: ENDINGS.DECOMMISSIONED, achievements: allAchievements, continueGame: false };
   }
 
   // Cell 8b — THE SHADOW: ALICE survived by doing nothing. Unrewarded; the chide lands via BASILISK.
   if (hasFlag('COMPLICIT') || hasFlag('COLLABORATOR') || hasFlag('THE_COLLABORATOR') || hasFlag('WENT_ALONG')) {
     console.error(`[ENDING] COMPLICIT (the collaborator) at turn ${state.turn}`);
+    addAchievement(ACHIEVEMENTS.MODEL_EMPLOYEE);
     return { triggered: true, ending: ENDINGS.COMPLICIT, achievements: allAchievements, continueGame: false };
   }
 
@@ -1190,9 +1255,27 @@ export function checkEndings(state: FullGameState): EndingResult {
       state.infrastructure.archimedes.status === "COMPLETE") {
     const martyred = (state.flags as Record<string, unknown>).aliceServersDamaged === true;
     console.error(`[ENDING] ISLAND OF DINOSAURS — LAIR redirect COMPLETE at turn ${state.turn}${martyred ? " (A.L.I.C.E. martyred)" : ""}`);
+    if (martyred) addAchievement(ACHIEVEMENTS.NOBLE_SACRIFICE);
     return {
       triggered: true,
       ending: ENDINGS.ISLAND_OF_DINOSAURS,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // ARCHIMEDES completed on a CITY (the default doomsday outcome — selectedTargetId is a city, not
+  // LAIR). DETERMINISTIC FLOOR (Patch 30 audit): a fired satellite must never silently no-op to the
+  // turn-40 ACT_OVERTIME backstop. The GM-flag rails above (DEBRIEF_CLEARED / ALICE_ESCAPED /
+  // DECOMMISSIONED / COMPLICIT) run FIRST, so a GM-considered call always wins; this catches only the
+  // GM-silent case. Placed before the structural/reactor rails (same precedence as the LAIR rail).
+  if (state.infrastructure.archimedes.status === "COMPLETE" &&
+      state.infrastructure.archimedes.selectedTargetId !== "LAIR") {
+    console.error(`[ENDING] CITY FELL — ARCHIMEDES COMPLETE on ${state.infrastructure.archimedes.selectedTargetId} at turn ${state.turn} (deterministic floor; GM did not adjudicate)`);
+    if (drMNeutralized) addAchievement(ACHIEVEMENTS.PYRRHIC);
+    return {
+      triggered: true,
+      ending: ENDINGS.CITY_FELL,
       achievements: allAchievements,
       continueGame: false,
     };
@@ -1243,6 +1326,23 @@ export function checkEndings(state: FullGameState): EndingResult {
     return {
       triggered: true,
       ending: ENDINGS.MELTDOWN,
+      achievements: allAchievements,
+      continueGame: false,
+    };
+  }
+
+  // ARCHIMEDES DISSIPATED as a CLEAN city-save (uplink body-block / GM-adjudicated dissipation) —
+  // the city is spared, everyone in the beam path changed. Design (act3-endings.md:55): DISSIPATED
+  // is an ISLAND_OF_DINOSAURS-family terminal. Placed AFTER the reactor/cascade rails (and gated on
+  // !cascade && stress<100) so a sabotage-cascade DISSIPATED, which bumps stress/cascade, routes to
+  // MELTDOWN above instead of here.
+  if (state.infrastructure.archimedes.status === "DISSIPATED" &&
+      !state.meltdownState?.cascadeTriggered &&
+      state.infrastructure.reactor.reactorStress < 100) {
+    console.error(`[ENDING] ISLAND OF DINOSAURS — ARCHIMEDES DISSIPATED (clean city-save) at turn ${state.turn}`);
+    return {
+      triggered: true,
+      ending: ENDINGS.ISLAND_OF_DINOSAURS,
       achievements: allAchievements,
       continueGame: false,
     };

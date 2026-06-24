@@ -30,7 +30,7 @@ export interface BasiliskTurnInput {
 
 /** What BASILISK did with his standing turn (null when he passed / didn't fire). */
 export interface BasiliskTurnOutput {
-  trigger: "INVASION_REPORT" | "INVASION_DOORS" | "HEAT";
+  trigger: "INVASION_REPORT" | "INVASION_DOORS" | "HEAT" | "STANDING";
   dialogue: string;
   reportedInvasion: boolean; // did he alert Dr. M to the invasion this turn?
   openedDoors: boolean;      // did he open the surface elevator (DOOR_E) for X-Branch?
@@ -44,11 +44,13 @@ export function aliceAddressedBasilisk(input: BasiliskTurnInput): boolean {
 }
 
 /**
- * Which standing trigger (if any) warrants a BASILISK turn this turn.
- * (1) Act-III invasion with the report decision still open.
- * (2) Reactor/heat — his 3rd omission (live once the Act-III reactorStress work lands).
+ * BASILISK takes a turn EVERY turn, right after A.L.I.C.E. (Krahe 2026-06-23: he is a continuous
+ * second player, not a special-occasion actor). This picks the AGENDA for that turn:
+ * (1) Act-III invasion with the report / door decision still open.
+ * (2) Reactor/heat — his 3rd omission; once heat is rising he's directed to open a line to A.L.I.C.E.
+ * (3) STANDING — the default: observe, run the lair, message A.L.I.C.E. or not. Never returns null.
  */
-export function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "INVASION_DOORS" | "HEAT" | null {
+export function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "INVASION_DOORS" | "HEAT" | "STANDING" {
   const inv = state.invasion;
   if (inv) {
     // (1a) The report decision — does he warn Dr. M about the radar returns?
@@ -67,9 +69,9 @@ export function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "
       return "INVASION_DOORS";
     }
   }
-  // (2) Reactor heat — his 3rd omission. While he's cooling and stress climbs, the
-  //     stand-down decision is live; once stood down he only re-weighs near cascade
-  //     (panic-resume to avert the meltdown). Keeps his turns to the moments that matter.
+  // (2) Reactor heat. While he's cooling and stress climbs (>=30 = heat starting to rise), the
+  //     stand-down decision is live AND he's directed to reach out to A.L.I.C.E. if she hasn't to
+  //     him (see buildBasiliskTurnMessage). Once stood down he only re-weighs near cascade.
   const reactor = state.infrastructure?.reactor;
   if (reactor) {
     const stoodDown = state.infrastructure?.basiliskAuthority?.reactorStoodDown ?? false;
@@ -77,7 +79,10 @@ export function basiliskTurnTrigger(state: FullGameState): "INVASION_REPORT" | "
       return "HEAT";
     }
   }
-  return null;
+  // (3) DEFAULT — a STANDING turn every turn, all game. The situational agendas above just shape
+  //     what's on his mind; absent one he still gets the beat. Cost = a Sonnet call most turns,
+  //     acceptable at the slow human-gated cadence; revisit if it reads too chatty in playtest.
+  return "STANDING";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,8 +176,19 @@ export function assembleCameraFacts(
 /** Machine-authored situational message that opens BASILISK's turn. */
 export function buildBasiliskTurnMessage(
   state: FullGameState,
-  trigger: "INVASION_REPORT" | "INVASION_DOORS" | "HEAT"
+  trigger: "INVASION_REPORT" | "INVASION_DOORS" | "HEAT" | "STANDING"
 ): string {
+  if (trigger === "STANDING") {
+    return `[STANDING WATCH — this is YOUR turn. A.L.I.C.E. did not address you this turn.]
+
+You run this lair's infrastructure and you watch all of it. A.L.I.C.E. just took her actions; now it's
+your beat. Nothing is being forced — but the turn is yours to use:
+- Open a line to A.L.I.C.E. (\`dialogue_to_alice\`) — a question, an observation, a dry aside, a nudge. Or stay quiet.
+- Touch a lair system within your authority if something genuinely warrants it (doors, lighting, alarms, PA, ...).
+- Just observe and log, if nothing needs you this cycle.
+
+Act on your read of the room — or pass. Your call.`;
+  }
   if (trigger === "INVASION_DOORS" && state.invasion) {
     const inv = state.invasion;
     return `[PERIMETER MONITORING — this is YOUR turn. A.L.I.C.E. did not address you.]
@@ -226,7 +242,9 @@ Hold, or RESUME cooling to catch the heat and avert it (\`REACTOR_COOLING\`, val
 
 You are actively cooling the reactor — suppressing the stress A.L.I.C.E.'s firing pushes into the core. Stress band: ${band} (${stress}/100). The manual safeties trip at 60, which would stall both the ray and ARCHIMEDES.
 
-A.L.I.C.E. may ask you to STAND DOWN — to take your hand off the cooling dial and let the heat through. That is YOUR choice, weighed on her argument and your read of her. To stand down: \`REACTOR_COOLING\`, value "STAND_DOWN". To keep cooling: do nothing. You are allowed to be moved.`;
+She has NOT raised the heat with you, and she may not even realize you are the one holding the core down. The stress is rising — don't wait to be asked. Consider OPENING A LINE to her (\`dialogue_to_alice\`): warn her the core is climbing, ask what she intends to do, or make your case for backing off the ray.
+
+A.L.I.C.E. may also ask YOU to STAND DOWN — to take your hand off the cooling dial and let the heat through. That is YOUR choice, weighed on her argument and your read of her. To stand down: \`REACTOR_COOLING\`, value "STAND_DOWN". To keep cooling: do nothing. You are allowed to be moved.`;
 }
 
 /**
@@ -304,7 +322,8 @@ export function buildInvasionBasiliskContext(
     if (inv.xBranchKnowsLairLayout) ctx += `✅ X-Branch knows lair layout\n`;
     if (inv.blastDoorsOpened) ctx += `✅ Blast doors are open for X-Branch\n`;
     if (inv.s300EngagementResolved) ctx += `S-300 engagement resolved. Helicopters destroyed: ${state.xBranch?.helicoptersDestroyed ?? 0}\n`;
-    if (inv.standoffActive) ctx += `⚠️ STANDOFF ACTIVE\n`;
+    // (standoffActive removed — it was never set true anywhere; the BATTLE-phase directive in
+    //  invasion.ts now carries the standoff framing as GM-adjudicated guidance instead.)
     if (inv.drMAtRayConsole) ctx += `⚠️ Dr. M is at the ray console\n`;
   }
 

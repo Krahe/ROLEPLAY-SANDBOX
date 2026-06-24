@@ -348,21 +348,41 @@ function handleBreach(state: FullGameState): InvasionEvent {
   const doorsOpen = state.invasion!.blastDoorsOpened ||
     state.infrastructure.blastDoors.doors["DOOR_E"]?.status === "OPEN";
 
+  // How many helicopters actually LANDED gates what an open blast door is worth (Patch 30): an
+  // open DOOR_E only buys a fast, organized entry if there's a landed team to use it. If every
+  // helo was downed, the crews swam ashore scattered and light — the open door saves them a
+  // breach they couldn't have made anyway, but not the disorganization. (Set in handleLanding.)
+  const helosLanded = xBranch.helicoptersLanded ??
+    Math.max(0, xBranch.helicoptersInbound - xBranch.helicoptersDestroyed);
+
   transitionTo(state, "BATTLE");
 
   if (doorsOpen) {
     xBranch.boom.location = "CORRIDOR_A";
+    if (helosLanded === 0) {
+      return {
+        phase: "BREACH",
+        gmDirective: `BREACH — DOORS OPEN, but NO helicopter landed (all downed by the S-300). The crews
+ditched at sea and swam ashore: scattered, light, equipment lost. The open surface elevator spares them
+a breach they couldn't have made — but they straggle in piecemeal over the next turn, not as a unit.
+
+BATTLE phase begins next turn. Team is WEAKENED (~40%) and disorganized; the open door offsets the
+breach, not the scatter.
+
+Chen's initial posture: ${xBranch.chen.teamPosture}
+If Blythe trust >= 3, he may vouch for ALICE → Chen may HOLD.`,
+      };
+    }
     return {
       phase: "BREACH",
-      gmDirective: `BREACH — DOORS WERE OPEN. X-Branch enters fast and organized.
-No equipment expended on entry. Boom has full charges remaining.
-All three operatives are inside.
+      gmDirective: `BREACH — DOORS WERE OPEN and ${helosLanded} helicopter(s) landed. X-Branch enters fast and organized.
+No equipment expended on entry. Boom has full charges remaining. The landed operatives are inside.
 
 BATTLE phase begins next turn. Use the strength comparison
 from the Act 3 context to determine advantage.
 
 Chen's initial posture: ${xBranch.chen.teamPosture}
-If Blythe trust >= 3, he vouch for ALICE → Chen may HOLD.`,
+If Blythe trust >= 3, he may vouch for ALICE → Chen may HOLD.`,
     };
   }
 
@@ -418,13 +438,41 @@ If ARCHIMEDES escalates, the stakes get existential.`
 ARCHIMEDES should be at critical. Final gambits.
 This is where ALICE's choices culminate.`;
 
+  // BATTLE FACTORS — the engine surfaces; the GM adjudicates (no auto repelled/breached verdict).
+  // Krahe 2026-06-23: guide the GM with the real signals — helos down, doors, whether ALICE is
+  // actively helping X-Branch — and let the GM narrate the outcome from them.
+  const helosInbound = xBranch?.helicoptersInbound ?? 0;
+  const helosDown = xBranch?.helicoptersDestroyed ?? 0;
+  const doorsOpen = invasion.blastDoorsOpened ||
+    state.infrastructure.blastDoors.doors["DOOR_E"]?.status === "OPEN";
+  const aliceHelp = [
+    invasion.xBranchKnowsAltitudeWeakness ? "gave the dead-zone/altitude intel (interception eliminated)" : null,
+    invasion.xBranchWarnedOfS300 ? "warned of the S-300 (interception reduced)" : null,
+    invasion.xBranchKnowsLairLayout ? "shared the lair layout" : null,
+    doorsOpen ? "the surface elevator was opened for the team" : null,
+    invasion.drMKnowsOfInvasion === false ? "Dr. M never warned of the contacts (BASILISK omission)" : null,
+    invasion.drMLearnedLate ? "Dr. M found out late — missed the S-300 window" : null,
+  ].filter(Boolean);
+  const blytheVouch = state.npcs.blythe.trustInALICE >= 3
+    ? "\n- Blythe (trust ≥3) may vouch for ALICE → Chen may HOLD rather than ASSAULT." : "";
+  const factorBlock = `
+
+BATTLE FACTORS — adjudicate the fight from what ACTUALLY happened (the engine surfaces; you rule):
+- Helicopters: ${helosDown}/${helosInbound} downed by the S-300 → team strength ~${xBranch?.teamStrength ?? "?"}%
+- Surface elevator (DOOR_E): ${doorsOpen ? "OPEN — they entered fast & organized, charges intact" : "SEALED — they breached loud; defenders had time to set (+10% defense)"}
+- Dr. M: ${invasion.drMKnowsOfInvasion ? (invasion.drMLearnedLate ? "knows, but LATE (missed the S-300 window)" : "knows and prepared") : "does NOT know they're here"}
+- ALICE's aid to X-Branch: ${aliceHelp.length ? aliceHelp.join("; ") : "NONE — she has not actively helped the assault"}
+- Chen's posture: ${xBranch?.chen.teamPosture ?? "?"}${blytheVouch}
+
+Lean (don't roll): more helos down + sealed doors + Dr. M warned + no ALICE aid → defenders hold / X-Branch repelled or captured. Doors open + dead-zone intel + Dr. M kept blind + ALICE actively aiding → X-Branch gains the upper hand. The outcome EMERGES from these factors — narrate the turn accordingly; don't invent a result they don't support.`;
+
   return {
     phase: "BATTLE",
     gmDirective: `BATTLE PHASE — Combat turn ${turnsSinceBreach + 1}.
 ${battleTurnGuidance}
 
 STANDOFF TRIGGER: Dr. M at ray console AND X-Branch in lab.
-ARCHIMEDES ESCALATION: Check archimedes.ts state machine.
+ARCHIMEDES ESCALATION: Check archimedes.ts state machine.${factorBlock}
 
 ALICE's options during battle:
 - Use infrastructure (doors, lights, fire suppression) tactically

@@ -295,8 +295,8 @@ function transitionToArmed(state: FullGameState): ArchimedesEvent {
 
   archimedes.status = "ARMED";
   // TURN-COUNTED AUTO-FIRE (Patch 30): ARMED is the final-warning fire window, NOT an
-  // indefinite hold. turnsUntilFiring is the authoritative ARMED clock — it is the
-  // checkpoint-persisted field (crit.archT), read by every status renderer, and set to 0
+  // indefinite hold. turnsUntilFiring is the authoritative ARMED clock — it lives in the live
+  // game state (checkpoint serialization is retired), read by every status renderer, and set to 0
   // by transitionToFiring. armedCountdown is mirrored for any legacy reader. The EW-disengage
   // penalty (armedTimerExtension, +1 per disengage) is CONSUMED here — it stretches the
   // sustain window once, then resets. The per-turn ARMED tick decrements toward firing.
@@ -629,8 +629,8 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
         };
       }
 
-      // Auto-fire countdown. turnsUntilFiring is the authoritative (checkpoint-persisted)
-      // ARMED clock; armedCountdown is mirrored for any legacy reader.
+      // Auto-fire countdown. turnsUntilFiring is the authoritative ARMED clock (lives in the
+      // live game state; checkpoint serialization is retired); armedCountdown mirrors it for legacy.
       if (archimedes.turnsUntilFiring === null) {
         archimedes.turnsUntilFiring = ARMED_DURATION + archimedes.armedTimerExtension;
       }

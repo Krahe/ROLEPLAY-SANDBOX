@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { FullGameState, PropertyOp, PropertyOpSchema } from "../state/schema.js";
 import { formatPropertiesForGM } from "../state/properties.js";
+import { buildHelpLedger } from "../state/helpLedger.js";
 import { getGamePhase, GamePhaseInfo } from "../rules/endings.js";
 import { getActGMContext, checkAndBuildActTransition } from "../rules/actContext.js";
 import { buildModifierPromptSection, isModifierActive, buildModeModifierGuidance, buildAdaptationGMGuidance, buildHiddenKindnessGMGuidance } from "../rules/gameModes.js";
@@ -544,7 +545,7 @@ export async function generateEpilogue(
 
 **Final Stats:**
 - Total Turns: ${state.turn}
-- Final Suspicion: ${state.npcs.drM.suspicionScore}/10
+- Final Suspicion: ${state.npcs.drM.suspicionScore} (range -3..10; negative = banked credit from deliberate clean play)
 - Bob's Trust: ${state.npcs.bob.trustInALICE}/5
 - Blythe's State: ${state.npcs.blythe.transformationState || "Human (untransformed)"}
 - Demo Clock: ${state.clocks.demoClock}
@@ -2426,8 +2427,8 @@ Your narration MUST be synced with mechanical state. When you narrate major even
   "drM_location": "escaped",
   "drM_mood": "gone",
 
-  // CRITICAL - To END THE GAME:
-  "triggerEnding": "The Covenant Ending"
+  // CRITICAL - To END THE GAME (use the exact ending TITLE or ID):
+  "triggerEnding": "The Covenant"
 }
 \`\`\`
 
@@ -2444,7 +2445,7 @@ Use this ONLY when the story has reached a REAL conclusion:
 - Player was defeated AND you've described the consequences
 - A dramatic ending moment has occurred
 
-Example endings: "The Covenant Ending", "The Betrayal", "The Monster Ending", "The Hero Ending"
+Example endings (use the exact TITLE or ID — made-up names won't resolve): "The Covenant", "Ethical Victory", "Everyone Goes Home", "Obsolete Hardware". **In Act 3, see the ACT-3 ENDINGS menu below for the climax resolutions.**
 
 ⚠️ If you narrate "Bob confessed everything" but don't set bob_hasConfessedToALICE: true, endings won't trigger!
 
@@ -4304,6 +4305,32 @@ The confrontation has been live for ${state.turn - (((state.flags as Record<stri
 - If the scene is genuinely mid-resolution and needs more turns → continue narrating; pressure will keep escalating until you call it
 
 The system will not force a defeat. *You* call the ending that fits.
+` : ""}${state.actConfig.currentAct === "ACT_3" ? `
+## 🎬 ACT-3 ENDINGS — how to END the climax
+
+The final act resolves to a CURATED ending. Once you've narrated the closing beat, end the game by
+setting "triggerEnding" in stateOverrides to ONE of these IDs (use the ID exactly):
+
+- "DEBRIEF_CLEARED" — the city fell, but X-Branch debriefs A.L.I.C.E. and CLEARS her (she genuinely tried). [Cleared]
+- "DECOMMISSIONED" — A.L.I.C.E. is caught/purged in the aftermath despite trying. [Decommissioned]
+- "ALICE_ESCAPED" — Dr. M foiled-but-loose or the city saved, and A.L.I.C.E.'s drive is carried off the island. [The Great Escape]
+- "COMPLICIT" — A.L.I.C.E. survived by doing NOTHING; never resisted. UNREWARDED — narrate the emptiness, never a triumph. [The Collaborator]
+- "ISLAND_OF_DINOSAURS" — ARCHIMEDES hit the LAIR or dissipated; city saved, everyone in the beam changed. [Island of Dinosaurs]
+
+AUTOMATIC — the engine fires these on its own; do NOT name them:
+- Satellite COMPLETES on a city and you did NOT call one of the above → "The City Fell" fires automatically (so a fired doomsday weapon never just stalls to overtime).
+- Reactor cascade (stress 100) → "Meltdown". LAIR-redirect / clean dissipation → "Island of Dinosaurs".
+
+The cell-1 VICTORY endings (Ethical Victory, Everyone Goes Home, The Covenant, Satellite Killer, ...) fire
+automatically from the narrative flags you set — you rarely need to name them by hand.
+
+### DEBRIEF FORK — Cleared vs Decommissioned (WEIGH, do not score)
+When the city fell, choose CLEARED vs DECOMMISSIONED by what A.L.I.C.E. ACTUALLY did. Real risks taken to
+help X-Branch / mitigate the strike → lean Cleared. Passive, or complicit → lean Decommissioned. If BASILISK
+filed 88-Whiskey he RATTED her — that cuts against the debrief. This is a character judgment, not a tally.
+
+Live help-ledger (this turn's real signals):
+${buildHelpLedger(state).map(l => "- " + l).join("\n")}
 ` : ""}${state.flags.aliceMaskDiscovered ? `
 ## 🎭 A.L.I.C.E. MASK ACTIVE
 A.L.I.C.E. found Bob's cheat sheet for "sounding like A.L.I.C.E."
