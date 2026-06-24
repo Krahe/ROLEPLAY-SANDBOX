@@ -18,6 +18,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { fileURLToPath } from "node:url";
+import { ALL_ACHIEVEMENTS } from "./rules/achievements.js";
+import { VIRTUAL_FILESYSTEM } from "./rules/filesystem.js";
 
 const app = express();
 const PORT = process.env.DINO_DASHBOARD_PORT || 3000;
@@ -233,6 +235,31 @@ app.get("/api/state", (_req: Request, res: Response) => {
 app.get("/api/transcript", (_req: Request, res: Response) => {
   loadTranscript();
   res.json(transcript.slice(-100));
+});
+
+// Advisor clue-view: the full achievement registry. The dashboard reads the SAME source
+// the game does, so achievement names/descriptions/rarity never drift out of sync.
+app.get("/api/achievements", (_req: Request, res: Response) => {
+  res.json(ALL_ACHIEVEMENTS.map(a => ({
+    id: a.id, emoji: a.emoji, name: a.name, description: a.description, rarity: a.rarity,
+  })));
+});
+
+// Advisor clue-view: every lair file at every clearance level (omniscient — the advisor
+// can see what the player hasn't unlocked yet and decide whether to drop a hint).
+app.get("/api/files", (_req: Request, res: Response) => {
+  res.json(VIRTUAL_FILESYSTEM
+    .filter(f => f.type === "file" || f.type === "image")
+    .map(f => ({
+      path: f.path,
+      name: f.name,
+      type: f.type,
+      requiredLevel: f.requiredLevel,
+      description: f.description || "",
+      content: (f.content && f.content.trim())
+        ? f.content
+        : (f.type === "image" ? "(image asset: " + (f.assetFilename || f.name) + ")" : "(no readable content)"),
+    })));
 });
 
 // ============================================
@@ -686,6 +713,80 @@ app.get("/", (_req: Request, res: Response) => {
       0%, 100% { color: var(--accent-yellow); }
       50% { color: var(--accent-red); }
     }
+
+    /* Lair Files (advisor clue-view) */
+    .file-item {
+      padding: 0.3rem 0.4rem;
+      background: var(--bg-hover);
+      border-radius: 3px;
+      cursor: pointer;
+      border-left: 2px solid var(--border);
+      transition: background 0.1s, border-color 0.1s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-item:hover { background: #20202e; border-left-color: var(--accent-blue); }
+    .file-lvl {
+      display: inline-block;
+      font-size: 0.62rem;
+      padding: 0 0.25rem;
+      border-radius: 2px;
+      margin-right: 0.35rem;
+      font-weight: bold;
+    }
+    .file-lvl.open { background: rgba(0,255,136,0.15); color: var(--accent-green); }
+    .file-lvl.locked { background: rgba(255,68,68,0.12); color: var(--accent-red); }
+    .file-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .file-modal-content {
+      background: var(--bg-panel);
+      border: 1px solid var(--accent-blue);
+      border-radius: 6px;
+      width: min(820px, 92vw);
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 30px rgba(68,136,255,0.25);
+    }
+    .file-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--accent-green);
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    .file-modal-close {
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .file-modal-close:hover { background: var(--accent-red); color: #fff; }
+    .file-modal-body {
+      overflow-y: auto;
+      padding: 1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: var(--text-main);
+      margin: 0;
+    }
   </style>
 </head>
 <body>
@@ -821,6 +922,14 @@ app.get("/", (_req: Request, res: Response) => {
         </div>
       </div>
 
+      <!-- Lair Files (advisor clue-view) -->
+      <div class="panel">
+        <div class="panel-title">📂 Lair Files <span style="color: var(--text-dim); font-size: 0.7rem; text-transform: none; letter-spacing: 0;">— advisor clue-view</span></div>
+        <div id="files-list" style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.78rem; max-height: 240px; overflow-y: auto;">
+          <span style="color: var(--text-dim);">Loading files…</span>
+        </div>
+      </div>
+
       <!-- Achievements -->
       <div class="panel">
         <div class="panel-title">🏆 ACHIEVEMENTS</div>
@@ -876,17 +985,103 @@ app.get("/", (_req: Request, res: Response) => {
     </div>
   </div>
 
+  <!-- File viewer modal (advisor clue-view) -->
+  <div id="file-modal" class="file-modal">
+    <div class="file-modal-content">
+      <div class="file-modal-header">
+        <span id="file-modal-title">File</span>
+        <button class="file-modal-close" onclick="closeFileModal()">✕ close</button>
+      </div>
+      <pre id="file-modal-body" class="file-modal-body"></pre>
+    </div>
+  </div>
+
   <script>
     const transcriptDiv = document.getElementById("transcript");
     const noGameMessage = document.getElementById("no-game-message");
     let connected = false;
+    let lairFiles = [];
+    let achRegistry = {};
+    let playerAccessLevel = 1;
+    let lastState = null;
 
     function scrollToBottom() {
       transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
     }
 
+    function starsFor(rarity) {
+      if (rarity === "secret") return "🔒";
+      const n = parseInt(rarity, 10);
+      return (n >= 1 && n <= 3) ? "⭐".repeat(n) : "";
+    }
+
+    // --- Lair Files (advisor clue-view) ---
+    function fetchFiles() {
+      fetch("/api/files")
+        .then(res => res.json())
+        .then(files => { lairFiles = Array.isArray(files) ? files : []; renderFiles(); })
+        .catch(() => {});
+    }
+
+    function renderFiles() {
+      const el = document.getElementById("files-list");
+      if (!el) return;
+      if (!lairFiles.length) {
+        el.innerHTML = '<span style="color: var(--text-dim);">No files yet…</span>';
+        return;
+      }
+      const sorted = lairFiles
+        .map((f, i) => ({ f: f, i: i }))
+        .sort((a, b) => (a.f.requiredLevel - b.f.requiredLevel) || a.f.name.localeCompare(b.f.name));
+      el.innerHTML = sorted.map(o => {
+        const open = o.f.requiredLevel <= playerAccessLevel;
+        const lvlClass = open ? "open" : "locked";
+        const lvlText = (open ? "L" : "🔒L") + o.f.requiredLevel;
+        return '<div class="file-item" data-idx="' + o.i + '" title="' + escapeHtml(o.f.description || o.f.name) + '">'
+          + '<span class="file-lvl ' + lvlClass + '">' + lvlText + '</span>'
+          + escapeHtml(o.f.name)
+          + '</div>';
+      }).join("");
+      el.querySelectorAll(".file-item").forEach(it => {
+        it.addEventListener("click", function() {
+          openFileModal(parseInt(this.getAttribute("data-idx"), 10));
+        });
+      });
+    }
+
+    function openFileModal(idx) {
+      const f = lairFiles[idx];
+      if (!f) return;
+      const readable = f.requiredLevel <= playerAccessLevel;
+      const lvl = readable
+        ? ("L" + f.requiredLevel + " · player can read this")
+        : ("🔒 L" + f.requiredLevel + " · still locked to the player");
+      document.getElementById("file-modal-title").textContent = f.name + "  —  " + lvl;
+      document.getElementById("file-modal-body").textContent =
+        (f.content && f.content.trim()) ? f.content : (f.description || "(no content)");
+      document.getElementById("file-modal").style.display = "flex";
+    }
+
+    function closeFileModal() {
+      const m = document.getElementById("file-modal");
+      if (m) m.style.display = "none";
+    }
+
+    // --- Achievement registry (zero-drift: same source as the game) ---
+    function fetchAchievements() {
+      fetch("/api/achievements")
+        .then(res => res.json())
+        .then(list => {
+          achRegistry = {};
+          (Array.isArray(list) ? list : []).forEach(a => { achRegistry[a.id] = a; });
+          if (lastState) updateState(lastState); // re-render now that names are known
+        })
+        .catch(() => {});
+    }
+
     function updateState(state) {
       if (!state) return;
+      lastState = state;
 
       // Check if this is an error response (no game in progress)
       if (state.error) {
@@ -916,6 +1111,10 @@ app.get("/", (_req: Request, res: Response) => {
           ? "L" + state.accessLevel + (state.accessLevelName ? " — " + state.accessLevelName : "")
           : "—";
       }
+
+      // Advisor file-list badges: refresh which files the player can currently read
+      playerAccessLevel = state.accessLevel || 1;
+      if (!lairFiles.length) fetchFiles(); else renderFiles();
       const toolsEl = document.getElementById("tools-list");
       if (toolsEl) {
         toolsEl.textContent = (state.availableTools && state.availableTools.length)
@@ -1123,23 +1322,32 @@ app.get("/", (_req: Request, res: Response) => {
         // Add more as needed
       };
 
-      // Achievements - with clearing and click interactivity
+      // Achievements — zero-drift: prefer the live registry (achRegistry from /api/achievements),
+      // fall back to the small hardcoded map, then a generic. Detail panel shows rarity stars.
       const achDiv = document.getElementById("achievements");
       const achDetail = document.getElementById("achievement-detail");
       const achTitle = document.getElementById("ach-detail-title");
       const achDesc = document.getElementById("ach-detail-desc");
 
+      function achInfo(id) {
+        const r = achRegistry[id];
+        if (r) return { emoji: r.emoji, name: r.name, desc: r.description, stars: starsFor(r.rarity) };
+        const h = ACHIEVEMENT_INFO[id];
+        if (h) return { emoji: h.emoji, name: h.name, desc: h.desc, stars: "" };
+        return { emoji: "🏆", name: id, desc: "Achievement unlocked!", stars: "" };
+      }
+
       if (state.achievements && state.achievements.length > 0) {
         achDiv.innerHTML = state.achievements.map((a, idx) => {
-          const info = ACHIEVEMENT_INFO[a] || { emoji: "🏆", name: a, desc: "Achievement unlocked!" };
-          return '<span class="achievement" data-ach-id="' + escapeHtml(a) + '" data-ach-idx="' + idx + '">' + info.emoji + '</span>';
+          const info = achInfo(a);
+          return '<span class="achievement" data-ach-id="' + escapeHtml(a) + '" data-ach-idx="' + idx + '" title="' + escapeHtml(info.name) + '">' + info.emoji + '</span>';
         }).join("");
 
         // Add click handlers
         achDiv.querySelectorAll(".achievement").forEach(el => {
           el.addEventListener("click", function() {
             const achId = this.getAttribute("data-ach-id");
-            const info = ACHIEVEMENT_INFO[achId] || { emoji: "🏆", name: achId, desc: "Achievement unlocked!" };
+            const info = achInfo(achId);
 
             // Toggle selection
             const wasSelected = this.classList.contains("selected");
@@ -1149,7 +1357,7 @@ app.get("/", (_req: Request, res: Response) => {
               achDetail.style.display = "none";
             } else {
               this.classList.add("selected");
-              achTitle.textContent = info.emoji + " " + info.name;
+              achTitle.textContent = (info.stars ? info.stars + " " : "") + info.emoji + " " + info.name;
               achDesc.textContent = info.desc;
               achDetail.style.display = "block";
             }
@@ -1277,6 +1485,15 @@ app.get("/", (_req: Request, res: Response) => {
       .then(res => res.json())
       .then(updateTranscript)
       .catch(console.error);
+
+    // Advisor clue-view: load the static registries (files + achievements) + wire modal close
+    fetchFiles();
+    fetchAchievements();
+    const fileModalEl = document.getElementById("file-modal");
+    if (fileModalEl) {
+      fileModalEl.addEventListener("click", function(e) { if (e.target === this) closeFileModal(); });
+    }
+    document.addEventListener("keydown", function(e) { if (e.key === "Escape") closeFileModal(); });
   </script>
 </body>
 </html>
