@@ -13,6 +13,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { FullGameState } from "../state/schema.js";
+import { restraintsValue, restraintLabel } from "../state/properties.js";
 
 // Allow explicit override for sandboxed environments
 const DINO_DIR = process.env.DINO_LAIR_STATE_DIR ||
@@ -51,6 +52,8 @@ export interface LiveState {
   blytheTrust: number;
   blytheComposure: number;
   blytheForm: string;
+  blytheRestraints?: number;     // restraint integrity 0–4 (4 = secure, 0 = free)
+  blytheRestraintLabel?: string; // secure | damaged | one strap freed | hanging by a thread | free
   drMLocation: string;
   drMMood: string;
 
@@ -58,8 +61,15 @@ export interface LiveState {
   rayState: string;
   power?: number;         // power dial 1–5 (matched to genome ideal → FULL)
   heat?: number;          // spam/thermal meter 0–10 (cools −2/turn, −4 eco; 10 = overheated → chaos)
-  reactorGranted?: boolean; // reactor BOOSTED → enables power tiers 4–5
-  reactorMode?: string;   // NORMAL | BOOSTED | OVERDRIVEN
+  reactorGranted?: boolean; // reactor BOOSTED → enables power tiers 4–5 (the live boost flag)
+  reactorMode?: string;   // NORMAL | BOOSTED | OVERDRIVEN (vestigial; reactorGranted is canonical)
+  lastFireOutcome?: string;     // last ray.fire result: FULL_DINO | PARTIAL | CHIMERA | FIZZLE | MUON…
+  lastFireTurn?: number | null; // turn of the last fire
+
+  // Reactor stress — the Act-III brinkmanship meter (0–100)
+  reactorStress?: number;       // trip @60 (ray + ARCHIMEDES freeze), cascade/meltdown @100
+  safetyTripped?: boolean;      // safeties currently tripped (recoverable)
+  safetyTripTurns?: number;     // turns left on the current trip
 
   // NEW: Eco Mode & Genome (Patch 18.5)
   ecoModeActive?: boolean;
@@ -170,6 +180,8 @@ export function exportLiveState(state: FullGameState): void {
     blytheTrust: state.npcs.blythe.trustInALICE,
     blytheComposure: state.npcs.blythe.composure,
     blytheForm: state.npcs.blythe.transformationState?.form || "HUMAN",
+    blytheRestraints: restraintsValue(state.npcs.blythe),
+    blytheRestraintLabel: restraintLabel(state.npcs.blythe),
     drMLocation: state.npcs.drM.location,
     drMMood: state.npcs.drM.mood,
 
@@ -179,6 +191,13 @@ export function exportLiveState(state: FullGameState): void {
     heat: state.dinoRay.heat,
     reactorGranted: state.infrastructure?.basiliskAuthority?.reactorControlGranted,
     reactorMode: state.infrastructure?.reactor?.mode,
+    lastFireOutcome: state.dinoRay.memory?.lastFireOutcome,
+    lastFireTurn: state.dinoRay.memory?.lastFireTurn,
+
+    // Reactor stress — the Act-III brinkmanship meter
+    reactorStress: state.infrastructure?.reactor?.reactorStress,
+    safetyTripped: state.infrastructure?.reactor?.safetyTripped,
+    safetyTripTurns: state.infrastructure?.reactor?.safetyTripTurns,
 
     // NEW: Eco Mode & Genome (Patch 18.5)
     ecoModeActive: state.dinoRay.powerCore.ecoModeActive && !state.dinoRay.powerCore.ecoModeOverride,

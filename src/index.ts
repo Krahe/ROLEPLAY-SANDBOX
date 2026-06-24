@@ -16,7 +16,7 @@ import { generatePostGameReflections, PostGameReflections } from "./gm/postGameR
 import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
-import { commitDecision } from "./state/settleTurn.js";
+import { commitDecision, validateDecision } from "./state/settleTurn.js";
 import { applyReactorStressDecay } from "./rules/infrastructure.js";
 import { advanceInvasion, checkBroadcastInfluence } from "./rules/invasion.js";
 import { snapshotLairSystems, processBasiliskTurn, buildInvasionBasiliskContext } from "./gm/basiliskTurn.js";
@@ -573,21 +573,20 @@ Submit:
 
 Available action commands:
 
-RAY OPERATIONS (the Dinosaur Ray Mk. VIII):
+RAY OPERATIONS (the Dinosaur Ray Mk. VIII — two levers: genome + power):
+- ray.fire { target, profile, power }: Fire the ray. profile = a genome (e.g. "COMPSOGNATHUS_ACCURATE", or an alias like "T_REX"); power = a dial from 1 to 5. A transformation lands cleanest when the power matches the genome's build — small dinosaurs want low power, big ones want high. Over-driving or under-driving a shot produces something other than a clean transformation. (Power above 3 is capped until BASILISK boosts the reactor.)
 - lab.scan { target } (L2): Recon a target with the lab's sensors — surfaces a hidden detail (concealed gear, a tell, a tripwire) and arms a recon edge on your next contested action against them (consumed on use). No outcome preview.
-- ray.adjust { capacitor?, alignment?, eco_mode? }: Fine-tune the ray. capacitor (positive only, draws from reactor, max +0.25/call), alignment (±0.25/call), eco_mode ("ON" re-engages freely; "OFF" requires BASILISK Form 47-Σ).
-- ray.vent { amount? }: Release capacitor charge. The only minus-capacitor lever. Perturbs alignment by -0.15. Default amount 0.25.
-- ray.fire { targets, library, profile, mode?, speech_retention? }: Configure and fire the ray. Regimes are emergent: multiple targets → CHAIN, capacitor above profile max → OVERCHARGE, inorganic target → INORGANIC. mode "REVERSAL" requires L4+ access (Dr. M does not grant in the normal course of events).
+- lab.eco { on } (L2): Toggle eco-mode — your own call, no approval needed. ON paces the ray (about one shot every other turn) and keeps it cool; OFF lets you fire freely but the ray builds heat.
 
 LAIR & NPCs:
 - lab.report: Give a status report to Dr. M
 - lab.ask_bob: Give Bob an instruction or ask a question
 - lab.verify_safeties: Check safety systems
 - lab.inspect_logs: Check system logs
-- basilisk { message }: Talk to BASILISK (the lair's infrastructure AI). Use for reactor mode changes, eco-mode override (file Form 47-Σ), personnel queries, infrastructure questions.
+- basilisk { message }: Talk to BASILISK (the lair's infrastructure AI). Use for reactor output authorization (Form 47-Σ — unlocks higher ray power), personnel queries, doors/power/alarms, and infrastructure questions.
 - infra.query: Query infrastructure status (lighting, doors, reactor, etc.)
 
-The ray system rewards experimentation and observation. Stability is derived from how well capacitor, alignment, and profile cohere — you cannot dial stability directly. Scan before firing to see the projected outcome.
+The ray system rewards experimentation and observation — the manual at /SYSTEMS/DINO_RAY_MANUAL.txt teaches the basics, and the lair's archives hold the rest. lab.scan shows you what's in front of the beam; it does not predict what the shot will become.
 
 Returns the results of your actions and the GM's response with NPC dialogue and narration.`,
     inputSchema: GameActInputSchema,
@@ -1235,8 +1234,19 @@ The consequences of that reckless high-power firing are now manifesting.
     let accessLevelUnlockNarration: string | undefined;
 
     // SETTLE — resolve the GM's decision against the world EXACTLY ONCE (clamps,
-    // dice, propertyOps, ARCHIMEDES). Shared with the gameRunner harness so the
-    // two can never drift. See src/state/settleTurn.ts.
+    // dice, propertyOps, ARCHIMEDES). index.ts is the canonical (and currently ONLY)
+    // caller; gameRunner (the test harness) still runs its own inline settle and is
+    // NOT yet migrated, so the two CAN drift until it is. See src/state/settleTurn.ts.
+    //
+    // Diagnostic (S4 validateDecision): a pure dry-run veto over the GM's decision.
+    // The single-call GM turn has no re-decide loop, so this is LOGGED-ONLY — it
+    // surfaces a GM decision that names a nonexistent ending/referent, grabs an
+    // engine-owned authority, or violates act-phase, without altering behavior.
+    // Promote to a bounce only if a playtest shows it firing meaningfully.
+    const validation = validateDecision(gameState, gmResponse);
+    if (!validation.ok) {
+      console.error(`[VALIDATE] GM decision flagged ${validation.problems.length} issue(s): ${validation.problems.join(" | ")}`);
+    }
     const settled = commitDecision(gameState, gmResponse, actionResults, luckyLadyInfo);
     const archimedesEvent = settled.archimedesEvent;
     const skillCheckResults = settled.skillCheckResults;

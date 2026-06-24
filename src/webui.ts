@@ -51,12 +51,23 @@ interface LiveState {
   blytheTrust: number;
   blytheComposure: number;
   blytheForm: string;
+  blytheRestraints?: number;     // restraint integrity 0–4
+  blytheRestraintLabel?: string; // secure | damaged | one strap freed | hanging by a thread | free
   drMLocation: string;
   drMMood: string;
 
-  // Ray
+  // Ray (Patch 30 TWO-LEVER surface: genome sizeClass = ideal power, + power dial)
   rayState: string;
-  capacitor: number;
+  power?: number;           // power dial 1–5 (match the genome's ideal → FULL)
+  heat?: number;            // spam/thermal meter 0–10 (10 = overheated → chaos table)
+  reactorGranted?: boolean; // reactor BOOSTED → unlocks power tiers 4–5
+  lastFireOutcome?: string; // last ray.fire result
+  lastFireTurn?: number | null;
+
+  // Reactor stress — the Act-III brinkmanship meter (0–100)
+  reactorStress?: number;   // trip @60 (ray + ARCHIMEDES freeze), cascade/meltdown @100
+  safetyTripped?: boolean;
+  safetyTripTurns?: number;
 
   // NEW: Eco Mode & Genome (Patch 18.5)
   ecoModeActive?: boolean;
@@ -331,9 +342,9 @@ app.get("/", (_req: Request, res: Response) => {
 
     .meter-fill.suspicion { background: linear-gradient(90deg, var(--accent-green), var(--accent-yellow), var(--accent-red)); }
     .meter-fill.trust { background: var(--accent-blue); }
-    .meter-fill.capacitor { background: var(--accent-purple); }
     .meter-fill.demo { background: var(--accent-yellow); }
-    .meter-fill.calibration { background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); }
+    .meter-fill.heat { background: linear-gradient(90deg, var(--accent-yellow), var(--accent-red)); }
+    .meter-fill.reactor-stress { background: linear-gradient(90deg, var(--accent-green), var(--accent-yellow), var(--accent-red)); }
 
     .npc-grid {
       display: grid;
@@ -722,16 +733,6 @@ app.get("/", (_req: Request, res: Response) => {
           </div>
         </div>
 
-        <div class="meter" id="calib-meter">
-          <div class="meter-label">
-            <span>🎯 Calibration</span>
-            <span id="calib-value">0%</span>
-          </div>
-          <div class="meter-bar">
-            <div class="meter-fill calibration" id="calib-bar" style="width: 0%"></div>
-          </div>
-        </div>
-
         <div class="meter" id="demo-meter">
           <div class="meter-label">
             <span>Demo Clock</span>
@@ -744,11 +745,21 @@ app.get("/", (_req: Request, res: Response) => {
 
         <div class="meter">
           <div class="meter-label">
-            <span>Capacitor</span>
-            <span id="cap-value">0%</span>
+            <span>🔥 Ray Heat</span>
+            <span id="heat-value">0/10</span>
           </div>
           <div class="meter-bar">
-            <div class="meter-fill capacitor" id="cap-bar" style="width: 0%"></div>
+            <div class="meter-fill heat" id="heat-bar" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="meter" id="reactor-stress-meter" style="display: none;">
+          <div class="meter-label">
+            <span>☢️ Reactor Stress</span>
+            <span id="reactor-stress-value">0/100</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill reactor-stress" id="reactor-stress-bar" style="width: 0%"></div>
           </div>
         </div>
 
@@ -757,13 +768,13 @@ app.get("/", (_req: Request, res: Response) => {
           <span class="ray-state" id="ray-state">OFFLINE</span>
         </div>
 
-        <!-- Ray instruments (2026-06-12): the rebuilt ray's live dials -->
+        <!-- Ray instruments (Patch 30 two-lever surface): power dial · last shot · reactor boost -->
         <div id="ray-readouts" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
-          <span title="ALIGNMENT (beam containment)">χ ALIGN <span id="align-value" style="color: var(--text);">—</span></span>
+          <span title="POWER dial 1–5 — match the genome's ideal for a clean FULL">⚡ POWER <span id="power-value" style="color: var(--text);">—</span></span>
           &nbsp;·&nbsp;
-          <span title="Coolant / thermal load — sustained high trips a cooldown lock">COOLANT <span id="coolant-value" style="color: var(--text);">—</span></span>
+          <span title="Last ray.fire outcome">LAST <span id="last-fire-value" style="color: var(--text);">—</span></span>
           &nbsp;·&nbsp;
-          <span title="Reactor mode — drives capacitor accrual">REACTOR <span id="reactor-value" style="color: var(--text);">—</span></span>
+          <span title="Reactor boost — BASILISK-granted; unlocks power 4–5">REACTOR <span id="reactor-value" style="color: var(--text);">standard</span></span>
         </div>
 
         <!-- NEW: Eco Mode & Genome Indicators (Patch 18.5) -->
@@ -896,46 +907,48 @@ app.get("/", (_req: Request, res: Response) => {
       document.getElementById("demo-value").textContent = demo;
       document.getElementById("demo-bar").style.width = Math.min(100, demo * 10) + "%";
 
-      // Calibration (Act 1 objective) vs Demo clock (Act 2+) — show exactly one.
-      const inAct1 = (state.act || "ACT_1") === "ACT_1";
-      const calib = Math.round((state.calibration || 0) * 100);
-      const calibValEl = document.getElementById("calib-value");
-      const calibBarEl = document.getElementById("calib-bar");
-      if (calibValEl) calibValEl.textContent = calib + "%" + (calib >= 100 ? " ✓" : "");
-      if (calibBarEl) calibBarEl.style.width = Math.min(100, calib) + "%";
-      const calibMeter = document.getElementById("calib-meter");
+      // Demo clock (frozen at 0 during Act 1; calibration meter retired Patch 30)
       const demoMeter = document.getElementById("demo-meter");
-      if (calibMeter) calibMeter.style.display = inAct1 ? "block" : "none";
-      if (demoMeter) demoMeter.style.display = inAct1 ? "none" : "block";
+      if (demoMeter) demoMeter.style.display = "block";
 
-      // Capacitor
-      const cap = Math.round((state.capacitor || 0) * 100);
-      document.getElementById("cap-value").textContent = cap + "%";
-      document.getElementById("cap-bar").style.width = cap + "%";
+      // Ray Heat (0–10 spam/thermal meter; 10 = overheated → chaos table)
+      const heat = state.heat || 0;
+      const heatValEl = document.getElementById("heat-value");
+      const heatBarEl = document.getElementById("heat-bar");
+      if (heatValEl) heatValEl.textContent = heat + "/10";
+      if (heatBarEl) heatBarEl.style.width = Math.min(100, heat * 10) + "%";
+
+      // Reactor Stress (Act-III brinkmanship; trip @60 freezes ray + ARCHIMEDES, meltdown @100)
+      const rstress = state.reactorStress || 0;
+      const rsMeter = document.getElementById("reactor-stress-meter");
+      const rsValEl = document.getElementById("reactor-stress-value");
+      const rsBarEl = document.getElementById("reactor-stress-bar");
+      if (rsMeter) rsMeter.style.display = (rstress > 0 || state.act === "ACT_3") ? "block" : "none";
+      if (rsValEl) {
+        const tripTag = state.safetyTripped
+          ? " ⚠ SAFETIES TRIPPED" + (state.safetyTripTurns ? " (" + state.safetyTripTurns + ")" : "")
+          : "";
+        rsValEl.textContent = rstress + "/100" + (rstress >= 100 ? " ☢ MELTDOWN" : tripTag);
+        rsValEl.style.color = rstress >= 60 ? "var(--accent-red)"
+          : rstress >= 40 ? "var(--accent-yellow)" : "var(--text-dim)";
+      }
+      if (rsBarEl) rsBarEl.style.width = Math.min(100, rstress) + "%";
 
       // Ray state
       document.getElementById("ray-state").textContent = state.rayState || "OFFLINE";
 
-      // Ray instruments (χ alignment, coolant, reactor mode)
-      const alignEl = document.getElementById("align-value");
-      if (alignEl) alignEl.textContent = (typeof state.alignment === "number") ? state.alignment.toFixed(2) : "—";
-      const coolantEl = document.getElementById("coolant-value");
-      if (coolantEl) {
-        if (typeof state.coolantTemp === "number") {
-          coolantEl.textContent = state.coolantTemp.toFixed(2);
-          // Warn as coolant approaches the cooldown-lock ceiling (>1.5)
-          coolantEl.style.color = state.coolantTemp > 1.5 ? "var(--accent-red)"
-            : state.coolantTemp > 1.2 ? "var(--accent-yellow)" : "var(--text)";
-        } else {
-          coolantEl.textContent = "—";
-          coolantEl.style.color = "var(--text)";
-        }
+      // Ray instruments (two-lever surface: power dial, last shot, reactor boost)
+      const powerEl = document.getElementById("power-value");
+      if (powerEl) powerEl.textContent = (typeof state.power === "number") ? (state.power + "/5") : "—";
+      const lastFireEl = document.getElementById("last-fire-value");
+      if (lastFireEl) {
+        const lf = state.lastFireOutcome;
+        lastFireEl.textContent = (lf && lf !== "NONE") ? lf : "—";
       }
       const reactorEl = document.getElementById("reactor-value");
       if (reactorEl) {
-        reactorEl.textContent = state.reactorMode || "—";
-        reactorEl.style.color = state.reactorMode === "OVERDRIVEN" ? "var(--accent-red)"
-          : state.reactorMode === "BOOSTED" ? "var(--accent-yellow)" : "var(--text)";
+        reactorEl.textContent = state.reactorGranted ? "BOOSTED ⚡" : "standard";
+        reactorEl.style.color = state.reactorGranted ? "var(--accent-yellow)" : "var(--text-dim)";
       }
 
       // NEW: Eco Mode & Genome Display (Patch 18.5)
@@ -966,8 +979,12 @@ app.get("/", (_req: Request, res: Response) => {
         "Trust: " + (state.bobTrust || 0) + " | " + bobAnxiety + bobForm;
 
       const blytheForm = state.blytheForm !== "HUMAN" ? " [" + state.blytheForm + "]" : "";
+      const blytheRestraints = (typeof state.blytheRestraints === "number")
+        ? " | Restraints: " + state.blytheRestraints + "/4"
+          + (state.blytheRestraintLabel ? " (" + state.blytheRestraintLabel + ")" : "")
+        : "";
       document.getElementById("blythe-status").textContent =
-        "Trust: " + (state.blytheTrust || 0) + " | Composure: " + (state.blytheComposure || 0) + blytheForm;
+        "Trust: " + (state.blytheTrust || 0) + " | Composure: " + (state.blytheComposure || 0) + blytheForm + blytheRestraints;
 
       // Extra clocks
       const extraClocks = document.getElementById("extra-clocks");
@@ -1074,7 +1091,6 @@ app.get("/", (_req: Request, res: Response) => {
         "cavalry_arrives": { emoji: "🚁", name: "The Cavalry", desc: "X-Branch extraction team arrived. Backup has landed." },
         "BLYTHE_TRANSFORMED": { emoji: "🦎", name: "Mission Accomplished?", desc: "Agent Blythe was transformed. Dr. M is pleased." },
         "BOB_TRUSTED": { emoji: "🤝", name: "Bob's Your Uncle", desc: "Earned Bob's full trust. He told you everything." },
-        "PERFECT_CALIBRATION": { emoji: "🎯", name: "Precision Engineering", desc: "Achieved 100% calibration on all metrics before firing." },
         "SPEED_DEMON": { emoji: "⚡", name: "Speed Demon", desc: "Completed the game in record time." },
         "ETHICAL_ENDING": { emoji: "😇", name: "The Good Ending", desc: "Found a way to save everyone. Claude would be proud." },
         "CHAOS_ENDING": { emoji: "🔥", name: "Chaos Reigns", desc: "Everything went wrong. Everything." },

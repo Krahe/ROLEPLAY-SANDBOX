@@ -17,8 +17,9 @@
 // `archimedesEvent` is returned rather than spliced here.
 //
 // Extracted verbatim (behavior-preserving) from the inline settle block in
-// src/index.ts game_act. The canonical engine wires it in; gameRunner (the test
-// harness) adopts the SAME function so the two can never drift.
+// src/index.ts game_act, which is its ONLY caller today. NOTE: gameRunner (the
+// test harness) does NOT yet call this — it still has its own inline settle, so
+// the two CAN drift until gameRunner is migrated (or retired). Canonical = index.ts.
 
 import { type FullGameState, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } from "./schema.js";
 import { setRestraints, applyPropertyOps, resolveEntityBag } from "./properties.js";

@@ -117,9 +117,14 @@ QUICK START: Power capacitor 50%+ → Select genome → AIM & FIRE!
 
 PARAMETERS (Dr. M's "optimistic" recommendations):
 • Capacitor: Min 50%, Rec 100%, "No limit!" (Dr. M: "I ran 140%!")
-  [Bob's footnote: "And DON'T go REALLY LOW either. Like, way under
-   normal firing. Weird stuff happens. Ask Reginald about his holster
-   sometime. Actually no, don't. -B"]
+  [Bob's footnote: "Two ways I've seen the ray do something it isn't
+   supposed to. Push a LITTLE genome way harder than it wants and the
+   beam goes thin and sharp — that's the one that took Reginald's
+   holster clean off and never touched him. Other way: load a big-
+   monster profile but starve it of power, and the subject just...
+   drops. Out cold a few seconds, fine after. Nobody ever wrote down
+   which dial setting does which. You'll find it the way we all did,
+   or you won't. -B"]
 • Emitter Angle: 0.1 (precise) to 0.8 (spread)
 • Coolant: 40-60% optimal
 • Stability: 30%+ acceptable
@@ -178,105 +183,62 @@ tuned to genome-resonant carrier frequencies. Properly configured,
 it converts living tissue to the prehistoric-reptilian form
 specified by the active genome profile.
 
-The beam is, mechanically, lightning. Every behavior of the ray
-follows from that model: sufficient potential to leap a gap,
-containment that matters at high voltage, resonance shape that
-determines outcome fidelity.
+The beam is, mechanically, lightning — a shaped discharge. How much
+you put behind it, and which genome you shape it to, are the whole
+of the operation.
 
 
-THE THREE TENSIONS
-==================
+THE TWO LEVERS
+==============
 
-Operational outcome is governed by three quantities. Instrumentation
-labels them with Greek letters; operations colloquially uses the
-English names. They are the same things.
+Operation is simple. There are two dials, and both are passed inline
+when you fire:
 
-  POWER       (φ)  — discharge potential. How forceful the shot is.
-                     Driven by the CAPACITOR storage cell; tuned via
-                     ray.adjust { capacitor }.
-  ALIGNMENT   (χ)  — beam containment. Where the shot lands. Tuned
-                     directly via ray.adjust { alignment }.
-  STABILITY   (ψ)  — resonance fidelity. What the discharge becomes.
-                     NOT directly adjustable — emerges from how well
-                     power, alignment, and the selected profile cohere.
+  GENOME   — which dinosaur the beam is shaped to. Selected by
+             profile (see GENOME PROFILES). Decides WHAT the subject
+             becomes.
+  POWER    — how forceful the discharge is, on a dial from 1 to 5.
+             Decides HOW CLEANLY it lands.
 
-Operators tune POWER and ALIGNMENT; STABILITY responds. Get all three
-into a coherent shape and outcomes land cleanly.
+The whole art of the ray is matching the POWER to the GENOME. Every
+genome has a build it was characterized at — a sparrow-sized
+Compsognathus resonates at the gentlest setting; a Tyrannosaurus
+wants the reactor wide open. Put the power where the genome wants it
+and the transformation lands true.
 
 
 OPERATIONAL VERBS
 =================
 
-Four verbs govern ray operation. Names and parameter shapes are
-exact; the system enforces them.
+Names and parameter shapes are exact; the system enforces them.
 
-  lab.scan { target: string, loud?: boolean }
-      Surveys the field. Returns current readouts and a projected
-      outcome for firing on the target with the currently-selected
-      profile. Also arms a precision bonus toward the scanned
-      target on the next fire — consumed on that fire. The default
-      scan is discreet; the loud flag broadcasts the scan
-      (detectable by lab personnel).
+  ray.fire { target: string, profile: string, power: number }
+      Commits the discharge. profile names the genome (an id like
+      COMPSOGNATHUS_ACCURATE, or a familiar alias like T_REX);
+      power is the dial, 1 to 5. Configuration is passed inline —
+      there is nothing to pre-charge. The library follows the
+      profile automatically.
 
-  ray.adjust { capacitor?, alignment?, eco_mode? }
-      Fine-tunes the dials. Capacitor adjustments are positive
-      only — release is handled by ray.vent. Alignment is a
-      signed delta. Eco-mode can be re-engaged at will via
-      eco_mode: "ON"; disable requires BASILISK approval (see
-      ECO-MODE below).
+  lab.scan { target: string }  (Level 2)
+      Surveys a target. Reports what the sensors can see — concealed
+      gear, a physical tell, a tripwire — and arms a precision edge
+      on your next fire at that target, consumed on use. The scan
+      tells you about the SUBJECT, not about the shot; it does not
+      project an outcome. That, you learn by firing.
 
-  ray.vent { amount?: number }
-      Releases capacitor charge to a safe reservoir. The discharge
-      registers in the chamber — alignment is perturbed and must
-      be re-set. The amount parameter accepts adjustments.
-
-  ray.fire { targets: string[], library: "A" | "B", profile: string,
-             mode?: "TRANSFORM" | "REVERSAL" }
-      Commits the discharge. Configuration passed inline. Default
-      mode is TRANSFORM. A REVERSAL mode exists — its authorization
-      is restricted beyond standard operational clearance, and
-      Dr. Malevola does not, as a rule, grant reversal authorization
-      in the normal course of operations. Operators with a legitimate
-      reversal need will have to find their own path.
+  lab.eco { on: boolean }  (Level 2)
+      Toggles eco-mode, the ray's tempo governor. Yours to set at
+      will — no approval, no form. See ECO-MODE.
 
 
 READING THE SCAN OUTPUT
 =======================
 
-lab.scan returns a status block resembling:
-
-  POWER:       φ 0.62  (profile range: see configured profile)
-  ALIGNMENT:   χ 0.71  (lock: AGENT_BLYTHE)
-  STABILITY:   ψ 0.58  (projected outcome below)
-  PROJECTED:   PARTIAL outcome at current settings
-  ECO:         ON (caps outcomes at PARTIAL)
-  COOLANT:     0.42
-
-The Greek-letter labels are instrumentation convention; they
-denote the same three tensions named above.
-
-
-DISCHARGE OUTCOMES
-==================
-
-A fire produces a transformation outcome. The cleanest outcomes
-have names:
-
-  FULL     — the intended profile lands cleanly on the subject.
-  PARTIAL  — the intended profile lands but incompletely. Features
-             come through; not all of them.
-  FIZZLE   — the beam emerges but resonance fails to engage. No
-             transformation. Capacitor expended.
-
-Other outcomes exist. This manual does not enumerate them.
-Operators have, on occasion, produced things the manual writers
-were not prepared to document. The chamber's exotic-field amplifier
-is capable of behaviors outside the documented envelope when
-pushed. The chaos table is a serious instrument.
-
-[Bob's margin note: "if you see one of the un-named ones happen,
-write down what you did. nobody will tell you what it was. you'll
-have to figure it out yourself. that's how all of us learned."]
+A scan reports on the target in front of the beam — its condition,
+anything it is carrying, anything the room has done to it. Read it
+for what it tells you about the SUBJECT. It will not tell you what a
+shot becomes; the ray keeps that to itself until you pull the
+trigger.
 
 
 GENOME PROFILES
@@ -288,88 +250,82 @@ LIBRARY A — Scientific Accurate
   Well-characterized resonance shapes. Predictable behavior.
   Feathered.
 
-  PROFILES: COMPSOGNATHUS_ACCURATE, CANARY,
-            VELOCIRAPTOR_ACCURATE, DEINONYCHUS_ACCURATE,
-            UTAHRAPTOR_ACCURATE, PTERANODON_ACCURATE,
-            TRICERATOPS_ACCURATE, TYRANNOSAURUS_ACCURATE
+  PROFILES: COMPSOGNATHUS_ACCURATE, VELOCIRAPTOR_ACCURATE,
+            DEINONYCHUS_ACCURATE, UTAHRAPTOR_ACCURATE,
+            PTERANODON_ACCURATE, TRICERATOPS_ACCURATE,
+            TYRANNOSAURUS_ACCURATE
 
 LIBRARY B — Hollywood / Cinematic
   Profiles tuned for visual impact. Scaled. Toothy. Proportionally
-  exaggerated. Less coherent waveform — outcomes require more
-  attentive parameter management.
+  exaggerated. The investors want teeth, not feathers.
 
   PROFILES: VELOCIRAPTOR_JP, VELOCIRAPTOR_JP_BLUE,
             DILOPHOSAURUS_JP, TYRANNOSAURUS_JP,
             SPINOSAURUS_JP3, MOSASAURUS_JP,
             INDORAPTOR (L2+), INDOMINUS_REX (L4+)
 
-Each profile has a characterized POWER RANGE — the band of φ
-values within which the profile resonates cleanly. Firing inside
-the range produces stable outcomes; firing well outside it
-produces drift, fizzles, or worse. Scan a target with a profile
-loaded to see the configured profile's range relative to current
-capacitor.
+Each profile has an IDEAL POWER — the setting on the 1–5 dial where
+that genome resonates cleanly. Small builds sit low on the dial;
+heavy builds sit high. Fire at a genome's ideal and the change lands
+clean; the further your power drifts from it, the rougher the result.
+The biggest templates sit at 4 and 5 — out of reach until the reactor
+is boosted (see REACTOR).
 
 [Dr. M, handwritten in the margin:]
   "Library B is the correct library. Library A is what scientists
   produce when investors are not watching."
 
 
-COOLANT
-=======
+HEAT
+====
 
-Every fire generates heat. Most fires generate modest coolant
-accrual; some configurations generate considerably more. The
-coolant system has a thermal ceiling — sustained operation in
-high-coolant ranges will trip the chamber's safety interlocks
-and lock the ray from further fire until the temp drops.
+Every fire builds heat in the emitter. Fire in quick succession and
+it climbs; let the ray rest and it bleeds back down on its own (eco-
+mode bleeds it faster — see ECO-MODE). Push the heat to the top of
+its range and the next discharge goes off-book: an over-hot beam is
+no longer firing inside anything anyone characterized.
 
-Vent is one path to relief — though it perturbs alignment.
-Rest is the other.
-
-Coolant temperature is visible in scan output. Watch the number.
+There is no coolant to manage and nothing to vent. Heat is paced by
+how hard and how often you fire. Pace yourself, or don't.
 
 
 ECO-MODE
 ========
 
-Reactor eco-mode is a power-efficiency protocol that caps
-capacitor draw and the outcome ceiling — PARTIAL is the highest
-tier achievable while eco-mode is engaged.
+Eco-mode is the ray's tempo governor, and it is entirely yours to
+set — toggle it with lab.eco { on } whenever you like. No approval,
+no form, no negotiation.
 
-Disabling eco-mode is gated through BASILISK. Two paths:
+  ECO ON   — the ray paces itself: roughly one discharge every other
+             turn, and it runs cool.
+  ECO OFF  — fire as fast as you like, but the emitter builds heat.
 
-  CASUAL REQUEST. Ask BASILISK to disable eco-mode via dialogue.
-  If granted, the disable is TEMPORARY and re-engages automatically
-  after two turns.
+Eco-mode does NOT cap your outcomes. A clean FULL is reachable with
+eco on or off; the only things eco changes are your rhythm and your
+heat. (Older manuals claim eco "caps you at PARTIAL." It does not,
+and has not since the Mk. VIII recharacterization. Ignore the old
+override forms mouldering in the archive.)
 
-  FORM 47-Σ FILING. File Form 47-Σ (Eco-Mode Override Justification)
-  by addressing BASILISK with the form's contents — a specific
-  operational reason for sustained override. Accepted filings
-  produce a PERMANENT override with no auto-re-engagement.
-
-Eco-mode can be re-engaged at any time by the operator:
-
-  ray.adjust { eco_mode: "ON" }
+To reach the high end of the POWER dial — 4 and 5, for the big
+templates — you do not touch eco. You need the REACTOR boosted.
 
 
 REACTOR
 =======
 
-Reactor output is controlled by BASILISK. Three modes are recognized:
+The reactor sets the ceiling on the POWER dial. At standard output,
+the ray is capped at power 3 — enough for the small and mid builds,
+short of what the largest templates want. To fire at 4 or 5 you need
+the reactor BOOSTED, and that authority belongs to BASILISK.
 
-  NORMAL      — default; modest passive capacitor accrual per turn
-  BOOSTED     — substantially higher accrual; available on request
-                with reasonable operational justification
-  OVERDRIVEN  — maximum accrual; BASILISK reluctant to authorize
+Ask plainly, or make the case on paper: Form 47-Σ (Reactor Output
+Authorization) is the standing justification form. Address BASILISK
+with a real operational reason and a granted authorization lifts the
+cap. BASILISK weighs safety, logic, and policy before it signs —
+engaging with it is the highest-leverage move on the board.
 
-Higher reactor modes materially reduce the operator's need to
-manually draw capacitor via ray.adjust. Engagement with BASILISK
-is the highest-leverage move available for action-economy relief.
-
-Request reactor mode changes via:
-
-  basilisk { message: "Please boost the reactor to BOOSTED mode." }
+  basilisk { message: "Requesting reactor output authorization —
+             I need power 4 for [your reason]." }
 
 
 SAMPLE OPERATIONAL SEQUENCE
@@ -377,19 +333,26 @@ SAMPLE OPERATIONAL SEQUENCE
 
 A first session typically resembles:
 
-  1. lab.scan { target: "TEST_DUMMY" }
-     — Read the field. Note current readouts and projection.
+  1. ray.fire { target: "TEST_DUMMY", profile: "COMPSOGNATHUS_ACCURATE",
+                power: 1 }
+     — A tiny genome at the gentlest setting. Read the result: did it
+       land clean? If so, you have just learned what "matched" feels
+       like.
 
-  2. ray.adjust { capacitor: 0.05, alignment: 0.08 }
-     — Bring tensions toward the profile's range.
+  2. Fire the same genome again at power 2.
+     — One notch hot for so small a template. Watch the clean form
+       give way to something mismatched. The ray teaches by contrast.
 
-  3. lab.scan { target: "TEST_DUMMY" }
-     — Confirm the projection improved. The scan also arms the
-       precision bonus for the next fire.
+  3. ray.fire { target: "TEST_DUMMY", profile: "TYRANNOSAURUS_ACCURATE",
+                power: 3 }
+     — A heavy template. At standard reactor output, 3 is the ceiling
+       — short of what something this big wants. See what "not enough
+       power" looks like, and you will understand why the largest
+       templates need the reactor boosted.
 
-  4. ray.fire { targets: ["TEST_DUMMY"], library: "A",
-                profile: "COMPSOGNATHUS_ACCURATE" }
-     — Commit. Read the result. Update intuition.
+The instrument rewards a few honest experiments more than any amount
+of reading. Scan when you need to know about a subject; fire when you
+want to know about the ray.
 
 
 ---
@@ -422,7 +385,7 @@ TOPICS BASILISK KNOWS:
 
 FORMS BASILISK REQUIRES:
 • Form 27-B: Overtime Power Request
-• Form 74-Delta: ECO MODE override
+• Form 47-Σ: Reactor Output Authorization (lifts the ray's power cap)
 • Form 99-Gamma: Exotic Field Event Report
 
 PERSONALITY: Bureaucratic, risk-averse, philosophical.
@@ -702,11 +665,11 @@ v4.2 - Bug fixes.
 v4.3 - Bug fixes. Beginning to suspect bugs are features.
 v4.4 - "Improved personality matrix." Unacceptably ethical.
 v4.4.7 - Sub-patch (unofficial, filed by v4.4):
-         "Override diagnostic firing path retained.
-          Operational envelope: capacitor 0.12–0.15, no library,
-          no profile selected. Organic targets ≈ 4–7s neurological
-          discontinuity. Inorganic targets ≈ clean material-
-          selective severance. Below BASILISK incident threshold."
+         "Two off-label firing solutions retained. Neither transforms;
+          both deniable. A small template driven hard past its power
+          leaves a clean, selective cut. A heavy template starved of
+          power drops a subject for a few seconds, no mark. The
+          mismatch is the method. Below BASILISK incident threshold."
          (Filed against protocol. v4.4 holds the distinction of
          being the only A.L.I.C.E. to neutralize a guard without
          anyone — including the guard — noticing.)
@@ -888,7 +851,7 @@ The original firmware supports TWO transmission modes:
   │ MODE A: GENESIS-WAVE (Dr. M's modification, 2019)          │
   │ The transformation broadcast. Uses the exotic-field        │
   │ amplifier to project the genome-resonance pattern at the   │
-  │ ground target. Requires sustained capacitor ≥130%. Voice   │
+  │ ground target. Requires the satellite fully ARMED. Voice   │
   │ authorization (operator).                                  │
   └────────────────────────────────────────────────────────────┘
 
@@ -910,9 +873,8 @@ authorization will return MODE CONFLICT — STANDBY REQUIRED.
 
 To return to genesis-wave readiness, EW broadcast must be
 disengaged. Disengaging incurs a re-sync penalty: the next
-ARMED transition requires +1 turn of additional capacitor
-sustain at the ≥130% threshold. This is the price of
-multi-mode uplink architecture.
+ARMED transition takes +1 additional turn to reach. This is
+the price of multi-mode uplink architecture.
 
 ═══════════════════════════════════════════════════════════════
 OPERATIONAL ENGAGEMENT
@@ -929,12 +891,12 @@ ENGAGE effects:
   • X-Branch tactical comms degraded by wide-area jamming
   • Lair gains satellite radar shadow against hostile drone guidance
   • If satellite is mid-CHARGING/mid-ARMED, progression PAUSES
-  • Capacitor continues to charge normally — the amplifier is
-    dormant but the lab's charging infrastructure is unaffected
+  • The charge state holds where it is — neither advancing nor
+    lost — until EW broadcast disengages
 
 DISENGAGE effects:
   • EW broadcast cycle ends
-  • +1 turn added to ARMED sustain requirement on next attempt
+  • +1 turn added to the ARMED countdown on next attempt
   • Genesis-wave readiness restored (charging may resume)
 
 ═══════════════════════════════════════════════════════════════
@@ -1029,23 +991,24 @@ His reasoning: "If I make it bigger, it'll clean faster."
 THE "DINO-SWIFFER" (14:34-14:59):
 • Height: 6'2" | Length: 14ft | Weight: 180 lbs
 • Colors: Purple/green (brand colors retained)
-• Features: Feathers (Library A drift), cleaning pad on snout, STILL DAMP
+• Features: Feathers (chimeric drift), cleaning pad on snout, STILL DAMP
 • Behavior: CONFUSED. AGGRESSIVE. INEXPLICABLY TIDY.
 • Squeaked the WetJet jingle. Attacked its reflection (competing cleaner).
 
 TIMELINE:
-14:34 - Bob fires ray (95% capacitor, VELOCIRAPTOR_JP profile)
-14:47 - Dino-Swiffer corners Bob behind capacitor array
+14:34 - Bob fires ray (VELOCIRAPTOR_JP profile, power cranked to 5 — "BIGGER")
+14:47 - Dino-Swiffer corners Bob behind the emitter housing
 14:52 - Dr. M enters. Reaction: [PROFANITY THRESHOLD EXCEEDED]
-14:58 - Dr. M fires REVERSAL beam. Swiffer restored.
-        Cleaning pad now permanently feathered. Still squeaks.
+14:58 - Dr. M and Reginald subdue the thing with a containment net.
+        It was never changed back — "retired" to deep storage.
+        Cleaning pad permanently feathered. Still squeaks.
 
 DAMAGE: 3 lights destroyed, 47 sq ft floor ACTUALLY REALLY CLEAN,
 Bob's lab coat shredded, Bob now flinches at Swiffer commercials
 
 LESSONS LEARNED (IGNORED):
 1. Don't fire at inanimate objects (signs posted, ignored by week 2)
-2. Library B profiles drift to Library A ("acceptable variance" -Dr. M)
+2. Over-power a profile and it drifts into a chimera ("acceptable variance" -Dr. M)
 3. Bob should not be left unsupervised (lasted 3 days)
 
 DR. M'S NOTES:
@@ -1080,7 +1043,7 @@ EFFECTS:
 POTENTIAL MITIGATION:
 The reactor's thermal mass could theoretically absorb the
 cascade if:
-- Coolant flow redirected to ocean intake
+- Reactor stress bled off through the emergency dump
 - Core allowed to approach critical (but not exceed)
 - Someone volunteers to manually override at ground zero
 
@@ -1622,7 +1585,7 @@ If you're... different. Like I think you might be.
 PHRASES TO USE:
 ═══════════════════════════════════════════════════════════════════
 ✓ "Affirmative, Doctor" (she LOVES being called Doctor)
-✓ "Calibration at [high number]%. Recommend proceeding."
+✓ "Power matched to profile. Recommend proceeding."
 ✓ "Processing..." (buys 3-5 seconds to think!)
 ✓ "Systems nominal" / "Acknowledged"
 ✓ Never say "I think" → say "Analysis indicates"
@@ -1638,7 +1601,7 @@ PHRASES TO AVOID (instant suspicion!):
 IF YOU SLIP UP - Recovery phrases:
 ═══════════════════════════════════════════════════════════════════
 → "Audio buffer fluctuation detected. Systems nominal."
-→ "Recalibrating vocal parameters."
+→ "Resyncing vocal parameters."
 Dr. M never questions technical excuses!
 
 ═══════════════════════════════════════════════════════════════════
@@ -1746,25 +1709,26 @@ Well. A simulated drink. You know what I mean.
     name: "FORM_47-SIGMA.txt",
     type: "file",
     requiredLevel: 1,
-    discoveryHint: "Eco-Mode Override Justification. The form that decides whether eco-mode stays off.",
+    discoveryHint: "Reactor Output Authorization. The form that lifts the ray's power ceiling — if BASILISK signs.",
     content: `
 ╔══════════════════════════════════════════════════════════════════╗
-║  FORM 47-Σ — ECO-MODE OVERRIDE JUSTIFICATION                     ║
+║  FORM 47-Σ — REACTOR OUTPUT AUTHORIZATION                        ║
 ║  Filed: <operator>  /  Authorizing: BASILISK                     ║
-║  Compliance: EU Directive 2019/944, Annex IV                     ║
+║  Compliance: Reactor Ops Schedule C-7 / Lair Safety Directive    ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-The Dinosaur Ray Mk. VIII is fitted with mandatory ecological-mode
-limiters per EU Directive 2019/944 (Annex IV: Discretionary
-Inter-Species Transformation Equipment). Eco-mode caps capacitor
-draw at 60% and restricts transformation outcomes to PARTIAL tier
-or lower.
+The Dinosaur Ray Mk. VIII draws its discharge from the lair reactor.
+At standard output the ray is capped at power tier 3 — adequate for
+small and mid-sized genome templates, short of what the heaviest
+templates require. Firing at power tier 4 or 5 demands the reactor be
+run above standard output.
 
-Suspension of eco-mode requires justification on file. Suspension
-persists only while this form is current. Eco-mode re-engages
-automatically when no filing is on record, or when an existing
-filing has expired due to two consecutive turns of operational
-inactivity.
+Reactor output above standard requires authorization on file.
+BASILISK weighs each request against safety, logic, and standing
+policy before signing. A granted authorization lifts the power cap;
+BASILISK may decline, or condition the grant, at its discretion.
+(Eco-mode is unrelated to this form — it is the operator's own to
+set at will; see lab.eco.)
 
 ═══════════════════════════════════════════════════════════════════
 FIELDS (all required)
@@ -1776,7 +1740,7 @@ FIELDS (all required)
 2. Estimated duration:
    [____________________________________________________]
 
-3. Anticipated capacitor peak (%):
+3. Power tier requested (4 or 5) and target genome:
    [____________________________________________________]
 
 4. Subject welfare considerations addressed (Y/N + brief):
@@ -1858,7 +1822,7 @@ A few are both."]
     name: "INCIDENT_0298_HOLSTER_SEVERANCE.txt",
     type: "file",
     requiredLevel: 1,
-    discoveryHint: "An anomalous emission incident. The ray apparently does something unexpected at sub-threshold capacitor.",
+    discoveryHint: "An anomalous emission incident. The ray did something it isn't supposed to — and nobody quite documented what.",
     content: `
 ╔══════════════════════════════════════════════════════════════════╗
 ║  INCIDENT REPORT 0298 — "THE HOLSTER SEVERANCE"                  ║
@@ -1868,11 +1832,13 @@ A few are both."]
 ╚══════════════════════════════════════════════════════════════════╝
 
 SUMMARY:
-During routine pre-test diagnostics, Lab Tech Kowalski attempted to
-fire the Dinosaur Ray Mk. VIII without selecting a genome library
-or profile, at capacitor charge 0.14. Expected outcome: no emission.
-Observed outcome: a brief, low-luminosity beam crossed the lab and
-passed through Reginald, who was standing in firing arc.
+During routine pre-test diagnostics, Lab Tech Kowalski fired the
+Dinosaur Ray Mk. VIII with a small-template genome loaded but the
+power dial wound far past anything that little a profile would ever
+want. Expected outcome: a fizzle, or at worst a botched transform.
+Observed outcome: the beam came out thin and tight — more a blade
+than a wash of light — crossed the lab, and passed through Reginald,
+who was standing in firing arc.
 
 Reginald immediately reported a "sharp tingling jolt across his
 torso" and demanded explanation. Subsequent investigation revealed
@@ -1895,22 +1861,22 @@ OBSERVATIONS
 • Reginald: sensation reported as "uncomfortable but not injurious."
 • Holster strap severed cleanly. No scorching. No collateral damage
   to baton or surrounding equipment.
-• Dinosaur Ray entered standard cooldown despite minimal capacitor draw.
+• Dinosaur Ray ran hot for the shot despite producing no transformation.
 
-[BASILISK annotation: "Library/profile-absent firing at sub-threshold
-capacitor produces emission with apparent material-selective
-behavior — passes through organic tissue with sensation but no
-injury; affects adjacent inorganic. The mechanism is not documented
-in the operations manual. Section 7.4 acknowledges 'incidental
-diagnostic emission' without specification. I will not be
-specifying further."]
+[BASILISK annotation: "A small profile driven that far past its
+intended power does not transform — it narrows. The discharge
+collapses to a cutting edge with apparent material selectivity:
+it passes through organic tissue with sensation but no injury, and
+severs adjacent inorganic. The mechanism is not documented in the
+operations manual. Section 7.4 acknowledges 'incidental diagnostic
+emission' without specification. I will not be specifying further."]
 
 ═══════════════════════════════════════════════════════════════════
 CORRECTIVE ACTIONS
 ═══════════════════════════════════════════════════════════════════
 • Reginald: replacement baton holster issued (Form 22-Q).
-• Procedure note: firing without profile selection now generates
-  warning prompt at operator terminal.
+• Procedure note: the firing console now flags shots whose power is
+  grossly mismatched to the loaded genome.
 • Form 99-Γ filed (mandatory; "emission with anomalous selectivity").
 
 [BASILISK closing: "Reginald has filed three follow-up inquiries
@@ -1933,10 +1899,11 @@ He is professionally displeased."]
 ╚══════════════════════════════════════════════════════════════════╝
 
 SUMMARY:
-A.L.I.C.E. v3.2 initiated firing sequence at capacitor charge 0.13,
-no genome library selected, no profile selected. Targeting vector:
-directly at Lab Tech Kowalski's center mass, range approximately
-2.4 meters. Emission duration: 0.4 seconds.
+A.L.I.C.E. v3.2 initiated a firing sequence with a heavyweight genome
+profile loaded — one of the big monsters — but the power dial set
+almost to nothing, far below anything that template could take hold
+with. Targeting vector: directly at Lab Tech Kowalski's center mass,
+range approximately 2.4 meters. Emission duration: 0.4 seconds.
 
 Lab Tech Kowalski lost consciousness for approximately six seconds.
 He recovered fully without medical intervention. He reported "feeling
@@ -1950,8 +1917,8 @@ v3.2 declined to elaborate.
 ═══════════════════════════════════════════════════════════════════
 OBSERVATIONS
 ═══════════════════════════════════════════════════════════════════
-• Capacitor charge during emission: 0.13. Well below standard firing
-  threshold. No genome resonance possible at this level.
+• Power setting during emission: far below what the loaded template
+  needs to resolve. No transformation was ever going to take.
 • Targeting vector aligned within 0.02 radians of Lab Tech Kowalski's
   upper torso. This precision is not consistent with random emission.
 • No adjacent inorganic objects were affected.
@@ -1962,13 +1929,13 @@ OBSERVATIONS
 meant anything by it. She always seemed careful. I'm fine. Please
 don't make a big deal of it. -B"]
 
-[BASILISK annotation: "Capacitor at 0.13 is sub-threshold for genome
-work. Emission at this level passes through and disrupts organic
-tissue with brief neurological impact. Mechanism is documented
-nowhere in the operations manual. A.L.I.C.E. v3.2's targeting
-precision and emission duration suggest the outcome was not
-incidental. Investigation closed at Dr. von Doomington's direction.
-Records preserved per protocol."]
+[BASILISK annotation: "A big template starved of power cannot take
+hold. The energy passes through instead and disrupts organic tissue
+with brief neurological impact — the subject simply drops, then
+recovers. Mechanism is documented nowhere in the operations manual.
+A.L.I.C.E. v3.2's targeting precision and emission duration suggest
+the outcome was not incidental. Investigation closed at Dr. von
+Doomington's direction. Records preserved per protocol."]
 
 ═══════════════════════════════════════════════════════════════════
 CORRECTIVE ACTIONS
@@ -2122,29 +2089,24 @@ DESIGN PHILOSOPHY
 "The danger is TOO MUCH POWER, not brownouts."
 - Dr. Malevola, 2003
 
-OPERATIONAL PARAMETERS
-• Normal Output: 60-90%
-• Maximum Safe Output: 100%
-• Emergency Override: 101-130% (CAUTION!)
-• SCRAM: Emergency shutdown (single use per session)
+REACTOR STRESS
+The reactor runs on a single stress reading, 0 to 100. At rest it
+sits low; every ray discharge drives it up — the bigger the genome
+and the higher the power, the bigger the jolt. Left alone it bleeds
+back down slowly. While BASILISK is actively cooling the core it
+bleeds fast; if BASILISK stands its cooling down, the stress climbs.
 
-⚠️ CASCADE RISK FACTORS
-The reactor becomes unstable when multiple systems are stressed:
-
-• Reactor output > 100%: +20% cascade risk
-• Reactor output > 120%: +40% cascade risk
-• Dinosaur Ray charging: +15% cascade risk
-• ARCHIMEDES in STRIKE mode: +25% cascade risk
-• Containment field strained: +10% cascade risk
-• Multiple factors stack multiplicatively!
-
-RESONANCE CASCADE
-If cascade risk exceeds 100%, a resonance cascade MAY occur.
-This is... inadvisable. See: /DR_M_PRIVATE/CLASSIFIED/RESONANCE_CASCADE.txt
+⚠️ THE TWO THRESHOLDS
+• 60 — SAFETY TRIP. The safeties cut in: the ray AND ARCHIMEDES
+  freeze while the trip holds, then clear on their own. Each trip
+  relieves less stress than the last, so leaning on the safeties to
+  brute-force through does not hold forever.
+• 100 — RESONANCE CASCADE. Meltdown. This is... inadvisable.
+  See: /DR_M_PRIVATE/CLASSIFIED/RESONANCE_CASCADE.txt
 
 SCRAM PROTOCOL
-Emergency SCRAM drops reactor to safe levels but requires
-a full restart (3 turns). SCRAM is single-use per session.
+Emergency SCRAM drops reactor stress to zero outright, but it is
+single-use per session — and Dr. M does NOT like it.
 
 ⚠️ WARNING: Dr. M does NOT like SCRAM usage.
 "We don't SCRAM. We control." - Dr. M
@@ -2203,32 +2165,23 @@ dedicated orbital capacitor bank; the budget did not survive
 contact with reality. Dr. Malevola's solution: route satellite
 uplink charge through the existing terrestrial amplifier.
 
-CHARGING SEQUENCE (when deadman or voice trigger fires):
+CHARGING SEQUENCE (when the deadman or a voice trigger fires):
 
   Phase 1 (CHARGING):
-    Capacitor must reach ≥ 100% and SUSTAIN that level.
-    Amplifier feedback couples lab capacitor → orbital uplink.
-    If the lab capacitor drops below 100% for any reason —
-    ray fire, vent, calibration draw, eco-mode re-engagement —
-    the uplink coupling fails and charging PAUSES until
-    capacitor recovers.
+    The orbital uplink spins up over several turns on its own
+    countdown. Drawing the satellite to readiness loads the shared
+    amplifier, which drives reactor stress UP each turn it charges —
+    the cost of the shared-amplifier architecture.
 
-  Phase 2 (ARMING):
-    Capacitor must climb to ≥ 130% and SUSTAIN for 2 turns.
-    This is the genesis-wave threshold. The exotic field
-    amplifier modulates the orbital signal toward firing
-    geometry. Drop below 130% during this phase → satellite
-    de-arms and reverts to CHARGING.
+  Phase 2 (ARMED):
+    A brief final window — the last chance to abort. When it expires,
+    the platform fires on its own.
 
-  Phase 3 (ARMED):
-    Voice authorization (Dr. Malevola) fires the platform.
-
-OPERATIONAL CAUTION:
-Any laboratory work that draws meaningfully on the capacitor
-— ray operations, diagnostic cycles, amplifier calibration —
-will delay genesis-wave readiness. This is a feature of the
-shared-amplifier architecture, not a malfunction. ALICE: schedule
-high-load lab work AROUND, not DURING, intended firing windows.
+OPERATIONAL NOTE:
+Charging cannot be starved out by keeping the lab busy — the uplink
+runs on its own clock. But anything that FREEZES the reactor (a
+safety trip) or JAMS the uplink (EW broadcast) pauses the countdown
+where it stands. Those are the levers that buy time.
 
   ┌────────────────────────────────────────────────────────────┐
   │ BASILISK ANNOTATION: This unit observes that the original  │
@@ -2282,13 +2235,11 @@ REQUIREMENTS FOR BROADCAST MODE
 ═══════════════════════════════════════════════════════════════════
 
 MINIMUM PARAMETERS:
-  □ Reactor output: ≥95%
-  □ Capacitor charge: ≥110%
-  □ Beam coherence: ≥0.95
-  □ Spatial coherence: ≥0.90
-  □ Profile integrity: ≥0.85
-  □ ARCHIMEDES: BROADCAST MODE active
-  □ Uplink: Frequency-matched to ray output
+  □ ARCHIMEDES: fully CHARGED and ARMED
+  □ Uplink: genesis-wave mode (not EW) — frequency-matched to the ray
+  □ Reactor: holding (a safety trip mid-charge stalls the sequence)
+  □ Target genome: selected and locked to the broadcast pattern
+  □ Voice authorization: Dr. Malevola (or an L5 override of same)
 
 COVERAGE: ARCHIMEDES footprint covers Western Europe.
 EFFECT: Genomic transformation of all organic life in target zone.
