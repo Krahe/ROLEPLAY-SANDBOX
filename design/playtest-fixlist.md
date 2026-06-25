@@ -12,7 +12,19 @@ Source tags: `[run3]` seen in the 18ea2969 transcript · `[player]` from the pla
 
 ---
 
-## ✅ DONE (built + verified, UNCOMMITTED on patch-30)
+## ▶▶ CURRENT STATUS (2026-06-25) — PLAYTEST-READY
+Build GREEN on `patch-30` (all pushed), 38/38 smoke. **Everything below from the audit (A1–A27) is shipped**, plus the act-flow + Act-3 winnability work:
+- **Act 2 → 3:** advances on a demo PERSON transformed OR the deadline (turn 9); Blythe escape → Dr. M *demands a substitute* (easy-out closed); ray-at-Dr.-M failsafe (suspicion 10).
+- **Act 3 winnable via 6 routes:** anti-sat missile · LAIR-redirect · `shutdown` (L5) · body-block (GM-determined, transformed-gated) · invasion (GM stop-flag → forced abort) · deadman-disarm prevention. All sim+smoke verified.
+- **Runbook refreshed (2026-06-25):** `.claude/commands/play-dino-lair.md` cut 247 → ~90 lines — current API (`ray.fire` two-lever, `TELEMARKETER_CALL` lifeline), defers to the live in-game command reference, no cut-API and no win-path spoilers.
+
+**REMAINING TO ACTUALLY PLAYTEST:** (1) connect the MCP to Claude Code — `claude mcp add dino-lair -- node "C:/CLAUDE OPUS KRAHE/dino-lair/dist/index.js"` with `ANTHROPIC_API_KEY` in env (`setup.js` only wires Claude *Desktop*); (2) open a **FRESH** Claude Code session in the repo (clean-room — NOT this dev session, which knows all the answers); (3) `npm run dashboard` to witness; (4) `/play-dino-lair`.
+
+**POST-PLAYTEST (optional/TBD):** difficulty calibration (only off clean data) · dashboard Phase A/B · P3 engine auto-win · invasion mechanical coupling · A19 root-clobber.
+
+---
+
+## ✅ DONE (built + verified — all committed/pushed on patch-30)
 - **Action-summary truncation** — `transcriptActionSummary` in `stateExporter.ts` (skips ═══ borders, ellipsizes); wired at the 4 `index.ts` summary sites. `[me]`
 - **Early-intermission desync** — shared `act1ObjectiveMet()` in `acts.ts`; `actContext.checkActOneToTwoTrigger` reads it instead of `hasFiredSuccessfully` (was firing Dr. M's exit after ONE shot). `[run3/me]`
 - *(Sapience non-sapient-objects change was made then REVERTED — see P4-1.)*
