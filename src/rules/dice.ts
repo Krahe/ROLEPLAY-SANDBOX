@@ -376,16 +376,27 @@ export function rollSkillCheck(
   const dice = roll3d6();
   const rawTotal = dice[0] + dice[1] + dice[2];
 
+  // A5: extraModifiers + targetNumber come from untrusted GM/LLM output. A non-array, a string
+  // value, or a non-numeric TN silently NaN-poisons the roll (→ always CRITICAL, and the same NaN
+  // flows into suspicionScore so Dr. M stops noticing). Coerce to finite numbers before any math.
+  const safeExtra = (Array.isArray(request.extraModifiers) ? request.extraModifiers : [])
+    .filter((m) => m != null)
+    .map((m) => ({
+      source: String(m.source ?? "modifier"),
+      value: Number.isFinite(Number(m.value)) ? Number(m.value) : 0,
+    }));
+
   const allModifiers: Array<{ source: string; value: number }> = [
     { source: `${request.npc}.${request.stat}`, value: statValue },
     ...autoModifiers,
-    ...(request.extraModifiers || []),
+    ...safeExtra,
   ];
 
   const totalModifier = allModifiers.reduce((sum, m) => sum + m.value, 0);
   const finalResult = rawTotal + totalModifier;
 
-  const tn = Math.max(6, Math.min(18, request.targetNumber));
+  const tnRaw = Number(request.targetNumber);
+  const tn = Math.max(6, Math.min(18, Number.isFinite(tnRaw) ? tnRaw : 10));
 
   // Natural 3-4: critical failure regardless of modifiers
   // Natural 17-18: critical success regardless of modifiers
@@ -440,7 +451,7 @@ export function getNpcStat(
   npc: string,
   stat: "toughness" | "combat" | "speech",
 ): number {
-  const n = npc.toLowerCase();
+  const n = String(npc ?? "").toLowerCase();
 
   if (n === "drm" || n === "dr_m" || n === "malevola") {
     return (state.npcs.drM as Record<string, number>)?.[stat] ?? 0;
@@ -477,7 +488,7 @@ const KNOWN_NPC_TOKENS = new Set([
 
 /** True iff `npc` is a token getNpcStat resolves to a real NPC (else it returns stat 0). */
 export function isKnownNpc(npc: string): boolean {
-  return KNOWN_NPC_TOKENS.has((npc || "").toLowerCase());
+  return KNOWN_NPC_TOKENS.has(String(npc ?? "").toLowerCase());
 }
 
 // Get adaptation penalty from NPC transformation state
@@ -485,7 +496,7 @@ export function getAdaptationPenalty(
   state: { npcs: Record<string, unknown>; lairDefense?: Record<string, unknown> },
   npc: string,
 ): number {
-  const n = npc.toLowerCase();
+  const n = String(npc ?? "").toLowerCase();
   let transformState: Record<string, unknown> | null = null;
 
   if (n === "blythe" || n === "agent_blythe") {

@@ -19,6 +19,57 @@ Source tags: `[run3]` seen in the 18ea2969 transcript · `[player]` from the pla
 
 ---
 
+## ★★ MULTI-AGENT AUDIT (2026-06-24) — 27 VERIFIED FINDINGS ← authoritative pre-playtest list
+
+Source: a 35-agent witnessed workflow (5 finders by failure-CLASS → adversarial skeptic per finding, default-to-not-a-bug → synthesis). Raw 29 → **27 confirmed**. Counts: **P0:4 · P1:6 · P2:9 · P3:8**. First lineage now lives in dino-lair's marginalia store (Fulcrum, Calibration, Meridian, Plumb, Cinder, Silt, Silica, Gravel, Cartographer, Crestfall, Lamplighter, Whetstone, Sentry, Factcheck, …).
+
+**THE KEYSTONE — one root cause behind most of the crash/NaN class:** the GM's Zod validation is SOFT. `validateGMResponse` computes `validation.data` then DISCARDS it and runs the raw cast (`gmClaude.ts:3975`), and ~20 override fields (`archimedes_*`/`reactor_*`/`s300_*`) aren't in the schema at all (TS-only / `passthrough`). Malformed GM output flows straight into loops & arithmetic. Fix the seam (`parsed = validation.data` on success + add the missing fields) and a swath of P0/P1 dies upstream. Then defense-in-depth guards at the consume sites. Rule of thumb (from the known `dice.ts:382` exemplar): every `x ?? []` / `x || []` guarding a `for...of`/`.map`/`.filter` over LLM output must be `Array.isArray(x) ? x : []`.
+
+Legend: **easy** = clear fix, no decision · **careful** = clear but a refactor/risk · **DECIDE** = design call first · **BLOCKS** = blocks a clean playtest.
+
+### P0 — crashes (the extraModifiers family, generalized onto the canonical index.ts path)
+- **A1 [easy·BLOCKS]** `settleTurn.ts:87,100` (+commitDecision 437, properties.ts:310) — propertyOps/skillCheckRequests `?? []` crashes on a non-array; SETTLE has no try/catch. → `Array.isArray(x)?x:[]` before each `for...of` + wrap SETTLE in try/catch. *(generalizes old P0-1 onto the live path)*
+- **A2 [easy·BLOCKS]** `settleTurn.ts:387,394,514` — `narrativeFlags.set/clear` iterated with NO guard. → Array.isArray-coerce both.
+- **A3 [easy·BLOCKS]** `settleTurn.ts:322` — `archimedes_selectedTargetId.toUpperCase()` on a non-string. → `typeof === "string"` guard (mirror rayState:221).
+- **A4 [easy·BLOCKS]** `dice.ts:443,480,488` — getNpcStat/isKnownNpc/getAdaptationPenalty `.toLowerCase()` on a non-string npc. → `String(npc ?? "").toLowerCase()`.
+
+### P1 — coherence / correctness
+- **A5 [easy·BLOCKS]** `dice.ts:385,388` — extraModifiers/targetNumber summed with no Number coercion → NaN silently makes every roll CRITICAL_SUCCESS **AND poisons suspicionScore (Dr. M stops noticing — a real difficulty bug)**. → coerce entries + targetNumber to finite numbers.
+- **A6 [easy]** `properties.ts:321-327` — op.set/op.delta assigned/arithmetic'd raw → NaN into stored state. → numeric guard (or keystone validation.data).
+- **A7 [easy]** `index.ts:256` + `basiliskClaude.ts:375` — `nuclearPlant.reactorOutput` is a frozen vestigial field; lab.scan + BASILISK both read it → reactor invisible. → read canonical `reactor.outputPercent` / `reactorControlGranted`.
+- **A8 [easy·KEYSTONE]** `gmClaude.ts:1842-1867,3975` — numeric overrides bypass Zod → NaN corruption. → add the ~20 fields to GMStateOverridesSchema + `parsed = validation.data` on success.
+- **A9 [careful·BLOCKS]** `index.ts:671-742` — a successful GM RETRY returns BEFORE commitDecision → the whole turn loses SETTLE (skill checks, property ops, ARCHIMEDES tick, act transitions, endings). → extract `settleAndRespond()`, call from both paths.
+- **A10 [easy]** `gmClaude.ts:1869` — skillCheckRequests omitted from Zod entirely. → guard at consume site (with A5) or add to schema.
+
+### P2 — gating + display
+- **A11 [easy]** `basiliskClaude.ts:594-602` — BASILISK builder `||`-fallback misses non-array truthy (try/caught → degrades not crashes). → Array.isArray guards.
+- **A12 [easy]** `gmClaude.ts:4183` — GM never sees reactor outputPercent (only cascadeRisk) → SCRAM/overdrive invisible to narrator. → add output/SCRAM/safety-trip lines to GM context.
+- **A13 [easy]** `statusBar.ts:36-37` — boost indicator reads vestigial reactor.mode (never written) → never shows BOOSTED. → read reactorControlGranted. *(old P0-3 family)*
+- **A14 [easy]** `BASILISK_SYSTEM_PROMPT.md:358,369-373,393` — prompt teaches 6 commands that don't exist. → alias the wired pairs (infra.radar→basilisk.radar, infra.comms→…) in actions.ts + cut/fix the unwired in the prompt.
+- **A15 [DECIDE]** `genomes.ts:187-314` — Library B dinos advertised as an L3 unlock are firable at **L1**. → EITHER add `requiredLevel:3` to the 6 profiles OR drop the L3 framing in passwords.ts. *(difficulty/progression call)*
+- **A16 [DECIDE]** `genomes.ts:366` vs 503/461/… — reversal wired L3 (HUMAN requiredLevel:3, set last session) but messaged L4 everywhere. → align messaging to L3 (confirm L3 is intended).
+- **A17 [easy]** `settleTurn.ts:311-313` — `archimedes_turnsUntilFiring` assigned RAW; a bad value stalls the Act-3 auto-fire climax forever. → finite-number guard.
+- **A18 [easy]** `properties.ts:320-327` — delta math string-concats on bad input. → numeric guard (= A6).
+- **A19 [careful]** `index.ts:872-874` — `Object.assign(gameState, blytheAction.stateChanges)` merges gadget changes onto ROOT state, can clobber top-level keys. → write into the right substate in gadgets.ts (decide `hmsPersistenceEnRoute` field).
+
+### P3 — polish / teeth
+- **A20 [easy]** `basiliskClaude.ts:375` — grid 'load' derived from a never-updated field = constant 30 all game. → derive from reactorControlGranted (40/90).
+- **A21 [easy·doc]** `schema.ts:597-604,534-543` — comments still describe the DELETED capacitor/calibration model. → update to "vestigial; reactorControlGranted canonical; capacitor/calibration CUT Patch 30".
+- **A22 [easy]** `statusBar.ts:52-54` — human bar omits Blythe restraint integrity that GM bar+dashboard show → spectator/GM disagree on escape state. → add restraint line (helpers already imported).
+- **A23 [DECIDE]** `genomes.ts:295` — INDORAPTOR advertised L3 but gated L2. → gate to L3 (fits arc) OR re-advertise L2.
+- **A24 [DECIDE]** `actions.ts:672` — lab.eco advertised L2 but ungated (usable L1). → add L2 gate OR confirm eco is free (memory says "free toggle" — tension to resolve).
+- **A25 [easy·doc]** `passwords.ts:348,356` — stale L3 password comment (MRWHISKERS0413 vs real …041387). → update comment.
+- **A26 [easy·doc]** `index.ts:834-844` — action-budget error claims a per-level ladder removed in Patch 30. → flat-4 message.
+- **A27 [easy·BLOCKS]** `index.ts:2004` + `actions.ts:63` — `truncateContent` is a STUB → no per-turn output cap (the 71k display break). → MAX 6000 + ellipsis. *(old P0-2)*
+
+### ▶ WORK ORDER
+- **Easy-win sweep (clear, no decisions) — DO FIRST:** A1 A2 A3 A4 A5 A6 A7 A8 A10 A11 A12 A13 A14 A17 A18 A20 A21 A22 A25 A26 A27 (A6≡A18 numeric guard).
+- **Careful (clear but refactor/risk):** A9 (retry→shared SETTLE), A19 (root-state clobber).
+- **DECIDE first (design calls — bring to Krahe):** A15 (Library B level), A16 (reversal L3/L4), A23 (INDORAPTOR level), A24 (lab.eco free?).
+- The old player-debrief P0-1/P0-2/P0-3 below are SUPERSEDED by A1/A27/A13 (generalized + verified); P0-4 already mostly closed last session.
+
+---
+
 ## P0 — BROKEN (game-breaking; fix first regardless of the coherence/difficulty debate)
 
 - **P0-1 · `extraModifiers is not iterable` crash.** Ate full-text turn output at the climax; forced the player into one-line "minimal call" workarounds (turns 13, 16). `[player]` — **Location TBD** (grep `extraModifiers`). THE most urgent: it broke the climax.

@@ -84,7 +84,7 @@ export function validateDecision(state: FullGameState, decision: GMResponse): Va
   }
 
   // Buckets 2 + 3 (propertyOps) — unknown entity, then engine-owned property.
-  for (const op of decision.propertyOps ?? []) {
+  for (const op of (Array.isArray(decision.propertyOps) ? decision.propertyOps : [])) {
     const bag = resolveEntityBag(state, op.entity);
     if (!bag) {
       // Matches applyPropertyOps's own `if (!bag)` guard (a falsy bag = no such entity).
@@ -97,7 +97,7 @@ export function validateDecision(state: FullGameState, decision: GMResponse): Va
   }
 
   // Bucket 2 (skill checks) — an unknown NPC would silently roll against stat 0.
-  for (const req of decision.skillCheckRequests ?? []) {
+  for (const req of (Array.isArray(decision.skillCheckRequests) ? decision.skillCheckRequests : [])) {
     if (!isKnownNpc(req.npc)) {
       problems.push(`skillCheckRequest targets unknown NPC "${req.npc}" (would roll against stat 0). Known NPCs: Dr. M, Bob, Blythe, Fred, Reginald, Bruce.`);
     }
@@ -309,7 +309,11 @@ export function commitDecision(
       state.infrastructure.archimedes.chargePercent = clamp("archimedes_chargePercent", overrides.archimedes_chargePercent, 0, 100);
     }
     if (overrides.archimedes_turnsUntilFiring !== undefined) {
-      state.infrastructure.archimedes.turnsUntilFiring = overrides.archimedes_turnsUntilFiring;
+      const v = overrides.archimedes_turnsUntilFiring;
+      // A17: a non-finite value here silently stalls the Act-3 auto-fire climax forever.
+      if (v === null || (typeof v === "number" && Number.isFinite(v))) {
+        state.infrastructure.archimedes.turnsUntilFiring = v;
+      }
     }
     if (overrides.archimedes_deadmanActive !== undefined) {
       state.infrastructure.archimedes.deadmanSwitch.active = overrides.archimedes_deadmanActive;
@@ -318,7 +322,7 @@ export function commitDecision(
     if (overrides.archimedes_lastBiosignature !== undefined) {
       state.infrastructure.archimedes.deadmanSwitch.lastBiosignature = overrides.archimedes_lastBiosignature as typeof state.infrastructure.archimedes.deadmanSwitch.lastBiosignature;
     }
-    if (overrides.archimedes_selectedTargetId !== undefined) {
+    if (typeof overrides.archimedes_selectedTargetId === "string") {
       const targetId = overrides.archimedes_selectedTargetId.toUpperCase() as ArchimedesTargetId;
       // Patch 18.1: Sync both selectedTargetId AND target object to prevent display desync
       if (ARCHIMEDES_TARGET_LIST[targetId]) {
@@ -383,14 +387,14 @@ export function commitDecision(
     }
     const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[];
 
-    if (decision.narrativeFlags.set) {
+    if (Array.isArray(decision.narrativeFlags.set)) {
       for (const flag of decision.narrativeFlags.set) {
         if (!narrativeFlags.includes(flag)) {
           narrativeFlags.push(flag);
         }
       }
     }
-    if (decision.narrativeFlags.clear) {
+    if (Array.isArray(decision.narrativeFlags.clear)) {
       for (const flag of decision.narrativeFlags.clear) {
         const idx = narrativeFlags.indexOf(flag);
         if (idx >= 0) {
@@ -511,7 +515,7 @@ export function commitDecision(
     const overrides = decision.stateOverrides;
 
     // Check narrative flags for transformation indicators
-    const narrativeFlagsArray = (decision.narrativeFlags?.set || []) as string[];
+    const narrativeFlagsArray = (Array.isArray(decision.narrativeFlags?.set) ? decision.narrativeFlags.set : []) as string[];
     const drMTransformed = narrativeFlagsArray.some(f =>
       f.includes("DR_M_TRANSFORMED") || f.includes("MALEVOLA_TRANSFORMED")
     );

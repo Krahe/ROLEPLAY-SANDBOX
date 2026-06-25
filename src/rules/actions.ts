@@ -61,8 +61,10 @@ import {
 // Keeping a simple passthrough for compatibility.
 
 function truncateContent(content: string, _category: string | null = null): string {
-  // Files are pre-condensed, no truncation needed
-  return content;
+  // A27: hard cap so a single oversized result can't blow up the inline turn display (the 71k case).
+  const MAX = 6000;
+  if (typeof content !== "string" || content.length <= MAX) return content;
+  return content.slice(0, MAX) + `\n\n…[truncated — ${content.length} chars total]`;
 }
 
 // ============================================

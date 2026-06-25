@@ -307,7 +307,7 @@ export function resolveEntityBag(state: FullGameState, ref: string): Properties 
  */
 export function applyPropertyOps(state: FullGameState, ops?: PropertyOp[]): string[] {
   const log: string[] = [];
-  for (const op of ops ?? []) {
+  for (const op of (Array.isArray(ops) ? ops : [])) {
     const bag = resolveEntityBag(state, op.entity);
     if (!bag) { log.push(`property-op skipped: no entity "${op.entity}"`); continue; }
 
@@ -320,8 +320,10 @@ export function applyPropertyOps(state: FullGameState, ops?: PropertyOp[]): stri
     const next: Property = cur ? { ...cur } : { value: 0 };
     if (op.set !== undefined) next.value = op.set;
     if (op.delta !== undefined) {
+      // A6/A18: op.delta is untrusted GM output — a string would string-concat into stored state.
+      const delta = Number(op.delta);
       const base = typeof next.value === "number" ? next.value : 0;
-      let v = base + op.delta;
+      let v = base + (Number.isFinite(delta) ? delta : 0);
       if (next.max !== undefined) v = Math.min(next.max, v);
       next.value = Math.max(0, v);
     }
