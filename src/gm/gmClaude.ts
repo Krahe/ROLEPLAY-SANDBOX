@@ -1669,6 +1669,7 @@ export interface GMResponse {
     archimedes_deadmanActive?: boolean;
     archimedes_lastBiosignature?: string;  // "NORMAL" | "ANOMALY" | "TRANSFORMED" | "UNCONSCIOUS" | "ABSENT"
     archimedes_selectedTargetId?: string;  // "LONDON" | "REYKJAVIK" | "TOKYO" | "SILICON_VALLEY" | "LAIR"
+    uplinkBlocker?: string;  // GM names a TRANSFORMED character to body-block the uplink dish (city-saving sacrifice); engine rejects a non-transformed name. "NONE" clears.
 
     // WEAPONS AUTHORIZATION - Dr. M grants temporary L4 access
     weaponsAuthorizationGranted?: boolean;  // Allows ALICE to switch ARCHIMEDES targets
@@ -1882,6 +1883,7 @@ const GMStateOverridesSchema = z.object({
   archimedes_deadmanActive: z.boolean().optional(),
   archimedes_lastBiosignature: z.string().optional(),
   archimedes_selectedTargetId: z.string().optional(),
+  uplinkBlocker: z.string().optional(),
   weaponsAuthorizationGranted: z.boolean().optional(),
   // Reactor
   reactor_outputPercent: z.coerce.number().optional(),
@@ -2600,6 +2602,7 @@ You have FULL authority over all game systems. Additional overrides available:
 - \`"archimedes_deadmanActive": false\` - Toggle deadman switch
 - \`"archimedes_lastBiosignature": "TRANSFORMED"\` - Set Dr. M's biosignature
 - \`"archimedes_selectedTargetId": "LAIR"\` - Set target: LONDON/REYKJAVIK/TOKYO/SILICON_VALLEY/LAIR
+- \`"uplinkBlocker": "BLYTHE"\` - A character body-blocks the uplink dish (the "secret third way" — YOUR call when someone makes the leap). REQUIRES a TRANSFORMED subject: dino biology saturates the genesis-wave and the city is saved (a noble sacrifice). The engine REJECTS a non-transformed name (a human would only cascade). Use "NONE" to clear.
 
 **Weapons Authorization:**
 - \`"weaponsAuthorizationGranted": true\` - Dr. M grants temporary L4 access to ALICE for ARCHIMEDES targeting

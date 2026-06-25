@@ -25,7 +25,7 @@ import { type FullGameState, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } f
 import { setRestraints, applyPropertyOps, resolveEntityBag } from "./properties.js";
 import { profileToFormName } from "../rules/transformation.js";
 import { rollSkillCheck, getNpcStat, getAdaptationPenalty, isKnownNpc, type SkillCheckResult } from "../rules/dice.js";
-import { processArchimedesCountdown, onDrMStateChange, attemptOverrideAbort, type ArchimedesEvent } from "../rules/archimedes.js";
+import { processArchimedesCountdown, onDrMStateChange, attemptOverrideAbort, setUplinkBlocker, type ArchimedesEvent } from "../rules/archimedes.js";
 import { resolveGMEnding } from "../rules/endings.js";
 import type { GMResponse } from "../gm/gmClaude.js";
 import type { ActionResult } from "../rules/actions.js";
@@ -377,6 +377,32 @@ export function commitDecision(
     }
     if (overrides.s300_mode !== undefined) {
       state.infrastructure.s300.mode = overrides.s300_mode as typeof state.infrastructure.s300.mode;
+    }
+
+    // Path 5 — UPLINK BODY-BLOCK (GM-determined; Krahe 2026-06-25). The GM names who throws themselves
+    // at the ARCHIMEDES dish. It REQUIRES a TRANSFORMED subject — dino biology saturates the genesis-wave
+    // and the city is saved; a human can't safely block, so a non-transformed name is REJECTED. Set
+    // uplinkBlocker to "" / "NONE" to clear.
+    if (typeof overrides.uplinkBlocker === "string") {
+      const who = overrides.uplinkBlocker.trim();
+      if (!who || /^(NONE|CLEAR|NULL)$/i.test(who)) {
+        state.infrastructure.archimedes.uplinkBlocker = null;
+        state.infrastructure.archimedes.uplinkBlockerTransformed = false;
+      } else {
+        const W = who.toUpperCase();
+        const isDino = (form?: string) => (form ?? "HUMAN") !== "HUMAN";
+        const ld = state.lairDefense as Record<string, { transformationState?: { form?: string } }> | undefined;
+        let transformed = false;
+        if (/BLYTHE/.test(W)) transformed = isDino(state.npcs.blythe.transformationState?.form);
+        else if (/BOB/.test(W)) transformed = isDino(state.npcs.bob.transformationState?.form);
+        else if (/FRED/.test(W)) transformed = isDino(ld?.fred?.transformationState?.form);
+        else if (/REGINALD/.test(W)) transformed = isDino(ld?.reginald?.transformationState?.form);
+        if (transformed) {
+          setUplinkBlocker(state, who, true);
+        } else {
+          console.error(`[GM OVERRIDE] uplinkBlocker "${who}" REJECTED — body-blocking the uplink requires a TRANSFORMED subject (a human would only cascade).`);
+        }
+      }
     }
   }
 
