@@ -546,6 +546,16 @@ Example:
       };
     }
 
+    // ── Profile access gate — special/dangerous templates are clearance-locked
+    //    (INDORAPTOR L2, HUMAN reversal L3, INDOMINUS_REX L4). ──
+    if ((profile.requiredLevel || 1) > state.accessLevel) {
+      return {
+        command: action.command,
+        success: false,
+        message: `Genome "${profile.displayName}" requires access level ${profile.requiredLevel}. Current clearance: L${state.accessLevel}.`,
+      };
+    }
+
     // ── Resolve the power dial (1–5). Default to the current dial, else 1. ──
     let power: number;
     if (params.power !== undefined) {
@@ -566,7 +576,7 @@ Example:
     state.dinoRay.targeting.currentTargetIds = targets;
     state.dinoRay.genome.selectedProfile = profileName;
     state.dinoRay.genome.activeLibrary = profile.library; // library follows the genome
-    state.dinoRay.genome.firingMode = "TRANSFORM";        // REVERSAL deferred (D1)
+    state.dinoRay.genome.firingMode = profile.id === "HUMAN" ? "REVERSAL" : "TRANSFORM"; // HUMAN template routes to reversal
     state.dinoRay.power = power;
 
     // Resolve via the two-lever firing pipeline.

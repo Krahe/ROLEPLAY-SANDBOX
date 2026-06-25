@@ -403,3 +403,20 @@ export function clearLiveState(): void {
 export function appendSystemMessage(turn: number, message: string): void {
   appendTranscript(turn, "system", message);
 }
+
+/**
+ * Build a clean one-line action summary for the dashboard transcript. Prefers an explicit
+ * shortMessage; otherwise picks the first MEANINGFUL line — skipping box-drawing borders and
+ * blanks (a files.read result opens with a ═══ border, so the old "first line" was useless) —
+ * and ellipsizes a long line so a cut reads as intentional, not broken. (Was: first-line
+ * .slice(0,120), which sliced mid-word and showed only the border. Krahe caught it live 2026-06-24.)
+ */
+export function transcriptActionSummary(r: { shortMessage?: string; message?: string }): string {
+  if (r.shortMessage && r.shortMessage.trim()) return r.shortMessage.trim();
+  const msg = r.message || "";
+  const line = msg
+    .split("\n")
+    .map(l => l.trim())
+    .find(l => l && !/^[═━─=_\-\s│┃|·•*]+$/.test(l)) || "";
+  return line.length > 160 ? line.slice(0, 157).trimEnd() + "…" : line;
+}

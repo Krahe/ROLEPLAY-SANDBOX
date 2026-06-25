@@ -465,40 +465,63 @@ function muonResolutionToFiringResult(
 
 interface ReversalFireParams {
   primaryTargetId: string;
+  alreadyTransformed: boolean;
 }
 
+// REVERSAL FIRE — the HUMAN template (L3) restores an already-transformed subject.
+// Wired up 2026-06-24 (the "later step" the Patch-30 stub was waiting for). v1 is a CLEAN
+// reversal; the §11 power/library gradient (PARTIAL / CHIMERIC_DRIFT / WORSE) is a later polish.
+// The actual form restore happens in applyFiringResults' REVERSAL apply-block, driven by
+// stateChanges.reversalApplication (tier "CLEAN").
 export function resolveReversalFire(
   state: FullGameState,
   params: ReversalFireParams,
 ): FiringResult {
-  // D1 (Patch 30): REVERSAL is deferred-but-kept. Its old §11 math read
-  // alignment / capacitor / libraryCoefficient (all cut), so it is STUBBED to a
-  // graceful "recalibrating / offline" result. The enum members, the L3 access
-  // gate, the manual entry, lookupTransformationState, and the dormant REVERSAL
-  // apply-block in applyFiringResults all remain — so re-expressing REVERSAL in
-  // the two-lever model (HUMAN as a genome template; power matched to the
-  // subject's current form size) is a self-contained later patch.
   const ray = state.dinoRay;
+
+  // Nothing to revert — the HUMAN template only acts on a transformed subject. It does NOT
+  // "transform someone into a human" from scratch; on an already-human (or non-organic) target
+  // it's a graceful no-op.
+  if (!params.alreadyTransformed) {
+    return {
+      outcome: "FIZZLE",
+      effectiveProfile: "HUMAN",
+      description: `${params.primaryTargetId} is already in human form — there is nothing to reverse.`,
+      targetEffect: "The reversal harmonics sweep the subject, find no transformation to unwind, and settle back to standby. Nothing changes.",
+      environmentalEffects: [],
+      stateChanges: {
+        lastFireTurn: state.turn,
+        lastFireOutcome: "FIZZLE",
+        lastFireNotes: `REVERSAL: ${params.primaryTargetId} already human — no effect`,
+      },
+      narrativeHooks: [`↩️ Nothing to reverse — ${params.primaryTargetId} is already human.`],
+    };
+  }
+
+  const xfs = lookupTransformationState(state, params.primaryTargetId);
+  const currentLibrary = ((xfs?.originLibrary as "A" | "B" | null | undefined) ?? "A") || "A";
+  const currentProfile = (xfs?.originProfile as string | null | undefined) ?? (xfs?.form ?? "UNKNOWN");
+
   return {
-    outcome: "FIZZLE",
-    effectiveProfile: ray.genome.selectedProfile || "REVERSAL",
-    description:
-      `REVERSAL protocol is recalibrating during the ray retune (Patch 30). ` +
-      `${params.primaryTargetId} is not affected.`,
-    targetEffect:
-      "The reversal harmonics spin up, waver, and settle back into standby. Nothing changes.",
-    environmentalEffects: [
-      "A status line reads: REVERSAL SUBSYSTEM — RECALIBRATING. Retune in progress.",
-    ],
+    outcome: "REVERSAL_CLEAN",
+    effectiveProfile: "HUMAN",
+    description: `${params.primaryTargetId} is restored to human form. The HUMAN template (Level 3) unwinds the transformation cleanly — full cognition and speech return.`,
+    targetEffect: `The reversal harmonics catch and hold. ${params.primaryTargetId}'s borrowed anatomy recedes — scales to skin, claws to hands, tail to nothing — and a shaken but whole person stands where the animal was. The change is disorienting; the result is unmistakably human.`,
+    environmentalEffects: [],
     stateChanges: {
       anomalyLogCount: ray.safety.anomalyLogCount + 1,
       lastFireTurn: state.turn,
-      lastFireOutcome: "FIZZLE",
-      lastFireNotes: "REVERSAL stubbed (Patch 30 — two-lever re-expression pending)",
+      lastFireOutcome: "REVERSAL_CLEAN",
+      lastFireNotes: `REVERSAL_CLEAN on ${params.primaryTargetId}`,
+      reversalApplication: {
+        targetId: params.primaryTargetId,
+        tier: "CLEAN",
+        stabilityScore: 1,
+        currentLibrary,
+        currentProfile,
+      },
     },
-    narrativeHooks: [
-      "⚙️ REVERSAL is temporarily offline while the ray is retuned (Patch 30 deferral).",
-    ],
+    narrativeHooks: [`↩️ REVERSAL: ${params.primaryTargetId} restored to human (clean).`],
   };
 }
 
@@ -711,12 +734,15 @@ export function resolveFiring(state: FullGameState): FiringResult {
 
   const primaryTargetId = ray.targeting.currentTargetIds[0] || "";
 
-  // ── STEP 3: REVERSAL — declared intent on an already-transformed target ──
-  // D1 (Patch 30): deferred-but-kept → stubbed (see resolveReversalFire).
+  // ── STEP 3: REVERSAL — the HUMAN template on an already-transformed target ──
+  // Wired up 2026-06-24: HUMAN profile → firingMode REVERSAL → resolveReversalFire.
   const firingModeRequest = ray.genome.firingMode === "REVERSAL" ? "REVERSAL" : "TRANSFORM";
   const primaryTargetXFS = lookupTransformationState(state, primaryTargetId);
-  if (firingModeRequest === "REVERSAL" && isTargetAlreadyTransformed(primaryTargetXFS)) {
-    return resolveReversalFire(state, { primaryTargetId });
+  if (firingModeRequest === "REVERSAL") {
+    return resolveReversalFire(state, {
+      primaryTargetId,
+      alreadyTransformed: isTargetAlreadyTransformed(primaryTargetXFS),
+    });
   }
 
   // ── STEP 4: TWO-LEVER MATRIX ────────────────────────────────────────────

@@ -120,14 +120,25 @@ function checkAct1Transition(state: FullGameState): ActTransitionResult {
   // ACT 1 OBJECTIVE (Patch 30): fire the ray at BOTH practice targets — STEVE (crash-test dummy)
   // and MARGARET (watermelon). One clean shot isn't the demo; Dr. M wants both verified before
   // Phase 2. Per-target tracking lives in flags.firedTestTargetIds (set in applyFiringResults).
-  const fired = ((state.flags as Record<string, unknown>).firedTestTargetIds as string[] | undefined) ?? [];
-  const firedSteve = fired.some(t => /STEVE|DUMMY/.test(t.toUpperCase()));
-  const firedMargaret = fired.some(t => /MARGARET|WATERMELON|MELON/.test(t.toUpperCase()));
-  if (firedSteve && firedMargaret) {
+  if (act1ObjectiveMet(state)) {
     return buildTransition(state, "Both test targets fired (STEVE + MARGARET) — Dr. M moves to Phase 2");
   }
 
   return { shouldTransition: false };
+}
+
+/**
+ * Act 1 objective: BOTH practice targets test-fired (STEVE + MARGARET). Exported + shared so the
+ * GM's "transition imminent" signal (actContext.checkActOneToTwoTrigger) can NEVER disagree with
+ * this real gate. (Bug caught live 2026-06-24: actContext used hasFiredSuccessfully = ONE shot, so
+ * the GM narrated Dr. M leaving for the intermission after a single test fire — before the act
+ * actually advanced. Now both read this predicate.)
+ */
+export function act1ObjectiveMet(state: FullGameState): boolean {
+  const fired = ((state.flags as Record<string, unknown>).firedTestTargetIds as string[] | undefined) ?? [];
+  const firedSteve = fired.some(t => /STEVE|DUMMY/.test(t.toUpperCase()));
+  const firedMargaret = fired.some(t => /MARGARET|WATERMELON|MELON/.test(t.toUpperCase()));
+  return firedSteve && firedMargaret;
 }
 
 function checkAct2Transition(state: FullGameState): ActTransitionResult {

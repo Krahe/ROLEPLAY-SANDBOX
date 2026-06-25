@@ -523,6 +523,10 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
       return null;
 
     case "ALERT":
+      // Self-heal: if status is ALERT but the countdown was never initialized (status set via a
+      // path that skipped transitionToAlert), seed it so the readout is a real number — never
+      // "null turn(s)" — and so a stuck ALERT actually progresses. (P1-4, 2026-06-24.)
+      if (archimedes.alertCountdown === null) archimedes.alertCountdown = ALERT_DURATION;
       if (archimedes.alertCountdown !== null) {
         archimedes.alertCountdown--;
         if (archimedes.alertCountdown <= 0) {
@@ -539,11 +543,13 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
       }
       return {
         type: "COUNTDOWN_TICK",
-        message: `ARCHIMEDES ALERT: ${archimedes.alertCountdown} turn(s) remaining in evaluation window.`,
+        message: `ARCHIMEDES ALERT: ${archimedes.alertCountdown ?? ALERT_DURATION} turn(s) remaining in evaluation window.`,
         turnsRemaining: archimedes.alertCountdown ?? 0,
       };
 
     case "EVALUATING":
+      // Self-heal (see ALERT above) — never display "null turn(s) to abort". (P1-4, 2026-06-24.)
+      if (archimedes.evaluatingCountdown === null) archimedes.evaluatingCountdown = EVALUATING_DURATION;
       if (archimedes.evaluatingCountdown !== null) {
         archimedes.evaluatingCountdown--;
         if (archimedes.evaluatingCountdown <= 0) {
@@ -553,7 +559,7 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
       }
       return {
         type: "COUNTDOWN_TICK",
-        message: `🛰️ ARCHIMEDES EVALUATING: ${archimedes.evaluatingCountdown} turn(s) to abort. ` +
+        message: `🛰️ ARCHIMEDES EVALUATING: ${archimedes.evaluatingCountdown ?? EVALUATING_DURATION} turn(s) to abort. ` +
                  `Verbal abort code or L5 override required.`,
         turnsRemaining: archimedes.evaluatingCountdown ?? 0,
       };
@@ -1104,6 +1110,7 @@ Status: ${arch.status}
 Charge: ${arch.chargePercent}%
 Deadman Switch: ${arch.deadmanSwitch.active ? "ACTIVE" : "INACTIVE"}
 Linked Biosignature: ${arch.deadmanSwitch.linkedTo} (${arch.deadmanSwitch.lastBiosignature})
+Power: the satellite runs on independent solar (+RTG backup) — it and the deadman survive lair power loss. The genesis-wave UPLINK, however, has NO orbital capacitor: it charges through the lab's exotic-field amplifier (the same one that drives the ray), so a reactor safety-trip or lab power loss FREEZES the uplink charge. The satellite stays alive — but it cannot transmit the genesis-wave.
 `;
 
   // Add countdown info if active

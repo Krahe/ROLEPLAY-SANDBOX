@@ -338,7 +338,36 @@ export const LIBRARY_B_PROFILES: GenomeProfile[] = [
 // ALL PROFILES
 // ============================================
 
-export const ALL_PROFILES: GenomeProfile[] = [...LIBRARY_A_PROFILES, ...LIBRARY_B_PROFILES];
+// ============================================
+// SPECIAL: REVERSAL TEMPLATE (hidden, L3)
+// ============================================
+// Not a dinosaur — the HUMAN template restores an already-transformed subject to human form.
+// Fired through ray.fire like any profile, but routes to the REVERSAL firing mode (see
+// firing.ts resolveReversalFire). Dr. M considers reversal "admitting defeat," so it's L3-gated
+// and deliberately kept OUT of the public manual — discoverable, not advertised. (Spec'd long
+// ago; the firing rails existed but firingMode was pinned to TRANSFORM — wired up 2026-06-24.)
+export const SPECIAL_PROFILES: GenomeProfile[] = [
+  {
+    id: "HUMAN",
+    displayName: "Human (reversion template)",
+    library: "A",
+    size: "human",
+    sizeClass: "medium",
+    appearance: "Restores the subject's original human form — borrowed anatomy recedes, cognition and speech return.",
+    defaultSpeechRetention: "FULL",
+    allowedSpeechRetention: ["FULL"],
+    stabilityCoefficient: 1.0,
+    minCapacitor: 0,
+    maxCapacitor: 2,
+    integrity: 1.0,
+    libraryCoefficient: 1.0,
+    notes: "REVERSAL template. Fire at an already-transformed subject to restore human form. No effect on someone already human.",
+    drMOpinion: "Reversal is admitting defeat. Locked at Level 3 for a reason.",
+    requiredLevel: 3,
+  },
+];
+
+export const ALL_PROFILES: GenomeProfile[] = [...LIBRARY_A_PROFILES, ...LIBRARY_B_PROFILES, ...SPECIAL_PROFILES];
 
 // ============================================
 // HELPER FUNCTIONS

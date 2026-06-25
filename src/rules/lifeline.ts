@@ -74,7 +74,13 @@ function canUseTelemarketerCall(state: FullGameState): { allowed: boolean; reaso
   const narrativeFlags = (state.flags as Record<string, unknown>).narrativeFlags as string[] || [];
   const hasFlag = (flag: string) => narrativeFlags.some(f => f.toLowerCase().includes(flag.toLowerCase()));
 
-  if (hasFlag("XBRANCH") || hasFlag("X_BRANCH") || hasFlag("HELICOPTER")) {
+  // Block only during an ACTUAL military assault — tie to the real engine invasion state, not a
+  // loose flag substring. (Was: hasFlag("XBRANCH") substring-matched XBRANCH_AWARE /
+  // XBRANCH_EXTRACTION_REQUESTED — mere AWARENESS of X-Branch — so the "assault" block fired
+  // before any assault had begun. State-ahead-of-fiction. P1-5 fix 2026-06-24.)
+  const invasionPhase = state.invasion?.phase;
+  const invasionActive = !!invasionPhase && invasionPhase !== "NONE" && invasionPhase !== "RESOLVED";
+  if (invasionActive) {
     return { allowed: false, reason: "Dr. M is NOT picking up during a military assault!" };
   }
 

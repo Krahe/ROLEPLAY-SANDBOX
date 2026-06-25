@@ -95,6 +95,7 @@ import { formatActionSummary } from "./ui/actionSummary.js";
 import {
   exportLiveState,
   appendTranscriptBatch,
+  transcriptActionSummary,
   appendSystemMessage,
   clearTranscript,
   clearLiveState,
@@ -1385,8 +1386,8 @@ The consequences of that reckless high-power firing are now manifesting.
       actionResults.map(r => ({
         command: r.command,
         success: r.success,
-        // Surface the result so the dashboard shows what the action DID
-        summary: r.shortMessage || r.message?.split("\n")[0]?.slice(0, 120),
+        // Surface the result so the dashboard shows what the action DID (clean one-liner)
+        summary: transcriptActionSummary(r),
       })),
       // NEW in Patch 18.5: Include A.L.I.C.E.'s dialogue in transcript
       params.dialogue?.map(d => ({ to: d.to, message: d.message }))
@@ -1717,7 +1718,7 @@ The consequences of that reckless high-power firing are now manifesting.
               return {
                 command: r.command,
                 success: r.success,
-                summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
+                summary: transcriptActionSummary(r),
               };
             }),
 
@@ -1831,7 +1832,7 @@ The consequences of that reckless high-power firing are now manifesting.
               if (isInfoAction && r.success) {
                 return { command: r.command, success: r.success, message: r.message };
               }
-              return { command: r.command, success: r.success, summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80) };
+              return { command: r.command, success: r.success, summary: transcriptActionSummary(r) };
             }),
 
             // ═══════════════════════════════════════════════════
@@ -2014,7 +2015,7 @@ You can:
         return {
           command: r.command,
           success: r.success,
-          summary: r.shortMessage || r.message.split('\n')[0].slice(0, 80),
+          summary: transcriptActionSummary(r),
         };
       }),
       // NPC actions only (narrative/dialogue already shown above)

@@ -394,10 +394,10 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
       },
       archimedes: {
         status: state.infrastructure?.archimedes?.status || "STANDBY",
-        chargePercent: state.infrastructure?.archimedes?.chargePercent || 50,
+        chargePercent: state.infrastructure?.archimedes?.chargePercent ?? 50,
         target: state.infrastructure?.archimedes?.target?.city || "LONDON",
         deadmanSwitchActive: state.infrastructure?.archimedes?.deadmanSwitch?.isActive ?? true,
-        turnsUntilFiring: state.infrastructure?.archimedes?.turnsUntilFiring || null,
+        turnsUntilFiring: state.infrastructure?.archimedes?.turnsUntilFiring ?? null,
         detailedReport: state.accessLevel >= 3
           ? getArchimedesStatusReport(state, state.accessLevel)
           : "ACCESS_RESTRICTED - Level 3+ clearance required",

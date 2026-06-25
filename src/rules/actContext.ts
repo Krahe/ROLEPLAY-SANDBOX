@@ -1,4 +1,5 @@
 import { FullGameState, Act } from "../state/schema.js";
+import { act1ObjectiveMet } from "./acts.js";
 
 // ============================================
 // ACT-BASED CONTEXT INJECTION SYSTEM
@@ -22,17 +23,17 @@ export interface ActTransitionTrigger {
  * Trigger: Ray has been test-fired (demonstration readiness)
  */
 export function checkActOneToTwoTrigger(state: FullGameState): ActTransitionTrigger {
-  // Act 1 → 2 fires once the ray has been test-fired. The 0→1 calibration meter
-  // was cut (Patch 30); the Act 1 gate is now "the ray has been fired"
-  // (state.dinoRay.memory.hasFiredSuccessfully). This MUST match acts.ts
-  // checkAct1Transition (the real gate) so the GM's "transition imminent"
-  // context never disagrees with the act change.
-  if (state.dinoRay.memory.hasFiredSuccessfully) {
+  // Act 1 → 2 fires once BOTH practice targets are test-fired (STEVE + MARGARET). Reads the SAME
+  // predicate as the real gate (acts.ts act1ObjectiveMet) so the GM's "transition imminent" context
+  // can never disagree with the act change. (Was: hasFiredSuccessfully = ONE shot, which fired the
+  // GM's intermission narration — Dr. M leaving for the teleconference — after a single test shot,
+  // before Act 1 was actually complete. Krahe caught it live 2026-06-24.)
+  if (act1ObjectiveMet(state)) {
     return {
       occurred: true,
       turn: state.turn,
-      triggerType: "RAY_TEST_FIRED",
-      details: "Ray test-fired — demonstration readiness reached",
+      triggerType: "BOTH_TEST_TARGETS_FIRED",
+      details: "Both practice targets test-fired (STEVE + MARGARET) — Phase 2 readiness reached",
     };
   }
 
