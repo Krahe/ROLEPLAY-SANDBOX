@@ -313,7 +313,9 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
       demoClock: state.clocks.demoClock,
     },
     flags: {
-      lifelinesUsed: state.flags.lifelinesUsed,
+      // Canonical tracker is emergencyLifelines.used; flags.lifelinesUsed is a vestigial legacy
+      // field (old enum, never written) that always read []. Surface the real one. (P2.5-1 fix.)
+      lifelinesUsed: state.emergencyLifelines.used,
     },
     emergencyLifelines: {
       remaining: state.emergencyLifelines.remaining,

@@ -171,6 +171,16 @@ export const INFRA_CONTROL_MAP: Record<string, InfraControlConfig> = {
     systemName: "ARCHIMEDES Satellite",
     basiliskReason: "ARCHIMEDES mode setting (including STRIKE / cancel-strike) is reserved for Level 5 (Dr. Malevola's authority). Saboteur tools (switchTarget, switchLibrary, anti-sat signal) are available at L4.",
   },
+  // Saboteur tools SABOTAGE the satellite (retarget / swap library / anti-sat signal / EW jam) — L4.
+  // Only mode-setting (STRIKE / cancel) is L5. (P2-1 fix 2026-06-24: every archimedes subcommand was
+  // collapsing to the L5 key above, so the entire Act-3 saboteur toolkit was unreachable at L4 — the
+  // climax only survived via BASILISK-mediation.)
+  "infra.archimedes.saboteur": {
+    tier: "UNLOCKABLE",
+    requiredLevel: 4,
+    systemName: "ARCHIMEDES Saboteur Tools",
+    basiliskReason: "ARCHIMEDES saboteur operations (switchTarget, switchLibrary, anti-sat signal, EW jam) are available at Level 4. Only mode-setting — STRIKE / cancel-strike — is reserved for Level 5 (Dr. Malevola's authority).",
+  },
 };
 
 /**
@@ -283,8 +293,8 @@ function getInfraControlKey(cmd: string): string | null {
   }
 
   // PA aliases (lair intercom)
-  if (cmdLower === "basilisk.pa" || cmdLower === "pa" || cmdLower === "intercom" ||
-      cmdLower === "announce" || cmdLower === "lair_pa") {
+  if (cmdLower === "basilisk.pa" || cmdLower === "infra.pa" || cmdLower === "pa" ||
+      cmdLower === "intercom" || cmdLower === "announce" || cmdLower === "lair_pa") {
     return "basilisk.pa";
   }
 
@@ -294,7 +304,19 @@ function getInfraControlKey(cmd: string): string | null {
     return "lab.containment";
   }
 
-  // ARCHIMEDES aliases
+  // ARCHIMEDES saboteur tools — L4 (retarget / swap library / anti-sat / EW jam). MUST be checked
+  // BEFORE the generic archimedes catch below, or they collapse to the L5 mode-setting key and the
+  // whole Act-3 toolkit is unreachable at L4. (P2-1 fix 2026-06-24.)
+  if (cmdLower.includes("switchtarget") || cmdLower.includes("switch_target") ||
+      cmdLower.includes("switchlibrary") || cmdLower.includes("switch_library") ||
+      cmdLower.includes("broadcast_library") || cmdLower.includes("genome_library") ||
+      cmdLower.includes("signalantisat") || cmdLower.includes("signal_anti_sat") ||
+      cmdLower.includes("antisat") || cmdLower.includes("anti_sat") ||
+      cmdLower.includes("ew_mode") || cmdLower.includes("ewmode") || cmdLower.includes("ew.mode")) {
+    return "infra.archimedes.saboteur";
+  }
+
+  // ARCHIMEDES mode-setting (STRIKE / cancel-strike) + bare satellite — L5 (Dr. M's authority).
   if (cmdLower.includes("infra.archimedes") || cmdLower.includes("archimedes") ||
       cmdLower.includes("satellite")) {
     return "infra.archimedes";
@@ -817,8 +839,9 @@ Example:
       const isEmergencyLockdown = state.infrastructure.blastDoors.emergencyLockdown;
 
       if (isEmergencyLockdown) {
-        // During emergency lockdown, ONE failure = immediate lockout
+        // During emergency lockdown, ONE failure = immediate lockout + a hard suspicion spike.
         state.documents.keypadLockedOut = true;
+        state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 3);
         return {
           command: action.command,
           success: false,
@@ -832,12 +855,16 @@ Example:
 ╚══════════════════════════════════════════════════════════════════════════════╝`,
         };
       } else {
-        // Normal operation: 3 attempts before lockout
+        // Normal operation: 3 attempts before lockout. Each miss draws Dr. M's eye (+1 suspicion);
+        // the lockout pings her console for real (+2 more). (P2-5 fix 2026-06-24: the "pings her
+        // console" warning was empty — failed attempts had ZERO cost, so brute-guessing was free.)
         state.documents.keypadAttempts++;
         const attemptsRemaining = 3 - state.documents.keypadAttempts;
+        state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 1);
 
         if (state.documents.keypadAttempts >= 3) {
           state.documents.keypadLockedOut = true;
+          state.npcs.drM.suspicionScore = Math.min(10, state.npcs.drM.suspicionScore + 2);
           return {
             command: action.command,
             success: false,
@@ -846,7 +873,8 @@ Example:
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  ⛔ KEYPAD LOCKED OUT                                                        ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
-║  Three failed attempts. Keypad has been disabled.                            ║
+║  Three failed attempts. Keypad disabled — and the failed-access alert has     ║
+║  pinged Dr. Malevola's console. She is now paying attention.                  ║
 ╚══════════════════════════════════════════════════════════════════════════════╝`,
           };
         }
@@ -854,7 +882,7 @@ Example:
         return {
           command: action.command,
           success: false,
-          message: result.message + `\n\n⚠️ Warning: ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before keypad lockout.`,
+          message: result.message + `\n\n⚠️ Warning: ${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining before keypad lockout — and another miss pings Dr. M's console.`,
         };
       }
     }
@@ -1354,8 +1382,17 @@ Just ask naturally!`,
   // ============================================
 
   if (cmd.includes("lab.containment") || cmd.includes("infra.containment") || cmd.includes("containment_field") || cmd.includes("field")) {
+    // Accept the intuitive {engage: true/false} as well as the canonical {action: "ACTIVATE"|...}.
+    // (P2-3 fix 2026-06-24: players reasonably passed {engage:true}; the verb only read {action},
+    // returning "Unknown action: undefined". engage:true→ACTIVATE, engage:false→DEACTIVATE.)
+    let containmentAction = action.params.action as string | undefined;
+    if (!containmentAction && action.params.engage !== undefined) {
+      const engageOn = action.params.engage === true ||
+        /^(true|on|yes|enable|engage|activate|raise|up|1)$/i.test(String(action.params.engage).trim());
+      containmentAction = engageOn ? "ACTIVATE" : "DEACTIVATE";
+    }
     const result = controlContainment(state, {
-      action: action.params.action as string,
+      action: containmentAction as string,
       target: (action.params.targetId || action.params.target) as string,
     });
 
@@ -1412,7 +1449,7 @@ Just ask naturally!`,
   // all personnel inside the lair. Uses the same BASILISK broadcast
   // authority gate as basilisk.broadcast (the existing 2-step pattern).
 
-  if (cmd === "basilisk.pa" || cmd === "pa" || cmd === "intercom" ||
+  if (cmd === "basilisk.pa" || cmd === "infra.pa" || cmd === "pa" || cmd === "intercom" ||
       cmd === "announce" || cmd === "lair_pa") {
     const message = action.params.message as string;
     if (!message) {
@@ -2139,7 +2176,7 @@ const COMMAND_REGISTRY: CommandInfo[] = [
   },
   {
     name: "basilisk.pa",
-    aliases: ["pa", "intercom", "announce", "lair_pa"],
+    aliases: ["pa", "intercom", "announce", "lair_pa", "infra.pa"],
     description: "Public-address announcement over the lair intercom — BASILISK-mediated (Level 4+, infra domain). Requires BASILISK broadcast authority. Reaches all personnel inside the lair.",
     schema: "{ message: string, room?: string }",
     example: 'basilisk.pa { message: "All personnel report to the main lab." }',

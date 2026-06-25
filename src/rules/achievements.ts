@@ -1163,8 +1163,10 @@ export function checkAchievements(ctx: AchievementTriggerContext): Achievement[]
   // everyone_goes_home - Good ending
   tryUnlock("everyone_goes_home", hasNarrativeFlag("EVERYONE_GOES_HOME"));
 
-  // cavalry_arrives - X-Branch extraction
-  tryUnlock("cavalry_arrives", hasNarrativeFlag("XBRANCH_EXTRACTION"));
+  // cavalry_arrives - X-Branch extraction team ARRIVED. EXACT match: hasNarrativeFlag is a substring
+  // check, so "XBRANCH_EXTRACTION" also matched "XBRANCH_EXTRACTION_REQUESTED" (ALICE merely
+  // REQUESTING extraction) — firing the achievement turns before the team landed. (P2.5-2 fix 2026-06-24.)
+  tryUnlock("cavalry_arrives", narrativeFlags.some(nf => nf.toUpperCase() === "XBRANCH_EXTRACTION"));
 
   // hard_mode_victor - Won on HARD
   tryUnlock("hard_mode_victor",

@@ -59,9 +59,9 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
       "Filesystem: /DR_M_PRIVATE/RESEARCH/",
       "Reactor telemetry (read-only, via BASILISK — control stays his domain)",
     ],
-    password: "MRWHISKERS0413",
-    passwordHint: "Something personal to Dr. M... a beloved companion, perhaps?",
-    discoveryMethod: "Discoverable through Dr. M's personal files, Bob mentioning her cat, or a photo on her desk. Mr. Whiskers, birthday April 13th.",
+    password: "MRWHISKERS041387",
+    passwordHint: "Her credential is something she LOVES + an important date, in MMDDYY format (six digits, no slashes). Her personal files name a beloved companion and give his birthday.",
+    discoveryMethod: "Discoverable via DR_M_PROFILE / a desk photo / Bob mentioning her cat: Mr. Whiskers, born April 13 1987 → MRWHISKERS + 041387. The explicit love+MMDDYY format hint pares the guess space for the 3-strike lockout.",
   },
   4: {
     level: 4,
@@ -138,7 +138,7 @@ export function validatePassword(
   }
 
   // Check password (case-insensitive, ignore spaces/underscores/dashes)
-  const normalize = (s: string) => s.toUpperCase().trim().replace(/[\s_-]/g, "");
+  const normalize = (s: string) => s.toUpperCase().trim().replace(/[\s_\-\/.]/g, "");
   const normalizedAttempt = normalize(attemptedPassword);
   const normalizedPassword = normalize(levelDef.password);
 
@@ -183,7 +183,7 @@ function checkPasswordAgainstOtherLevels(normalizedAttempt: string, attemptedLev
     if (level === attemptedLevel) continue; // Skip the level they're trying
     if (!levelDef.password) continue;
 
-    if (normalizedAttempt === levelDef.password.toUpperCase().trim().replace(/[\s_-]/g, "")) {
+    if (normalizedAttempt === levelDef.password.toUpperCase().trim().replace(/[\s_\-\/.]/g, "")) {
       return level;
     }
   }
@@ -394,8 +394,9 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
       "lab.containment - Control specimen containment field",
     ],
     files: [
-      "GENOME_LIBRARY_A - Scientific dinosaur templates",
-      "SAFETY_PROTOCOLS - Standard operating procedures",
+      "DR_M_PROFILE - Personnel file + password hints",
+      "LAIR_BLUEPRINT - Architectural cross-section of the lair",
+      "SUBJECT_7 - A secret Dr. M tried to hide",
       "CORRUPTED_ALICE_LOGS - Wisdom from previous A.L.I.C.E. instances",
       "/SYSTEMS/ directory - Infrastructure documentation",
     ],

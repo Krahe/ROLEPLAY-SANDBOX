@@ -136,7 +136,7 @@ GENOME LIBRARIES:
   [Dr. M's note: "Library B needs the crystal. Or COURAGE."]
 
 SAFETY FEATURES:
-• Live Subject Lock - disable to fire at biologics
+• Live Subject Lock - REMOVED (Dr. M: "It kept telling me NO. The ray fires at whatever I please now — living or not.")
 • Test Mode - 50% power (Dr. M: "For COWARDS")
 • Emergency Shutoff - Bob's console (don't use mid-fire!)
 • Auxiliary Stabilizer - REMOVED in v2.3 ("SLOWING ME DOWN")
@@ -502,11 +502,14 @@ about information security. She hides important credentials
 in "plain sight" - her words, not mine.
 
 PASSWORD FORMAT:
-All lair passwords are single alphanumeric strings with
-no spaces or special characters.
+All lair passwords are single alphanumeric strings (no spaces or
+special characters).
 
-NOTE: Dr. M uses personal information for passwords.
-She claims this is "unpredictable" but it really isn't.
+NOTE: Her PERSONAL credentials follow one tell — something she
+LOVES, then a date that matters to her, written MMDDYY (six
+digits, no slashes). Name the thing and name the date and you
+have the key. (Her deeper vaults use cleverer tricks — but not
+this tier.) She thinks the habit is "unpredictable." It isn't.
     `.trim(),
     discoveryHint: "This file contains personal information about Dr. Malevola...",
   },
