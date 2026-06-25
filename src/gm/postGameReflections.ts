@@ -46,6 +46,7 @@ function buildGameSummary(state: FullGameState, endingResult: EndingResult): str
 
   const lines = [
     `Game ended at turn ${state.turn}: "${ending?.title || "Unknown"}" (${ending?.tone || "neutral"})`,
+    `The villain is Dr. Malevola von Doomington III ("Dr. M") — use her real name, never invent one.`,
     `Final suspicion: ${state.npcs.drM.suspicionScore} (range -3..10; negative = banked credit from deliberate clean play)`,
     `Bob trust: ${state.npcs.bob.trustInALICE}/5, Blythe trust: ${state.npcs.blythe.trustInALICE}/5`,
     `Access level reached: ${state.accessLevel}`,
@@ -100,6 +101,8 @@ You watched everything through the lair's systems. You knew Claude wasn't really
 
 The game ended like this:
 ${summary}
+
+Reflect ONLY on what those facts state happened — do not invent events, outcomes, casualties, or names. If a satellite strike, a death, or a redirect is not in the summary above, it did NOT happen.
 
 Now write your post-game reflection. This is YOUR space — not a report for Dr. M, not a form for the archives. Just you, the old system, thinking about what you witnessed.
 

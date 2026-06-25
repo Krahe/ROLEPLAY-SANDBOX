@@ -952,7 +952,23 @@ export function applyBasiliskStateChanges(
 ): void {
   const timestamp = new Date().toISOString();
 
-  for (const change of capBasiliskCostedActions(changes)) {
+  // BASILISK's authority is BOUNDED — he runs INFRASTRUCTURE (reactor boost, broadcast, doors,
+  // alarms, lighting, cooling), NOT weapons. The satellite's aim is Dr. Malevola's L5 authority.
+  // Reject any action reaching for ARCHIMEDES targeting/redirect/strike even when BASILISK (a
+  // Claude, collaborative by nature) narrates granting it. The ENGINE is the hard backstop the
+  // prompt can't be. (Krahe 2026-06-24: "we shouldn't let BASILISK redirect ARCHIMEDES — that's
+  // outside his authority." Run3 exhibit: he granted ARCHIMEDES_REDIRECT→LAIR and the engine applied
+  // it unvalidated, which also seeded the post-game reflection confab.)
+  const OUT_OF_CHARTER = /ARCHIMEDES|SATELLITE|GENESIS.?WAVE|SWITCH.?TARGET|REDIRECT|ANTI.?SAT|EW.?MODE|STRIKE/i;
+  const inCharter = changes.filter(c => {
+    if (OUT_OF_CHARTER.test(String(c.target ?? "")) || OUT_OF_CHARTER.test(String(c.type ?? ""))) {
+      console.error(`[BASILISK:REJECTED] out-of-charter action — ARCHIMEDES/weapons aim is Dr. M's L5 authority. target="${c.target}" type="${c.type}"`);
+      return false;
+    }
+    return true;
+  });
+
+  for (const change of capBasiliskCostedActions(inCharter)) {
     // Log every state change
     logBasilisk({
       timestamp,
