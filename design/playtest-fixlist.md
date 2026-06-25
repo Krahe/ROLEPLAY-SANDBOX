@@ -66,12 +66,13 @@ Legend: **easy** = clear fix, no decision · **careful** = clear but a refactor/
 - **✅ SHIPPED batch 1 (`ac1bde8`) — crash-class + output cap:** A1 A2 A3 A4 A5 A6 A17 A18 A27. 6/6 malformed-input sim + 38/38 smoke.
 - **✅ SHIPPED batch 2 (`35b1ced`) — display fidelity + docs:** A7 A11 A12 A13 A20 A21 A22 A25 A26. (A10 covered by A1/A4/A5 defense-in-depth.) 38/38 smoke.
 - **✅ SHIPPED A8 (KEYSTONE):** `GMStateOverridesSchema` now validates + coerces every override field (`z.coerce.number()` repairs the number-as-string case; ~20 archimedes_/reactor_/s300_/location/clock fields added) and the call site uses `validation.data` on success — the schema's output is no longer discarded every turn. Build + 38/38; runtime proof awaits a playtest (schema is module-internal).
-- **Remaining no-decision:** A14 (alias the 6 phantom BASILISK commands + prompt fix).
-- **Careful refactors (clear but risk):** A9 (retry→shared SETTLE), A19 (root-state clobber).
+- **✅ SHIPPED A14:** `infra.radar`/`infra.comms` dispatch-aliased to the wired `basilisk.*` handlers (2/2 sim — "access GRANTED", not "unknown command"); 3 genuinely-unwired phantoms (`lab.display`, `infra.alarms`, `infra.hvac`) cut from the BASILISK prompt tables.
+- **✅ SHIPPED A9:** the GM-failure-recovery (retry) branch now runs the REAL settle (`validateDecision` + `applyReactorStressDecay` + `commitDecision` via the shared settleTurn functions) instead of a hand-rolled 6-override subset — no more silent SETTLE loss on a recovery turn. Low blast radius (the `if (pendingRetry)` branch only). Residual: that branch still skips the normal per-turn tail (advanceActTurn/invasion/ending checks) — a later full `settleAndRespond` extraction.
+- **Remaining: A19** (root-state clobber on autonomous gadgets, edge-case — Krahe: can ride).
 - **DECISIONS (Krahe, 2026-06-24)** — philosophy: keep the genome library OPEN (dinos = the fun), gate the OPERATIONAL systems:
   - A15 → Library B **OPEN at L1** (drop the L3 ad framing) · A16 → reversal **stays L3** (fix L4 messaging) · A23 → INDORAPTOR **stays L2** (fix the L3 ad) · A24 → lab.eco **GATED to L2**.
   - **✅ SHIPPED A24:** lab.eco handler now requires L2 (was usable at L1). 2/2 sim. **✅ SHIPPED A16:** reversal messaging L4→L3 (BASILISK prompt L3 row + genomes.ts header). Build + 38/38.
-  - **Remaining:** A15 + A23 = passwords.ts `ACCESS_LEVEL_UNLOCK_DETAILS` advertising rework (do TOGETHER — Library B reads L1-available, INDORAPTOR reads L2; rework the L1/L2/L3 unlock blocks coherently). Note: `REVERSAL_PROTOCOLS` + `canAccessReversal` + `getReversalDeniedMessage` (genomes.ts ~457-518) still say L4 but appear **dead** (reversal is the HUMAN genome now) — optional cleanup.
+  - **✅ SHIPPED A15 + A23:** advertising reworked across ACCESS_LEVELS + ACCESS_LEVEL_UNLOCK_DETAILS + the L3 grant message — Library B reads OPEN from L1, INDORAPTOR advertised at L2, L3's genome unlock is now REVERSAL (the HUMAN genome). Note: `REVERSAL_PROTOCOLS`/`canAccessReversal`/`getReversalDeniedMessage` (genomes.ts ~457-518) still say L4 but appear **dead** (reversal is the HUMAN genome now) — optional cleanup.
 - The old player-debrief P0-1/P0-2/P0-3 below are SUPERSEDED by A1/A27/A13 (generalized + verified); P0-4 mostly closed last session.
 
 ---

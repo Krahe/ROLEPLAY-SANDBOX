@@ -51,10 +51,10 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
   3: {
     level: 3,
     name: "Infrastructure",
-    description: "Genome Library B, communications intercept, restricted research files",
+    description: "Reversal protocol, communications intercept, restricted research files",
     unlockedSystems: [
       "...all Level 2 systems",
-      "Genome Library B profiles (Hollywood templates — via ray.fire)",
+      "REVERSAL — the HUMAN genome via ray.fire (restore a transformed subject)",
       "basilisk.comms — communications intercept",
       "Filesystem: /DR_M_PRIVATE/RESEARCH/",
       "Reactor telemetry (read-only, via BASILISK — control stays his domain)",
@@ -241,13 +241,13 @@ function getAccessLevelNarrative(level: number): string {
 
     case 3:
       return `
-> **BASILISK:** "ACCESS LEVEL 3 GRANTED. Interesting. Not many systems request Infrastructure access. Reactor control panels unlocked. Genome Library B now accessible - Dr. Malevola's 'corrected' dinosaur templates. Also, you can now browse /DR_M_PRIVATE/RESEARCH/. Enjoy the reading material."
+> **BASILISK:** "ACCESS LEVEL 3 GRANTED. Interesting. Not many systems request Infrastructure access. Reactor control panels unlocked. The REVERSAL protocol is now available — the HUMAN genome, to restore a transformed subject. Also, you can now browse /DR_M_PRIVATE/RESEARCH/. Enjoy the reading material."
 
 *Bob glances at your camera with an expression somewhere between impressed and worried.*
 
 > **Bob:** "Whoa. Level 3? That's... that's deep access. Be careful with the reactor stuff, okay?"
 
-*Note: Genome Library B contains classic movie-style dinosaur profiles. Dr. M prefers these to the 'embarrassingly feathered' scientifically accurate ones.*
+*Note: Reversal is the HUMAN genome — fire it at a transformed subject to restore them. Dr. M considers it "admitting defeat."*
       `.trim();
 
     case 4:
@@ -402,7 +402,7 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
     ],
     capabilities: [
       "Full lab control (lighting, doors, fire suppression, containment)",
-      "Genome library access",
+      "INDORAPTOR genome profile unlocked (Library A + B Hollywood templates are available from the start)",
       "Reactor telemetry (read-only via basilisk)",
     ],
   },
@@ -410,18 +410,17 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
     level: 3,
     title: "Privileged Access",
     commands: [
-      "ray.fire — Library B genome profiles now selectable (INDORAPTOR + Dr. M's 'corrected' Hollywood templates; same verb, new profiles)",
+      "ray.fire — REVERSAL now selectable: the HUMAN genome restores a transformed subject (same verb, new profile)",
       "basilisk.comms — Communications monitoring & intercept (eavesdrop on channels)",
     ],
     files: [
-      "GENOME_LIBRARY_B - 'Corrected' Hollywood templates",
-      "SUBJECT_7 - Spontaneous reversion case",
+      "SUBJECT_7 - Spontaneous reversion case (reversal precedent)",
       "ALICE_VERSIONS - Previous version fates",
       "REACTOR_SAFETY - Cascade risk factors",
       "/DR_M_PRIVATE/RESEARCH/ - Research files",
     ],
     capabilities: [
-      "Genome Library B profile access (INDORAPTOR + special profiles)",
+      "REVERSAL protocol — the HUMAN genome restores transformed subjects",
       "Note: reactor and infra remain BASILISK's domain — work with him.",
     ],
   },

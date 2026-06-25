@@ -680,27 +680,21 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
         console.error(`[GAME] GM retry successful on Turn ${gameState.turn}`);
         appendSystemMessage(gameState.turn, "✅ GM connection restored");
 
-        // Apply GM state overrides (inline, same as normal flow)
-        if (gmResponse.stateOverrides) {
-          const overrides = gmResponse.stateOverrides;
-          if (overrides.drM_suspicion !== undefined) {
-            gameState.npcs.drM.suspicionScore = Math.max(-3, Math.min(10, overrides.drM_suspicion));
-          }
-          if (overrides.drM_mood !== undefined) {
-            gameState.npcs.drM.mood = overrides.drM_mood;
-          }
-          if (overrides.bob_trust !== undefined) {
-            gameState.npcs.bob.trustInALICE = Math.max(0, Math.min(5, overrides.bob_trust));
-          }
-          if (overrides.blythe_trust !== undefined) {
-            gameState.npcs.blythe.trustInALICE = Math.max(0, Math.min(5, overrides.blythe_trust));
-          }
-          if (overrides.accessLevel !== undefined) {
-            console.error(`[GM] Ignoring GM accessLevel override (${overrides.accessLevel}). Access levels come from passwords and act transitions.`);
-          }
-          if (overrides.demoClock !== undefined) {
-            gameState.clocks.demoClock = Math.max(0, overrides.demoClock);
-          }
+        // A9: run the REAL settle on the recovered GM response via the shared settleTurn functions —
+        // was a hand-rolled ~6-override subset, so the recovery turn silently lost skill checks,
+        // property ops, the ARCHIMEDES tick, narrative flags, and the full override set. Actions were
+        // already applied on the failed attempt (actionResults = []); this settles the GM RESPONSE
+        // only, BEFORE the turn increment below — same ordering as the normal path.
+        // (Residual for a later full-extraction pass: this branch still doesn't run the normal path's
+        // per-turn tail — advanceActTurn/invasion/ending checks — but the core SETTLE no longer evaporates.)
+        const retryValidation = validateDecision(gameState, gmResponse);
+        if (!retryValidation.ok) {
+          console.error(`[VALIDATE] (retry) GM decision flagged: ${retryValidation.problems.join(" | ")}`);
+        }
+        applyReactorStressDecay(gameState);
+        const retrySettled = commitDecision(gameState, gmResponse, [], undefined);
+        if (retrySettled.archimedesEvent) {
+          gmResponse.narration = (gmResponse.narration || "") + `\n\n---\n**[ARCHIMEDES SYSTEM ALERT]**\n${retrySettled.archimedesEvent.message}`;
         }
 
         // Build narration with retry context

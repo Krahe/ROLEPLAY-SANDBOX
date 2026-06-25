@@ -1136,7 +1136,7 @@ His knowledge is gated by your access level (currently: Level ${state.accessLeve
   // Radar reading is BASILISK-served (infra domain, outside the lab).
   // Reading: L4. Firing (infra.s300): L5 (Dr. M level).
 
-  if (cmd === "basilisk.radar" || cmd === "radar" || cmd.includes("check_radar") || cmd.includes("airspace")) {
+  if (cmd === "basilisk.radar" || cmd === "radar" || cmd === "infra.radar" || cmd.includes("check_radar") || cmd.includes("airspace")) {
     if (state.accessLevel < 4) {
       return {
         command: action.command,
@@ -1164,7 +1164,7 @@ The radar array sits outside the lab proper. BASILISK serves the feed at L4.`,
   // BASILISK.COMMS - Communications intercept (Level 3+)
   // ============================================
 
-  if (cmd === "basilisk.comms" || cmd === "comms" || cmd.includes("intercept") || cmd.includes("communications")) {
+  if (cmd === "basilisk.comms" || cmd === "comms" || cmd === "infra.comms" || cmd.includes("intercept") || cmd.includes("communications")) {
     if (state.accessLevel < 3) {
       return {
         command: action.command,

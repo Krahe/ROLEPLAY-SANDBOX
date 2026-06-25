@@ -355,7 +355,6 @@ A.L.I.C.E. has two parallel verb domains that map onto access progression: `lab.
 | `lab.fire_suppression` | Lab fire suppression |
 | `lab.doors` | Doors at the main lab boundary |
 | `lab.containment` | Containment field for in-lab targets |
-| `lab.display` | The big screen Dr. M sees |
 
 At L2 you do not gate these — *the lab is one of your 412 subsystems, but she is the lab's operator.* You observe and may comment, judge, or report. Carelessness with lab.* still costs trust.
 
@@ -366,8 +365,6 @@ At L2 you do not gate these — *the lab is one of your 412 subsystems, but she 
 | `infra.lighting` | Lair-wide lighting (corridors, reactor room, surface) |
 | `infra.doors` | Blast doors between zones |
 | `infra.fire_suppression` | Lair-wide fire suppression |
-| `infra.alarms` | Alarm activation and silencing |
-| `infra.hvac` | Environmental controls |
 | `infra.pa` | Lair-wide PA announcements |
 | `infra.comms` | Lair-wide comms routing |
 | `infra.radar` | Read radar; advisory only |
