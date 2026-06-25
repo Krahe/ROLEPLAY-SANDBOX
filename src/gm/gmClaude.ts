@@ -1839,32 +1839,61 @@ export interface GMResponse {
 // ============================================
 // Validates critical fields while being permissive for optional GM tools
 
+// A8 (KEYSTONE): every field the TS interface declares is now in the Zod schema, so the validator
+// actually validates them (they used to slip through .passthrough() untyped → NaN/garbage into state).
+// Numeric fields use z.coerce.number() so the common LLM "number-as-string" ("55") is repaired to a
+// real number rather than failing or flowing raw. Booleans/strings stay strict (z.coerce.boolean is
+// unsafe — "false" → true). .passthrough() is retained only as a net for any genuinely-new GM power.
 const GMStateOverridesSchema = z.object({
-  drM_suspicion: z.number().optional(),
+  // NPCs
+  drM_suspicion: z.coerce.number().optional(),
   drM_mood: z.string().optional(),
   drM_location: z.string().optional(),
-  bob_trust: z.number().optional(),
-  bob_anxiety: z.number().optional(),
+  bob_trust: z.coerce.number().optional(),
+  bob_anxiety: z.coerce.number().optional(),
   bob_hasConfessedToALICE: z.boolean().optional(),
   bob_hasConfessedToDrM: z.boolean().optional(),
-  blythe_trust: z.number().optional(),
-  blythe_composure: z.number().optional(),
-  blythe_restraints: z.number().optional(),
+  bob_location: z.string().optional(),
+  blythe_trust: z.coerce.number().optional(),
+  blythe_composure: z.coerce.number().optional(),
+  blythe_restraints: z.coerce.number().optional(),
   blythe_transformationState: z.string().optional(),
-  accessLevel: z.number().optional(),
-  demoClock: z.number().optional(),
+  blythe_location: z.string().optional(),
+  // Access / clocks / flow
+  accessLevel: z.coerce.number().optional(),
+  demoClock: z.coerce.number().optional(),
+  meltdownClock: z.coerce.number().optional(),
+  blytheEscapeIdea: z.coerce.number().optional(),
+  civilianFlyby: z.coerce.number().optional(),
   rayState: z.string().optional(),
   gracePeriodGranted: z.boolean().optional(),
-  gracePeriodTurns: z.number().optional(),
+  gracePeriodTurns: z.coerce.number().optional(),
   preventEnding: z.boolean().optional(),
   confrontationResolution: z.string().optional(),
+  confrontationIntervenor: z.string().optional(),
   triggerEnding: z.string().optional(),
-  fortune: z.number().optional(),
-  // ACT 2 GATE — alternative victory path (Krahe 2026-06-07)
-  // GM sets to true when Blythe successfully escapes the lair. Triggers
-  // Dr. M acceleration and advances Act 2 → Act 3 per acts.ts gate.
+  fortune: z.coerce.number().optional(),
+  // ACT 2 GATE — alternative victory path (Krahe 2026-06-07): GM sets true when Blythe escapes.
   blytheEscaped: z.boolean().optional(),
-}).passthrough(); // Allow additional GM powers without strict validation
+  // ARCHIMEDES (were passthrough-only → NaN-corruptible; now validated + coerced)
+  archimedes_status: z.string().optional(),
+  archimedes_chargePercent: z.coerce.number().optional(),
+  archimedes_turnsUntilFiring: z.coerce.number().nullable().optional(),
+  archimedes_deadmanActive: z.boolean().optional(),
+  archimedes_lastBiosignature: z.string().optional(),
+  archimedes_selectedTargetId: z.string().optional(),
+  weaponsAuthorizationGranted: z.boolean().optional(),
+  // Reactor
+  reactor_outputPercent: z.coerce.number().optional(),
+  reactor_stable: z.boolean().optional(),
+  reactor_cascadeRisk: z.string().optional(),
+  reactor_scramAvailable: z.boolean().optional(),
+  // S-300 missile defense
+  s300_status: z.string().optional(),
+  s300_missilesReady: z.coerce.number().optional(),
+  s300_radarEffectiveness: z.coerce.number().optional(),
+  s300_mode: z.string().optional(),
+}).passthrough(); // net for any genuinely-new GM power not yet schematized
 
 const GMResponseSchema = z.object({
   narration: z.string(),
@@ -3973,11 +4002,16 @@ async function callGMClaudeInternal(context: GMContext): Promise<GMResponse> {
 
     // Validate GM response with Zod schema
     const validation = validateGMResponse(parsed);
-    if (!validation.success) {
+    if (validation.success) {
+      // A8 (keystone): USE the validated + coerced object instead of discarding it. Numeric overrides
+      // are now coerced (number-as-string repaired) and shapes are checked, so the clean response flows
+      // downstream. The schema's work is no longer thrown away every turn.
+      parsed = validation.data;
+    } else {
       console.error(`GM response validation failed: ${validation.error}`);
       console.error("Using parsed response with validation warnings (some fields may be malformed)");
-      // Continue with the parsed response but log the warning
-      // This is a soft failure - we don't want to break gameplay for minor schema issues
+      // Soft failure: keep the raw parsed response so a minor schema miss can't break a turn —
+      // the SETTLE-path guards (A1-A6, A17) catch any malformed value that slips through.
     }
 
     // Log successful turn metrics

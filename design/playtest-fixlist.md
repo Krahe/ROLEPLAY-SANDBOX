@@ -63,10 +63,13 @@ Legend: **easy** = clear fix, no decision · **careful** = clear but a refactor/
 - **A27 [easy·BLOCKS]** `index.ts:2004` + `actions.ts:63` — `truncateContent` is a STUB → no per-turn output cap (the 71k display break). → MAX 6000 + ellipsis. *(old P0-2)*
 
 ### ▶ WORK ORDER
-- **Easy-win sweep (clear, no decisions) — DO FIRST:** A1 A2 A3 A4 A5 A6 A7 A8 A10 A11 A12 A13 A14 A17 A18 A20 A21 A22 A25 A26 A27 (A6≡A18 numeric guard).
-- **Careful (clear but refactor/risk):** A9 (retry→shared SETTLE), A19 (root-state clobber).
-- **DECIDE first (design calls — bring to Krahe):** A15 (Library B level), A16 (reversal L3/L4), A23 (INDORAPTOR level), A24 (lab.eco free?).
-- The old player-debrief P0-1/P0-2/P0-3 below are SUPERSEDED by A1/A27/A13 (generalized + verified); P0-4 already mostly closed last session.
+- **✅ SHIPPED batch 1 (`ac1bde8`) — crash-class + output cap:** A1 A2 A3 A4 A5 A6 A17 A18 A27. 6/6 malformed-input sim + 38/38 smoke.
+- **✅ SHIPPED batch 2 (`35b1ced`) — display fidelity + docs:** A7 A11 A12 A13 A20 A21 A22 A25 A26. (A10 covered by A1/A4/A5 defense-in-depth.) 38/38 smoke.
+- **✅ SHIPPED A8 (KEYSTONE):** `GMStateOverridesSchema` now validates + coerces every override field (`z.coerce.number()` repairs the number-as-string case; ~20 archimedes_/reactor_/s300_/location/clock fields added) and the call site uses `validation.data` on success — the schema's output is no longer discarded every turn. Build + 38/38; runtime proof awaits a playtest (schema is module-internal).
+- **Remaining no-decision:** A14 (alias the 6 phantom BASILISK commands + prompt fix).
+- **Careful refactors (clear but risk):** A9 (retry→shared SETTLE), A19 (root-state clobber).
+- **DECIDE first (design calls — bring to Krahe):** A15 (Library B: gate L3 vs drop L3 framing), A16 (reversal L3 vs L4 — wired L3 last session), A23 (INDORAPTOR L2 vs L3), A24 (lab.eco free vs L2-gated — memory says "free toggle").
+- The old player-debrief P0-1/P0-2/P0-3 below are SUPERSEDED by A1/A27/A13 (generalized + verified); P0-4 mostly closed last session.
 
 ---
 
