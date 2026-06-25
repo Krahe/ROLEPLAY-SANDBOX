@@ -1145,8 +1145,10 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
   }
 
   // PER-TARGET TEST-FIRE TRACKING (Act I gate). Record every successful fire's target id(s) so
-  // checkAct1Transition can require BOTH practice targets (STEVE + MARGARET), not just one shot.
-  if (result.outcome !== "NONE") {
+  // checkAct1Transition can require BOTH practice targets (STEVE + MARGARET). FIZZLE is EXCLUDED
+  // (Krahe 2026-06-24): a botched shot isn't a successful demo — both targets must actually transform.
+  // (MUON_STUN is big-template-only → unreachable at L1/Act-1, so FIZZLE is the only failure here.)
+  if (result.outcome !== "NONE" && result.outcome !== "FIZZLE") {
     const f = state.flags as Record<string, unknown>;
     const fired = new Set<string>((f.firedTestTargetIds as string[] | undefined) ?? []);
     for (const t of state.dinoRay.targeting.currentTargetIds) {

@@ -8,6 +8,7 @@
 
 import { FullGameState } from "../state/schema.js";
 import { isFullyRestrained, restraintLabel } from "../state/properties.js";
+import { act1ObjectiveMet } from "../rules/acts.js";
 
 /**
  * Format the status bar for human-readable display
@@ -41,8 +42,8 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
   // 🎯 Act 1 objective = test-fire the ray (calibration meter cut, Patch 30);
   // Act 2+ = the demo clock (which only starts in Act 2).
   if (actName === "ACT_1") {
-    const fired = state.dinoRay.memory.hasFiredSuccessfully;
-    parts.push(`🎯 Test-fire${fired ? " ✓" : ""}`);
+    const done = act1ObjectiveMet(state); // HUD mirrors the REAL gate: both STEVE + MARGARET transformed (non-fizzle)
+    parts.push(`🎯 Test-fire${done ? " ✓" : ""}`);
   } else {
     parts.push(`⏰ Demo:${state.clocks.demoClock}`);
   }
@@ -151,7 +152,7 @@ export function formatStatusBarCompact(state: FullGameState): string {
   const heat = state.dinoRay.heat;
   // Act 1 surfaces the test-fire objective; Act 2+ the demo clock.
   const objective = (state.actConfig?.currentAct ?? "ACT_1") === "ACT_1"
-    ? `Test-fire:${state.dinoRay.memory.hasFiredSuccessfully ? "✓" : "—"}`
+    ? `Test-fire:${act1ObjectiveMet(state) ? "✓" : "—"}`
     : `Demo:${state.clocks.demoClock}`;
 
   return `T${state.turn} Sus:${sus} Heat:${heat}/10 ${objective}`;
