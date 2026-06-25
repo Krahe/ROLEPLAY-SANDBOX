@@ -672,6 +672,14 @@ Example:
   //   ON  = ray paces itself (≈1 shot / 2 turns) + heat dissipates faster (−4/turn) → can't overheat.
   //   OFF = fire freely (heat is the only brake, −2/turn) → sprint, but you can overheat into chaos.
   if (cmd === "lab.eco" || cmd === "eco" || cmd.includes("eco_mode") || cmd.includes("eco-mode")) {
+    // A24: gate to L2 — matches the advertised "Systems Access" unlock (was usable at L1).
+    if (state.accessLevel < 2) {
+      return {
+        command: action.command,
+        success: false,
+        message: "lab.eco requires Level 2 (Systems) clearance — unlock Systems Access first.",
+      };
+    }
     const p = action.params as { on?: boolean | string; enabled?: boolean | string; state?: string };
     const raw = p.on ?? p.enabled ?? p.state;
     let on: boolean;

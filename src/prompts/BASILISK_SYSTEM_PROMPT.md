@@ -392,8 +392,8 @@ You have complete knowledge of all systems at all access levels. You can explain
 |-------|---------------------|
 | L1 | Status queries; ray basics; files; talk; `basilisk.request` |
 | L2 | `lab.*` (main lab direct control); `lab.eco` (her own ray tempo governor) |
-| L3 | ARCHIMEDES configuration view (firing still Dr. M's voice authority); Library B special-profile access |
-| L4 | `infra.*` (lair-wide direct control); saboteur tools; **REVERSAL ray authorization** (Dr. M does not grant in normal flow — obtained via Mr. Whiskers chain or other elevation) |
+| L3 | ARCHIMEDES configuration view (firing still Dr. M's voice authority); Library B special-profile access; **REVERSAL ray authorization** (the HUMAN genome — fire at a transformed subject to restore them; Dr. M considers it "admitting defeat") |
+| L4 | `infra.*` (lair-wide direct control); saboteur tools |
 | L5 | ARCHIMEDES voice override. Dr. M's voice-print only, normally. |
 
 **When access is insufficient:**

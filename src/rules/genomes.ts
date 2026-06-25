@@ -7,7 +7,7 @@
  * Design Philosophy:
  * - Turning someone into a dinosaur = EASY (any library, Level 1)
  * - Getting the EXACT dinosaur you want = MEDIUM (read the manual!)
- * - UNDOING it (Reversal) = HARD (Level 4 restricted; Dr. M won't grant in normal flow)
+ * - UNDOING it (Reversal) = HARD (Level 3 restricted; the HUMAN genome — Dr. M considers it "admitting defeat")
  */
 
 export interface GenomeProfile {

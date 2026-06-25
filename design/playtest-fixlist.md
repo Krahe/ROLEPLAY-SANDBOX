@@ -68,7 +68,10 @@ Legend: **easy** = clear fix, no decision · **careful** = clear but a refactor/
 - **✅ SHIPPED A8 (KEYSTONE):** `GMStateOverridesSchema` now validates + coerces every override field (`z.coerce.number()` repairs the number-as-string case; ~20 archimedes_/reactor_/s300_/location/clock fields added) and the call site uses `validation.data` on success — the schema's output is no longer discarded every turn. Build + 38/38; runtime proof awaits a playtest (schema is module-internal).
 - **Remaining no-decision:** A14 (alias the 6 phantom BASILISK commands + prompt fix).
 - **Careful refactors (clear but risk):** A9 (retry→shared SETTLE), A19 (root-state clobber).
-- **DECIDE first (design calls — bring to Krahe):** A15 (Library B: gate L3 vs drop L3 framing), A16 (reversal L3 vs L4 — wired L3 last session), A23 (INDORAPTOR L2 vs L3), A24 (lab.eco free vs L2-gated — memory says "free toggle").
+- **DECISIONS (Krahe, 2026-06-24)** — philosophy: keep the genome library OPEN (dinos = the fun), gate the OPERATIONAL systems:
+  - A15 → Library B **OPEN at L1** (drop the L3 ad framing) · A16 → reversal **stays L3** (fix L4 messaging) · A23 → INDORAPTOR **stays L2** (fix the L3 ad) · A24 → lab.eco **GATED to L2**.
+  - **✅ SHIPPED A24:** lab.eco handler now requires L2 (was usable at L1). 2/2 sim. **✅ SHIPPED A16:** reversal messaging L4→L3 (BASILISK prompt L3 row + genomes.ts header). Build + 38/38.
+  - **Remaining:** A15 + A23 = passwords.ts `ACCESS_LEVEL_UNLOCK_DETAILS` advertising rework (do TOGETHER — Library B reads L1-available, INDORAPTOR reads L2; rework the L1/L2/L3 unlock blocks coherently). Note: `REVERSAL_PROTOCOLS` + `canAccessReversal` + `getReversalDeniedMessage` (genomes.ts ~457-518) still say L4 but appear **dead** (reversal is the HUMAN genome now) — optional cleanup.
 - The old player-debrief P0-1/P0-2/P0-3 below are SUPERSEDED by A1/A27/A13 (generalized + verified); P0-4 mostly closed last session.
 
 ---
