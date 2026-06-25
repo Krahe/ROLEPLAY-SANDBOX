@@ -84,7 +84,7 @@ export const ACCESS_LEVELS: Record<number, AccessLevel> = {
     description: "Full lair control, ARCHIMEDES command, all restrictions lifted",
     unlockedSystems: [
       "...all Level 4 systems",
-      "ARCHIMEDES full mode control — infra.archimedes (incl. STRIKE / cancel)",
+      "ARCHIMEDES command — infra.archimedes.shutdown ABORTS the satellite (override resets it to STANDBY; needs Dr. M unable to countermand), plus infra.archimedes mode control (STRIKE)",
       "infra.s300 — S-300 firing authorization",
       "OMEGA contingencies (deadman switch + Founder escape protocol)",
       "All restrictions lifted",
@@ -454,7 +454,8 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
     level: 5,
     title: "Omega Protocol — Dr. Malevola's Authority",
     commands: [
-      "infra.archimedes { mode: ... } - Full ARCHIMEDES mode control (including STRIKE / cancel-strike)",
+      "infra.archimedes.shutdown - ★ ABORT ARCHIMEDES: reset the satellite to STANDBY (the L5 override — works once Dr. M can't countermand). A known verbal abort code also works: infra.archimedes.shutdown { code: \"...\" }",
+      "infra.archimedes { mode: ... } - Full ARCHIMEDES mode control (including STRIKE)",
       "infra.s300 - S-300 firing authorization",
       "OMEGA contingencies - Deadman switch authority + Founder escape protocol",
       "ALL RESTRICTIONS LIFTED",
