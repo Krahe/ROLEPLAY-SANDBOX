@@ -252,9 +252,11 @@ function buildStateSnapshot(state: FullGameState): StateSnapshot {
 
   // At access level 2+, reveal more systems
   if (state.accessLevel >= 2) {
+    // A7: nuclearPlant.reactorOutput/coreTemp are FROZEN vestigial fields. Read the canonical
+    // reactor — boost flag for OVERDRIVE, cascadeRisk for "running hot" — so lab.scan tracks reality.
     visibleSystems["Nuclear_Plant"] = {
-      status: state.nuclearPlant.reactorOutput > 0.9 ? "OVERDRIVE" : "NOMINAL",
-      description: state.nuclearPlant.coreTemp > 1.0 ? "running hot" : "normal temperature",
+      status: state.infrastructure?.basiliskAuthority?.reactorControlGranted ? "OVERDRIVE" : "NOMINAL",
+      description: (state.infrastructure?.reactor?.cascadeRisk && state.infrastructure.reactor.cascadeRisk !== "NONE") ? "running hot" : "normal temperature",
     };
     greyedOut.splice(greyedOut.indexOf("Nuclear_Plant"), 1);
   }
@@ -831,14 +833,13 @@ Returns the results of your actions and the GM's response with NPC dialogue and 
       };
     }
 
-    // Validate action count based on access level
-    // Level 1: 3 actions, Level 2: 4 actions, ..., Level 5: 7 actions
+    // A26: flat 4 actions per turn regardless of access level (the per-level 3→7 ladder was removed in Patch 30).
     const maxActions = ACTIONS_PER_TURN; // single source of truth (passwords.ts)
     if (params.actions.length > maxActions) {
       return {
         content: [{
           type: "text",
-          text: `Error: Too many actions. At Access Level ${gameState.accessLevel}, you can perform up to ${maxActions} actions per turn. You submitted ${params.actions.length}.`,
+          text: `Error: Too many actions. You can perform up to ${maxActions} actions per turn. You submitted ${params.actions.length}.`,
         }],
       };
     }

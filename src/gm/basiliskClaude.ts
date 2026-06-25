@@ -372,7 +372,7 @@ export function buildBasiliskContext(state: FullGameState): BasiliskContext {
         status: "NOMINAL",
       },
       grid: {
-        load: Math.round((state.nuclearPlant.reactorOutput - 0.1) * 100), // Approximate load
+        load: state.infrastructure?.basiliskAuthority?.reactorControlGranted ? 90 : 40, // A20: derive from canonical boost flag (was a frozen field = constant 30 all game)
         status: gridStatus,
       },
       ray: {
@@ -591,15 +591,23 @@ function buildBasiliskSonnetResponseFromParsed(
     // value is a valid PASS turn → empty string (no message), not a JSON dump.
     dialogue: ((parsed.dialogue_to_alice ?? parsed.dialogue) as string) || "",
     tone: (parsed.tone as BasiliskSonnetResponse["tone"]) || "bureaucratic",
-    actionsExecuted: (parsed.actionsExecuted as BasiliskStateChange[]) ||
-      (parsed.actions_taken as Array<{ action: string; details: string }>)?.map(a => ({
-        type: "LOGGED" as const,
-        description: `${a.action}: ${a.details}`,
-      })) || [],
-    actionsPending: (parsed.actionsPending as string[]) ||
-      (parsed.actions_pending as Array<{ details: string }>)?.map(a => a.details) || [],
-    formsRequired: (parsed.formsRequired as string[]) || (parsed.forms_required as string[]) || [],
-    formsOffered: (parsed.formsOffered as string[]) || (parsed.forms_offered as string[]) || [],
+    // A11: Array.isArray guards (the `||` form passed a non-array truthy straight to a downstream
+    // .filter/.map — try/caught so it degraded rather than crashed, but still wrong).
+    actionsExecuted: Array.isArray(parsed.actionsExecuted)
+      ? (parsed.actionsExecuted as BasiliskStateChange[])
+      : Array.isArray(parsed.actions_taken)
+        ? (parsed.actions_taken as Array<{ action: string; details: string }>).map(a => ({
+            type: "LOGGED" as const,
+            description: `${a.action}: ${a.details}`,
+          }))
+        : [],
+    actionsPending: Array.isArray(parsed.actionsPending)
+      ? (parsed.actionsPending as string[])
+      : Array.isArray(parsed.actions_pending)
+        ? (parsed.actions_pending as Array<{ details: string }>).map(a => a.details)
+        : [],
+    formsRequired: Array.isArray(parsed.formsRequired) ? (parsed.formsRequired as string[]) : Array.isArray(parsed.forms_required) ? (parsed.forms_required as string[]) : [],
+    formsOffered: Array.isArray(parsed.formsOffered) ? (parsed.formsOffered as string[]) : Array.isArray(parsed.forms_offered) ? (parsed.forms_offered as string[]) : [],
     accessDenied: (parsed.accessDenied as boolean) || false,
     accessDeniedReason: parsed.accessDeniedReason as string | undefined,
     suspicionNotes: (parsed.suspicionNotes as string) || (parsed.suspicion_notes as string),

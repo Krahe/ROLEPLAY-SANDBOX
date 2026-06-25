@@ -4181,6 +4181,8 @@ ${eventSection}
 ### Reactor (BASILISK-controlled)
 - Boost: ${state.infrastructure?.basiliskAuthority?.reactorControlGranted ? "BOOSTED — power dial 4–5 unlocked" : "NORMAL — power dial capped at 3 (ALICE must ask BASILISK to boost for tiers 4–5)"}
 - Cascade risk: ${state.infrastructure?.reactor?.cascadeRisk || "NONE"}
+- Output: ${state.infrastructure?.reactor?.outputPercent ?? 100}%${state.infrastructure?.reactor?.scrammedThisGame ? " ⚠️ SCRAM SPENT — reactor offline, lair on battery backup" : ""}
+- Safety trip: ${state.infrastructure?.reactor?.safetyTripped ? "ACTIVE — ray + ARCHIMEDES frozen until cleared" : "clear"}
 
 ### Infrastructure (BASILISK-domain, L4+)
 - Containment field: ${state.infrastructure?.containmentField?.active ? `ACTIVE (subjects: ${state.infrastructure.containmentField.subjects.join(", ") || "none"})` : "INACTIVE"}

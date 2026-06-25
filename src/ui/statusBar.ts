@@ -33,8 +33,9 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
   const rayState = state.dinoRay.state;
   const heat = state.dinoRay.heat;
   const heatBand = heat >= 10 ? "🔥OVERHEAT" : heat >= 6 ? "♨️WARM" : "❄️COOL";
-  const reactorMode = state.infrastructure?.reactor?.mode;
-  const reactorTag = reactorMode && reactorMode !== "NORMAL" ? ` ⚡${reactorMode}` : "";
+  // A13: read the canonical boost flag (reactor.mode is vestigial — never written, so the tag was always blank).
+  const boosted = state.infrastructure?.basiliskAuthority?.reactorControlGranted;
+  const reactorTag = boosted ? " ⚡BOOSTED" : "";
   parts.push(`🔋 ${rayState} heat:${heat}/10 ${heatBand}${reactorTag}`);
 
   // 🎯 Act 1 objective = test-fire the ray (calibration meter cut, Patch 30);
@@ -52,6 +53,12 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
   const blytheTrust = state.npcs.blythe.trustInALICE;
   const blytheAlly = blytheTrust >= 4 ? "★" : "";
   parts.push(`👥 Bob:${bobTrust}${bobAlly} Blythe:${blytheTrust}${blytheAlly}`);
+
+  // 🔓 A22: Blythe restraint integrity (only when not fully secure — mirrors the GM bar + dashboard,
+  // so spectator and GM can't disagree on escape state).
+  if (!isFullyRestrained(state.npcs.blythe)) {
+    parts.push(`🔓 ${restraintLabel(state.npcs.blythe)}`);
+  }
 
   // Optional extensions (only show when relevant)
 

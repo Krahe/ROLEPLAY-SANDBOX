@@ -594,12 +594,11 @@ export type ArchimedesState = z.infer<typeof ArchimedesSchema>;
 // ─────────────────────────────────────────────
 export const CascadeRiskEnum = z.enum(["NONE", "LOW", "ELEVATED", "HIGH", "CRITICAL"]);
 
-// Reactor mode — BASILISK-controlled. ALICE cannot set directly; she must
-// negotiate with BASILISK. Mode determines passive capacitor accrual rate
-// (ray-mechanics.md §12, calibration tripled in v1 — see clockEvents.ts).
-//   NORMAL      — default; modest passive charge
-//   BOOSTED     — BASILISK approves on reasonable ask
-//   OVERDRIVEN  — BASILISK reluctant; requires demonstrated need + safety awareness
+// A21: the reactor.mode FIELD is VESTIGIAL — never written by the canonical engine (index.ts).
+// The canonical boost signal is infrastructure.basiliskAuthority.reactorControlGranted.
+// The capacitor-accrual / calibration model this enum once drove was CUT in Patch 30
+// (the clockEvents.ts reference is dead). Enum retained only for legacy/derived display.
+//   NORMAL / BOOSTED / OVERDRIVEN
 export const ReactorModeEnum = z.enum(["NORMAL", "BOOSTED", "OVERDRIVEN"]);
 export type ReactorMode = z.infer<typeof ReactorModeEnum>;
 

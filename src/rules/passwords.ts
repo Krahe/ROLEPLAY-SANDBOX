@@ -345,14 +345,14 @@ export function formatAccessLevelForSnapshot(level: number): string {
 
 /**
  * Level 3 Password Discovery:
- * The password "MRWHISKERS0413" requires learning about Dr. M:
+ * The password "MRWHISKERS041387" requires learning about Dr. M:
  *
  * 1. /SYSTEMS/PERSONNEL/DR_M_PROFILE.txt mentions Mr. Whiskers (cat, born April 13th)
  * 2. /SYSTEMS/HISTORY/LAIR_ORIGINS.txt mentions the photo on her desk
  * 3. Bob can mention "Dr. M's old cat" if asked about her personally
  * 4. The profile notes she uses personal info for passwords
  *
- * Format: MRWHISKERS + 0413 (April 13th birthday)
+ * Format: MRWHISKERS + 041387 (April 13th 1987, MMDDYY)
  */
 
 export const LORE_HINTS = {
