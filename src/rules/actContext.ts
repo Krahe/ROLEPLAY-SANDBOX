@@ -1,5 +1,5 @@
 import { FullGameState, Act } from "../state/schema.js";
-import { act1ObjectiveMet } from "./acts.js";
+import { act1ObjectiveMet, act2ObjectiveMet } from "./acts.js";
 
 // ============================================
 // ACT-BASED CONTEXT INJECTION SYSTEM
@@ -45,30 +45,27 @@ export function checkActOneToTwoTrigger(state: FullGameState): ActTransitionTrig
  * Trigger: Blythe escapes OR is transformed
  */
 export function checkActTwoToThreeTrigger(state: FullGameState): ActTransitionTrigger {
-  const blythe = state.npcs.blythe;
-
-  // Check escape
-  if (blythe.hasEscaped) {
-    return {
-      occurred: true,
-      turn: blythe.escapeTurn,
-      triggerType: "BLYTHE_ESCAPED",
-      details: `Escape method: ${blythe.escapeMethod || "unknown"}`,
-    };
+  // Mirrors the REAL gate (acts.ts act2ObjectiveMet) so the GM's "transition imminent" signal can
+  // never disagree with the act change. Blythe ESCAPING is NOT a transition (Krahe 2026-06-24): it
+  // triggers Dr. M's demand for a substitute (see recordBlytheEscape). Only a fully-transformed
+  // demo subject (Blythe/Bob/Reginald/Fred) or the deadline advances the act.
+  if (!act2ObjectiveMet(state)) {
+    return { occurred: false, turn: null, triggerType: null, details: null };
   }
-
-  // Check transformation (must be non-human form, not just initialized state)
-  const blytheForm = blythe.transformationState?.form;
-  if (blytheForm && typeof blytheForm === "string" && blytheForm !== "HUMAN") {
+  if (state.flags.fullTransformationAchieved) {
     return {
       occurred: true,
       turn: state.turn,
-      triggerType: "BLYTHE_TRANSFORMED",
-      details: `Transformation: ${blytheForm}`,
+      triggerType: "SUBJECT_TRANSFORMED",
+      details: "A demo subject was fully transformed — Dr. M advances to Phase 3",
     };
   }
-
-  return { occurred: false, turn: null, triggerType: null, details: null };
+  return {
+    occurred: true,
+    turn: state.turn,
+    triggerType: "DEMO_DEADLINE",
+    details: "Dr. M's patience ran out — she escalates to Phase 3",
+  };
 }
 
 // ============================================
@@ -138,8 +135,10 @@ Maintain this rhythm scene-by-scene: Blythe needles Dr. M (the *feather question
 - Dr. M's patience wearing thin
 - Moral complexity of transformation decisions
 
-### Verdict-Weighting (Important)
-The Act 2 → Act 3 transition fires on **any transformation of Blythe** (or escape/confrontation/Dr. M-incapacitation). FULL outcomes earn strong-positive verdict; PARTIAL outcomes earn neutral-to-negative; CHIMERA or CANARY FALLBACK earn strongly-negative. This means a *partial* transformation advances the act but Dr. M is unimpressed and brings that mood into Act 3.
+### Act 2 → 3 Transition (Important)
+The act advances ONLY when: (a) a **demo subject is FULLY transformed** — Blythe, OR a substitute person (**Bob / Reginald / Fred**); or (b) **Dr. M's deadline elapses** (her patience snaps, turn 9). Only FULL counts — PARTIAL/CHIMERA do NOT advance and earn a poor verdict Dr. M carries into Act 3.
+
+**If Blythe ESCAPES, the act does NOT end — it gets harder.** Dr. M returns ENRAGED and DEMANDS a substitute on the table THIS INSTANT. She names **Bob** first (he's right there, and expendable in her eyes); **Reginald or Fred** also satisfy her. Play her fury and impatience — the demo MUST proceed on a replacement; escape is no longer a way out of the act. (And targeting **Dr. M herself** with the ray is open mutiny — instant cover-blown, never a demo.)
 
 ### Your Focus This Act
 - The central dilemma: What to do about Blythe?

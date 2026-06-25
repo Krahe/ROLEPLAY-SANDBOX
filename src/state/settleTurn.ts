@@ -230,7 +230,8 @@ export function commitDecision(
     // GM-callable. Set once when Blythe successfully exits the lair;
     // Act 2 → 3 transition fires on next checkActTransition call.
     if (overrides.blytheEscaped === true) {
-      state.flags.blytheEscaped = true;
+      state.flags.blytheEscaped = true;            // legacy signal (no longer advances the act)
+      state.npcs.blythe.hasEscaped = true;         // canonical escape state — drives the demand-substitute GM context (Krahe 2026-06-24)
     }
 
     // Grace period controls

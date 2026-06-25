@@ -142,35 +142,28 @@ export function act1ObjectiveMet(state: FullGameState): boolean {
 }
 
 function checkAct2Transition(state: FullGameState): ActTransitionResult {
-  // ACT 2 OBJECTIVE: Demonstrate the ray works on a sentient subject (FULL
-  // transformation, any target). Alternative: Blythe escapes the lair —
-  // Dr. M then accelerates her timetable, dragging the lair into Act 3.
-  //
-  // PARTIAL/CHIMERA/EXOTIC do NOT advance — only FULL counts. This keeps
-  // Act 2 from ending prematurely on a lucky lowball shot, and gives the
-  // stability-pressure design room to breathe (player has to actually tune
-  // for FULL, not just connect with the beam).
-  //
-  // The "secret revealed" path was retired: it was structurally dramatic
-  // but informationally null — the player knew A.L.I.C.E. = Claude before
-  // they sat down. Reveal moment lives in flavor now, not as a gate.
+  if (!act2ObjectiveMet(state)) return { shouldTransition: false };
+  const reason = state.flags.fullTransformationAchieved
+    ? "A subject was fully transformed — Dr. M moves to Phase 3"
+    : "Dr. M's patience ran out — she escalates to Phase 3";
+  return buildTransition(state, reason);
+}
 
-  if (state.actConfig.actTurn < state.actConfig.minTurns) {
-    return { shouldTransition: false };
-  }
-
-  // Primary: SOMEONE achieved a FULL transformation (any organic target).
-  // Flag is set in applyFiringResults whenever a FULL_DINO outcome lands.
-  if (state.flags.fullTransformationAchieved) {
-    return buildTransition(state, "FULL transformation achieved — Dr. M moves to Phase 3");
-  }
-
-  // Alternative: Blythe escaped — Dr. M accelerates timetable in response.
-  if (state.flags.blytheEscaped) {
-    return buildTransition(state, "Blythe escaped — Dr. M accelerates her plans");
-  }
-
-  return { shouldTransition: false };
+/**
+ * Act 2 objective — the SHARED predicate (both checkAct2Transition AND the GM-signal
+ * actContext.checkActTwoToThreeTrigger read it, so they can never disagree — same discipline as
+ * act1ObjectiveMet). Act 2 → 3 fires when EITHER:
+ *   (1+4) a DEMO PERSON is FULLY transformed — Blythe, or a substitute (Bob/Reginald/Fred). Tracked
+ *         by flags.fullTransformationAchieved (set in applyFiringResults, person-gated, FULL-only —
+ *         PARTIAL/CHIMERA don't count, so a lucky lowball can't end the act).
+ *   (3)   the deadline elapses — actTurn reaches maxTurns (9): Dr. M's patience snaps, she escalates.
+ * Blythe ESCAPING NO LONGER advances the act (Krahe 2026-06-24): it enrages Dr. M and makes her
+ * DEMAND a substitute (see recordBlytheEscape + the ACT_TWO GM context) — closing the easy-out.
+ */
+export function act2ObjectiveMet(state: FullGameState): boolean {
+  const { actTurn, minTurns, maxTurns } = state.actConfig;
+  if (actTurn < minTurns) return false;
+  return state.flags.fullTransformationAchieved === true || actTurn >= maxTurns;
 }
 
 function buildTransition(state: FullGameState, reason: string): ActTransitionResult {

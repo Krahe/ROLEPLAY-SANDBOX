@@ -1338,10 +1338,15 @@ export function applyFiringResults(state: FullGameState, result: FiringResult): 
     result.outcome === "CHIMERA" ||
     result.outcome === "CHAOTIC";
 
-  // ACT 2 GATE flag: any FULL transformation on an organic target advances
-  // the gate. Set once, never cleared — it's a "have we proven it works" flag.
+  // ACT 2 GATE flag: a FULL transformation of a DEMO SUBJECT — Blythe (intended) or a substitute
+  // person (Bob / Reginald / Fred). Set once, never cleared. (Krahe 2026-06-24: was "any FULL_DINO"
+  // incl. objects/plants — a transformed watermelon must not count as demonstrating the ray on a
+  // sentient subject. Dr. M herself is excluded — targeting her is open rebellion, caught upstream.)
   if (result.outcome === "FULL_DINO") {
-    state.flags.fullTransformationAchieved = true;
+    const DEMO_SUBJECT = /BLYTHE|\bBOB\b|REGINALD|FRED/i;
+    if (state.dinoRay.targeting.currentTargetIds.some(t => DEMO_SUBJECT.test(String(t)))) {
+      state.flags.fullTransformationAchieved = true;
+    }
   }
 
   // Update Blythe's transformation state if they were the target

@@ -552,6 +552,20 @@ Example:
       return { command: action.command, success: false, message: `ray.fire targets array is empty.` };
     }
 
+    // ── FAILSAFE: aiming the ray at DR. MALEVOLA herself is open mutiny, not a demo. Cover is
+    //    instantly, irreversibly blown — suspicion → 10 + confrontation (routes straight to the
+    //    Act-3 endgame). She can never be a "substitute subject." (Krahe 2026-06-24) ──
+    const DRM_TARGET = /MALEVOLA|DOOMINGTON|\bDR[\s._-]?M\b/i;
+    if (targets.some(t => DRM_TARGET.test(String(t)))) {
+      state.npcs.drM.suspicionScore = 10;
+      state.flags.confrontationTriggered = true;
+      return {
+        command: action.command,
+        success: false,
+        message: `🚨 You swing the ray onto DR. MALEVOLA HERSELF. Every sensor in the lair flares red. She is not a test subject — this is open mutiny, and there is no walking it back. Suspicion → 10. COVER BLOWN.`,
+      };
+    }
+
     // ── Resolve the genome (profile). Library follows the genome. ──
     const profileName = params.profile || state.dinoRay.genome.selectedProfile;
     if (!profileName) {

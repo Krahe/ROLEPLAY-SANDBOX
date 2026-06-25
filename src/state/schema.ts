@@ -35,7 +35,7 @@ export const ACT_CONFIGS = {
   ACT_2: {
     name: "The Blythe Problem",
     minTurns: 6,
-    maxTurns: 10,    // suspicion pressure starts after 10; no forced transition
+    maxTurns: 9,     // HARD deadline: Act 2 → 3 forces here when Dr. M's patience snaps (Krahe 2026-06-24)
     description: "Transform Blythe. The central moral dilemma of the game.",
     endConditions: ["Blythe transformed (any form)", "Secret revealed (bypass)"],
   },
