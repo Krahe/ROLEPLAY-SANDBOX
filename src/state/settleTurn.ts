@@ -25,7 +25,7 @@ import { type FullGameState, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } f
 import { setRestraints, applyPropertyOps, resolveEntityBag } from "./properties.js";
 import { profileToFormName } from "../rules/transformation.js";
 import { rollSkillCheck, getNpcStat, getAdaptationPenalty, isKnownNpc, type SkillCheckResult } from "../rules/dice.js";
-import { processArchimedesCountdown, onDrMStateChange, type ArchimedesEvent } from "../rules/archimedes.js";
+import { processArchimedesCountdown, onDrMStateChange, attemptOverrideAbort, type ArchimedesEvent } from "../rules/archimedes.js";
 import { resolveGMEnding } from "../rules/endings.js";
 import type { GMResponse } from "../gm/gmClaude.js";
 import type { ActionResult } from "../rules/actions.js";
@@ -402,6 +402,14 @@ export function commitDecision(
           narrativeFlags.splice(idx, 1);
         }
       }
+    }
+
+    // Path 1 (Krahe 2026-06-24): a GM-adjudicated satellite-stop flag (e.g. X-Branch disabled ARCHIMEDES)
+    // must COHERENTLY reset the state machine, not just fire the ending. Run a FORCED override-abort —
+    // external authority, so it bypasses ALICE's L5 gate + Dr. M's countermand (terminal states still can't abort).
+    const ARCHIMEDES_STOP_FLAGS = ["ARCHIMEDES_STOPPED", "ARCHIMEDES_DISABLED", "SATELLITE_STOPPED", "ARCHIMEDES_NEUTRALIZED", "DEADMAN_DISARMED", "ARCHIMEDES_ABORTED"];
+    if (narrativeFlags.some(f => ARCHIMEDES_STOP_FLAGS.includes(String(f).toUpperCase()))) {
+      attemptOverrideAbort(state, 5, true);
     }
   }
 

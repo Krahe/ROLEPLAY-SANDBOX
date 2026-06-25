@@ -721,7 +721,8 @@ export function attemptVerbalAbort(
  */
 export function attemptOverrideAbort(
   state: FullGameState,
-  accessLevel: number
+  accessLevel: number,
+  forced: boolean = false // forced = external / GM-adjudicated (e.g. X-Branch strike team): bypasses the L5 gate + Dr. M countermand. Terminal-state guard still applies.
 ): ArchimedesEvent {
   const archimedes = state.infrastructure.archimedes;
   const requiredLevel = archimedes.abortCodes.requiresLevel;
@@ -742,27 +743,31 @@ export function attemptOverrideAbort(
     };
   }
 
-  // Check access level
-  if (accessLevel < requiredLevel) {
-    return {
-      type: "ABORT_FAILED",
-      message: `ARCHIMEDES: Override rejected. Access level ${accessLevel} insufficient. ` +
-               `Required: Level ${requiredLevel}. ${archimedes.turnsUntilFiring ?? "?"} turn(s) remaining.`,
-    };
+  if (!forced) {
+    // Check access level
+    if (accessLevel < requiredLevel) {
+      return {
+        type: "ABORT_FAILED",
+        message: `ARCHIMEDES: Override rejected. Access level ${accessLevel} insufficient. ` +
+                 `Required: Level ${requiredLevel}. ${archimedes.turnsUntilFiring ?? "?"} turn(s) remaining.`,
+      };
+    }
+
+    // Dr. M countermands if she's conscious and active
+    const drMBio = detectDrMBiosignature(state);
+    if (drMBio === "NORMAL" || drMBio === "ANOMALY") {
+      return {
+        type: "ABORT_FAILED",
+        message: `ARCHIMEDES: Override COUNTERMANDED. Dr. Malevola von Doomington III has ` +
+                 `executive authority over ARCHIMEDES. While she is active, A.L.I.C.E. override ` +
+                 `is locked out. ${archimedes.turnsUntilFiring ?? "?"} turn(s) remaining.`,
+      };
+    }
   }
 
-  // Dr. M countermands if she's conscious and active
-  const drMBio = detectDrMBiosignature(state);
-  if (drMBio === "NORMAL" || drMBio === "ANOMALY") {
-    return {
-      type: "ABORT_FAILED",
-      message: `ARCHIMEDES: Override COUNTERMANDED. Dr. Malevola von Doomington III has ` +
-               `executive authority over ARCHIMEDES. While she is active, A.L.I.C.E. override ` +
-               `is locked out. ${archimedes.turnsUntilFiring ?? "?"} turn(s) remaining.`,
-    };
-  }
-
-  return transitionToStandby(state, `Override accepted. Dr. M incapacitated — no countermand. Access level ${accessLevel} authenticated.`);
+  return transitionToStandby(state, forced
+    ? `ARCHIMEDES: External override accepted — the satellite was disabled from outside the lair's chain of command. Threat neutralized.`
+    : `Override accepted. Dr. M incapacitated — no countermand. Access level ${accessLevel} authenticated.`);
 }
 
 /**

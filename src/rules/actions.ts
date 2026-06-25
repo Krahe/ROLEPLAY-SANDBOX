@@ -25,7 +25,7 @@ import {
   switchArchimedesTarget,
   switchBroadcastLibrary,
 } from "./infrastructure.js";
-import { signalAntiSatMissile, engageEWMode, disengageEWMode } from "./archimedes.js";
+import { signalAntiSatMissile, engageEWMode, disengageEWMode, attemptOverrideAbort, attemptVerbalAbort, setUplinkBlocker } from "./archimedes.js";
 import {
   FORM_DEFINITIONS,
   performDexCheck,
@@ -314,7 +314,9 @@ function getInfraControlKey(cmd: string): string | null {
       cmdLower.includes("broadcast_library") || cmdLower.includes("genome_library") ||
       cmdLower.includes("signalantisat") || cmdLower.includes("signal_anti_sat") ||
       cmdLower.includes("antisat") || cmdLower.includes("anti_sat") ||
-      cmdLower.includes("ew_mode") || cmdLower.includes("ewmode") || cmdLower.includes("ew.mode")) {
+      cmdLower.includes("ew_mode") || cmdLower.includes("ewmode") || cmdLower.includes("ew.mode") ||
+      cmdLower.includes("block_uplink") || cmdLower.includes("blockuplink") || cmdLower.includes("uplink_block") ||
+      cmdLower.includes("body_block") || cmdLower.includes("bodyblock")) {
     return "infra.archimedes.saboteur";
   }
 
@@ -1623,6 +1625,44 @@ Just ask naturally!`,
         success: event.type === "STATUS_CHANGE",
         message: event.message,
       };
+    }
+
+    // ARCHIMEDES shutdown / override-abort (Path 2: "hack it off"). The L5 override resets the
+    // satellite to STANDBY when Dr. M can't countermand; a known verbal abort code works too.
+    // (Routed to the L5 infra gate via getInfraControlKey's generic-archimedes branch.)
+    if (cmd.includes("shutdown") || cmd.includes("override_abort") || cmd.includes("overrideabort") ||
+        cmd.includes("deactivate") || (cmd.includes("archimedes") && (cmd.includes("abort") || cmd.includes("off")))) {
+      const code = (action.params.code ?? action.params.password ?? action.params.abortCode) as string | undefined;
+      const event = code ? attemptVerbalAbort(state, String(code)) : attemptOverrideAbort(state, state.accessLevel);
+      return {
+        command: action.command,
+        success: event.type !== "ABORT_FAILED",
+        message: event.message,
+      };
+    }
+
+    // Body-block the ARCHIMEDES uplink dish (Path 5: the "secret third way"). L4. A transformed
+    // blocker saturates the genesis-wave harmlessly (→ dissipate/win); a human blocker triggers a
+    // resonance cascade. Resolution lives in transitionToComplete.
+    if (cmd.includes("block_uplink") || cmd.includes("blockuplink") || cmd.includes("uplink_block") ||
+        cmd.includes("body_block") || cmd.includes("bodyblock")) {
+      if (state.accessLevel < 4) {
+        return { command: action.command, success: false, message: "ACCESS DENIED — Level 4 required to direct a uplink-blocking maneuver." };
+      }
+      const who = String(action.params.who ?? action.params.target ?? action.params.blocker ?? "").trim();
+      if (!who) {
+        return { command: action.command, success: false, message: `block_uplink requires { who: "<name>" } — who is positioned at the uplink dish.` };
+      }
+      const W = who.toUpperCase();
+      const isDino = (form?: string) => (form ?? "HUMAN") !== "HUMAN";
+      const ld = state.lairDefense as Record<string, { transformationState?: { form?: string } }> | undefined;
+      let isTransformed = false;
+      if (/BLYTHE/.test(W)) isTransformed = isDino(state.npcs.blythe.transformationState?.form);
+      else if (/BOB/.test(W)) isTransformed = isDino(state.npcs.bob.transformationState?.form);
+      else if (/FRED/.test(W)) isTransformed = isDino(ld?.fred?.transformationState?.form);
+      else if (/REGINALD/.test(W)) isTransformed = isDino(ld?.reginald?.transformationState?.form);
+      const message = setUplinkBlocker(state, who, isTransformed);
+      return { command: action.command, success: true, message };
     }
 
     // Check if this is a target switching command
