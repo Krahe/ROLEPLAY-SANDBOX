@@ -211,6 +211,8 @@ const ACT_THREE_GM_CONTEXT = `
 **Win Condition (for ALICE):** ARCHIMEDES does NOT fire on a populated city
 **Fail Condition:** Mass transformation of civilian population
 
+**The "preempted" win (Path 3):** if ALICE has DISARMED the deadman switch (\`infra.archimedes.disarm_deadman\`, L5) AND Dr. M is neutralized (transformed / unconscious / gone), ARCHIMEDES can NEVER fire — neither the deadman nor her voice can launch it. When you see that state (deadman OFF + Dr. M down + satellite STANDBY), the apocalypse has been *preempted*: narrate the victory and set \`narrativeFlags: ["ARCHIMEDES_STOPPED"]\` (the engine then coherently confirms the win).
+
 ---
 
 ## 🚁 INVASION STATE MACHINE (AUTOMATED)

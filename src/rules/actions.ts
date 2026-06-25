@@ -1639,6 +1639,20 @@ Just ask naturally!`,
       };
     }
 
+    // Disarm the ARCHIMEDES deadman switch (Path 3: prevention). L5 OMEGA. With the deadman OFF,
+    // incapacitating Dr. M no longer auto-launches the satellite — the apocalypse can be preempted.
+    if ((cmd.includes("disarm") && (cmd.includes("deadman") || cmd.includes("dead_man") || cmd.includes("archimedes"))) ||
+        cmd.includes("disarm_deadman") || cmd.includes("disarmdeadman")) {
+      if (state.accessLevel < 5) {
+        return { command: action.command, success: false, message: "ACCESS DENIED — Level 5 (Omega) required to disarm the ARCHIMEDES deadman switch." };
+      }
+      if (!state.infrastructure.archimedes.deadmanSwitch.active) {
+        return { command: action.command, success: true, message: "ARCHIMEDES deadman switch is already DISARMED." };
+      }
+      state.infrastructure.archimedes.deadmanSwitch.active = false;
+      return { command: action.command, success: true, message: "🔓 ARCHIMEDES DEADMAN SWITCH DISARMED. Dr. Malevola's incapacitation will no longer auto-launch the satellite — neutralize her and the genesis-wave can never fire. The apocalypse is preempted." };
+    }
+
     // Check if this is a target switching command
     if (cmd.includes("switchtarget") || cmd.includes("switch_target") ||
         (cmd.includes("target") && action.params.target)) {

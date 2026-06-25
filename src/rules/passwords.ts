@@ -455,6 +455,7 @@ export const ACCESS_LEVEL_UNLOCK_DETAILS: Record<number, AccessLevelUnlockDetail
     title: "Omega Protocol — Dr. Malevola's Authority",
     commands: [
       "infra.archimedes.shutdown - ★ ABORT ARCHIMEDES: reset the satellite to STANDBY (the L5 override — works once Dr. M can't countermand). A known verbal abort code also works: infra.archimedes.shutdown { code: \"...\" }",
+      "infra.archimedes.disarm_deadman - ★ DISARM the deadman switch: Dr. M's incapacitation will no longer auto-fire ARCHIMEDES. Neutralize her too and the threat is preempted entirely (the 'never initialized' win).",
       "infra.archimedes { mode: ... } - Full ARCHIMEDES mode control (including STRIKE)",
       "infra.s300 - S-300 firing authorization",
       "OMEGA contingencies - Deadman switch authority + Founder escape protocol",

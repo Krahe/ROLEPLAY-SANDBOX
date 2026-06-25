@@ -149,6 +149,13 @@ export function checkArchimedesTrigger(
     return null;
   }
 
+  // Path 3 (Krahe 2026-06-25): the deadman switch is what makes Dr. M's incapacitation fire ARCHIMEDES.
+  // If it has been DISARMED, her going down does NOTHING — the satellite stays cold (the "never
+  // initialized" prevention path). NORMAL-restore (above) still aborts an ALERT/EVALUATING regardless.
+  if (!archimedes.deadmanSwitch.active) {
+    return null;
+  }
+
   // Other triggers only activate from STANDBY state
   if (archimedes.status !== "STANDBY") {
     return null;
