@@ -1504,23 +1504,44 @@ app.get("/", (_req: Request, res: Response) => {
 // START SERVER
 // ============================================
 
+let dashboardServer: ReturnType<typeof app.listen> | null = null;
+
+// Self-healing port (Krahe 2026-06-25): a NEWER dashboard can ask the incumbent to step down so it
+// reclaims the port — a new game's dashboard always wins. We CLOSE the HTTP server (release the port)
+// rather than process.exit, so an MCP-embedded dashboard steps aside WITHOUT taking the game down.
+app.get("/__shutdown", (_req: Request, res: Response) => {
+  res.end("DINO LAIR dashboard: stepping down for a newer instance.");
+  console.error(`[DINO LAIR] Dashboard: releasing port ${PORT} for a newer instance.`);
+  if (dashboardServer) { dashboardServer.close(); dashboardServer = null; }
+});
+
 /**
- * Start the dashboard server.
+ * Start the dashboard server, reclaiming the port from a stale instance if needed.
  * Exported so it can be called from the main MCP server.
  */
 export function startDashboard(): void {
   startWatching();
+  tryListenDashboard(0);
+}
 
-  const dashboardServer = app.listen(PORT, () => {
+function tryListenDashboard(attempt: number): void {
+  dashboardServer = app.listen(PORT, () => {
     console.error(`[DINO LAIR] Dashboard running at http://localhost:${PORT}`);
   });
 
   dashboardServer.on("error", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EADDRINUSE") {
-      console.error(`[DINO LAIR] Dashboard: port ${PORT} in use — skipping dashboard (game still works)`);
-    } else {
+    if (err.code !== "EADDRINUSE") {
       console.error(`[DINO LAIR] Dashboard failed to start:`, err.message);
+      return;
     }
+    if (attempt > 0) {
+      console.error(`[DINO LAIR] Dashboard: port ${PORT} still in use after reclaim — skipping (game still works).`);
+      return;
+    }
+    // A stale DINO LAIR dashboard holds the port — ask it to step down, then retry once.
+    console.error(`[DINO LAIR] Dashboard: port ${PORT} busy — asking the previous instance to step down…`);
+    const retry = () => setTimeout(() => tryListenDashboard(1), 400);
+    fetch(`http://localhost:${PORT}/__shutdown`, { signal: AbortSignal.timeout(600) }).then(retry, retry);
   });
 }
 
