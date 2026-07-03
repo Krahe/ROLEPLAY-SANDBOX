@@ -2469,7 +2469,11 @@ async function main() {
   // Load API key from .api-key file if not in environment
   if (!process.env.ANTHROPIC_API_KEY) {
     try {
-      const keyPath = new URL(".api-key", import.meta.url).pathname.replace("/dist/", "/");
+      const { fileURLToPath } = await import("url");
+      const nodePath = await import("path");
+      // dist/index.js -> ../.api-key = repo root; src/index.ts (tsx) -> ../.api-key = repo root too.
+      // fileURLToPath handles spaces in the repo path (URL.pathname leaves them %20-encoded).
+      const keyPath = nodePath.join(nodePath.dirname(fileURLToPath(import.meta.url)), "..", ".api-key");
       const key = (await import("fs")).readFileSync(keyPath, "utf-8").trim();
       if (key) {
         process.env.ANTHROPIC_API_KEY = key;
