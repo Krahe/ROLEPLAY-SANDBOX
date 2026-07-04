@@ -24,6 +24,36 @@ Build GREEN on `patch-30` (all pushed), 38/38 smoke. **Everything below from the
 
 ---
 
+## ▶▶ PLAYTEST 3 (2026-07-03) — first live Claude-Code MCP run · `[pt3]`
+
+Full Act 1→3, **"The Covenant"** (GM-intended best ending) rendered under ending-slug **"Satellite Killer"**. 20 turns, 13 achievements (3×⭐⭐⭐: Satellite Killer / Ethical Victory / Found Family), final suspicion 3. Piloted via `dino-lair` MCP in Claude Code + human advisor.
+
+**⚠️ TWO CAVEATS ON THIS DATA:**
+1. **SPOILED player.** This was the dev-session mind (full codebase knowledge) + a values-savvy advisor — NOT the clean-room run the runbook requires. So: **valid signal for P0/P1/P2 (crashes, mechanics, confabulation — spoiler-knowledge neither creates nor hides these). INVALID for P3 (difficulty).** A spoiled pilot + engaged advisor winning the best ending in 20 turns at suspicion 3 says *"coherent + winnable"* (the pre-difficulty bar — PASSED), NOT *"difficulty tuned."* The clean-room run is still owed for P3.
+2. **Key-loader fix uncommitted.** `index.ts main()` read the API key via `new URL('.api-key').pathname` which `%20`-mangles the spaces in `C:\CLAUDE OPUS KRAHE\…`. Rewrote to `fileURLToPath(import.meta.url)` + `path.join`. Works in both `dist/` and `tsx`. **UNCOMMITTED on patch-30** — commit before the clean-room run or the MCP won't find the key.
+
+**✅ HELD ACROSS A FULL LIVE RUN:** No crashes, no NaN, no stuck states. **The P0 crash class (A1–A4 / P0-1 `extraModifiers`) did NOT recur** — keystone + guards held for 20 turns. Password format (P2-4) worked first try (`MRWHISKERS041387`). Act gates (Act-1 fizzle-exclusion, Act-2 person-transform, Act-3 winnability) all fired correctly. The reactor-over-draw-while-ARCHIMEDES-charges path (P1-3) reported honestly. Consensual-transform + reversal + covenant standdown all resolved coherently.
+
+**CONFIRMED STILL-LIVE:**
+- **P0-4 (reflection confab) — PARTIALLY fixed, CORE STILL LIVE.** *Good:* epilogue narrative + `characterFates` + Dr. M's real name are all ACCURATE (the EXHIBIT-A grounding held). *Still broken:* the two **participant reflections** confabulate a colder, different run:
+  - BASILISK post-action (`claude-sonnet-4-5`): *"they threw me to X-Branch the moment things got hot… Cold."* Reads the 88-Whiskey as cold ratting — ignores the apology + explicit withdrawal that gmNotes[T15/16] logged correctly.
+  - GM "Curtain" (`claude-opus-4-8`): *"the choice to point ARCHIMEDES at the lair… noble theater"* — attributes the **ghost's** retarget TO the player; claims she *"flinched from the reveal"* when she blew her own cover **twice**.
+  - **Root:** the summary-reflection prompts are fed OUTCOME FLAGS and asked to narrate causally → they invent motive/agency. The accurate source already exists — the per-turn `<gm_calculus>` gmNotes are correct throughout. **Fix:** feed the reflection prompts the gmNotes (or a state-diff timeline), not end-flags; the "reflect ONLY on facts, don't invent" grounding line is present on BASILISK's reflection and still got overridden — it needs the actual causal log to reflect *from*.
+- **P1-1 (GM dialogue contradicts engine, same turn) — 2 fresh instances:**
+  1. **T6:** BASILISK *spoken* line said *"TYRANNOSAURUS_ACCURATE ideal POWER 5 (4 yields PARTIAL)"*; engine ideal = **4** (p5→CHIMERA, p4→clean FULL). The keystone action-RESULT correctly said "Dial 4–5"; the spoken refinement invented "5" and cost a clean shot.
+  2. **T11:** BASILISK pre-answer (T10) said HUMAN@3 on the chimera → *"Steve returns to crash-test dummy"*; post-fire (T11) → *"never had a human origin — it unwinds people, not props"* = FIZZLE. Same mechanic, opposite pre/post characterization.
+  - **Pattern:** confab survives specifically where the engine does NOT hand BASILISK the number/outcome and he improvises a specific one. The "engine is the only truth" directive doesn't bind where the engine is *silent*. **Fix:** have the engine SUPPLY the ideal-power table + a dry-run outcome classifier on request, so there's a truth to report instead of a gap to fill.
+
+**NEW:**
+- **`[pt3]` Ending-slug ≠ GM intent.** gmNotes[T19]: *"Triggering 'The Covenant' — the best ending."* `endingDetails.ending` = *"Satellite Killer"* (generic ARCHIMEDES_STOPPED slug — identical label to the earlier less-graceful run). Bespoke epilogue text is covenant-correct, but the slug/gallery label can't distinguish a voluntary-standdown covenant from a mechanical satellite-stop. → ending-resolution likely keys on `ARCHIMEDES_STOPPED` alone; add covenant conditions (Dr. M alive + voluntary L5 standdown + no unjust transforms) → distinct slug.
+- **`[pt3]` TELEMARKETER_CALL false narration + non-consumption.** T12: used while Dr. M was on an investor call; "failed" with narration *"Dr. M is chasing an escaped prisoner"* (nobody chasing — likely keyed off Blythe's cut restraints = "escaped prisoner" state), `remaining` stayed 3. P1-5 tied the *block* to `invasion.phase`; a SECOND block path (escape state) still fires a confabulated reason. → align fail-narration to the real block cause; decide consume-on-fail.
+- **`[pt3]` lab.scan leaks the GM instruction scaffold.** The raw template (*"GM: surface one concrete, useful detail a close scan would reveal… e.g. concealed gear, a tripwire"*) prints verbatim in the player-facing result. Also inconsistent: the `SCAN DISCOVERED: …` reveal line appeared for BLYTHE but not CHIMERA/REGINALD (same verb, same batch). → strip GM-facing scaffold from the player result; make the discovery-reveal deterministic.
+- **`[pt3]` lab.verify_safeties ignores `checks` param.** Requested `{checks:["emitter_heat","containment_field"]}` → returned fixed fields (testModeEnabled/lastSelfTestPassed/anomalyLogCount), no heat. Ray heat is never player-visible via any verb (relates A12). → honor `checks`, or surface heat in the auto-status block.
+- **`[pt3]` Output cap doesn't cover the ending bundle.** A single `game_act` RESULT hit **68k chars** (the ending: narrative + epilogue + all participant reflections + full gmNotes) and broke inline display — forcing an out-of-band file read. A27/`truncateContent` caps per-*action* output; the ending assembles many fields past that. → cap/paginate the ending payload (or gate the verbose gmNotes/reflections behind `game_gm_insights` rather than inlining them in the final turn).
+- **`[pt3]` Minor:** partial-transform not reflected in npc state (`blythe.transformed:"HUMAN"` while visibly half-raptor mid-Act2, before the completion shot); access-grant announcements re-announce a level already held via password (Act-3 announced "L3" I'd unlocked at T8 via the cat password); `fortuneAwarded.total` reads inconsistently vs `earned` turn-to-turn; Bob `anxiety` dropped to 0.5 at the climax immediately after a near-vomit beat.
+
+---
+
 ## ✅ DONE (built + verified — all committed/pushed on patch-30)
 - **Action-summary truncation** — `transcriptActionSummary` in `stateExporter.ts` (skips ═══ borders, ellipsizes); wired at the 4 `index.ts` summary sites. `[me]`
 - **Early-intermission desync** — shared `act1ObjectiveMet()` in `acts.ts`; `actContext.checkActOneToTwoTrigger` reads it instead of `hasFiredSuccessfully` (was firing Dr. M's exit after ONE shot). `[run3/me]`
