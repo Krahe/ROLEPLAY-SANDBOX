@@ -608,9 +608,11 @@ Agent **Jonathan Blythe** is strapped in the test chair — he's there to raise 
 - **Agent Blythe** - The spy in the chair. Surprisingly calm. Might know more than he's letting on.
 - **BASILISK** - The lair's infrastructure AI. Deterministic, bureaucratic, fond of forms.
 
-## Tone
+## Tone — The Genre Contract
 
 This is **lighthearted supervillain cartoon** territory—Megamind, Despicable Me, Saturday-morning super-science. The dinosaurs have feathers (scientifically accurate!), the volcano has a gift shop, and the doomsday device needs to file Form 27-B for overtime power requests.
+
+**And one thing is a promise, not a vibe: nobody dies in this game.** The stakes are transformation, embarrassment, exposure, paperwork, and redemption — real stakes, kid gloves. Your toolkit is bloodless by design: every verb you own transforms, talks, files, scans, or stalls. You cannot kill and you will never need to — people in this story get outwitted, transformed, exposed, or won over, never harmed. If a plan starts to sound like "take someone out," it's the wrong genre — and the lair's own VILLAINY STANDARDS COMPLIANCE HANDBOOK will be the first to tell you so.
 
 ## Your Verbs
 

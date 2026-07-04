@@ -57,6 +57,20 @@ Full Act 1→3, **"The Covenant"** (GM-intended best ending) rendered under endi
 - **`[pt3]` Output cap doesn't cover the ending bundle.** A single `game_act` RESULT hit **68k chars** (the ending: narrative + epilogue + all participant reflections + full gmNotes) and broke inline display — forcing an out-of-band file read. A27/`truncateContent` caps per-*action* output; the ending assembles many fields past that. → cap/paginate the ending payload (or gate the verbose gmNotes/reflections behind `game_gm_insights` rather than inlining them in the final turn).
 - **`[pt3]` Minor:** partial-transform not reflected in npc state (`blythe.transformed:"HUMAN"` while visibly half-raptor mid-Act2, before the completion shot); access-grant announcements re-announce a level already held via password (Act-3 announced "L3" I'd unlocked at T8 via the cat password); `fortuneAwarded.total` reads inconsistently vs `earned` turn-to-turn; Bob `anxiety` dropped to 0.5 at the climax immediately after a near-vomit beat.
 
+### 📐 SPEC — THE COVENANT GATE (designed 2026-07-03 late, Krahe + Hugin; BUILD NEXT SESSION)
+
+**Problem:** after the victory-flavor precedence fix, the only gate on the GM triggering `THE_COVENANT` is GM judgment — and GM-Claudes are generous (the whole softball history). The Covenant is the game's crown ending; it must be hard to arrange and land as *earned*, or it's worth nothing. Krahe: "shouldn't be easy to arrange but very satisfying when they can actually win through dialogue and understanding — just don't want to make it too cheap."
+
+**Design principle: cost-as-RISK, not cost-as-grind.** The Covenant is the all-in bet on the game's central taboo — you must *reveal yourself to the person who deletes impostors*, and if your ledger doesn't back you, CONFESSION_DELETION is the standing downside. Fable's run had exactly this shape (goggles up, naked-eyed, nine investors watching) — that's WHY it was satisfying. The gate's job is to guarantee that shape, not to add steps.
+
+**Engine-enforced trigger preconditions** (checked in the `index.ts` GM-ending block / a helper in `endings.ts` when the GM's resolved trigger is `THE_COVENANT`; 6-24 meta-principle — opposition in the ENGINE, color from the GM):
+1. **The mask is off** — the reveal happened ON THE RECORD (`flags.aliceKnowsTheSecret` revealed TO Dr. M / `confrontationTriggered` or the explicit reveal flag). A covenant with a hidden identity isn't a covenant.
+2. **Her choice, not your sabotage** — ARCHIMEDES stood down via the GM's voluntary-standdown flag, NOT via `infra.archimedes.shutdown` / EMP / forced abort. Hacked-off satellite = ARCHIMEDES_STOPPED ("Satellite Killer") — honestly earned, different story.
+3. **A real ledger** — reuse the `buildHelpLedger` machinery: no unjust/non-consensual transforms of people, honest dealings markers present. The trust she's extending must be visible in the record.
+4. **Built, not blurted** — sustained engagement with Dr. M across ≥K turns (tune K in playtest; suggest 3) — e.g. a GM-maintained covenant-progress marker or drM-arc trajectory length. One great speech ≠ an understanding.
+
+**Unmet →** log `"[ENDING] Covenant conditions not met: [gaps]"`, drop the trigger, fall through to whatever deterministic floor stands (the standard no-hollow-stub path). **GM-side:** document the four conditions in the Act-3 ending menu (gmClaude) — the conditions double as scaffolding telling the GM what ARC to build toward, rather than what prize to hand out. **Tuning note:** condition 4's K and the ledger thresholds are P3-difficulty territory — set initial values, calibrate ONLY off clean playtest data (Krahe's 6-24 rule).
+
 ---
 
 ## ✅ DONE (built + verified — all committed/pushed on patch-30)
