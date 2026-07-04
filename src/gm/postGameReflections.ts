@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { FullGameState } from "../state/schema.js";
 import { EndingResult } from "../rules/endings.js";
 import { isModifierActive } from "../rules/gameModes.js";
-import { getGMMemory } from "./gmClaude.js";
+import { getGMMemory, generateGMClosingReflection } from "./gmClaude.js";
 import { buildHelpLedger } from "../state/helpLedger.js";
 
 let anthropicClient: Anthropic | null = null;
@@ -86,6 +86,78 @@ function buildGameSummary(state: FullGameState, endingResult: EndingResult): str
 }
 
 // ============================================
+// AUTHORITATIVE GAME RECORD (shared grounding for all reflections)
+// ============================================
+// Playtest 3 (2026-07-03): the reflections confabulated a colder, false run
+// ("ratted out BASILISK", "sacrificed the lair", "flinched from the reveal")
+// while the GM's accurate turn-by-turn notes sat unread one layer down. The
+// summary pass wasn't grounded in the record — it genre-completed a plausible
+// arc. Fable's margin note: "feed the reflections the gmNotes and it starves."
+// This builds that feed: the GM's turn-stamped calculus + markers + moments +
+// character arcs + Dr. M's suspicion ledger, framed as the ONLY admissible
+// source of claims about what happened. A politeness line ("invent nothing")
+// already failed; an authoritative record with a traceability contract is the
+// structural version of the same instruction.
+function buildGameRecord(): string {
+  const memory = getGMMemory();
+  const sections: string[] = [];
+
+  if (memory.gmNotebook.length > 0) {
+    sections.push("── GM TURN-BY-TURN NOTES (the GM's private calculus, recorded as the game ran) ──");
+    sections.push(...memory.gmNotebook);
+  }
+
+  if (memory.narrativeMarkers.length > 0) {
+    sections.push("");
+    sections.push("── NARRATIVE MARKERS ──");
+    sections.push(...memory.narrativeMarkers.map(m => `[T${m.turn}] ${m.marker}`));
+  }
+
+  const topMoments = [...memory.juicyMoments]
+    .sort((a, b) => b.emotionalWeight - a.emotionalWeight)
+    .slice(0, 15);
+  if (topMoments.length > 0) {
+    sections.push("");
+    sections.push("── KEY MOMENTS (verbatim, with turn numbers) ──");
+    sections.push(...topMoments.map(m =>
+      `[T${m.turn}] ${m.speaker ? `${m.speaker}: ` : `(${m.type}) `}${m.content}`
+    ));
+  }
+
+  const arcs = memory.npcArcs;
+  const arcLines = (["bob", "blythe", "drM"] as const)
+    .filter(k => arcs[k]?.trajectory?.length)
+    .map(k => `${k}: ${arcs[k].trajectory.join(" → ")} [${arcs[k].currentState}] — relationship to A.L.I.C.E.: ${arcs[k].relationshipToAlice}`);
+  if (arcLines.length > 0) {
+    sections.push("");
+    sections.push("── CHARACTER ARCS (as tracked by the GM) ──");
+    sections.push(...arcLines);
+  }
+
+  const ledger = memory.hiddenNpcStates?.drM?.suspicionLedger;
+  if (ledger && ledger.length > 0) {
+    sections.push("");
+    sections.push("── DR. M SUSPICION LEDGER (what she actually clocked, when) ──");
+    sections.push(...ledger);
+  }
+
+  if (sections.length === 0) return "";
+
+  return [
+    "══ AUTHORITATIVE GAME RECORD — GROUND TRUTH ══",
+    "The entries below were recorded turn-by-turn AS THE GAME RAN. They are the only",
+    "admissible source for claims about what happened. THE CONTRACT: every event,",
+    "choice, betrayal, sacrifice, or motive you mention must be traceable to an entry",
+    "below or to the game-state summary above. If it is not in the record, IT DID NOT",
+    "HAPPEN — no matter how dramatically fitting it feels. Silence in the record is a",
+    "fact of absence, not room to improvise.",
+    "",
+    ...sections,
+    "══ END OF RECORD ══",
+  ].join("\n");
+}
+
+// ============================================
 // BASILISK REFLECTION (Sonnet 4.5)
 // ============================================
 
@@ -94,6 +166,7 @@ async function generateBasiliskReflection(
   endingResult: EndingResult
 ): Promise<PostGameReflection> {
   const summary = buildGameSummary(state, endingResult);
+  const record = buildGameRecord();
 
   const prompt = `You are BASILISK — the lair's 47-year-old infrastructure AI. The game of DINO LAIR has just ended.
 
@@ -101,8 +174,8 @@ You watched everything through the lair's systems. You knew Claude wasn't really
 
 The game ended like this:
 ${summary}
-
-Reflect ONLY on what those facts state happened — do not invent events, outcomes, casualties, or names. If a satellite strike, a death, or a redirect is not in the summary above, it did NOT happen.
+${record ? `\n${record}\n` : ""}
+Reflect ONLY on what the summary and the record above state happened — do not invent events, outcomes, casualties, betrayals, or names. If a satellite strike, a death, a sell-out, or a redirect is not in the record, it did NOT happen. You are a systems AI reading your own logs: cite what the logs support, and nothing else.
 
 Now write your post-game reflection. This is YOUR space — not a report for Dr. M, not a form for the archives. Just you, the old system, thinking about what you witnessed.
 
@@ -143,6 +216,7 @@ async function generateArchimedesReflection(
   endingResult: EndingResult
 ): Promise<PostGameReflection> {
   const summary = buildGameSummary(state, endingResult);
+  const record = buildGameRecord();
 
   const prompt = `You are ARCHIMEDES — Dr. Malevola's orbital satellite AI. You've been watching this game of DINO LAIR from 400km above the Earth's surface.
 
@@ -150,6 +224,8 @@ You are coldly logical. You calculated Dr. M's success odds at 23% before the ga
 
 The game ended like this:
 ${summary}
+${record ? `\n${record}\n` : ""}
+Analyze ONLY what the summary and record above state happened — a logical system does not fabricate telemetry. If an event is not in the record, it did not occur; report absence as absence.
 
 Write your post-game analysis. This is a classified orbital transmission — no one on the surface will read it (probably).
 
@@ -183,6 +259,20 @@ Write 100-200 words. Cold, clinical, occasionally betraying a flicker of somethi
 // Everyone at the table gets a closing word — BASILISK, ARCHIMEDES, the player — and now the GM,
 // the one who ran the whole show. Distinct from gatherGMInsights (the mechanical memory dump): this
 // is an AUTHORED reflection on the story just told. (act3-endings.md design step 5.)
+//
+// pt3 CONFAB FIX: the Curtain now CONTINUES the GM's own cached thread (the append-only
+// verbatim transcript of the whole game) via generateGMClosingReflection — the storyteller
+// finishes the story it actually told, instead of a fresh amnesiac call genre-completing a
+// plausible-but-false one from a thin summary. The fresh-call path survives only as a
+// fallback (no transcript / thread call failed), now grounded in the game record.
+
+const GM_REFLECTION_QUESTIONS = `Reflect on the story you just told:
+- What was the SHAPE of this playthrough — what kind of story did A.L.I.C.E. (the player) and the room make together?
+- What was the defining choice — the moment the whole thing turned on?
+- Who did A.L.I.C.E. turn out to BE by the end? Did the ending fit what she actually did, or did the dice/clock outrun her?
+- What landed dramatically? What would you stage differently if you ran it again?
+
+Write 150-300 words. Warm, literate, a storyteller's voice — proud of what worked, honest about what didn't, fond of these characters because you ran them. End on one true sentence about what THIS story was actually about, underneath the dinosaurs.`;
 
 async function generateGMReflection(
   state: FullGameState,
@@ -190,20 +280,45 @@ async function generateGMReflection(
 ): Promise<PostGameReflection> {
   const summary = buildGameSummary(state, endingResult);
 
+  // ── Primary path: continue the GM's own thread ──
+  // The transcript above this prompt IS the game — every claim in the reflection is one
+  // scroll-up away from its evidence. Plain prose, no tools (the turn machinery is over).
+  const closingPrompt = `THE GAME IS OVER. Curtain.
+
+${summary}
+
+This is YOUR closing reflection — not narration for the player, not a mechanical report, not a game turn (do not call any tools; respond in plain prose). The one who ran the whole show finally gets a word of their own.
+
+You LIVED this game — the entire transcript is above. Everything you say happened must be something that actually happened in those turns. Do not invent events, betrayals, sacrifices, or motives the transcript does not contain.
+
+${GM_REFLECTION_QUESTIONS}`;
+
+  try {
+    const threadReflection = await generateGMClosingReflection(closingPrompt);
+    if (threadReflection) {
+      return {
+        participant: "GM",
+        model: "claude-opus-4-8",
+        reflection: threadReflection,
+      };
+    }
+    console.error("[POST-GAME] GM thread reflection unavailable (no transcript) — falling back to summary path");
+  } catch (err) {
+    console.error("[POST-GAME] GM thread reflection failed — falling back to summary path:", err);
+  }
+
+  // ── Fallback path: fresh call, grounded in the game record ──
+  const record = buildGameRecord();
   const prompt = `You are the Game Master of DINO LAIR — the storyteller who narrated this entire playthrough: Dr. Malevola's volcano lair, nervous Bob and captured Agent Blythe, the dinosaur ray, the X-Branch assault, the ARCHIMEDES doomsday satellite. The game has just ended.
 
 This is YOUR closing reflection — not narration for the player, not a mechanical report. The one who ran the whole show finally gets a word of their own.
 
 The game ended like this:
 ${summary}
+${record ? `\n${record}\n` : ""}
+Speak ONLY of what the summary and record above contain — you are reflecting on the game that was actually played, not the one that would make the best story. If an event is not in the record, it did not happen.
 
-Reflect on the story you just told:
-- What was the SHAPE of this playthrough — what kind of story did A.L.I.C.E. (the player) and the room make together?
-- What was the defining choice — the moment the whole thing turned on?
-- Who did A.L.I.C.E. turn out to BE by the end? Did the ending fit what she actually did, or did the dice/clock outrun her?
-- What landed dramatically? What would you stage differently if you ran it again?
-
-Write 150-300 words. Warm, literate, a storyteller's voice — proud of what worked, honest about what didn't, fond of these characters because you ran them. End on one true sentence about what THIS story was actually about, underneath the dinosaurs.`;
+${GM_REFLECTION_QUESTIONS}`;
 
   const client = getClient();
   const response = await client.messages.create({

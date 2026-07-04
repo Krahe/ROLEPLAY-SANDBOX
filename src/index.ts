@@ -1486,11 +1486,18 @@ The consequences of that reckless high-power firing are now manifesting.
       const gmOver = (gameState as Record<string, unknown>).gameOver as
         { ending: string; triggeredByGM?: boolean } | undefined;
       if (gmOver?.triggeredByGM) {
-        // A GM-named ending. If a deterministic checkEndings rail already fired this turn it takes
-        // precedence (don't overwrite it). Otherwise resolve the GM's name against the curated
-        // ENDINGS so it flows through the normal curated-prose + epilogue path.
+        // A GM-named ending. Resolve it against the curated ENDINGS, then decide precedence:
+        //  - No deterministic ending this turn → the GM's resolved ending stands (as before).
+        //  - Deterministic ending fired AND both it and the GM's call are VICTORY tone →
+        //    the GM's considered call wins. It has full narrative context and names the story
+        //    that was actually told; the deterministic rail only knows one mechanism fired.
+        //    (Playtest 3: player stopped ARCHIMEDES *and* won Dr. M over on the final turn —
+        //    GM triggered "The Covenant", the rail slugged "Satellite Killer", and the epilogue
+        //    was pure Covenant. Victory-flavor is the storyteller's call.)
+        //  - Any defeat/neutral deterministic ending (MELTDOWN, CITY_FELL, suspicion-10, …)
+        //    remains INVIOLABLE engine truth — a GM call never narrates away a catastrophe.
+        const resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
         if (!endingResult.ending) {
-          const resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
           if (resolved) {
             endingResult = resolved;
           } else {
@@ -1499,6 +1506,14 @@ The consequences of that reckless high-power firing are now manifesting.
             // floors (city-fell / DISSIPATED / meltdown / suspicion-10 / turn-40) are the safety net.
             console.error(`[ENDING] GM named unresolved ending "${gmOver.ending}" with no deterministic terminal — dropping (no hollow stub).`);
           }
+        } else if (
+          resolved?.ending &&
+          endingResult.ending.tone === "victory" &&
+          resolved.ending.tone === "victory" &&
+          resolved.ending.id !== endingResult.ending.id
+        ) {
+          console.error(`[ENDING] GM victory call "${resolved.ending.title}" supersedes same-turn deterministic victory "${endingResult.ending.title}" (victory-flavor precedence — pt3 slug/intent fix).`);
+          endingResult = resolved;
         }
         // In EVERY triggeredByGM case, clear the marker so the legacy stub block can never fire.
         // (That block used to override even a good deterministic ending with the generic stub —

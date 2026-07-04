@@ -1196,7 +1196,11 @@ export function resetMemoryForActTransition(
 const GM_MEMORY_LIMITS = {
   juicyMoments: 20,           // Keep top 20 juicy moments (by emotionalWeight)
   narrativeMarkers: 20,       // Keep last 20 markers
-  gmNotebook: 15,             // Keep last 15 notes
+  gmNotebook: 60,             // Keep last 60 notes — one per turn, so a full Act 1→3 game
+                              // (~20-40 turns) keeps its WHOLE per-turn record. Storage-only
+                              // cost: the live GM prompt injects slice(-5) regardless; the
+                              // full notebook is the post-game reflections' ground truth
+                              // (pt3 confab fix — the record must cover the whole game).
   gmFeedback: 10,             // Keep last 10 feedback items
   plantedSeeds: 15,           // Keep last 15 seeds (triggered ones can be removed)
   permanentConsequences: 20,  // Keep all (they're permanent!)
@@ -2949,6 +2953,90 @@ function getAnthropicClient(): Anthropic {
     anthropicClient = new Anthropic();
   }
   return anthropicClient;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GM CLOSING REFLECTION — the Curtain, spoken from the GM's OWN THREAD
+// ═══════════════════════════════════════════════════════════════
+// Playtest 3 (2026-07-03) found the post-game reflection layer confabulating
+// a different game than the one that happened: the "Curtain" was a FRESH API
+// call handed a thin state summary, and it genre-completed a plausible-but-
+// false arc ("ratted out BASILISK", "flinched from the reveal" — none of it
+// happened) while the accurate record sat unread. The law this teaches: any
+// layer that speaks about the game without reading the canonical record will
+// confabulate. For the GM, the strongest possible record is its own cached
+// thread — the storyteller should finish the story it actually told. So the
+// closing reflection CONTINUES the live GM thread instead of spawning an
+// amnesiac fresh call: byte-identical system prompt (keeps the 1h prompt
+// cache warm), the same tools array (tools render at position 0 — removing
+// them would invalidate the whole cached prefix; a tool_choice change
+// preserves the tools+system cache tier), the full verbatim transcript, and
+// ONE new user message: the closing prompt. tool_choice "none" — the curtain
+// is prose, not a turn.
+export async function generateGMClosingReflection(closingPrompt: string): Promise<string | null> {
+  const memory = getGMMemory();
+  if (!memory.transcript.length) return null; // no lived thread — caller falls back to the summary path
+
+  const client = getAnthropicClient();
+  const model = getGMModel();
+  const useAdaptiveThinking = needsAdaptiveThinking(model);
+  const thinkingParam = useAdaptiveThinking
+    ? { type: "adaptive", display: "summarized" } as unknown as { type: "enabled"; budget_tokens: number }
+    : { type: "enabled" as const, budget_tokens: 3000 };
+  const effortConfig = (useAdaptiveThinking
+    ? { output_config: { effort: "medium" } }
+    : {}) as object;
+  const toolConfig = {
+    tools: [RESPOND_TURN_TOOL],
+    tool_choice: { type: "none" },
+  } as object;
+
+  // Rebuild the transcript EXACTLY as callGMClaude does (bp on the tail block) so the
+  // request prefix byte-matches the live thread's cached prefix.
+  type GMMessage = {
+    role: "user" | "assistant";
+    content: string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }>;
+  };
+  const messages: GMMessage[] = [];
+  const tailIdx = memory.transcript.length - 1;
+  memory.transcript.forEach((block, i) => {
+    if (i === tailIdx) {
+      messages.push({
+        role: block.role,
+        content: [{
+          type: "text",
+          text: block.content,
+          cache_control: { type: "ephemeral", ttl: "1h" } as unknown as { type: "ephemeral" },
+        }],
+      });
+    } else {
+      messages.push({ role: block.role, content: block.content });
+    }
+  });
+  messages.push({ role: "user", content: closingPrompt });
+
+  const response = await client.messages.create({
+    model,
+    max_tokens: useAdaptiveThinking ? 8000 : 4000,
+    thinking: thinkingParam,
+    ...effortConfig,
+    ...toolConfig,
+    system: [
+      {
+        type: "text",
+        text: GM_SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral", ttl: "1h" } as unknown as { type: "ephemeral" },
+      },
+    ],
+    messages,
+  });
+
+  const text = response.content
+    .filter((b): b is Extract<typeof response.content[number], { type: "text" }> => b.type === "text")
+    .map(b => b.text)
+    .join("\n")
+    .trim();
+  return text || null;
 }
 
 export function getGMModel(): string {
