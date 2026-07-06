@@ -1073,10 +1073,11 @@ The consequences of that reckless high-power firing are now manifesting.
 `;
     }
 
-    // If transitioning, the notification includes the new act's context
-    const actTransitionNotification = actContextTransition.shouldTransition
-      ? actContextTransition.notification
-      : undefined;
+    // If transitioning, the notification includes the new act's context.
+    // Pass through UNCONDITIONALLY (pt3 fix): a DEMO_ULTIMATUM sets shouldTransition=false
+    // (the act holds one grace turn) but the GM must still receive the ultimatum directive —
+    // the snap is a scene in THIS turn's narration, not a silent engine event.
+    const actTransitionNotification = actContextTransition.notification;
 
     // BASILISK's turn (ALICE → BASILISK → GM): fires a real Sonnet turn on a live trigger
     // when ALICE didn't address him; his choices apply to state BEFORE the GM builds context,

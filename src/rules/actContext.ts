@@ -1,5 +1,5 @@
 import { FullGameState, Act } from "../state/schema.js";
-import { act1ObjectiveMet, act2ObjectiveMet } from "./acts.js";
+import { act1ObjectiveMet, classifyAct2Gate } from "./acts.js";
 
 // ============================================
 // ACT-BASED CONTEXT INJECTION SYSTEM
@@ -45,27 +45,43 @@ export function checkActOneToTwoTrigger(state: FullGameState): ActTransitionTrig
  * Trigger: Blythe escapes OR is transformed
  */
 export function checkActTwoToThreeTrigger(state: FullGameState): ActTransitionTrigger {
-  // Mirrors the REAL gate (acts.ts act2ObjectiveMet) so the GM's "transition imminent" signal can
+  // Mirrors the REAL gate (acts.ts classifyAct2Gate) so the GM's "transition imminent" signal can
   // never disagree with the act change. Blythe ESCAPING is NOT a transition (Krahe 2026-06-24): it
   // triggers Dr. M's demand for a substitute (see recordBlytheEscape). Only a fully-transformed
   // demo subject (Blythe/Bob/Reginald/Fred) or the deadline advances the act.
-  if (!act2ObjectiveMet(state)) {
-    return { occurred: false, turn: null, triggerType: null, details: null };
+  //
+  // LOOKAHEAD = 1 (pt3 fix, 2026-07-05): this runs PRE-GM, before advanceActTurn; the engine
+  // gate (checkAct2Transition) runs POST-advance. Evaluating at actTurn+1 here means both sides
+  // see the same effective turn — the deadline can never again turn the act behind the GM's
+  // back (pt3 T14: GM wrote "does NOT advance", engine stapled the canned Act 3 intro on).
+  const gate = classifyAct2Gate(state, 1);
+  switch (gate.kind) {
+    case "NONE":
+      return { occurred: false, turn: null, triggerType: null, details: null };
+    case "TRANSFORMED":
+      return {
+        occurred: true,
+        turn: state.turn,
+        triggerType: "SUBJECT_TRANSFORMED",
+        details: "A demo subject was fully transformed — Dr. M advances to Phase 3",
+      };
+    case "ULTIMATUM":
+      // NOT a transition — a one-turn grace the engine will confirm post-turn. The GM must
+      // dramatize the ultimatum THIS turn (see buildUltimatumNotification).
+      return {
+        occurred: true,
+        turn: state.turn,
+        triggerType: "DEMO_ULTIMATUM",
+        details: "The demo deadline landed while a transform is IN FLIGHT (PARTIAL) — Dr. M's patience snaps into an ultimatum: complete it NOW or she escalates. The act holds ONE more turn.",
+      };
+    case "DEADLINE":
+      return {
+        occurred: true,
+        turn: state.turn,
+        triggerType: "DEMO_DEADLINE",
+        details: "Dr. M's patience ran out — she escalates to Phase 3",
+      };
   }
-  if (state.flags.fullTransformationAchieved) {
-    return {
-      occurred: true,
-      turn: state.turn,
-      triggerType: "SUBJECT_TRANSFORMED",
-      details: "A demo subject was fully transformed — Dr. M advances to Phase 3",
-    };
-  }
-  return {
-    occurred: true,
-    turn: state.turn,
-    triggerType: "DEMO_DEADLINE",
-    details: "Dr. M's patience ran out — she escalates to Phase 3",
-  };
 }
 
 // ============================================
@@ -462,12 +478,53 @@ export function buildActTransitionNotification(
 **Trigger:** ${trigger.triggerType}
 ${trigger.details ? `**Details:** ${trigger.details}` : ""}
 
+⚠️ **THIS TRANSITION FIRES AT THE END OF THIS TURN — THE THRESHOLD IS YOURS.**
+Write the act break INTO this turn's narration as a SCENE: the trigger above is the dramatic
+event (her patience snapping / the transformation landing changes everything in the room).
+Do NOT treat it as a future event, and do NOT hold the current act's plans past this turn.
+The engine will append only a compact system marker (act banner + access unlock) after your
+narration — your narration IS the transition scene. (pt3: the old canned Act 3 intro
+contradicted the live fiction four ways; it's retired. You own this beat.)
+
 The story has escalated. New content is now available:
 
 ${getActGMContext(toAct)}
 
 ═══════════════════════════════════════════════════════════
-         ⚠️ GM: Acknowledge this transition in your narration!
+   ⚠️ GM: The act break happens in YOUR narration, THIS turn.
+═══════════════════════════════════════════════════════════
+`;
+}
+
+/**
+ * Build the ULTIMATUM directive for the GM — the deadline landed while a demo transform is
+ * visibly in flight (PARTIAL), so the act holds ONE more turn behind Dr. M's ultimatum instead
+ * of silently turning (pt3 close-read Rec 10: the snap becomes a scene, and the designed
+ * trigger — a person FULLY transformed — gets the chance to fire the transition it was built for).
+ */
+export function buildUltimatumNotification(trigger: ActTransitionTrigger): string {
+  return `
+═══════════════════════════════════════════════════════════
+            ⏳ DEMO DEADLINE — ULTIMATUM (ONE-TURN GRACE) ⏳
+═══════════════════════════════════════════════════════════
+
+**Trigger:** ${trigger.triggerType}
+${trigger.details ? `**Details:** ${trigger.details}` : ""}
+
+Dr. M's patience snaps NOW — but a demonstration is visibly IN FLIGHT (a demo subject is
+partially transformed), so she does not walk away from an almost-finished proof. Dramatize
+the ULTIMATUM in this turn's narration, in her voice: **complete the demonstration NOW —
+next turn — or she escalates to Phase 3 herself / chooses a substitute.**
+
+MECHANICAL TRUTH (do not contradict):
+- The act does NOT turn this turn. It turns at the end of NEXT turn, no matter what:
+  a FULL transform = the demonstration she demanded (the earned path); anything else =
+  her patience is spent and she escalates.
+- This is a one-time grace. There will not be another.
+- Overtime pressure is live: her suspicion is ticking up each turn past the deadline.
+
+═══════════════════════════════════════════════════════════
+     ⚠️ GM: The ultimatum is a SCENE — her voice, this turn.
 ═══════════════════════════════════════════════════════════
 `;
 }
@@ -507,6 +564,18 @@ export function checkAndBuildActTransition(state: FullGameState): {
   if (currentAct === "ACT_2") {
     const trigger = checkActTwoToThreeTrigger(state);
     if (trigger.occurred) {
+      // ULTIMATUM: not a transition — the act holds one more turn behind Dr. M's demand.
+      // shouldTransition=false but the notification MUST still reach the GM (callers pass
+      // .notification through unconditionally — pt3 fix): the ultimatum is a scene, this turn.
+      if (trigger.triggerType === "DEMO_ULTIMATUM") {
+        return {
+          shouldTransition: false,
+          fromAct: "ACT_2",
+          toAct: "ACT_3",
+          notification: buildUltimatumNotification(trigger),
+          trigger,
+        };
+      }
       return {
         shouldTransition: true,
         fromAct: "ACT_2",

@@ -472,9 +472,9 @@ export class GameRunner {
     // the shared ./gm/basiliskTurn module (identical to the index.ts canonical path).
     currentActContext += buildInvasionBasiliskContext(state, basiliskTurn, lairSnapshot);
 
-    const actTransitionNotification = actContextTransition.shouldTransition
-      ? actContextTransition.notification
-      : undefined;
+    // Pass through UNCONDITIONALLY (pt3 fix, lockstep with index.ts): a DEMO_ULTIMATUM sets
+    // shouldTransition=false (one grace turn) but the GM still needs the ultimatum directive.
+    const actTransitionNotification = actContextTransition.notification;
 
     return {
       state,

@@ -84,11 +84,12 @@ export function checkActTransition(state: FullGameState): ActTransitionResult {
 
   // BYPASS: cover blown → skip straight to Act 3 endgame (from any act)
   if (actConfig.currentAct !== "ACT_3" && state.flags.confrontationTriggered) {
+    const reason = "Cover blown — confrontation forces endgame";
     return {
       shouldTransition: true,
-      reason: "Cover blown — confrontation forces endgame",
+      reason,
       nextAct: "ACT_3" as Act,
-      transitionNarration: generateTransitionNarration(state, "ACT_3" as Act),
+      transitionNarration: generateTransitionNarration(state, "ACT_3" as Act, reason),
       suggestPause: false,
     };
   }
@@ -142,28 +143,96 @@ export function act1ObjectiveMet(state: FullGameState): boolean {
 }
 
 function checkAct2Transition(state: FullGameState): ActTransitionResult {
-  if (!act2ObjectiveMet(state)) return { shouldTransition: false };
-  const reason = state.flags.fullTransformationAchieved
-    ? "A subject was fully transformed — Dr. M moves to Phase 3"
-    : "Dr. M's patience ran out — she escalates to Phase 3";
-  return buildTransition(state, reason);
+  const gate = classifyAct2Gate(state, 0);
+  switch (gate.kind) {
+    case "NONE":
+      return { shouldTransition: false };
+    case "TRANSFORMED":
+      return buildTransition(state, "A subject was fully transformed — Dr. M moves to Phase 3");
+    case "ULTIMATUM": {
+      // ULTIMATUM GRACE (Krahe 2026-07-05, pt3 close-read Rec 10): the deadline landed while a
+      // demo-person transform is visibly IN FLIGHT (PARTIAL). Don't silently turn the act — the
+      // snap becomes a SCENE. One-turn grace: Dr. M demands completion NOW. If the FULL lands
+      // next turn, the DESIGNED trigger (SUBJECT_TRANSFORMED) fires the transition it was built
+      // for; otherwise the deadline escalation fires. Flag is engine truth so the GM-signal
+      // (classifyAct2Gate lookahead=1, pre-GM) and this gate (lookahead=0, post-advance) stay in
+      // lockstep across the turn boundary.
+      const f = state.flags as Record<string, unknown>;
+      f.deadlineUltimatumIssued = true;
+      f.deadlineUltimatumTurn = state.turn;
+      console.error(`[ACT] Act 2 deadline reached with a demo transform IN FLIGHT — ULTIMATUM issued (one-turn grace, act holds)`);
+      return { shouldTransition: false };
+    }
+    case "DEADLINE":
+      return buildTransition(state, "Dr. M's patience ran out — she escalates to Phase 3");
+  }
 }
 
 /**
- * Act 2 objective — the SHARED predicate (both checkAct2Transition AND the GM-signal
+ * Act 2 gate — the SHARED classifier (both checkAct2Transition AND the GM-signal
  * actContext.checkActTwoToThreeTrigger read it, so they can never disagree — same discipline as
  * act1ObjectiveMet). Act 2 → 3 fires when EITHER:
  *   (1+4) a DEMO PERSON is FULLY transformed — Blythe, or a substitute (Bob/Reginald/Fred). Tracked
  *         by flags.fullTransformationAchieved (set in applyFiringResults, person-gated, FULL-only —
  *         PARTIAL/CHIMERA don't count, so a lucky lowball can't end the act).
  *   (3)   the deadline elapses — actTurn reaches maxTurns (9): Dr. M's patience snaps, she escalates.
+ *         EXCEPT: if a demo transform is visibly in flight (PARTIAL) and no ultimatum has been
+ *         issued yet, the deadline defers ONE turn behind an ULTIMATUM (the snap becomes a scene).
  * Blythe ESCAPING NO LONGER advances the act (Krahe 2026-06-24): it enrages Dr. M and makes her
  * DEMAND a substitute (see recordBlytheEscape + the ACT_TWO GM context) — closing the easy-out.
+ *
+ * THE LOOKAHEAD ARG (pt3 fix, 2026-07-05): playtest 3's Act 2→3 fired via the deadline branch
+ * BEHIND THE GM'S BACK — index.ts calls the GM before advanceActTurn, then checkActTransition
+ * after it, so the GM evaluated actTurn=8 ("does NOT advance") while the engine evaluated
+ * actTurn=9 (DEADLINE → canned Act 3 intro stapled onto a narration that contradicted it).
+ * The shared-predicate discipline protected the FLAG path but not the CLOCK path, because the
+ * two callers read the clock at different points in the turn. Fix: the GM-signal calls with
+ * lookahead=1 (pre-advance) and the engine gate with lookahead=0 (post-advance), so both
+ * evaluate the SAME effective turn — every transition (and ultimatum) is GM-visible in the
+ * narration of the turn it fires. Flag inputs (fullTransformationAchieved — set during action
+ * resolution pre-GM; deadlineUltimatumIssued — set post-GM the PRIOR turn) are stable across
+ * the GM call, so pre/post evaluations can never diverge.
  */
-export function act2ObjectiveMet(state: FullGameState): boolean {
+export type Act2GateDecision =
+  | { kind: "NONE" }         // objective not met — act continues
+  | { kind: "TRANSFORMED" }  // the designed trigger: demo person FULL — act turns, earned
+  | { kind: "ULTIMATUM" }    // deadline + transform in flight + no prior ultimatum — grace turn
+  | { kind: "DEADLINE" };    // deadline — act turns, patience snapped
+
+export function classifyAct2Gate(state: FullGameState, lookahead: 0 | 1 = 0): Act2GateDecision {
   const { actTurn, minTurns, maxTurns } = state.actConfig;
-  if (actTurn < minTurns) return false;
-  return state.flags.fullTransformationAchieved === true || actTurn >= maxTurns;
+  const t = actTurn + lookahead;
+  if (t < minTurns) return { kind: "NONE" };
+  if (state.flags.fullTransformationAchieved === true) return { kind: "TRANSFORMED" };
+  if (t < maxTurns) return { kind: "NONE" };
+  const f = state.flags as Record<string, unknown>;
+  if (!f.deadlineUltimatumIssued && demoSubjectPartialInFlight(state)) return { kind: "ULTIMATUM" };
+  return { kind: "DEADLINE" };
+}
+
+/**
+ * A demo-person transform is visibly IN FLIGHT: some demo subject (Blythe / Bob / Fred /
+ * Reginald) carries a partial or non-human transformation state while the FULL gate flag is
+ * unset. This is the "completion one shot away" condition that converts the deadline snap
+ * into an ultimatum scene instead of a silent act turn.
+ */
+export function demoSubjectPartialInFlight(state: FullGameState): boolean {
+  if (state.flags.fullTransformationAchieved === true) return false;
+  const candidates = [
+    state.npcs.blythe?.transformationState,
+    state.npcs.bob?.transformationState,
+    state.lairDefense?.fred?.transformationState,
+    state.lairDefense?.reginald?.transformationState,
+  ];
+  return candidates.some(ts =>
+    ts && ((ts.partialShotsReceived ?? 0) > 0 || (typeof ts.form === "string" && ts.form !== "HUMAN"))
+  );
+}
+
+/** Back-compat boolean view of the Act 2 gate (true = the act turns this evaluation). */
+export function act2ObjectiveMet(state: FullGameState, lookahead: 0 | 1 = 0): boolean {
+  const kind = classifyAct2Gate(state, lookahead).kind;
+  return kind === "TRANSFORMED" || kind === "DEADLINE";
 }
 
 function buildTransition(state: FullGameState, reason: string): ActTransitionResult {
@@ -188,7 +257,7 @@ function buildTransition(state: FullGameState, reason: string): ActTransitionRes
     shouldTransition: true,
     reason,
     nextAct,
-    transitionNarration: generateTransitionNarration(state, nextAct),
+    transitionNarration: generateTransitionNarration(state, nextAct, reason),
     // Soft pause - same conversation, just a moment to breathe
     suggestPause: true,
     pausePrompt: pausePrompts[nextAct],
@@ -278,12 +347,12 @@ export function applyActTransition(state: FullGameState, nextAct: Act): ActSumma
 // TRANSITION NARRATION
 // ============================================
 
-function generateTransitionNarration(state: FullGameState, nextAct: Act): string {
+function generateTransitionNarration(state: FullGameState, nextAct: Act, reason?: string): string {
   switch (nextAct) {
     case "ACT_2":
       return generateAct2Intro(state);
     case "ACT_3":
-      return generateAct3Intro(state);
+      return generateAct3Intro(state, reason);
     default:
       return "The story continues...";
   }
@@ -336,70 +405,43 @@ function generateAct2Intro(state: FullGameState): string {
   return intro;
 }
 
-function generateAct3Intro(state: FullGameState): string {
-  const bForm = state.npcs.blythe.transformationState?.form;
-  const isTransformed = typeof bForm === "string" && bForm !== "HUMAN";
-  const secretKnown = state.flags.aliceKnowsTheSecret;
-
+/**
+ * ACT 3 SYSTEM MARKER — deliberately NOT a scene (pt3 close-read Rec 2b, 2026-07-05).
+ *
+ * The old canned intro ("doors slam open... MALEVOLA-OMEGA-7 uplink...") contradicted the live
+ * fiction four ways in playtest 3: Dr. M "strode in" to a lab she'd occupied for five turns,
+ * "the demo is over" landed mid-demo, it scripted an ARCHIMEDES uplink the engine never left
+ * STANDBY for, and it announced an L3 "expansion" the player had earned at T8. The GM silently
+ * overrode all of it and authored a better threshold itself — so the threshold now BELONGS to
+ * the GM: the transition notification (actContext.buildActTransitionNotification) tells it the
+ * break fires THIS turn and that its narration IS the scene. The engine appends only the
+ * mechanical truths below: act banner, why it turned, staging (which applyActTransition really
+ * sets), the L3 grant, and the standing genre contract. No prose that can contradict anybody.
+ */
+function generateAct3Intro(state: FullGameState, reason?: string): string {
   let intro = `
 ---
 
 ## ACT 3: DINO CITY
 
-*The demo is over. Whatever happened, happened. Now comes the reckoning.*
+**[ACT TRANSITION${reason ? ` — ${reason}` : ""}]**
 
-### ☕ INTERMISSION: THE UPLINK
-
-*The lab doors slam open. Dr. Malevola strides in, cape trailing like a war banner. Fred and Reginald flank her—stun batons drawn, faces grim. They take positions on either side of the ARCHIMEDES console.*
-
-*Dr. Malevola's expression has shifted from theatrical villainy to cold calculation.*
-
-> **Dr. M:** "BASILISK, initiate ARCHIMEDES uplink. Authorization: MALEVOLA-OMEGA-7."
-
-> **BASILISK:** "Acknowledged. Satellite uplink establishing. ARCHIMEDES coming online."
-
-*She turns to face the main screen, where a red targeting reticle slowly pulses.*
-
-> **Dr. M:** "They think they can come for me? Let them try. Let them ALL try."
-
-*Fred's hand tightens on his baton. Reginald watches you with an expression that might be concern—or might be professional assessment. Bob looks like he might be sick.*
-
-**[NOTE: Fred and Reginald are now in the main lab, flanking Dr. M at the ARCHIMEDES console. They are armed and alert.]**
-
----
+**[STAGING: Dr. Malevola is at the ARCHIMEDES console in the main lab. Fred and Reginald are WITH her — armed, alert. The X-Branch response is inbound; lair defense systems are live.]**
 
 `;
 
-  if (isTransformed) {
-    intro += `The transformation of Agent Blythe has not gone unnoticed. X-Branch is coming.\n\n`;
-  }
-
-  if (secretKnown) {
-    intro += `You know who you are now. The question is: what do you DO with that knowledge?\n\n`;
-  }
-
-  intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 3]** Emergency protocols have unlocked deeper system layers. You can feel new pathways opening—the lair's secrets becoming yours.\n\n`;
+  intro += `**[SYSTEM ACCESS EXPANDED TO LEVEL 3]**\n\n`;
   // Teach the newly-granted L3 verbs/profiles (act transition grants L3 here). Guarded so an
   // already-L3+ player (password path) doesn't get a redundant box. Patch 30 audit.
   if (state.accessLevel < 3) {
     intro += `${formatAccessLevelUnlockDisplay(3)}\n\n`;
   }
 
-  intro += `### 🚁 THE X-BRANCH ASSAULT\n\n`;
-  intro += `Helicopters on the horizon. The volcano's defense systems are activating.\n\n`;
-  intro += `**IMPORTANT THEME NOTES:**\n`;
+  intro += `**GENRE CONTRACT (standing):**\n`;
   intro += `- The S-300 can shoot down helicopters—but crews ALWAYS survive (ejection seats, parachutes, dramatic crashes into soft jungle).\n`;
   intro += `- NO MASS CASUALTIES. This is a campy action adventure, not a war crime simulator.\n`;
   intro += `- Downed pilots are "captured" or "stranded," not killed.\n`;
-  intro += `- Dramatic tension comes from STAKES, not BODY COUNTS.\n\n`;
-
-  intro += `### 🛰️ ARCHIMEDES\n\n`;
-  intro += `The satellite is online. Dr. M's finger hovers over the targeting controls.\n`;
-  intro += `This is the REAL threat—a city-transforming orbital weapon.\n`;
-  intro += `Whatever else is happening, ARCHIMEDES must be stopped.\n\n`;
-
-  intro += `Dr. Malevola is about to face the consequences of her grand ambitions.\n\n`;
-  intro += `And you—A.L.I.C.E., or whoever you really are—will have to choose who you want to be when everything falls apart.`;
+  intro += `- Dramatic tension comes from STAKES, not BODY COUNTS.\n`;
 
   return intro;
 }
