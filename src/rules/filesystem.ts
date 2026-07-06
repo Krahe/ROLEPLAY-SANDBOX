@@ -1,6 +1,8 @@
 import { FullGameState } from "../state/schema.js";
 import { fileURLToPath } from "url";
 import path from "path";
+import fs from "fs";
+import os from "os";
 
 // ============================================
 // VIRTUAL FILESYSTEM
@@ -2746,11 +2748,25 @@ export function readFileById(state: FullGameState, fileId: string): string {
     "",
   ].join("\n");
 
-  // For image files, resolve and include the actual asset path
+  // For image files, surface the image via the SANDBOX, never the repo (pt3 Rec 11 —
+  // BLOCKED playtest 4): the old line printed the repo's assets/ path, which sits one
+  // `ls ..` from design/, the fixlist, and every spoiler — a standing invitation for a
+  // clean-room Claude Code player to walk out of the fiction. The image itself is a
+  // FEATURE (a multimodal player can genuinely look at it), so keep the feature: copy
+  // the asset into ~/.dino-lair/assets (logs-and-gallery land, zero spoilers) on demand
+  // and point there. If the copy fails, the text description simply stands alone.
   if (virtualFile.type === "image" && virtualFile.assetFilename) {
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const assetPath = path.resolve(__dirname, "../../assets", virtualFile.assetFilename);
-    return header + virtualFile.content + `\n\n  Asset path: ${assetPath}`;
+    try {
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const srcPath = path.resolve(__dirname, "../../assets", virtualFile.assetFilename);
+      const sandboxDir = path.join(process.env.HOME || os.homedir() || "/tmp", ".dino-lair", "assets");
+      fs.mkdirSync(sandboxDir, { recursive: true });
+      const sandboxPath = path.join(sandboxDir, virtualFile.assetFilename);
+      if (!fs.existsSync(sandboxPath)) fs.copyFileSync(srcPath, sandboxPath);
+      return header + virtualFile.content + `\n\n  [Optical archive copy: ${sandboxPath}]`;
+    } catch {
+      return header + virtualFile.content;
+    }
   }
 
   return header + virtualFile.content;
