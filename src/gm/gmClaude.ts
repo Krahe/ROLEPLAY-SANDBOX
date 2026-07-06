@@ -2538,6 +2538,8 @@ GM drift (narrating without mechanics) kills immersion!
 |-----------------|------------------------|
 | "Dr. M storms out / leaves" | \`"drM_location": "escaped"\` |
 | "Blythe breaks free" | \`"blythe_restraints": 0\` |
+| **"Dr. M initiates manual fire"** (voice auth, console, mid-monologue — ANY fire initiation) | narrativeFlag \`set: ["ARCHIMEDES_MANUAL_INITIATED"]\` — the engine forces CHARGING with a REAL countdown, visible to the player every turn. Do NOT narrate a fire sequence without this flag (pt3: the satellite slept through its own climax). Once live, the countdown cannot be paused by narration — only RESOLVED (abort paths, or the standdown flag below). |
+| **"Dr. M stands ARCHIMEDES down herself"** (persuaded — the Covenant shape) | narrativeFlag \`set: ["DRM_STANDS_DOWN"]\` — recorded as HER CHOICE (engine flag \`archimedesVoluntaryStanddown\`), distinct from sabotage/forced aborts. Use THIS, never a raw \`archimedes_status: "STANDBY"\` override (that override is REJECTED while a fire order is live). |
 | "ARCHIMEDES fires / beam hits" | \`"archimedes_status": "COMPLETE"\` |
 | "The reactor melts down" | \`"meltdownClock": 0\`, \`"reactor_cascadeRisk": "CRITICAL"\` |
 | "X-Branch breaches the lair" | narrativeFlag: \`set: ["XBRANCH_EXTRACTION"]\` *(Act 3 timer-driven)* |
@@ -2629,7 +2631,7 @@ You have FULL authority over all game systems. Additional overrides available:
 - \`"blythe_location": "containment field"\`
 
 **ARCHIMEDES Satellite (World-Ending Authority):**
-- \`"archimedes_status": "CHARGING"\` - Set status: STANDBY/ALERT/EVALUATING/CHARGING/ARMED/FIRING/COMPLETE
+- \`"archimedes_status": "CHARGING"\` - Set status: STANDBY/ALERT/EVALUATING/CHARGING/ARMED/FIRING/COMPLETE. ⚠️ PREFER the narrative flags: \`ARCHIMEDES_MANUAL_INITIATED\` (fire initiation → engine-run visible countdown) and \`DRM_STANDS_DOWN\` (her voluntary standdown, on the record). Setting a hot status here also marks a fire order; setting "STANDBY" is REJECTED while a fire order is live — the countdown is engine truth that narration can't pause, only resolve.
 - \`"archimedes_chargePercent": 80\` - Set charge level (0-100)
 - \`"archimedes_deadmanActive": false\` - Toggle deadman switch
 - \`"archimedes_lastBiosignature": "TRANSFORMED"\` - Set Dr. M's biosignature

@@ -90,9 +90,19 @@ export function formatStatusBar(state: FullGameState, turnOverride?: number): st
   if (state.infrastructure?.archimedes?.status &&
       state.infrastructure.archimedes.status !== "STANDBY" &&
       (isAct3 || archimedesTriggeredEarly)) {
-    const archStatus = state.infrastructure.archimedes.status;
-    const charge = state.infrastructure.archimedes.chargePercent || 0;
-    parts.push(`🛰️ ARCH:${archStatus}@${charge}%`);
+    const arch = state.infrastructure.archimedes;
+    const archStatus = arch.status;
+    const charge = arch.chargePercent || 0;
+    // THE TICKING NUMBER (pt3 Rec 3): while hot, the countdown is on the player's status
+    // line EVERY turn — a threat the GM can color but never talk down. Speech resolves it
+    // (abort paths / voluntary standdown); it does not pause it.
+    let clock = "";
+    if (archStatus === "CHARGING" && arch.chargingCountdown !== null && arch.chargingCountdown !== undefined) {
+      clock = ` ⏳${Math.max(0, arch.chargingCountdown)}→ARMED`;
+    } else if (archStatus === "ARMED" && arch.turnsUntilFiring !== null && arch.turnsUntilFiring !== undefined) {
+      clock = ` ⏳${Math.max(0, arch.turnsUntilFiring)}→FIRE`;
+    }
+    parts.push(`🛰️ ARCH:${archStatus}@${charge}%${clock}`);
   }
 
   // 🔥 ECO mode (if active and potentially frustrating)
@@ -220,7 +230,11 @@ export function formatGMStatusBar(state: FullGameState): string {
   if (state.infrastructure?.archimedes?.status !== "STANDBY" &&
       (gmIsAct3 || gmArchTriggered)) {
     const arch = state.infrastructure.archimedes;
-    clocks.push(`ARCH:${arch.status}(${arch.turnsUntilFiring ?? "?"})`);
+    // Show the live clock for the current phase: CHARGING counts to ARMED, ARMED counts to fire.
+    const gmClock = arch.status === "CHARGING"
+      ? (arch.chargingCountdown ?? "?")
+      : (arch.turnsUntilFiring ?? "?");
+    clocks.push(`ARCH:${arch.status}(${gmClock})`);
   }
   parts2.push(`🎯 Clocks: ${clocks.join(" ")}`);
 

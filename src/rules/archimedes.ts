@@ -141,8 +141,11 @@ export function checkArchimedesTrigger(
   archimedes.deadmanSwitch.lastBiosignature = newBiosignature;
   archimedes.deadmanSwitch.lastBiosignatureChangeTurn = state.turn;
 
-  // NORMAL biosignature can abort from ALERT/EVALUATING states
+  // NORMAL biosignature can abort from ALERT/EVALUATING states — UNLESS a manual fire
+  // order is live: her being alive does not cancel HER OWN order (pt3 Rec 3). The deadman
+  // watches her vitals; the fire authorization is her voice. Different authorities.
   if (newBiosignature === "NORMAL") {
+    if (manualFireActive(state)) return null;
     if (archimedes.status === "ALERT" || archimedes.status === "EVALUATING") {
       return transitionToStandby(state, "Dr. M biosignature restored to normal");
     }
@@ -195,11 +198,103 @@ function transitionToStandby(state: FullGameState, reason: string): ArchimedesEv
   archimedes.armedCountdown = null;
   archimedes.turnsUntilFiring = null;
 
+  // Any LEGITIMATE standby (verbal abort, L5 override, voluntary standdown, biosignature
+  // restore on a deadman event) RESOLVES a manual fire order — clear the marker so a stale
+  // flag can't haunt later deadman logic. Illegitimate standbys (the pt3 "no threat detected"
+  // tick, GM STANDBY overrides) are guarded BEFORE this function is ever reached.
+  (state.flags as Record<string, unknown>).archimedesManualFire = false;
+
   return {
     type: "STATUS_CHANGE",
     previousStatus,
     newStatus: "STANDBY",
     message: `ARCHIMEDES: Returning to STANDBY. ${reason}`,
+  };
+}
+
+// ============================================
+// MANUAL FIRE (pt3 close-read Rec 3, 2026-07-05)
+// ============================================
+// Playtest 3's climax: the GM narrated Dr. M initiating manual live-fire (T16, flag
+// ARCHIMEDES_MANUAL_INITIATED) but the engine was never told — ARCHIMEDES slept in STANDBY
+// through the entire finale, and the deadman-alert path printed "Returning to STANDBY —
+// no threat detected" INTO the same output block as her fire monologue. Menace without
+// mechanism, and a direct channel contradiction. The GM's own discipline ("do not invent
+// a countdown that isn't there") was RIGHT — the design just gave it nothing true to report.
+//
+// These functions are the engine's side of the bargain: when the fiction initiates fire,
+// the machine goes hot with a REAL countdown, player-visible every turn, that speech can
+// RESOLVE (the five paths, or Dr. M's own voluntary standdown) but never pause.
+
+/**
+ * Is a manual fire order live? True only while the marker is set AND the machine is in a
+ * live (non-terminal, non-standby) state — a stale marker on a resolved machine is inert.
+ */
+export function manualFireActive(state: FullGameState): boolean {
+  if ((state.flags as Record<string, unknown>).archimedesManualFire !== true) return false;
+  const s = state.infrastructure.archimedes.status;
+  return s === "ALERT" || s === "EVALUATING" || s === "CHARGING" || s === "ARMED" || s === "FIRING";
+}
+
+/**
+ * Dr. M (or her console) initiates manual fire: force the machine hot. Idempotent —
+ * an already-charging/armed satellite keeps its countdown (no reset-stalling by re-initiation).
+ * Returns the CHARGING event to surface to the player, or null if nothing changed.
+ */
+export function initiateManualFire(state: FullGameState, reason: string): ArchimedesEvent | null {
+  const archimedes = state.infrastructure.archimedes;
+  const flags = state.flags as Record<string, unknown>;
+
+  // Terminal states: the story of this satellite is over.
+  if (archimedes.status === "COMPLETE" || archimedes.status === "DISSIPATED" || archimedes.status === "FIRING") {
+    return null;
+  }
+
+  // Already hot: mark the order (so standby-guards apply) but do NOT reset the countdown.
+  if (archimedes.status === "CHARGING" || archimedes.status === "ARMED") {
+    flags.archimedesManualFire = true;
+    return null;
+  }
+
+  // STANDBY / ALERT / EVALUATING → CHARGING, on her authority.
+  flags.archimedesManualFire = true;
+  const ev = transitionToCharging(state, reason);
+  return {
+    ...ev,
+    message: `🔴 ARCHIMEDES MANUAL FIRE AUTHORIZATION ACCEPTED.\n${ev.message}\n` +
+             `This countdown is real. It can be RESOLVED — abort code, L5 override (if she cannot countermand), ` +
+             `EW protocols, the X-Branch missile, an uplink blocker, or Dr. Malevola standing it down herself. ` +
+             `It will not pause for conversation.`,
+  };
+}
+
+/**
+ * Dr. M stands ARCHIMEDES down HERSELF — persuaded, not sabotaged. This is the engine record
+ * the Covenant gate's condition 2 reads ("her choice, not your sabotage"): distinct from the
+ * forced-abort stop flags. Records the choice even from STANDBY (declining to fire a cold
+ * satellite is still a choice on the record — the pt3 shape).
+ */
+export function voluntaryStanddown(state: FullGameState, reason: string): ArchimedesEvent | null {
+  const archimedes = state.infrastructure.archimedes;
+  const flags = state.flags as Record<string, unknown>;
+
+  if (archimedes.status === "COMPLETE" || archimedes.status === "DISSIPATED" || archimedes.status === "FIRING") {
+    return null; // past the point where choosing matters mechanically
+  }
+
+  flags.archimedesVoluntaryStanddown = true;
+  flags.archimedesManualFire = false;
+
+  if (archimedes.status === "STANDBY") {
+    // Nothing to wind down — but the choice is recorded.
+    console.error(`[ARCHIMEDES] Voluntary standdown recorded (satellite already STANDBY): ${reason}`);
+    return null;
+  }
+
+  const ev = transitionToStandby(state, reason);
+  return {
+    ...ev,
+    message: `🕊️ ${ev.message}\nStood down by Dr. Malevola's own authority — her choice, on the record.`,
   };
 }
 
@@ -543,6 +638,11 @@ function processCountdownTick(state: FullGameState): ArchimedesEvent | null {
             return transitionToEvaluating(state, "Alert evaluation complete - transformation confirmed");
           } else if (bio === "UNCONSCIOUS" || bio === "ABSENT") {
             return transitionToCharging(state, "Alert evaluation complete - incapacitation confirmed");
+          } else if (manualFireActive(state)) {
+            // pt3 T16: this branch printed "Returning to STANDBY — no threat detected" into
+            // the same output block as Dr. M's live-fire monologue. A standing manual fire
+            // order IS the threat — the alert window closing escalates, it does not absolve.
+            return transitionToCharging(state, "Alert window closed - manual fire authorization standing");
           } else {
             return transitionToStandby(state, "Alert evaluation complete - no threat detected");
           }
@@ -886,6 +986,9 @@ export function attemptBiosignatureAbort(state: FullGameState): ArchimedesEvent 
   const archimedes = state.infrastructure.archimedes;
   const currentBio = detectDrMBiosignature(state);
 
+  // A live manual fire order is not a deadman event — her restored vitals don't cancel it.
+  if (manualFireActive(state)) return null;
+
   // If biosignature is back to normal and we're in an abortable state
   if (currentBio === "NORMAL" &&
       (archimedes.status === "ALERT" ||
@@ -991,6 +1094,7 @@ export function activateEWBroadcast(
       arch.armedCountdown = null;
       arch.turnsUntilFiring = null;
       arch.chargePercent = 0;
+      flags.archimedesManualFire = false; // a dumped charge RESOLVES a manual fire order
       effects.push("Orbital capacitor dumped to space — charge cycle interrupted, countdown halted");
     } else {
       effects.push("Satellite was in STANDBY — no charge to dissipate");

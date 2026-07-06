@@ -25,7 +25,7 @@ import { type FullGameState, ARCHIMEDES_TARGET_LIST, type ArchimedesTargetId } f
 import { setRestraints, applyPropertyOps, resolveEntityBag } from "./properties.js";
 import { profileToFormName } from "../rules/transformation.js";
 import { rollSkillCheck, getNpcStat, getAdaptationPenalty, isKnownNpc, type SkillCheckResult } from "../rules/dice.js";
-import { processArchimedesCountdown, onDrMStateChange, attemptOverrideAbort, setUplinkBlocker, type ArchimedesEvent } from "../rules/archimedes.js";
+import { processArchimedesCountdown, onDrMStateChange, attemptOverrideAbort, setUplinkBlocker, initiateManualFire, voluntaryStanddown, manualFireActive, type ArchimedesEvent } from "../rules/archimedes.js";
 import { resolveGMEnding } from "../rules/endings.js";
 import type { GMResponse } from "../gm/gmClaude.js";
 import type { ActionResult } from "../rules/actions.js";
@@ -303,8 +303,22 @@ export function commitDecision(
 
     // ARCHIMEDES satellite
     if (overrides.archimedes_status !== undefined) {
-      state.infrastructure.archimedes.status = overrides.archimedes_status as typeof state.infrastructure.archimedes.status;
-      console.error(`[GM OVERRIDE] ARCHIMEDES status set to ${overrides.archimedes_status}`);
+      const requested = overrides.archimedes_status as typeof state.infrastructure.archimedes.status;
+      // MANUAL-FIRE CLAMP (pt3 Rec 3): while a manual fire order is live, the GM cannot
+      // narrate the satellite back to STANDBY via raw override — the countdown is engine
+      // truth that speech can't pause. Legitimate paths remain: DRM_STANDS_DOWN (voluntary,
+      // her choice on the record) or a stop flag (forced abort) — both resolve it properly.
+      if (requested === "STANDBY" && manualFireActive(state)) {
+        console.error(`[GM OVERRIDE] ARCHIMEDES status STANDBY REJECTED — manual fire order is live. Use narrativeFlag DRM_STANDS_DOWN (voluntary) or ARCHIMEDES_STOPPED (forced).`);
+      } else {
+        state.infrastructure.archimedes.status = requested;
+        // A GM-set hot status IS a fire initiation on the record — mark it so the
+        // deadman's "no threat detected" resolutions can never talk it back down.
+        if (requested === "CHARGING" || requested === "ARMED" || requested === "FIRING") {
+          (state.flags as Record<string, unknown>).archimedesManualFire = true;
+        }
+        console.error(`[GM OVERRIDE] ARCHIMEDES status set to ${requested}`);
+      }
     }
     if (overrides.archimedes_chargePercent !== undefined) {
       state.infrastructure.archimedes.chargePercent = clamp("archimedes_chargePercent", overrides.archimedes_chargePercent, 0, 100);
@@ -406,6 +420,10 @@ export function commitDecision(
     }
   }
 
+  // ARCHIMEDES event produced by flag-driven initiation/standdown (surfaced to the player
+  // via the same archimedesEvent channel as the deadman/countdown events — see below).
+  let flagArchimedesEvent: ArchimedesEvent | null = null;
+
   // Process narrative flags
   if (decision.narrativeFlags) {
     // Initialize narrative flags array if needed
@@ -428,6 +446,28 @@ export function commitDecision(
           narrativeFlags.splice(idx, 1);
         }
       }
+    }
+
+    // MANUAL FIRE START FLAGS (pt3 Rec 3, 2026-07-05): the mirror of the stop flags below.
+    // When the GM narrates Dr. M initiating fire (pt3 T16 set ARCHIMEDES_MANUAL_INITIATED with
+    // no engine coupling — the satellite slept through its own climax), the engine goes hot:
+    // CHARGING with a real, player-visible countdown that speech can resolve but never pause.
+    // Only flags set THIS turn initiate (persisting flags don't re-trigger a resolved machine).
+    const ARCHIMEDES_START_FLAGS = ["ARCHIMEDES_MANUAL_INITIATED", "ARCHIMEDES_FIRE_INITIATED", "ARCHIMEDES_FIRING_INITIATED", "ARCHIMEDES_LAUNCH_INITIATED", "MANUAL_FIRE_INITIATED", "ARCHIMEDES_INITIATED"];
+    const setThisTurn = (Array.isArray(decision.narrativeFlags.set) ? decision.narrativeFlags.set : []).map(f => String(f).toUpperCase());
+    if (setThisTurn.some(f => ARCHIMEDES_START_FLAGS.includes(f))) {
+      const ev = initiateManualFire(state, "Dr. Malevola's manual fire authorization");
+      if (ev) flagArchimedesEvent = ev;
+    }
+
+    // VOLUNTARY STANDDOWN FLAGS (pt3 Rec 3 / Covenant gate condition 2): Dr. M stands the
+    // satellite down HERSELF — persuaded, not sabotaged. Sets flags.archimedesVoluntaryStanddown
+    // (the engine record "her choice" that the Covenant gate will read), distinct from the
+    // forced-abort stop flags below. Recorded even from STANDBY (declining to fire is a choice).
+    const ARCHIMEDES_VOLUNTARY_FLAGS = ["DRM_STANDS_DOWN", "DR_M_STANDS_DOWN", "ARCHIMEDES_STOOD_DOWN", "VOLUNTARY_STANDDOWN", "DRM_VOLUNTARY_STANDDOWN"];
+    if (setThisTurn.some(f => ARCHIMEDES_VOLUNTARY_FLAGS.includes(f))) {
+      const ev = voluntaryStanddown(state, "Dr. Malevola stands ARCHIMEDES down — her own authority, her own choice");
+      if (ev) flagArchimedesEvent = ev;
     }
 
     // Path 1 (Krahe 2026-06-24): a GM-adjudicated satellite-stop flag (e.g. X-Branch disabled ARCHIMEDES)
@@ -543,7 +583,9 @@ export function commitDecision(
   // ============================================
   // ARCHIMEDES DEADMAN SWITCH PROCESSING
   // ============================================
-  let archimedesEvent: ArchimedesEvent | null = null;
+  // A flag-driven manual-fire/standdown event (set above) takes precedence — it IS this
+  // turn's satellite story; the deadman check and countdown tick resume next turn.
+  let archimedesEvent: ArchimedesEvent | null = flagArchimedesEvent;
 
   // Check if GM overrides indicate Dr. M transformation/unconscious/dead
   if (decision.stateOverrides) {
@@ -584,8 +626,8 @@ export function commitDecision(
         state.flags.drMTransformed = true;
       }
 
-      // Trigger ARCHIMEDES state change
-      archimedesEvent = onDrMStateChange(state, newStatus);
+      // Trigger ARCHIMEDES state change (flag-driven manual-fire event keeps precedence)
+      archimedesEvent = archimedesEvent ?? onDrMStateChange(state, newStatus);
     }
   }
 

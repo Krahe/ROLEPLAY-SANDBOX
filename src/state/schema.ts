@@ -1784,6 +1784,18 @@ export const FlagsSchema = z.object({
   // This flag allows ARCHIMEDES to be shown in status bar during Act 2 if legitimately triggered
   archimedesActivatedByDeadman: z.boolean().optional(),
 
+  // ARCHIMEDES MANUAL FIRE (pt3 close-read Rec 3, 2026-07-05)
+  // Set when Dr. M initiates fire (GM narrative flag ARCHIMEDES_MANUAL_INITIATED or a hot
+  // status override). While live: deadman "no threat" resolutions can't stand the machine
+  // down, and GM STANDBY overrides are rejected — the countdown resolves, it never pauses.
+  // Cleared by every legitimate resolution (aborts, EW dump, voluntary standdown).
+  archimedesManualFire: z.boolean().optional(),
+
+  // Dr. M stood ARCHIMEDES down HERSELF (GM flag DRM_STANDS_DOWN) — persuaded, not sabotaged.
+  // THE engine record for the future Covenant gate's condition 2 ("her choice, not your
+  // sabotage"). Recorded even from STANDBY: declining to fire is a choice on the record.
+  archimedesVoluntaryStanddown: z.boolean().optional(),
+
   // WEAPONS AUTHORIZATION (Temporary L4 access for ARCHIMEDES)
   // Dr. M grants this when she wants ALICE to help with targeting
   // "A.L.I.C.E., I'm giving you weapons authorization. Make it count."
