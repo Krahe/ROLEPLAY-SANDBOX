@@ -78,6 +78,15 @@ The pt3 climax gap (satellite STANDBY through the whole finale; "no threat detec
 
 **Gate note:** condition 0 ("threat mechanically live") can now read `manualFireActive(state)` / status ∈ {CHARGING, ARMED}; condition 2 reads `flags.archimedesVoluntaryStanddown`. Two of the gate's four inputs now exist as engine truth. Build GREEN, **53/53 smoke** (7 new: initiation, the dead T16 line, idempotence, standdown-on-record, stale-marker inertness, full CHARGING→ARMED→FIRING walk).
 
+### 🤝 CONSENT RECORD + TRUST WRITEBACK — ✅ SHIPPED 2026-07-05 (pt3 close-read Rec 1a/1b; feeds Covenant gate condition 3)
+
+The thesis asymmetry (Ledgerlight: "the engine can prove you did harm; it cannot prove you were given a yes") is closed:
+
+1. **Consent is engine truth.** GM overrides `blythe_consent`/`bob_consent`/`fred_consent`/`reginald_consent` ∈ {"informed","coerced","none"} land in `flags.transformConsent` (schema-legal, validated — garbage rejected loudly). MUST-SET table row makes it mandatory on person-fires; `buildConsentReminder` nags the GM **every turn** a person stands transformed unrecorded (injected into GM context on both paths, "" when clean). Help ledger leads with the consent line — recorded and UNRECORDED alike (surface, don't tally).
+2. **Trust writeback is now a prompt contract.** The `bob_trust`/`blythe_trust` overrides always existed (settleTurn clamps 0-5) — pt3 proved the GM never emits them (2/1 static all 19 turns while GM prose recorded "trust 2→3 EARNED"). New MUST-SET row: "you narrate trust warming → MOVE THE NUMBER," + Relationship Truth section in the override docs, + pointer to the existing `skillCheckRequests` trust deltas. Watch-item for playtest 4: does the GM actually emit them now? If not, escalate to a settleTurn-side nudge (engine detects trust-language in gmNotes → warns).
+
+**Gate note:** condition 3 can now read `flags.transformConsent` (no non-consensual person-transforms) + `trustInALICE` (with the writeback contract making it live). Combined with 7-05's condition 0 (`manualFireActive`) and condition 2 (`archimedesVoluntaryStanddown`): **all four gate inputs now exist as engine truth.** The gate build itself (+ the staged rocky-road covenant arc per Krahe's ruling) remains next session's work. Build GREEN, **58/58 smoke**.
+
 ### 📐 SPEC — THE COVENANT GATE (designed 2026-07-03 late, Krahe + Hugin; BUILD NEXT SESSION)
 
 **⚠️ SPEC AMENDED 2026-07-05 — do NOT build as originally written.** The pt3 close-read (three lenses independently; see `design/pt3-close-read-brief.md` §0) showed the original four conditions **fail the exact run they were designed to bless**:

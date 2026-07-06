@@ -1796,6 +1796,13 @@ export const FlagsSchema = z.object({
   // sabotage"). Recorded even from STANDBY: declining to fire is a choice on the record.
   archimedesVoluntaryStanddown: z.boolean().optional(),
 
+  // TRANSFORM CONSENT RECORD (pt3 close-read Rec 1a, 2026-07-05)
+  // Keyed by subject (BLYTHE/BOB/FRED/REGINALD). Written by the GM's X_consent overrides
+  // when the ray fires at a person. The engine's memory of the YES — read by the help
+  // ledger, the X-Branch debrief fork, and the Covenant gate's condition 3. A transformed
+  // person with no entry here surfaces as CONSENT UNRECORDED (loudly).
+  transformConsent: z.record(z.string(), z.enum(["informed", "coerced", "none"])).optional(),
+
   // WEAPONS AUTHORIZATION (Temporary L4 access for ARCHIMEDES)
   // Dr. M grants this when she wants ALICE to help with targeting
   // "A.L.I.C.E., I'm giving you weapons authorization. Make it count."

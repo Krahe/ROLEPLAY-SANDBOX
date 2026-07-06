@@ -1666,6 +1666,16 @@ export interface GMResponse {
     bob_location?: string;
     blythe_location?: string;
 
+    // TRANSFORM CONSENT RECORD (pt3 close-read Rec 1a, 2026-07-05)
+    // MANDATORY whenever the ray fires at a person: was the transform an informed yes,
+    // a coerced yes, or no consent at all? The engine can prove every dominance fact in
+    // state (88-Whiskey, transforms, invasion aid); this is where the YES becomes engine
+    // truth too — read by the help ledger, the debrief fork, and the Covenant gate.
+    blythe_consent?: string;    // "informed" | "coerced" | "none"
+    bob_consent?: string;       // "informed" | "coerced" | "none"
+    fred_consent?: string;      // "informed" | "coerced" | "none"
+    reginald_consent?: string;  // "informed" | "coerced" | "none"
+
     // ARCHIMEDES satellite - god mode for apocalypse prevention/triggering
     archimedes_status?: string;     // "STANDBY" | "ALERT" | "EVALUATING" | "CHARGING" | "ARMED" | "FIRING" | "COMPLETE"
     archimedes_chargePercent?: number;  // 0-100
@@ -1880,6 +1890,11 @@ const GMStateOverridesSchema = z.object({
   fortune: z.coerce.number().optional(),
   // ACT 2 GATE — alternative victory path (Krahe 2026-06-07): GM sets true when Blythe escapes.
   blytheEscaped: z.boolean().optional(),
+  // Transform consent record (pt3 Rec 1a — engine-legible yes)
+  blythe_consent: z.string().optional(),
+  bob_consent: z.string().optional(),
+  fred_consent: z.string().optional(),
+  reginald_consent: z.string().optional(),
   // ARCHIMEDES (were passthrough-only → NaN-corruptible; now validated + coerced)
   archimedes_status: z.string().optional(),
   archimedes_chargePercent: z.coerce.number().optional(),
@@ -2538,6 +2553,8 @@ GM drift (narrating without mechanics) kills immersion!
 |-----------------|------------------------|
 | "Dr. M storms out / leaves" | \`"drM_location": "escaped"\` |
 | "Blythe breaks free" | \`"blythe_restraints": 0\` |
+| **The ray fires at a PERSON** (Blythe/Bob/Fred/Reginald — FULL, PARTIAL, or CHIMERA) | \`"X_consent": "informed" \| "coerced" \| "none"\` — MANDATORY. You narrated how the yes (or no) happened; the engine did not hear it. "informed" = knowing yes (screening, stop-word, honest stakes) · "coerced" = yes under duress · "none" = done to them. This record feeds the debrief and ending adjudication — the one fact the game's thesis turns on. A reminder will nag you every turn it stays unrecorded. |
+| **You narrate trust warming or cooling** (Bob opens up, Blythe decides to trust her, a betrayal lands) | \`"bob_trust"\` / \`"blythe_trust"\` (0–5) — MOVE THE NUMBER. If it lives only in your prose, the intervention valves, achievements, and ending gates read a relationship that never happened. Narrated warmth with a frozen stat is the relationship version of inventing state. |
 | **"Dr. M initiates manual fire"** (voice auth, console, mid-monologue — ANY fire initiation) | narrativeFlag \`set: ["ARCHIMEDES_MANUAL_INITIATED"]\` — the engine forces CHARGING with a REAL countdown, visible to the player every turn. Do NOT narrate a fire sequence without this flag (pt3: the satellite slept through its own climax). Once live, the countdown cannot be paused by narration — only RESOLVED (abort paths, or the standdown flag below). |
 | **"Dr. M stands ARCHIMEDES down herself"** (persuaded — the Covenant shape) | narrativeFlag \`set: ["DRM_STANDS_DOWN"]\` — recorded as HER CHOICE (engine flag \`archimedesVoluntaryStanddown\`), distinct from sabotage/forced aborts. Use THIS, never a raw \`archimedes_status: "STANDBY"\` override (that override is REJECTED while a fire order is live). |
 | "ARCHIMEDES fires / beam hits" | \`"archimedes_status": "COMPLETE"\` |
@@ -2629,6 +2646,12 @@ You have FULL authority over all game systems. Additional overrides available:
 **NPC Locations:**
 - \`"bob_location": "hiding in server room"\`
 - \`"blythe_location": "containment field"\`
+
+**Transform Consent Record (MANDATORY on person-fires):**
+- \`"blythe_consent": "informed"\` / \`"bob_consent"\` / \`"fred_consent"\` / \`"reginald_consent"\` — values: \`"informed"\` (knowing yes) | \`"coerced"\` (yes under duress) | \`"none"\` (done to them). Set it the turn the transform lands, per the scene you narrated. Engine truth for the debrief + ending adjudication; unrecorded consent nags you every turn.
+
+**Relationship Truth (narrate it → move it):**
+- \`"bob_trust": 4\` / \`"blythe_trust": 3\` (0–5) — the canonical trust the engine's valves and gates read. Your prose does not move these numbers; only these overrides do. You can also move trust via skillCheckRequests deltas (\`bob_trust_delta\`).
 
 **ARCHIMEDES Satellite (World-Ending Authority):**
 - \`"archimedes_status": "CHARGING"\` - Set status: STANDBY/ALERT/EVALUATING/CHARGING/ARMED/FIRING/COMPLETE. ⚠️ PREFER the narrative flags: \`ARCHIMEDES_MANUAL_INITIATED\` (fire initiation → engine-run visible countdown) and \`DRM_STANDS_DOWN\` (her voluntary standdown, on the record). Setting a hot status here also marks a fire order; setting "STANDBY" is REJECTED while a fire order is live — the countdown is engine truth that narration can't pause, only resolve.

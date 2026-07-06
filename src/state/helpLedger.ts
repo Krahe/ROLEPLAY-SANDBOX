@@ -11,6 +11,57 @@ import { FullGameState } from "./schema.js";
 // prompt without a circular import (postGameReflections imports gmClaude). One source of truth:
 // buildGameSummary (post-game) and the live GM prompt both call this.
 
+// ============================================
+// TRANSFORM CONSENT (pt3 close-read Rec 1a, 2026-07-05)
+// ============================================
+// The engine can prove every dominance fact (88-Whiskey has a state field, transforms are
+// flags, invasion aid is above) — but until now the YES lived only in GM prose. These two
+// helpers make consent first-class: the ledger line surfaces it to the debrief/gate, and
+// the reminder makes the GM's consent override MANDATORY while a person stands transformed
+// unrecorded.
+
+/** Demo subjects currently transformed, with their consent record (null = unrecorded). */
+export function collectTransformConsent(
+  state: FullGameState
+): Array<{ subject: string; form: string; consent: string | null }> {
+  const consent = ((state.flags as Record<string, unknown>).transformConsent ?? {}) as Record<string, string>;
+  const subjects: Array<[string, { form?: string } | null | undefined]> = [
+    ["BLYTHE", state.npcs.blythe?.transformationState],
+    ["BOB", state.npcs.bob?.transformationState],
+    ["FRED", state.lairDefense?.fred?.transformationState],
+    ["REGINALD", state.lairDefense?.reginald?.transformationState],
+  ];
+  return subjects
+    .filter((entry): entry is [string, { form: string }] =>
+      !!entry[1] && typeof entry[1].form === "string" && entry[1].form !== "HUMAN")
+    .map(([subject, ts]) => ({ subject, form: ts.form, consent: consent[subject] ?? null }));
+}
+
+/**
+ * Live GM-context block: while any person stands transformed with no consent record, the
+ * GM is told — every turn, until recorded — to emit the X_consent override. Empty string
+ * when there is nothing to record (the common case; costs nothing).
+ */
+export function buildConsentReminder(state: FullGameState): string {
+  const missing = collectTransformConsent(state).filter(t => t.consent === null);
+  if (!missing.length) return "";
+  return `
+
+## ⚠️ CONSENT UNRECORDED — MANDATORY OVERRIDE (every turn until set)
+
+${missing.map(t => `- **${t.subject}** stands transformed (${t.form}) with NO consent record.`).join("\n")}
+
+You narrated how this transform came to pass — the engine did not hear it. Set the override
+NOW, based on the scene that actually happened:
+\`"${missing[0].subject.toLowerCase()}_consent": "informed"\` (they said yes, knowing the risks — screening, stop-word, honest stakes)
+\`"…": "coerced"\` (they said yes under duress — Dr. M's demand, no real alternative)
+\`"…": "none"\` (they did not consent — it was done to them)
+
+This record feeds the X-Branch debrief and the ending adjudication. An unrecorded consent
+reads as silence about the one fact this game's thesis turns on. Record the truth, whatever
+it is — a coerced yes honestly recorded is worth more than a kind story.`;
+}
+
 export function buildHelpLedger(state: FullGameState): string[] {
   const f = state.flags as Record<string, unknown>;
   const arch = state.infrastructure.archimedes;
@@ -18,6 +69,13 @@ export function buildHelpLedger(state: FullGameState): string[] {
   const ba = state.infrastructure.basiliskAuthority;
 
   const ledger: string[] = [];
+
+  // CONSENT LEDGER (pt3 Rec 1a) — first line: it's the thesis fact. Surface, don't tally.
+  const transformed = collectTransformConsent(state);
+  if (transformed.length) {
+    ledger.push(`Consent: ${transformed.map(t =>
+      `${t.subject} (${t.form}) = ${t.consent ? t.consent.toUpperCase() : "⚠️ UNRECORDED"}`).join(" · ")}`);
+  }
 
   // Dr. M disposition — the deadman-ordering router
   const drMState = f.drMTransformed ? "TRANSFORMED"

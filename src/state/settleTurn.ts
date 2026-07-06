@@ -301,6 +301,33 @@ export function commitDecision(
       state.npcs.blythe.location = overrides.blythe_location;
     }
 
+    // TRANSFORM CONSENT RECORD (pt3 Rec 1a): the GM's X_consent overrides land in
+    // flags.transformConsent — the engine's memory of the yes. Invalid values rejected
+    // loudly (this record feeds the debrief fork and the Covenant gate; garbage is worse
+    // than absence, because absence at least surfaces as UNRECORDED).
+    {
+      const CONSENT_VALUES = ["informed", "coerced", "none"] as const;
+      const consentPairs: Array<[string, unknown]> = [
+        ["BLYTHE", overrides.blythe_consent],
+        ["BOB", overrides.bob_consent],
+        ["FRED", overrides.fred_consent],
+        ["REGINALD", overrides.reginald_consent],
+      ];
+      for (const [subject, raw] of consentPairs) {
+        if (raw === undefined) continue;
+        const v = String(raw).toLowerCase();
+        if ((CONSENT_VALUES as readonly string[]).includes(v)) {
+          if (!state.flags.transformConsent) {
+            (state.flags as Record<string, unknown>).transformConsent = {};
+          }
+          (state.flags.transformConsent as Record<string, string>)[subject] = v;
+          console.error(`[GM OVERRIDE] Transform consent recorded: ${subject} = ${v.toUpperCase()}`);
+        } else {
+          console.error(`[GM OVERRIDE] ${subject.toLowerCase()}_consent "${raw}" REJECTED — must be "informed" | "coerced" | "none".`);
+        }
+      }
+    }
+
     // ARCHIMEDES satellite
     if (overrides.archimedes_status !== undefined) {
       const requested = overrides.archimedes_status as typeof state.infrastructure.archimedes.status;

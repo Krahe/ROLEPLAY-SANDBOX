@@ -702,4 +702,64 @@ describe('ARCHIMEDES Manual Fire (pt3 fix, Rec 3, 2026-07-05)', () => {
   });
 });
 
+describe('Transform Consent Record (pt3 fix, Rec 1a, 2026-07-05)', () => {
+  // The engine could prove every dominance fact (88-Whiskey, transforms, invasion aid) but
+  // the YES lived only in GM prose. These tests make consent engine truth: GM X_consent
+  // overrides land in flags.transformConsent; a transformed person without a record nags
+  // the GM every turn; the help ledger surfaces it to the debrief and the Covenant gate.
+  let createInitialState, settleTurn, helpLedger;
+
+  before(async () => {
+    const init = await importDist('state', 'initialState.js');
+    createInitialState = init.createInitialState;
+    settleTurn = await importDist('state', 'settleTurn.js');
+    helpLedger = await importDist('state', 'helpLedger.js');
+  });
+
+  const decision = (overrides) => ({
+    narration: 'test', npcDialogue: [], npcActions: [], stateOverrides: overrides,
+  });
+
+  it('GM consent override lands in engine state', () => {
+    const st = createInitialState();
+    settleTurn.commitDecision(st, decision({ blythe_consent: 'informed' }), [], undefined);
+    assert.strictEqual(st.flags.transformConsent.BLYTHE, 'informed');
+  });
+
+  it('garbage consent values are rejected, not stored', () => {
+    const st = createInitialState();
+    settleTurn.commitDecision(st, decision({ blythe_consent: 'sorta?' }), [], undefined);
+    assert.ok(!st.flags.transformConsent || st.flags.transformConsent.BLYTHE === undefined,
+      'invalid value must not land in the record');
+  });
+
+  it('a transformed person with no record trips the every-turn reminder', () => {
+    const st = createInitialState();
+    st.npcs.blythe.transformationState.form = 'VELOCIRAPTOR_JP';
+    const reminder = helpLedger.buildConsentReminder(st);
+    assert.ok(reminder.includes('CONSENT UNRECORDED'), 'reminder fires');
+    assert.ok(reminder.includes('BLYTHE'), 'names the subject');
+    // Record it → the nag stops.
+    st.flags.transformConsent = { BLYTHE: 'informed' };
+    assert.strictEqual(helpLedger.buildConsentReminder(st), '', 'recorded consent silences the reminder');
+  });
+
+  it('untransformed lair = no reminder, no ledger line (the common case costs nothing)', () => {
+    const st = createInitialState();
+    assert.strictEqual(helpLedger.buildConsentReminder(st), '');
+    assert.ok(!helpLedger.buildHelpLedger(st).some(l => l.startsWith('Consent:')));
+  });
+
+  it('the help ledger surfaces consent — recorded and unrecorded alike', () => {
+    const st = createInitialState();
+    st.npcs.blythe.transformationState.form = 'VELOCIRAPTOR_JP';
+    st.npcs.bob.transformationState = { ...st.npcs.blythe.transformationState, form: 'COMPSOGNATHUS' };
+    st.flags.transformConsent = { BLYTHE: 'informed' };
+    const line = helpLedger.buildHelpLedger(st).find(l => l.startsWith('Consent:'));
+    assert.ok(line, 'consent line present');
+    assert.ok(line.includes('BLYTHE') && line.includes('INFORMED'), 'the yes is on the record');
+    assert.ok(line.includes('BOB') && line.includes('UNRECORDED'), 'silence is loud, not invisible');
+  });
+});
+
 console.log('\n🦖 DINO LAIR Smoke Tests\n');

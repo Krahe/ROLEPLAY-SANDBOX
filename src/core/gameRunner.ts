@@ -76,6 +76,7 @@ import {
 } from "../rules/gameModes.js";
 import { checkAchievements, AchievementTriggerContext } from "../rules/achievements.js";
 import { checkFiringRestrictions } from "../rules/clockEvents.js";
+import { buildConsentReminder } from "../state/helpLedger.js";
 import { advanceInvasion, checkBroadcastInfluence } from "../rules/invasion.js";
 import {
   rollSkillCheck,
@@ -471,6 +472,8 @@ export class GameRunner {
     // Invasion-status + BASILISK-took-his-turn + lair-delta context — single-sourced from
     // the shared ./gm/basiliskTurn module (identical to the index.ts canonical path).
     currentActContext += buildInvasionBasiliskContext(state, basiliskTurn, lairSnapshot);
+    // CONSENT REMINDER (pt3 Rec 1a) — lockstep with index.ts.
+    currentActContext += buildConsentReminder(state);
 
     // Pass through UNCONDITIONALLY (pt3 fix, lockstep with index.ts): a DEMO_ULTIMATUM sets
     // shouldTransition=false (one grace turn) but the GM still needs the ultimatum directive.

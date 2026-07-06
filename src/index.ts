@@ -92,6 +92,7 @@ import {
 } from "./rules/achievements.js";
 import { formatStatusBar } from "./ui/statusBar.js";
 import { formatActionSummary } from "./ui/actionSummary.js";
+import { buildConsentReminder } from "./state/helpLedger.js";
 import {
   exportLiveState,
   appendTranscriptBatch,
@@ -1087,6 +1088,9 @@ The consequences of that reckless high-power firing are now manifesting.
     // BASILISK was mute and the GM was blind to the invasion). No-ops without an API key.
     const basiliskTurn = await processBasiliskTurn(gameState, { actions: params.actions }, actionResults, lairSnapshot);
     currentActContext += buildInvasionBasiliskContext(gameState, basiliskTurn, lairSnapshot);
+    // CONSENT REMINDER (pt3 Rec 1a): while any person stands transformed with no consent
+    // record, the GM is told every turn to emit the X_consent override. "" when clean.
+    currentActContext += buildConsentReminder(gameState);
 
     // Call GM Claude for NPC responses
     const gmContext = {
