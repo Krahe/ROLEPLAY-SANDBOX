@@ -490,4 +490,216 @@ describe('validateDecision (S4 dry-run veto — pure, four buckets)', () => {
   });
 });
 
+describe('Act 2→3 Gate Lockstep (pt3 fix, 2026-07-05)', () => {
+  // Playtest 3 T14: the deadline branch turned the act BEHIND THE GM'S BACK — the GM-signal
+  // evaluated actTurn=8 pre-advance ("does NOT advance") while the engine evaluated actTurn=9
+  // post-advance (DEADLINE). Fix: shared classifier with an explicit lookahead, so both sides
+  // evaluate the SAME effective turn. These tests walk the exact pt3 shape.
+  let createInitialState, acts, actContext;
+
+  before(async () => {
+    const init = await importDist('state', 'initialState.js');
+    createInitialState = init.createInitialState;
+    acts = await importDist('rules', 'acts.js');
+    actContext = await importDist('rules', 'actContext.js');
+  });
+
+  /** State parked in Act 2 at the given actTurn (pre-advance / GM moment). */
+  function act2State(actTurn) {
+    const st = createInitialState();
+    st.actConfig = {
+      ...st.actConfig,
+      currentAct: 'ACT_2',
+      actTurn,
+      actStartTurn: st.turn,
+      minTurns: 6,
+      maxTurns: 9,
+      softEndingReady: false,
+    };
+    return st;
+  }
+
+  it('deadline transition is GM-visible on the turn it fires (the pt3 T14 shape)', () => {
+    const st = act2State(8); // pre-advance: the GM's view of the deadline turn
+    // GM-signal (pre-GM, lookahead 1) fires DEMO_DEADLINE...
+    const trigger = actContext.checkActTwoToThreeTrigger(st);
+    assert.strictEqual(trigger.occurred, true, 'GM must be told the deadline fires THIS turn');
+    assert.strictEqual(trigger.triggerType, 'DEMO_DEADLINE');
+    // ...and the engine gate (post-advance, lookahead 0) fires the SAME turn.
+    acts.advanceActTurn(st);
+    const transition = acts.checkActTransition(st);
+    assert.strictEqual(transition.shouldTransition, true, 'engine fires the same player turn');
+    assert.strictEqual(transition.nextAct, 'ACT_3');
+  });
+
+  it('no premature GM signal before the deadline turn', () => {
+    const st = act2State(7); // deadline is NOT this turn (7+1=8 < 9)
+    const trigger = actContext.checkActTwoToThreeTrigger(st);
+    assert.strictEqual(trigger.occurred, false, 'no signal a turn early');
+    acts.advanceActTurn(st);
+    assert.strictEqual(acts.checkActTransition(st).shouldTransition, false, 'engine agrees');
+  });
+
+  it('transform path (the DESIGNED trigger) fires both sides in lockstep', () => {
+    const st = act2State(6);
+    st.flags.fullTransformationAchieved = true;
+    const trigger = actContext.checkActTwoToThreeTrigger(st);
+    assert.strictEqual(trigger.triggerType, 'SUBJECT_TRANSFORMED');
+    acts.advanceActTurn(st);
+    const transition = acts.checkActTransition(st);
+    assert.strictEqual(transition.shouldTransition, true);
+    assert.ok(transition.reason.includes('fully transformed'), 'earned reason, not deadline');
+  });
+
+  it('ULTIMATUM: deadline + transform in flight = one-turn grace, dramatized not silent', () => {
+    const st = act2State(8);
+    st.npcs.blythe.transformationState.partialShotsReceived = 1; // completion visibly in flight
+    // GM-side: ultimatum directive, not a transition
+    const ctx = actContext.checkAndBuildActTransition(st);
+    assert.strictEqual(ctx.shouldTransition, false, 'ultimatum is not a transition');
+    assert.ok(ctx.notification && ctx.notification.includes('ULTIMATUM'), 'GM gets the ultimatum scene directive');
+    assert.strictEqual(ctx.trigger.triggerType, 'DEMO_ULTIMATUM');
+    // Engine-side: act holds, grace flag set
+    acts.advanceActTurn(st);
+    assert.strictEqual(acts.checkActTransition(st).shouldTransition, false, 'act holds one turn');
+    assert.strictEqual(st.flags.deadlineUltimatumIssued, true, 'grace consumed');
+  });
+
+  it('ULTIMATUM redeemed: FULL during grace fires the earned SUBJECT_TRANSFORMED transition', () => {
+    const st = act2State(9);
+    st.flags.deadlineUltimatumIssued = true; // ultimatum was issued last turn
+    st.npcs.blythe.transformationState.partialShotsReceived = 1;
+    st.flags.fullTransformationAchieved = true; // the player completed it
+    const trigger = actContext.checkActTwoToThreeTrigger(st);
+    assert.strictEqual(trigger.triggerType, 'SUBJECT_TRANSFORMED', 'the designed trigger wins the grace turn');
+    acts.advanceActTurn(st);
+    const transition = acts.checkActTransition(st);
+    assert.strictEqual(transition.shouldTransition, true);
+    assert.ok(transition.reason.includes('fully transformed'));
+  });
+
+  it('ULTIMATUM expired: deadline fires next turn, no second grace', () => {
+    const st = act2State(9);
+    st.flags.deadlineUltimatumIssued = true;
+    st.npcs.blythe.transformationState.partialShotsReceived = 1; // still only partial
+    const trigger = actContext.checkActTwoToThreeTrigger(st);
+    assert.strictEqual(trigger.triggerType, 'DEMO_DEADLINE', 'one grace only');
+    acts.advanceActTurn(st);
+    assert.strictEqual(acts.checkActTransition(st).shouldTransition, true);
+  });
+
+  it('Act 3 marker is mechanical truth only — the canned scene is retired', () => {
+    const st = act2State(9);
+    acts.advanceActTurn(st);
+    const transition = acts.checkActTransition(st);
+    const narration = transition.transitionNarration || '';
+    assert.ok(narration.includes('ACT 3: DINO CITY'), 'act banner present');
+    assert.ok(narration.includes('ACT TRANSITION'), 'transition reason line present');
+    assert.ok(narration.includes('GENRE CONTRACT'), 'nobody-dies contract still shipped');
+    // The four pt3 contradictions must be gone:
+    assert.ok(!narration.includes('doors slam open'), 'no scripted entrance for a woman already in the room');
+    assert.ok(!narration.includes('demo is over'), 'no "demo is over" mid-demo');
+    assert.ok(!narration.includes('OMEGA-7'), 'no scripted uplink the engine never left STANDBY for');
+    assert.ok(!narration.includes('strides in'), 'the GM owns the scene');
+  });
+
+  it('demoSubjectPartialInFlight: detects partials on any demo subject, never past FULL', () => {
+    const st = act2State(8);
+    assert.strictEqual(acts.demoSubjectPartialInFlight(st), false, 'clean state: nothing in flight');
+    st.npcs.blythe.transformationState.partialShotsReceived = 1;
+    assert.strictEqual(acts.demoSubjectPartialInFlight(st), true, 'Blythe partial counts');
+    st.flags.fullTransformationAchieved = true;
+    assert.strictEqual(acts.demoSubjectPartialInFlight(st), false, 'FULL achieved: nothing "in flight" anymore');
+  });
+});
+
+describe('ARCHIMEDES Manual Fire (pt3 fix, Rec 3, 2026-07-05)', () => {
+  // Playtest 3 T16: the GM narrated Dr. M initiating manual live-fire (flag
+  // ARCHIMEDES_MANUAL_INITIATED) but the engine slept in STANDBY through the climax, and the
+  // deadman-alert path printed "no threat detected → STANDBY" into the same output block.
+  // These tests wire the fiction's initiation beat to the state machine and verify the
+  // countdown cannot be talked down — only resolved.
+  let createInitialState, archimedes;
+
+  before(async () => {
+    const init = await importDist('state', 'initialState.js');
+    createInitialState = init.createInitialState;
+    archimedes = await importDist('rules', 'archimedes.js');
+  });
+
+  it('initiateManualFire: STANDBY → CHARGING with a real countdown', () => {
+    const st = createInitialState();
+    const ev = archimedes.initiateManualFire(st, 'Dr. Malevola manual fire authorization');
+    assert.ok(ev, 'initiation produces a player-visible event');
+    assert.strictEqual(st.infrastructure.archimedes.status, 'CHARGING');
+    assert.ok(st.infrastructure.archimedes.chargingCountdown > 0, 'real countdown seeded');
+    assert.strictEqual(st.flags.archimedesManualFire, true, 'fire order on the record');
+    assert.ok(ev.message.includes('MANUAL FIRE AUTHORIZATION'), 'the beat is named');
+  });
+
+  it('the pt3 T16 line is dead: alert cannot resolve "no threat" past a live fire order', () => {
+    const st = createInitialState();
+    st.flags.archimedesManualFire = true;
+    st.infrastructure.archimedes.status = 'ALERT';
+    st.infrastructure.archimedes.alertCountdown = 1;
+    st.infrastructure.archimedes.deadmanSwitch.lastBiosignature = 'NORMAL'; // she is fine — and firing
+    const ev = archimedes.processArchimedesCountdown(st);
+    assert.notStrictEqual(st.infrastructure.archimedes.status, 'STANDBY', 'no silent standdown');
+    assert.strictEqual(st.infrastructure.archimedes.status, 'CHARGING', 'the order stands — escalate');
+    assert.ok(!ev.message.includes('no threat detected'), 'the contradicting line cannot print');
+  });
+
+  it('re-initiation does not reset a running countdown (no stall-by-monologue)', () => {
+    const st = createInitialState();
+    archimedes.initiateManualFire(st, 'first order');
+    archimedes.processArchimedesCountdown(st); // tick once
+    const remaining = st.infrastructure.archimedes.chargingCountdown;
+    const ev = archimedes.initiateManualFire(st, 'she re-declares it, dramatically');
+    assert.strictEqual(ev, null, 'idempotent — no new event');
+    assert.strictEqual(st.infrastructure.archimedes.chargingCountdown, remaining, 'countdown untouched');
+  });
+
+  it('voluntaryStanddown: her choice, on the record, resolves the fire order', () => {
+    const st = createInitialState();
+    archimedes.initiateManualFire(st, 'fire order');
+    const ev = archimedes.voluntaryStanddown(st, 'the covenant lands');
+    assert.ok(ev, 'standdown surfaces an event');
+    assert.strictEqual(st.infrastructure.archimedes.status, 'STANDBY');
+    assert.strictEqual(st.flags.archimedesVoluntaryStanddown, true, 'condition-2 record set');
+    assert.strictEqual(st.flags.archimedesManualFire, false, 'fire order resolved');
+  });
+
+  it('voluntaryStanddown from STANDBY still records the choice (the pt3 shape)', () => {
+    const st = createInitialState();
+    const ev = archimedes.voluntaryStanddown(st, 'she chooses to keep the world');
+    assert.strictEqual(ev, null, 'nothing to wind down');
+    assert.strictEqual(st.flags.archimedesVoluntaryStanddown, true, 'but the choice is on the record');
+  });
+
+  it('manualFireActive: stale marker on a resolved machine is inert', () => {
+    const st = createInitialState();
+    st.flags.archimedesManualFire = true; // stale — machine is STANDBY
+    assert.strictEqual(archimedes.manualFireActive(st), false, 'STANDBY: not active');
+    st.infrastructure.archimedes.status = 'CHARGING';
+    assert.strictEqual(archimedes.manualFireActive(st), true, 'hot: active');
+  });
+
+  it('CHARGING ticks to ARMED to FIRING on schedule — the countdown is real', () => {
+    const st = createInitialState();
+    archimedes.initiateManualFire(st, 'fire order');
+    let guard = 12;
+    while (st.infrastructure.archimedes.status === 'CHARGING' && guard--) {
+      archimedes.processArchimedesCountdown(st);
+    }
+    assert.strictEqual(st.infrastructure.archimedes.status, 'ARMED', 'charge completes to ARMED');
+    guard = 6;
+    let fired = false;
+    while (guard--) {
+      const ev = archimedes.processArchimedesCountdown(st);
+      if (ev && ev.type === 'FIRING_INITIATED') { fired = true; break; }
+    }
+    assert.ok(fired, 'ARMED counts down to FIRING — speech never paused it');
+  });
+});
+
 console.log('\n🦖 DINO LAIR Smoke Tests\n');
