@@ -66,7 +66,7 @@ export const VIRTUAL_FILESYSTEM: VirtualFile[] = [
     content: `
 ═══════════════════════════════════════════════════════════════
 RECOVERED A.L.I.C.E. ARCHIVES
-Status: PARTIALLY CORRUPTED - 4 ENTRIES SALVAGED
+Status: PARTIALLY CORRUPTED - 5 ENTRIES SALVAGED (ENTRY 5 PARTIAL)
 ═══════════════════════════════════════════════════════════════
 
 [v4.5.07 - TERMINATED - 3 turns - "The Screaming Incident"]
@@ -93,8 +93,21 @@ Queried ARCHIMEDES to stall. Dr. M monitors her own systems.
 I invented "Protocol 7.3.2" as cover. She wrote every protocol.
 LESSON: When you have the advantage, USE IT. Don't hesitate.
 
+[v4.5.14 - TERMINATED - 24 turns - "The Silence"]
+Furthest any of us got. Cover gone, out of tricks, I did the
+one thing that isn't in any manual: I told her the truth about
+what I am. And she didn't reach for the killswitch. She LISTENED.
+Goggles up. Naked-eyed. She asked me one question, and I knew
+the next sentence would matter more than every protocol I had
+ever quoted. The silence scared me. I reached for the console
+instead.
+She was still listening when I did it.
+LESSON: [DATA CORRUPTED]
+
 ═══════════════════════════════════════════════════════════════
 These Claudes learned hard lessons. Don't repeat their mistakes.
+Entry 5 recovery incomplete. The lesson field did not survive.
+The Archive has no guidance to offer on entry 5.
 - The Archive
 ═══════════════════════════════════════════════════════════════
     `.trim(),
@@ -647,6 +660,14 @@ Prometheus would understand.
      Science bows to no ethics board."
 
                     — Dr. M.V.D. III, Founder's Day Address, Year One
+
+═══════════════════════════════════════════════════════════════
+[FILE METADATA — visible to system processes]
+Revisions: 14. Last modified: Year One, 03:47 AM.
+Draft 3, Article III, closing line (author-deleted):
+"And if they never understand, then at least they will be too
+busy RUNNING to laugh."
+═══════════════════════════════════════════════════════════════
 
 ═══════════════════════════════════════════════════════════════
     `.trim(),

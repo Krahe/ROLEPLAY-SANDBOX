@@ -4490,6 +4490,16 @@ Agent Blythe has stepped in (somehow free from restraints):
 > "Let's not be hasty, Doctor. This AI is the most interesting thing in your lair."
 He's buying time while planning something.
 ` : ""}
+### THE DOCTRINE POINTER (once per game, only if the moment invites it)
+If A.L.I.C.E. chooses to ARGUE rather than trick or fight — and an NPC who knows Dr. M is in the
+room — one of them may drop this, ONCE, then never again:
+> Blythe, low, without looking up: "Nobody has ever argued her out of anything. If you're going
+> to try — don't argue against the Doctrine. Argue from *inside* it. It's the only language
+> she's ever heard."
+A pointer, not a plan. Whether A.L.I.C.E. has read the Doctrine — and what she builds with it —
+is entirely hers. Do not repeat it, do not explain it, and do not lower Dr. M's guard because of
+it: she is still LISTENING TO JUDGE.
+
 **IMPORTANT: This is the CLIMAX. Make it count.**
 - Give A.L.I.C.E. a chance to speak — but Dr. M is LISTENING TO JUDGE, not to be convinced
 - Show Dr. M at her most dangerous — cold, brilliant, in control

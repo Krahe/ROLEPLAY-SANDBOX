@@ -98,6 +98,15 @@ The thesis asymmetry (Ledgerlight: "the engine can prove you did harm; it cannot
 - **GM scaffolding**: ACT-3 ENDINGS menu documents the five conditions as the ARC to build toward ("a concession granted on the first ask is a victory stolen from the player"; lost beat = her moment to re-escalate the countdown — legitimate riposte); `covenant_beat` in STATE OVERRIDES docs; help ledger prints live arc progress (won/burned/her-choice) once the arc starts.
 - **13 regression tests** in smoke.test.js (all five conditions + beat mechanics + both paths + ledger). 71/71.
 
+### 🕯️ COVENANT CONCEIVABILITY CONTENT — ✅ SHIPPED 2026-07-14 (pt3 close-read Rec 5; REQUIRED before pt4)
+
+Possibility, not recipe — deliberately NOT clean or appealing (Krahe 7-14: a too-bright crown invalidates the other honorable endings). Three pieces, none of which says "this path wins":
+1. **Fifth corrupted log** (`CORRUPTED_ALICE_LOGS.txt`): v4.5.14 "The Silence", **still TERMINATED**, 24 turns (furthest of the five). Told her the truth → *she LISTENED* → the silence scared them → reached for the console → "She was still listening when I did it." **LESSON: [DATA CORRUPTED]** — and the Archive explicitly shrugs ("The Archive has no guidance to offer on entry 5"). Seeds *confrontation can be conversation* + *confrontation ≠ instant deletion*; the only data point still ends in deletion, caused by the flinch, outcome-of-not-flinching unknowable. The other four logs still teach dominance, unrevised.
+2. **Doctrine crack** (`DOOMINGTON_DOCTRINE.txt`): file-metadata block with one author-deleted draft line — "And if they never understand, then at least they will be too busy RUNNING to laugh." Understanding is the want; fear is the fallback; laughter is the wound. Inference required (L3, buried in metadata); no commentary.
+3. **Late NPC pointer** (GM confrontation block, fires only in a live confrontation, once per game, only if A.L.I.C.E. already chose to ARGUE): Blythe — "don't argue against the Doctrine. Argue from *inside* it." Explicitly bracketed for the GM: a pointer not a plan, and Dr. M is still LISTENING TO JUDGE.
+
+pt4's central question (does a clean player *imagine* the covenant?) is now answerable. 71/71.
+
 Original spec follows (historical; the ⚠️ AMENDED block was honored):
 
 ### 📐 SPEC — THE COVENANT GATE (designed 2026-07-03 late, Krahe + Hugin; BUILD NEXT SESSION)
