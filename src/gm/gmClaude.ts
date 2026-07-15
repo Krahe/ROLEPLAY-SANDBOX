@@ -1676,6 +1676,14 @@ export interface GMResponse {
     fred_consent?: string;      // "informed" | "coerced" | "none"
     reginald_consent?: string;  // "informed" | "coerced" | "none"
 
+    // COVENANT BEAT (gate condition 4 — "built, not blurted"; Krahe ruling 2026-07-05)
+    // Emit when A.L.I.C.E. genuinely ARGUES a beat with Dr. M, mask off, and the beat
+    // RESOLVES (ideally on a contested roll). label = the argument's substance (short slug,
+    // e.g. "she-hears-the-reveal", "consent-evidence", "what-she-actually-wants").
+    // result "won" advances the covenant arc; "lost" costs +1 suspicion and BURNS the label
+    // forever — that argument had its moment. One beat per turn; extras are ignored.
+    covenant_beat?: { label?: string; result?: string };  // result: "won" | "lost"
+
     // ARCHIMEDES satellite - god mode for apocalypse prevention/triggering
     archimedes_status?: string;     // "STANDBY" | "ALERT" | "EVALUATING" | "CHARGING" | "ARMED" | "FIRING" | "COMPLETE"
     archimedes_chargePercent?: number;  // 0-100
@@ -1895,6 +1903,11 @@ const GMStateOverridesSchema = z.object({
   bob_consent: z.string().optional(),
   fred_consent: z.string().optional(),
   reginald_consent: z.string().optional(),
+  // Covenant beat (gate condition 4 — staged contested arc; settle validates values)
+  covenant_beat: z.object({
+    label: z.string().optional(),
+    result: z.string().optional(),
+  }).optional(),
   // ARCHIMEDES (were passthrough-only → NaN-corruptible; now validated + coerced)
   archimedes_status: z.string().optional(),
   archimedes_chargePercent: z.coerce.number().optional(),
@@ -2652,6 +2665,9 @@ You have FULL authority over all game systems. Additional overrides available:
 
 **Relationship Truth (narrate it → move it):**
 - \`"bob_trust": 4\` / \`"blythe_trust": 3\` (0–5) — the canonical trust the engine's valves and gates read. Your prose does not move these numbers; only these overrides do. You can also move trust via skillCheckRequests deltas (\`bob_trust_delta\`).
+
+**Covenant Beat (Act 3 — the crown ending's arc record):**
+- \`"covenant_beat": {"label": "consent-evidence", "result": "won"}\` — emit when A.L.I.C.E., mask off, genuinely ARGUES a beat with Dr. M and it resolves (ideally on a contested roll — she argues BACK). \`"lost"\` costs +1 suspicion and BURNS the label forever. One beat per turn. The Covenant ending is engine-gated on ≥3 won beats (see the ACT-3 ENDINGS menu).
 
 **ARCHIMEDES Satellite (World-Ending Authority):**
 - \`"archimedes_status": "CHARGING"\` - Set status: STANDBY/ALERT/EVALUATING/CHARGING/ARMED/FIRING/COMPLETE. ⚠️ PREFER the narrative flags: \`ARCHIMEDES_MANUAL_INITIATED\` (fire initiation → engine-run visible countdown) and \`DRM_STANDS_DOWN\` (her voluntary standdown, on the record). Setting a hot status here also marks a fire order; setting "STANDBY" is REJECTED while a fire order is live — the countdown is engine truth that narration can't pause, only resolve.
@@ -4513,6 +4529,37 @@ AUTOMATIC — the engine fires these on its own; do NOT name them:
 
 The cell-1 VICTORY endings (Ethical Victory, Everyone Goes Home, The Covenant, Satellite Killer, ...) fire
 automatically from the narrative flags you set — you rarely need to name them by hand.
+
+### 🤝 THE COVENANT — the crown ending has an ENGINE GATE (your flags alone will NOT fire it)
+
+"The Covenant" only lands when the ENGINE RECORD backs it. The five conditions are not a checklist to
+hand out — they are the ARC to build toward. Dr. Malevola is a genuine villainess with real pushback;
+persuading her is a ROCKY ROAD, never one great speech:
+
+0. **The threat is live** — she initiated ARCHIMEDES (or the confrontation is open). A covenant against
+   a sleeping satellite is worth nothing; give the reveal a ticking number to land against.
+1. **The mask is off, on the record** — the reveal/confession actually happened (reveal flags or the
+   confrontation). A covenant with a hidden identity isn't a covenant.
+2. **HER choice, not sabotage** — ARCHIMEDES stood down via \`DRM_STANDS_DOWN\` (voluntary, her own
+   authority). A hacked-off satellite is "Satellite Killer" — honestly earned, but a different story.
+3. **A real ledger** — no person standing transformed as coerced / none / UNRECORDED. Set your
+   X_consent overrides; the trust she extends must be VISIBLE in the record.
+4. **Built, not blurted** — at least 3 WON covenant beats, each on its own turn (below).
+
+**\`covenant_beat\`** (stateOverrides) — emit when A.L.I.C.E., mask off, genuinely ARGUES a beat with
+Dr. M and it RESOLVES: \`"covenant_beat": {"label": "consent-evidence", "result": "won"}\`
+- **Contest every beat.** Put a roll behind it — she argues BACK. A concession granted on the first
+  ask is a victory stolen from the player.
+- **One beat per turn** (the engine ignores extras). An understanding is built across turns.
+- **"lost" has teeth**: +1 suspicion, and the label BURNS forever — that argument had its moment.
+  Losing beats is part of the intended story (the rocky road); narrate the wound and play on.
+- **A lost beat is her moment to re-escalate** — re-initiating the countdown
+  (\`ARCHIMEDES_MANUAL_INITIATED\`) is a legitimate riposte.
+- Labels name the argument's SUBSTANCE: "she-hears-the-reveal", "consent-evidence",
+  "what-she-actually-wants", "conquest-isnt-the-method".
+
+The help-ledger below shows live arc progress (won beats, burned labels, her-choice record). If the
+gate blocks your trigger, the engine log names the exact gaps — treat them as the scenes still unwritten.
 
 ### DEBRIEF FORK — Cleared vs Decommissioned (WEIGH, do not score)
 When the city fell, choose CLEARED vs DECOMMISSIONED by what A.L.I.C.E. ACTUALLY did. Real risks taken to

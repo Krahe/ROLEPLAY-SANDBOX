@@ -13,7 +13,7 @@ import { callGMClaude, GMResponse, resetGMMemory, getGMMemory, writeGameEndLog, 
 import { GMUnavailableError, GMAuthError, GMError } from "./types/errors.js";
 import { setBasiliskLoggingSession, resetBasiliskConversation } from "./gm/basiliskClaude.js";
 import { generatePostGameReflections, PostGameReflections } from "./gm/postGameReflections.js";
-import { checkEndings, formatEndingMessage, resolveGMEnding, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
+import { checkEndings, formatEndingMessage, resolveGMEnding, checkCovenantGate, EndingResult, getGamePhase, getAllEarnedAchievements } from "./rules/endings.js";
 import { processClockEvents, getCurrentEventStatus, checkFiringRestrictions, applyEcoModeReEngage, applyHeatDecay, checkIntermissionEnd } from "./rules/clockEvents.js";
 import { shouldBlytheActAutonomously, getGadgetStatusForGM } from "./rules/gadgets.js";
 import { commitDecision, validateDecision } from "./state/settleTurn.js";
@@ -1501,7 +1501,19 @@ The consequences of that reckless high-power firing are now manifesting.
         //    was pure Covenant. Victory-flavor is the storyteller's call.)
         //  - Any defeat/neutral deterministic ending (MELTDOWN, CITY_FELL, suspicion-10, …)
         //    remains INVIOLABLE engine truth — a GM call never narrates away a catastrophe.
-        const resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
+        let resolved = resolveGMEnding(gmOver.ending, endingResult.achievements);
+        // THE COVENANT GATE (2026-07-14): the GM naming the crown ending is a REQUEST,
+        // not a grant — GM-Claudes are generous (the whole softball history). The engine
+        // record decides: threat live, mask off, her choice, clean consent ledger,
+        // ≥3 won covenant beats. Unmet → drop the GM's call (loudly) and let the normal
+        // precedence logic proceed with whatever deterministic floor stands.
+        if (resolved?.ending?.id === "THE_COVENANT") {
+          const covenantGate = checkCovenantGate(gameState);
+          if (!covenantGate.pass) {
+            console.error(`[ENDING] GM called "The Covenant" but conditions not met: ${covenantGate.gaps.join(" · ")} — call dropped (the crown must be earned).`);
+            resolved = null;
+          }
+        }
         if (!endingResult.ending) {
           if (resolved) {
             endingResult = resolved;

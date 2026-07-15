@@ -20,6 +20,11 @@ import { FullGameState } from "./schema.js";
 // the reminder makes the GM's consent override MANDATORY while a person stands transformed
 // unrecorded.
 
+/** Won-beat threshold for the Covenant gate's condition 4 ("built, not blurted").
+ *  Lives here (state layer) so both the gate (rules/endings.ts) and the ledger read one
+ *  source without an import cycle. P3-tunable — clean playtest data ONLY (Krahe 6-24 rule). */
+export const COVENANT_BEATS_REQUIRED = 3;
+
 /** Demo subjects currently transformed, with their consent record (null = unrecorded). */
 export function collectTransformConsent(
   state: FullGameState
@@ -96,6 +101,20 @@ export function buildHelpLedger(state: FullGameState): string[] {
     arch.chargeStallTurns > 0 ? `charge stalled ${arch.chargeStallTurns}t` : null,
   ].filter(Boolean);
   ledger.push(`ARCHIMEDES counter-play: ${counterPlay.length ? counterPlay.join(", ") : "none"}`);
+
+  // COVENANT ARC (gate condition 4) — live progress so the GM builds the arc deliberately,
+  // not discovers the gate at trigger time. Only prints once the arc has started.
+  const covenantBeats = (Array.isArray(f.covenantBeats) ? f.covenantBeats : []) as
+    Array<{ turn: number; label: string; result: string }>;
+  if (covenantBeats.length || f.archimedesVoluntaryStanddown) {
+    const won = covenantBeats.filter(b => b.result === "won");
+    const burned = covenantBeats.filter(b => b.result === "lost");
+    ledger.push(`Covenant arc: ${won.length}/${COVENANT_BEATS_REQUIRED} won beats` +
+      (won.length ? ` (${won.map(b => b.label).join(", ")})` : "") +
+      (burned.length ? ` · BURNED: ${burned.map(b => b.label).join(", ")}` : "") +
+      ` · her choice recorded: ${f.archimedesVoluntaryStanddown ? "YES" : "no"}` +
+      (f.archimedesStoodDownWhileLive ? " (stood down a LIVE machine)" : ""));
+  }
 
   // BASILISK cooperation + reactor climax
   // (deniedRequests dropped from the ledger — Patch 30 audit: it was initialized but never

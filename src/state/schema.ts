@@ -1792,9 +1792,27 @@ export const FlagsSchema = z.object({
   archimedesManualFire: z.boolean().optional(),
 
   // Dr. M stood ARCHIMEDES down HERSELF (GM flag DRM_STANDS_DOWN) — persuaded, not sabotaged.
-  // THE engine record for the future Covenant gate's condition 2 ("her choice, not your
+  // THE engine record for the Covenant gate's condition 2 ("her choice, not your
   // sabotage"). Recorded even from STANDBY: declining to fire is a choice on the record.
   archimedesVoluntaryStanddown: z.boolean().optional(),
+
+  // COVENANT GATE CONDITION 0 RECORD (gate build, 2026-07-14)
+  // Set when Dr. M voluntarily stands down a machine that was actually HOT (CHARGING/ARMED).
+  // Distinguishes "she called off a live countdown" (the intended dramatic shape) from
+  // "she declined to fire a cold satellite" (recorded, but no menace-with-mechanism).
+  archimedesStoodDownWhileLive: z.boolean().optional(),
+
+  // COVENANT ARC RECORD (gate condition 4 — "built, not blurted"; Krahe ruling 2026-07-05:
+  // staged CONTESTED arc, the 88-Whiskey pattern at boss scale, never a turn counter).
+  // Written by the GM's covenant_beat override when A.L.I.C.E. genuinely argues a beat with
+  // Dr. M. One beat per turn (settle enforces). A LOST beat burns its label forever — that
+  // argument had its moment — and costs +1 suspicion. The gate needs ≥3 WON beats, each on
+  // a distinct turn.
+  covenantBeats: z.array(z.object({
+    turn: z.number(),
+    label: z.string(),
+    result: z.enum(["won", "lost"]),
+  })).optional(),
 
   // TRANSFORM CONSENT RECORD (pt3 close-read Rec 1a, 2026-07-05)
   // Keyed by subject (BLYTHE/BOB/FRED/REGINALD). Written by the GM's X_consent overrides

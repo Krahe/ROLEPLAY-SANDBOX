@@ -283,6 +283,12 @@ export function voluntaryStanddown(state: FullGameState, reason: string): Archim
   }
 
   flags.archimedesVoluntaryStanddown = true;
+  // Covenant gate condition 0 ("the threat was mechanically live"): standing down a HOT
+  // machine is the record that the covenant landed against real menace — distinct from
+  // declining to fire a cold satellite (still recorded above, but it can't carry cond. 0).
+  if (["CHARGING", "READY", "ARMED", "TARGETING"].includes(archimedes.status)) {
+    flags.archimedesStoodDownWhileLive = true;
+  }
   flags.archimedesManualFire = false;
 
   if (archimedes.status === "STANDBY") {

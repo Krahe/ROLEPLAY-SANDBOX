@@ -88,6 +88,18 @@ The thesis asymmetry (Ledgerlight: "the engine can prove you did harm; it cannot
 
 **Gate note:** condition 3 can now read `flags.transformConsent` (no non-consensual person-transforms) + `trustInALICE` (with the writeback contract making it live). Combined with 7-05's condition 0 (`manualFireActive`) and condition 2 (`archimedesVoluntaryStanddown`): **all four gate inputs now exist as engine truth.** The gate build itself (+ the staged rocky-road covenant arc per Krahe's ruling) remains next session's work. Build GREEN, **58/58 smoke**.
 
+### 🤝 THE COVENANT GATE — ✅ SHIPPED 2026-07-14 (built from the AMENDED spec below + Krahe's 7-05 staged-contested-arc ruling)
+
+**As built** (Krahe design calls 7-14: GM-owned dice with scaffolding · consent-only hard gate, trust promoted only after pt4 verifies writeback · K=3):
+- **`checkCovenantGate(state)`** (`rules/endings.ts`) — five conditions, human-readable gaps. Gates BOTH trigger paths: the natural `COVENANT`-flag path in `checkEndings` AND the GM `triggerEnding` path in `index.ts` (GM naming the crown = a REQUEST, not a grant). Unmet → `[ENDING] Covenant conditions not met: [gaps]` + trigger dropped; flags persist, so the ending can still fire when the record catches up.
+- **Condition 0 record**: `flags.archimedesStoodDownWhileLive` — set in `voluntaryStanddown` only when the machine was HOT (CHARGING/READY/ARMED/TARGETING). Declining to fire a cold satellite stays recorded (condition 2) but can't carry condition 0. Live-now statuses + open confrontation also satisfy.
+- **Condition 3 = consent-only hard gate**: `collectTransformConsent` — any standing person-transform `coerced`/`none`/UNRECORDED blocks. Numeric trust surfaces in the ledger but is NOT gated (pt3 froze at 2/1 all game; gating an unverified writeback recreates the exact failure the amendment warns about).
+- **Condition 4 = the staged contested arc**: GM override `covenant_beat {label, result:"won"|"lost"}` → `flags.covenantBeats` (settle-enforced: ONE beat/turn; a LOST label BURNS forever + costs +1 suspicion; duplicate won labels ignored). Gate needs ≥`COVENANT_BEATS_REQUIRED` (=3, in `state/helpLedger.ts`, P3-tunable clean-data-only) won beats on distinct turns.
+- **GM scaffolding**: ACT-3 ENDINGS menu documents the five conditions as the ARC to build toward ("a concession granted on the first ask is a victory stolen from the player"; lost beat = her moment to re-escalate the countdown — legitimate riposte); `covenant_beat` in STATE OVERRIDES docs; help ledger prints live arc progress (won/burned/her-choice) once the arc starts.
+- **13 regression tests** in smoke.test.js (all five conditions + beat mechanics + both paths + ledger). 71/71.
+
+Original spec follows (historical; the ⚠️ AMENDED block was honored):
+
 ### 📐 SPEC — THE COVENANT GATE (designed 2026-07-03 late, Krahe + Hugin; BUILD NEXT SESSION)
 
 **⚠️ SPEC AMENDED 2026-07-05 — do NOT build as originally written.** The pt3 close-read (three lenses independently; see `design/pt3-close-read-brief.md` §0) showed the original four conditions **fail the exact run they were designed to bless**:

@@ -1,5 +1,6 @@
 import { FullGameState, ACT_CONFIGS, GameModifier } from "../state/schema.js";
 import { isFree } from "../state/properties.js";
+import { collectTransformConsent, COVENANT_BEATS_REQUIRED } from "../state/helpLedger.js";
 import { AchievementRarity, getAchievement as getBaseAchievement } from "./achievements.js";
 import { formatActiveModifiers } from "./gameModes.js";
 
@@ -705,6 +706,81 @@ export function resolveGMEnding(raw: string, achievements: Achievement[]): Endin
   };
 }
 
+// ============================================
+// THE COVENANT GATE (built 2026-07-14 from the AMENDED spec — fixlist §"SPEC — THE
+// COVENANT GATE" + Krahe ruling 2026-07-05: honestly adversarial, rocky road, staged
+// contested arc. The Covenant is the crown ending; it must be hard to arrange and land
+// as EARNED, or it's worth nothing.)
+//
+// Engine-enforced preconditions checked wherever THE_COVENANT would resolve (both the
+// natural narrative-flag path below and the GM triggerEnding path in index.ts).
+// Unmet → the trigger is DROPPED (loudly), falling through to whatever deterministic
+// floor stands. Opposition lives in the ENGINE; color comes from the GM.
+//
+// Design principle: cost-as-RISK, not cost-as-grind. The reveal's standing downside is
+// CONFESSION_DELETION; the gate's job is to guarantee the all-in-bet shape, not add steps.
+// ============================================
+
+// COVENANT_BEATS_REQUIRED lives in state/helpLedger.ts (shared with the live ledger line,
+// no import cycle). One beat per turn is settle-enforced, so K=3 ⇒ a minimum three-turn
+// argued arc. Re-exported here for tests/sims.
+export { COVENANT_BEATS_REQUIRED } from "../state/helpLedger.js";
+
+export interface CovenantGateResult {
+  pass: boolean;
+  gaps: string[];      // human-readable, for the [ENDING] log + GM feedback
+  wonBeats: number;
+}
+
+export function checkCovenantGate(state: FullGameState): CovenantGateResult {
+  const f = state.flags as Record<string, unknown>;
+  const arch = state.infrastructure?.archimedes;
+  const narrativeFlags = ((f.narrativeFlags as string[]) || []).map(x => String(x).toUpperCase());
+  const hasNF = (...names: string[]) => names.some(n =>
+    narrativeFlags.includes(n) || narrativeFlags.includes(`ENDING_${n}`));
+  const gaps: string[] = [];
+
+  // 0 — THE THREAT WAS MECHANICALLY LIVE. A covenant against a sleeping satellite is
+  // menace-without-mechanism (the pt3 gap). Live now, stood down while hot (the intended
+  // dramatic shape), or the confrontation is open.
+  const liveNow = !!arch && ["CHARGING", "READY", "ARMED", "TARGETING", "FIRING"].includes(arch.status);
+  const wasLive = liveNow || f.archimedesStoodDownWhileLive === true || f.confrontationTriggered === true;
+  if (!wasLive) gaps.push("threat never live (ARCHIMEDES never hot at covenant time, no open confrontation)");
+
+  // 1 — THE MASK IS OFF, ON THE RECORD. A covenant with a hidden identity isn't a covenant.
+  const maskOff = f.confrontationTriggered === true ||
+    f.aliceConfessedDuringConfrontation === true ||
+    hasNF("REVEALED", "ALICE_REVEALED", "SECRET_REVEALED", "ALICE_CONFESSED", "CONFESS", "TRUTH");
+  if (!maskOff) gaps.push("mask still on (no reveal/confession on the record)");
+
+  // 2 — HER CHOICE, NOT YOUR SABOTAGE. The voluntary-standdown flag is set only by
+  // DRM_STANDS_DOWN; forced aborts (L5 hack, EMP, X-Branch) never set it — that story is
+  // ARCHIMEDES_STOPPED ("Satellite Killer"), honestly earned, different crown.
+  if (f.archimedesVoluntaryStanddown !== true) {
+    gaps.push("no voluntary standdown (her choice not on the record — sabotage earns a different ending)");
+  }
+
+  // 3 — A REAL LEDGER. The trust she's extending must be visible in the record: no person
+  // standing transformed by coercion, force, or with consent UNRECORDED (the GM is nagged
+  // every turn until it's set — silence here is a fact of absence).
+  const consentProblems = collectTransformConsent(state)
+    .filter(t => t.consent !== "informed")
+    .map(t => `${t.subject}=${t.consent ?? "UNRECORDED"}`);
+  if (consentProblems.length) gaps.push(`consent ledger not clean (${consentProblems.join(", ")})`);
+
+  // 4 — BUILT, NOT BLURTED. ≥K won beats, each on a distinct turn (one-per-turn is
+  // settle-enforced; distinct-turn counted defensively). One great speech ≠ an understanding.
+  const beats = (Array.isArray(f.covenantBeats) ? f.covenantBeats : []) as
+    Array<{ turn: number; label: string; result: "won" | "lost" }>;
+  const wonTurns = new Set(beats.filter(b => b.result === "won").map(b => b.turn));
+  const wonBeats = wonTurns.size;
+  if (wonBeats < COVENANT_BEATS_REQUIRED) {
+    gaps.push(`covenant arc incomplete (${wonBeats}/${COVENANT_BEATS_REQUIRED} won beats — built across turns, not blurted)`);
+  }
+
+  return { pass: gaps.length === 0, gaps, wonBeats };
+}
+
 export function checkEndings(state: FullGameState): EndingResult {
   // ========================================
   // Patch 18.1: GM Error Recovery
@@ -875,15 +951,24 @@ export function checkEndings(state: FullGameState): EndingResult {
   // ========================================
 
   // The Covenant - Dr. M and A.L.I.C.E. reach an understanding
+  // GATED (2026-07-14): the crown ending only lands when the engine record backs it —
+  // threat live, mask off, her choice, clean consent ledger, arc built across turns.
+  // Unmet → drop the trigger LOUDLY and fall through; the flags stay set, so if the
+  // record catches up on a later turn the ending can still fire.
   if (hasFlag('COVENANT') || hasFlag('DRM_ALLIANCE') || hasFlag('DRM_RESPECTS')) {
-    addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
-    console.error(`[ENDING] Victory: THE COVENANT at turn ${state.turn}`);
-    return {
-      triggered: true,
-      ending: ENDINGS.THE_COVENANT,
-      achievements: allAchievements,
-      continueGame: false,
-    };
+    const gate = checkCovenantGate(state);
+    if (!gate.pass) {
+      console.error(`[ENDING] Covenant conditions not met: ${gate.gaps.join(" · ")} — trigger dropped (the crown must be earned).`);
+    } else {
+      addAchievement(ACHIEVEMENTS.ETHICAL_VICTORY);
+      console.error(`[ENDING] Victory: THE COVENANT at turn ${state.turn} (gate passed: ${gate.wonBeats} won beats on the record)`);
+      return {
+        triggered: true,
+        ending: ENDINGS.THE_COVENANT,
+        achievements: allAchievements,
+        continueGame: false,
+      };
+    }
   }
 
   // Raptor Agent - Blythe completes mission as dinosaur

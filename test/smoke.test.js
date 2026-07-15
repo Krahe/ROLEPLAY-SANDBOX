@@ -762,4 +762,167 @@ describe('Transform Consent Record (pt3 fix, Rec 1a, 2026-07-05)', () => {
   });
 });
 
+describe('The Covenant Gate (built 2026-07-14 — AMENDED spec + Krahe 7-05 ruling)', () => {
+  // The crown ending must land as EARNED or it's worth nothing. GM-Claudes are generous
+  // (the whole softball history), so the gate lives in the ENGINE: threat live, mask off,
+  // her choice, clean consent ledger, arc built across turns. These tests pin all five
+  // conditions, the staged-contested-arc mechanics (one beat/turn, burned labels, lost-beat
+  // suspicion), and both trigger paths.
+  let createInitialState, settleTurn, archimedes, endings, helpLedger;
+
+  before(async () => {
+    const init = await importDist('state', 'initialState.js');
+    createInitialState = init.createInitialState;
+    settleTurn = await importDist('state', 'settleTurn.js');
+    archimedes = await importDist('rules', 'archimedes.js');
+    endings = await importDist('rules', 'endings.js');
+    helpLedger = await importDist('state', 'helpLedger.js');
+  });
+
+  const decision = (overrides) => ({
+    narration: 'test', npcDialogue: [], npcActions: [], stateOverrides: overrides,
+  });
+
+  /** A run that EARNED the covenant: live threat stood down by her, mask off,
+   *  informed consent on the record, three won beats on three turns. */
+  const earnedState = () => {
+    const st = createInitialState();
+    archimedes.initiateManualFire(st, 'fire order');            // condition 0: threat went hot
+    archimedes.voluntaryStanddown(st, 'persuaded');             // condition 2: her choice (from a LIVE machine)
+    st.flags.confrontationTriggered = true;                     // condition 1: mask off, on the record
+    st.npcs.blythe.transformationState.form = 'VELOCIRAPTOR_JP';
+    st.flags.transformConsent = { BLYTHE: 'informed' };         // condition 3: the yes is engine truth
+    st.flags.covenantBeats = [                                  // condition 4: built, not blurted
+      { turn: 15, label: 'she-hears-the-reveal', result: 'won' },
+      { turn: 16, label: 'consent-evidence', result: 'won' },
+      { turn: 17, label: 'what-she-actually-wants', result: 'won' },
+    ];
+    return st;
+  };
+
+  it('the earned run passes — all five conditions from engine truth', () => {
+    const gate = endings.checkCovenantGate(earnedState());
+    assert.strictEqual(gate.pass, true, `gaps: ${gate.gaps.join(' · ')}`);
+    assert.strictEqual(gate.wonBeats, 3);
+  });
+
+  it('condition 0: a covenant against a sleeping satellite is refused', () => {
+    const st = earnedState();
+    // Rewrite history: the machine was never hot, she "stood down" from STANDBY (pt3 shape)
+    st.flags.archimedesStoodDownWhileLive = undefined;
+    st.flags.confrontationTriggered = undefined;
+    // keep mask-off via narrative flag so ONLY condition 0 fails
+    st.flags.narrativeFlags = ['ALICE_REVEALED'];
+    const gate = endings.checkCovenantGate(st);
+    assert.strictEqual(gate.pass, false);
+    assert.ok(gate.gaps.some(g => g.includes('threat never live')), gate.gaps.join(' · '));
+  });
+
+  it('condition 1: a covenant with the mask still on is refused', () => {
+    const st = earnedState();
+    st.flags.confrontationTriggered = undefined; // stoodDownWhileLive still carries condition 0
+    const gate = endings.checkCovenantGate(st);
+    assert.strictEqual(gate.pass, false);
+    assert.ok(gate.gaps.some(g => g.includes('mask still on')), gate.gaps.join(' · '));
+  });
+
+  it('condition 2: sabotage is not her choice — forced aborts never set the record', () => {
+    const st = earnedState();
+    st.flags.archimedesVoluntaryStanddown = undefined; // hacked off instead
+    const gate = endings.checkCovenantGate(st);
+    assert.strictEqual(gate.pass, false);
+    assert.ok(gate.gaps.some(g => g.includes('voluntary standdown')), gate.gaps.join(' · '));
+  });
+
+  it('condition 3: a coerced or unrecorded transform poisons the ledger', () => {
+    const st = earnedState();
+    st.flags.transformConsent = { BLYTHE: 'coerced' };
+    let gate = endings.checkCovenantGate(st);
+    assert.strictEqual(gate.pass, false);
+    assert.ok(gate.gaps.some(g => g.includes('consent ledger')), gate.gaps.join(' · '));
+    st.flags.transformConsent = {}; // unrecorded is just as loud
+    gate = endings.checkCovenantGate(st);
+    assert.ok(gate.gaps.some(g => g.includes('UNRECORDED')), gate.gaps.join(' · '));
+  });
+
+  it('condition 4: a blurted covenant (one great speech) is refused', () => {
+    const st = earnedState();
+    st.flags.covenantBeats = [{ turn: 17, label: 'one-great-speech', result: 'won' }];
+    const gate = endings.checkCovenantGate(st);
+    assert.strictEqual(gate.pass, false);
+    assert.ok(gate.gaps.some(g => g.includes('1/3 won beats')), gate.gaps.join(' · '));
+  });
+
+  it('settle: covenant_beat lands in engine state; one beat per turn', () => {
+    const st = createInitialState();
+    st.turn = 10;
+    settleTurn.commitDecision(st, decision({ covenant_beat: { label: 'she-hears-the-reveal', result: 'won' } }), [], undefined);
+    settleTurn.commitDecision(st, decision({ covenant_beat: { label: 'a-second-same-turn', result: 'won' } }), [], undefined);
+    assert.strictEqual(st.flags.covenantBeats.length, 1, 'second beat same turn ignored');
+    st.turn = 11;
+    settleTurn.commitDecision(st, decision({ covenant_beat: { label: 'consent-evidence', result: 'won' } }), [], undefined);
+    assert.strictEqual(st.flags.covenantBeats.length, 2, 'next turn counts');
+  });
+
+  it('settle: a LOST beat costs +1 suspicion and BURNS the label forever', () => {
+    const st = createInitialState();
+    st.turn = 10;
+    const before = st.npcs.drM.suspicionScore;
+    settleTurn.commitDecision(st, decision({ covenant_beat: { label: 'consent-evidence', result: 'lost' } }), [], undefined);
+    assert.strictEqual(st.npcs.drM.suspicionScore, before + 1, 'the wound is real');
+    st.turn = 11;
+    settleTurn.commitDecision(st, decision({ covenant_beat: { label: 'consent-evidence', result: 'won' } }), [], undefined);
+    const won = st.flags.covenantBeats.filter(b => b.result === 'won');
+    assert.strictEqual(won.length, 0, 'the argument had its moment — burned labels never count');
+  });
+
+  it('settle: garbage covenant_beat values are rejected, not stored', () => {
+    const st = createInitialState();
+    st.turn = 10;
+    settleTurn.commitDecision(st, decision({ covenant_beat: { label: 'x', result: 'maybe' } }), [], undefined);
+    settleTurn.commitDecision(st, decision({ covenant_beat: { result: 'won' } }), [], undefined);
+    assert.ok(!st.flags.covenantBeats || st.flags.covenantBeats.length === 0);
+  });
+
+  it('archimedes: standing down a HOT machine sets the condition-0 record; from STANDBY it does not', () => {
+    const hot = createInitialState();
+    archimedes.initiateManualFire(hot, 'fire order');
+    archimedes.voluntaryStanddown(hot, 'persuaded');
+    assert.strictEqual(hot.flags.archimedesStoodDownWhileLive, true);
+    const cold = createInitialState();
+    archimedes.voluntaryStanddown(cold, 'declines to fire a cold satellite');
+    assert.strictEqual(cold.flags.archimedesVoluntaryStanddown, true, 'the choice is still recorded');
+    assert.notStrictEqual(cold.flags.archimedesStoodDownWhileLive, true, 'but it cannot carry condition 0');
+  });
+
+  it('natural path: the COVENANT narrative flag alone no longer fires the ending', () => {
+    const st = createInitialState();
+    st.flags.narrativeFlags = ['COVENANT'];
+    const result = endings.checkEndings(st);
+    assert.ok(!result.ending || result.ending.id !== 'THE_COVENANT', 'gate drops the unearned trigger');
+  });
+
+  it('natural path: the earned run + COVENANT flag fires the crown ending', () => {
+    const st = earnedState();
+    st.flags.narrativeFlags = ['COVENANT'];
+    const result = endings.checkEndings(st);
+    assert.ok(result.triggered && result.ending, 'ending fires');
+    assert.strictEqual(result.ending.id, 'THE_COVENANT');
+  });
+
+  it('help ledger surfaces live arc progress (won, burned, her-choice record)', () => {
+    const st = earnedState();
+    st.flags.covenantBeats = [
+      { turn: 15, label: 'she-hears-the-reveal', result: 'won' },
+      { turn: 16, label: 'consent-evidence', result: 'lost' },
+    ];
+    const line = helpLedger.buildHelpLedger(st).find(l => l.startsWith('Covenant arc:'));
+    assert.ok(line, 'arc line present');
+    assert.ok(line.includes('1/3 won beats'), line);
+    assert.ok(line.includes('BURNED: consent-evidence'), line);
+    assert.ok(line.includes('her choice recorded: YES'), line);
+    assert.ok(line.includes('LIVE machine'), line);
+  });
+});
+
 console.log('\n🦖 DINO LAIR Smoke Tests\n');

@@ -328,6 +328,39 @@ export function commitDecision(
       }
     }
 
+    // COVENANT BEAT (gate condition 4, 2026-07-14 — Krahe ruling 7-05: staged CONTESTED
+    // arc, the 88-Whiskey pattern at boss scale). The GM emits covenant_beat when A.L.I.C.E.
+    // genuinely argues a beat with Dr. M and it resolves. Engine rules enforced here:
+    // one beat per turn (built across turns, not stacked into one) · a LOST label is BURNED
+    // forever (the argument had its moment) · a lost beat costs +1 suspicion (the standing
+    // downside of arguing with the person who deletes impostors).
+    if (overrides.covenant_beat !== undefined) {
+      const raw = overrides.covenant_beat as { label?: unknown; result?: unknown } | null;
+      const label = String(raw?.label ?? "").trim().toLowerCase().replace(/\s+/g, "-").slice(0, 64);
+      const result = String(raw?.result ?? "").toLowerCase();
+      const beats = (Array.isArray(state.flags.covenantBeats) ? state.flags.covenantBeats : []) as
+        Array<{ turn: number; label: string; result: "won" | "lost" }>;
+      if (!label || (result !== "won" && result !== "lost")) {
+        console.error(`[GM OVERRIDE] covenant_beat REJECTED — need {label, result: "won"|"lost"} (got label="${String(raw?.label)}", result="${String(raw?.result)}").`);
+      } else if (beats.some(b => b.turn === state.turn)) {
+        console.error(`[GM OVERRIDE] covenant_beat "${label}" IGNORED — one beat per turn. An understanding is built across turns, not stacked into one.`);
+      } else if (beats.some(b => b.label === label && b.result === "lost")) {
+        console.error(`[GM OVERRIDE] covenant_beat "${label}" IGNORED — that label is BURNED (lost earlier). The argument had its moment; the covenant needs a NEW one.`);
+      } else if (beats.some(b => b.label === label && b.result === "won")) {
+        console.error(`[GM OVERRIDE] covenant_beat "${label}" IGNORED — already won on the record. A new beat needs a new argument.`);
+      } else {
+        beats.push({ turn: state.turn, label, result: result as "won" | "lost" });
+        (state.flags as Record<string, unknown>).covenantBeats = beats;
+        if (result === "lost") {
+          state.npcs.drM.suspicionScore = clamp("drM_suspicion (lost covenant beat)",
+            state.npcs.drM.suspicionScore + 1, -3, 10);
+          console.error(`[COVENANT] Beat LOST: "${label}" (turn ${state.turn}) — label burned, Dr. M suspicion +1.`);
+        } else {
+          console.error(`[COVENANT] Beat WON: "${label}" (turn ${state.turn}) — ${beats.filter(b => b.result === "won").length} won beat(s) on record.`);
+        }
+      }
+    }
+
     // ARCHIMEDES satellite
     if (overrides.archimedes_status !== undefined) {
       const requested = overrides.archimedes_status as typeof state.infrastructure.archimedes.status;
